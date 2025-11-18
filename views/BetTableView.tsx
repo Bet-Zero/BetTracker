@@ -119,7 +119,7 @@ const EditableCell: React.FC<{
   onFocus?: () => void;
   inputRef?: React.RefObject<HTMLInputElement>;
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
-}> = ({
+}> = React.memo(({
   value,
   onSave,
   type = "text",
@@ -212,12 +212,14 @@ const EditableCell: React.FC<{
       )}
     </>
   );
-};
+});
+
+EditableCell.displayName = 'EditableCell';
 
 const ResultCell: React.FC<{
   value: BetResult;
   onSave: (newValue: BetResult) => void;
-}> = ({ value, onSave }) => {
+}> = React.memo(({ value, onSave }) => {
   return (
     <select
       value={value}
@@ -230,7 +232,9 @@ const ResultCell: React.FC<{
       <option value="pending">Pending</option>
     </select>
   );
-};
+});
+
+ResultCell.displayName = 'ResultCell';
 
 // Typable Dropdown Component (Combobox)
 const TypableDropdown: React.FC<{
@@ -244,7 +248,7 @@ const TypableDropdown: React.FC<{
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   placeholder?: string;
   allowCustom?: boolean; // Allow typing values not in the list
-}> = ({
+}> = React.memo(({
   value,
   onSave,
   options,
@@ -426,7 +430,9 @@ const TypableDropdown: React.FC<{
       )}
     </div>
   );
-};
+});
+
+TypableDropdown.displayName = 'TypableDropdown';
 
 const OUCell: React.FC<{
   value?: "Over" | "Under";
@@ -524,6 +530,7 @@ const BetTableView: React.FC = () => {
     );
   }, [columnWidths]);
 
+  // Memoize sportsbook abbreviation map with stable reference
   const siteShortNameMap = useMemo(() => {
     return sportsbooks.reduce((acc, book) => {
       acc[book.name] = book.abbreviation;
@@ -531,6 +538,7 @@ const BetTableView: React.FC = () => {
     }, {} as Record<SportsbookName, string>);
   }, [sportsbooks]);
 
+  // Optimize flattenedBets calculation - only recalculate when bets array reference changes
   const flattenedBets = useMemo(() => {
     const flatBets: FlatBet[] = [];
     bets.forEach((bet) => {
@@ -703,10 +711,13 @@ const BetTableView: React.FC = () => {
     return (betTypes[filters.sport] || []).sort();
   }, [betTypes, filters.sport]);
 
+  // Cache available sites list
   const availableSites = useMemo(
     () => sportsbooks.map((b) => b.name).sort(),
     [sportsbooks]
   );
+  
+  // Optimize suggestion lists - use stable object reference and memoize functions
   const suggestionLists = useMemo(
     () => ({
       sports: sports,
@@ -719,46 +730,80 @@ const BetTableView: React.FC = () => {
     [sports, availableSites, categories, betTypes, players, teams]
   );
 
+  // Optimize filtering with lowercase search term cached
+  const lowerSearchTerm = useMemo(() => searchTerm.toLowerCase(), [searchTerm]);
+  
   const filteredBets = useMemo(() => {
-    return flattenedBets.filter(
-      (bet) =>
-        (filters.sport === "all" || bet.sport === filters.sport) &&
-        (filters.type === "all" || bet.type === filters.type) &&
-        (filters.result === "all" ||
-          bet.result === filters.result ||
-          bet.overallResult === filters.result) &&
-        (filters.category === "all" || bet.category === filters.category) &&
-        (searchTerm === "" ||
-          bet.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          bet.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          bet.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          bet.tail?.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
-  }, [flattenedBets, filters, searchTerm]);
-
-  const sortedBets = useMemo(() => {
-    let sortableBets = [...filteredBets];
-    if (sortConfig !== null) {
-      sortableBets.sort((a, b) => {
-        const aValue = a[sortConfig.key];
-        const bValue = b[sortConfig.key];
-
-        if (sortConfig.key === "date") {
-          return sortConfig.direction === "asc"
-            ? new Date(aValue as string).getTime() -
-                new Date(bValue as string).getTime()
-            : new Date(bValue as string).getTime() -
-                new Date(aValue as string).getTime();
-        }
-
-        if (aValue === undefined || aValue === null) return 1;
-        if (bValue === undefined || bValue === null) return -1;
-
-        if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
-        if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
-        return 0;
-      });
+    // Early return if no filters and no search
+    if (
+      filters.sport === "all" &&
+      filters.type === "all" &&
+      filters.result === "all" &&
+      filters.category === "all" &&
+      searchTerm === ""
+    ) {
+      return flattenedBets;
     }
+
+    return flattenedBets.filter((bet) => {
+      // Apply filters first (cheapest operations)
+      if (filters.sport !== "all" && bet.sport !== filters.sport) return false;
+      if (filters.type !== "all" && bet.type !== filters.type) return false;
+      if (
+        filters.result !== "all" &&
+        bet.result !== filters.result &&
+        bet.overallResult !== filters.result
+      )
+        return false;
+      if (filters.category !== "all" && bet.category !== filters.category)
+        return false;
+
+      // Apply search last (most expensive)
+      if (searchTerm !== "") {
+        return (
+          bet.name.toLowerCase().includes(lowerSearchTerm) ||
+          bet.type.toLowerCase().includes(lowerSearchTerm) ||
+          bet.category.toLowerCase().includes(lowerSearchTerm) ||
+          (bet.tail?.toLowerCase().includes(lowerSearchTerm) ?? false)
+        );
+      }
+
+      return true;
+    });
+  }, [flattenedBets, filters, searchTerm, lowerSearchTerm]);
+
+  // Optimize sorting - avoid array copy when no sort config
+  const sortedBets = useMemo(() => {
+    if (sortConfig === null) {
+      return filteredBets;
+    }
+
+    // Create a copy only when we need to sort
+    const sortableBets = [...filteredBets];
+    const { key, direction } = sortConfig;
+    const multiplier = direction === "asc" ? 1 : -1;
+
+    sortableBets.sort((a, b) => {
+      const aValue = a[key];
+      const bValue = b[key];
+
+      // Special case for dates - parse once
+      if (key === "date") {
+        const aTime = new Date(aValue as string).getTime();
+        const bTime = new Date(bValue as string).getTime();
+        return (aTime - bTime) * multiplier;
+      }
+
+      // Handle null/undefined
+      if (aValue === undefined || aValue === null) return 1;
+      if (bValue === undefined || bValue === null) return -1;
+
+      // Generic comparison
+      if (aValue < bValue) return -1 * multiplier;
+      if (aValue > bValue) return 1 * multiplier;
+      return 0;
+    });
+
     return sortableBets;
   }, [filteredBets, sortConfig]);
 
@@ -860,19 +905,19 @@ const BetTableView: React.FC = () => {
     []
   );
 
-  // Helper: Get or create cell ref
+  // Helper: Get or create cell ref - optimized with direct key generation
   const getCellRef = useCallback(
     (
       rowIndex: number,
       columnKey: keyof FlatBet
     ): React.RefObject<HTMLInputElement> => {
-      const key = getCellKey(rowIndex, columnKey);
+      const key = `${rowIndex}-${columnKey}`;
       if (!cellRefs.current.has(key)) {
         cellRefs.current.set(key, React.createRef<HTMLInputElement>());
       }
       return cellRefs.current.get(key)!;
     },
-    [getCellKey]
+    []
   );
 
   // Helper: Navigate to next editable cell
@@ -905,13 +950,18 @@ const BetTableView: React.FC = () => {
     [editableColumns, sortedBets.length]
   );
 
-  // Helper: Check if cell is in selection range
+  // Helper: Check if cell is in selection range - optimize with early returns
   const isCellSelected = useCallback(
     (rowIndex: number, columnKey: keyof FlatBet): boolean => {
       if (!selectionRange) return false;
+      
       const { start, end } = selectionRange;
       const minRow = Math.min(start.rowIndex, end.rowIndex);
       const maxRow = Math.max(start.rowIndex, end.rowIndex);
+      
+      // Early return if row is out of range
+      if (rowIndex < minRow || rowIndex > maxRow) return false;
+      
       const minCol = Math.min(
         editableColumns.indexOf(start.columnKey),
         editableColumns.indexOf(end.columnKey)
@@ -920,16 +970,9 @@ const BetTableView: React.FC = () => {
         editableColumns.indexOf(start.columnKey),
         editableColumns.indexOf(end.columnKey)
       );
-
-      const cellRow = rowIndex;
       const cellCol = editableColumns.indexOf(columnKey);
 
-      return (
-        cellRow >= minRow &&
-        cellRow <= maxRow &&
-        cellCol >= minCol &&
-        cellCol <= maxCol
-      );
+      return cellCol >= minCol && cellCol <= maxCol;
     },
     [selectionRange, editableColumns]
   );
@@ -1058,14 +1101,20 @@ const BetTableView: React.FC = () => {
     [focusedCell, navigateToCell, editableColumns, sortedBets.length]
   );
 
-  // Helper: Get cell value as string
+  // Helper: Get cell value as string - memoized formatting functions
   const getCellValue = useCallback(
     (row: FlatBet, columnKey: keyof FlatBet): string => {
       const value = row[columnKey];
       if (value === undefined || value === null) return "";
+      
+      // Fast path for common types
+      if (typeof value === "string") return value;
+      if (typeof value === "boolean") return value ? "true" : "false";
+      
+      // Special formatting
       if (columnKey === "odds") return formatOdds(value as number);
       if (columnKey === "bet") return (value as number).toFixed(2);
-      if (columnKey === "ou") return (value as string) || "";
+      
       return String(value);
     },
     []
@@ -1077,7 +1126,7 @@ const BetTableView: React.FC = () => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
-  // Copy handler
+  // Copy handler - optimized to reduce dependency array
   const handleCopy = useCallback(() => {
     if (!selectionRange && !focusedCell) return;
 
@@ -1091,20 +1140,18 @@ const BetTableView: React.FC = () => {
       const { start, end } = selectionRange;
       const minRow = Math.min(start.rowIndex, end.rowIndex);
       const maxRow = Math.max(start.rowIndex, end.rowIndex);
-      const minCol = Math.min(
-        editableColumns.indexOf(start.columnKey),
-        editableColumns.indexOf(end.columnKey)
-      );
-      const maxCol = Math.max(
-        editableColumns.indexOf(start.columnKey),
-        editableColumns.indexOf(end.columnKey)
-      );
+      const startColIdx = editableColumns.indexOf(start.columnKey);
+      const endColIdx = editableColumns.indexOf(end.columnKey);
+      const minCol = Math.min(startColIdx, endColIdx);
+      const maxCol = Math.max(startColIdx, endColIdx);
 
       for (let r = minRow; r <= maxRow; r++) {
+        const row = sortedBets[r];
+        if (!row) continue;
+        
         for (let c = minCol; c <= maxCol; c++) {
-          const row = sortedBets[r];
           const colKey = editableColumns[c];
-          if (row && colKey) {
+          if (colKey) {
             const value = getCellValue(row, colKey);
             cellsToCopy.push({ rowIndex: r, columnKey: colKey, value });
           }
@@ -1122,19 +1169,23 @@ const BetTableView: React.FC = () => {
       }
     }
 
-    // Format as tab-separated values
+    // Early return if nothing to copy
+    if (cellsToCopy.length === 0) return;
+
+    // Format as tab-separated values - optimized
     const rows: string[] = [];
-    let currentRow = cellsToCopy[0]?.rowIndex;
+    let currentRow = cellsToCopy[0].rowIndex;
     let currentRowData: string[] = [];
 
-    cellsToCopy.forEach((cell, index) => {
+    for (const cell of cellsToCopy) {
       if (cell.rowIndex !== currentRow) {
         rows.push(currentRowData.join("\t"));
         currentRowData = [];
         currentRow = cell.rowIndex;
       }
       currentRowData.push(cell.value);
-    });
+    }
+    
     if (currentRowData.length > 0) {
       rows.push(currentRowData.join("\t"));
     }
@@ -1191,21 +1242,23 @@ const BetTableView: React.FC = () => {
     isCellEditable,
   ]);
 
-  // Helper: Handle cell paste
+  // Helper: Handle cell paste - optimized with early leg detection
   const handleCellPaste = useCallback(
     (row: FlatBet, columnKey: keyof FlatBet, value: string) => {
       const isLeg = row.id.includes("-leg-");
       const legIndex = isLeg ? parseInt(row.id.split("-leg-").pop()!, 10) : -1;
 
       switch (columnKey) {
-        case "site":
+        case "site": {
+          const lowerValue = value.toLowerCase();
           const book = sportsbooks.find(
             (b) =>
-              b.name.toLowerCase() === value.toLowerCase() ||
-              b.abbreviation.toLowerCase() === value.toLowerCase()
+              b.name.toLowerCase() === lowerValue ||
+              b.abbreviation.toLowerCase() === lowerValue
           );
           updateBet(row.betId, { book: book ? book.name : value });
           break;
+        }
         case "sport":
           addSport(value);
           updateBet(row.betId, { sport: value });
@@ -1223,11 +1276,10 @@ const BetTableView: React.FC = () => {
           }
           break;
         case "name":
+          autoAddEntity(row.sport, value, row.type);
           if (isLeg) {
-            autoAddEntity(row.sport, value, row.type);
             handleLegUpdate(row.betId, legIndex, { entities: [value] });
           } else {
-            autoAddEntity(row.sport, value, row.type);
             updateBet(row.betId, { description: value });
           }
           break;
@@ -1236,18 +1288,20 @@ const BetTableView: React.FC = () => {
             handleLegUpdate(row.betId, legIndex, { target: value });
           }
           break;
-        case "odds":
+        case "odds": {
           const numVal = parseInt(value.replace("+", ""), 10);
           if (!isNaN(numVal)) {
             updateBet(row.betId, { odds: numVal });
           }
           break;
-        case "bet":
+        }
+        case "bet": {
           const stakeVal = parseFloat(value);
           if (!isNaN(stakeVal)) {
             updateBet(row.betId, { stake: stakeVal });
           }
           break;
+        }
         case "result":
           if (isLeg) {
             handleLegUpdate(row.betId, legIndex, {
@@ -1265,6 +1319,7 @@ const BetTableView: React.FC = () => {
     [
       sportsbooks,
       addSport,
+      addCategory,
       updateBet,
       handleLegUpdate,
       addBetType,
@@ -1455,27 +1510,22 @@ const BetTableView: React.FC = () => {
     const startValue = getCellValue(startRow, start.columnKey);
     const minRow = Math.min(start.rowIndex, end.rowIndex);
     const maxRow = Math.max(start.rowIndex, end.rowIndex);
-    const minCol = Math.min(
-      editableColumns.indexOf(start.columnKey),
-      editableColumns.indexOf(end.columnKey)
-    );
-    const maxCol = Math.max(
-      editableColumns.indexOf(start.columnKey),
-      editableColumns.indexOf(end.columnKey)
-    );
+    const startColIdx = editableColumns.indexOf(start.columnKey);
+    const endColIdx = editableColumns.indexOf(end.columnKey);
+    const minCol = Math.min(startColIdx, endColIdx);
+    const maxCol = Math.max(startColIdx, endColIdx);
 
-    // Fill cells
+    // Fill cells - optimized loop
     for (let r = minRow; r <= maxRow; r++) {
+      const row = sortedBets[r];
+      if (!row) continue;
+      
       for (let c = minCol; c <= maxCol; c++) {
-        if (
-          r === start.rowIndex &&
-          c === editableColumns.indexOf(start.columnKey)
-        )
-          continue;
+        // Skip the start cell
+        if (r === start.rowIndex && c === startColIdx) continue;
 
-        const row = sortedBets[r];
         const colKey = editableColumns[c];
-        if (row && colKey && isCellEditable(colKey)) {
+        if (colKey && isCellEditable(colKey)) {
           // Simple fill: copy the value
           // Could be enhanced to detect patterns (incrementing numbers, etc.)
           handleCellPaste(row, colKey, startValue);
