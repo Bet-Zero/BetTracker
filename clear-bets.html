@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Clear Bet Tracker Data</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: 50px auto;
+      padding: 20px;
+      text-align: center;
+    }
+    button {
+      background-color: #d32f2f;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      font-size: 16px;
+      cursor: pointer;
+      border-radius: 4px;
+      margin: 10px;
+    }
+    button:hover {
+      background-color: #b71c1c;
+    }
+    .success {
+      color: green;
+      margin-top: 20px;
+    }
+    .info {
+      background-color: #f5f5f5;
+      padding: 15px;
+      border-radius: 4px;
+      margin: 20px 0;
+      text-align: left;
+    }
+  </style>
+</head>
+<body>
+  <h1>Clear Bet Tracker Data</h1>
+  <div class="info">
+    <p><strong>This will clear all stored bets from localStorage.</strong></p>
+    <p>Key: <code>bettracker-bets</code></p>
+  </div>
+  <button onclick="clearBets()">Clear All Bets</button>
+  <div id="result"></div>
+
+  <script>
+    function clearBets() {
+      try {
+        const before = localStorage.getItem('bettracker-bets');
+        const count = before ? JSON.parse(before).length : 0;
+        
+        localStorage.removeItem('bettracker-bets');
+        
+        const resultDiv = document.getElementById('result');
+        resultDiv.innerHTML = `
+          <div class="success">
+            <h3>✓ Success!</h3>
+            <p>Cleared ${count} bet(s) from localStorage.</p>
+            <p>You can now close this window and refresh your Bet Tracker app.</p>
+          </div>
+        `;
+      } catch (error) {
+        document.getElementById('result').innerHTML = `
+          <div style="color: red;">
+            <h3>Error</h3>
+            <p>${error.message}</p>
+          </div>
+        `;
+      }
+    }
+
+    // Show current bet count on load
+    window.onload = function() {
+      const bets = localStorage.getItem('bettracker-bets');
+      if (bets) {
+        try {
+          const count = JSON.parse(bets).length;
+          document.querySelector('.info').innerHTML += `<p>Current bet count: <strong>${count}</strong></p>`;
+        } catch (e) {
+          // Ignore
+        }
+      } else {
+        document.querySelector('.info').innerHTML += `<p>Current bet count: <strong>0</strong></p>`;
+      }
+    };
+  </script>
+</body>
+</html>
+

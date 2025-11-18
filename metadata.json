@@ -1,0 +1,5 @@
+{
+  "name": "Copy of BetTracker",
+  "description": "A local-only desktop application to import, track, and analyze sports bets from various sportsbooks. All data is stored locally on your machine.",
+  "requestFramePermissions": []
+}
