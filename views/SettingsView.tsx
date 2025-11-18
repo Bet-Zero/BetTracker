@@ -58,8 +58,17 @@ const SettingsView: React.FC<SettingsViewProps> = ({ theme, toggleTheme }) => {
             }
 
             const bookName = siteMap.get(row.site.toLowerCase()) || row.site;
-            const description = `${row.name} ${row.ou || ''} ${row.line || ''} ${row.type}`.replace(/\s+/g, ' ').trim();
-            const betType: BetType = row.notes?.toLowerCase().includes('live') ? 'live' : 'single';
+            
+            // Determine Over/Under from binary flags
+            let ou: 'Over' | 'Under' | undefined = undefined;
+            if (row.over === '1') {
+                ou = 'Over';
+            } else if (row.under === '1') {
+                ou = 'Under';
+            }
+            
+            const description = `${row.name} ${ou || ''} ${row.line || ''} ${row.type}`.replace(/\s+/g, ' ').trim();
+            const betType: BetType = row.live === '1' ? 'live' : 'single';
             
             let placedAtDate: Date;
             if (row.date.includes('/')) {
@@ -80,7 +89,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ theme, toggleTheme }) => {
             const singleLeg: BetLeg = {
                 market: row.type,
                 entities: [row.name],
-                ou: row.ou,
+                ou: ou,
                 target: row.line ? (isNaN(Number(row.line)) ? row.line : Number(row.line)) : undefined,
                 result: row.result, // For single bets, leg result is same as bet result
             };
@@ -121,8 +130,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ theme, toggleTheme }) => {
                 payout: payout,
                 result: row.result,
                 legs: [singleLeg],
-                tail: row.tail,
-                raw: `Imported from CSV. Notes: ${row.notes || ''}`.trim()
+                tail: row.tail === '1' ? 'Tailed' : undefined,
+                raw: `Imported from CSV.`.trim()
             };
 
             return {
@@ -215,17 +224,19 @@ const SettingsView: React.FC<SettingsViewProps> = ({ theme, toggleTheme }) => {
             <p>Your CSV file should match the format of common bet tracking spreadsheets.</p>
             <p><b>Required Header Row:</b></p>
             <code className="block text-xs bg-neutral-200 dark:bg-neutral-900 p-2 rounded">
-              Date,Site,Sport,Category,Type,Name,O/U,Line,Odds,Bet,To Win,Result,Net,Tail,Notes
+              Date,Site,Sport,Category,Type,Name,Over,Under,Line,Odds,Bet,To Win,Result,Net,Live,Tail
             </code>
             <p><b>Notes:</b></p>
             <ul className="list-disc list-inside space-y-1 text-xs">
                 <li>The header row is <b>required</b> and must match the names above. Column order does not matter.</li>
-                <li><b>Date:</b> Should be a recognizable format, like <code>MM/DD/YYYY</code>.</li>
+                <li><b>Date:</b> Should be a recognizable format, like <code>MM/DD/YYYY</code> or <code>YYYY-MM-DD</code>.</li>
                 <li><b>Site:</b> Use abbreviations (e.g., FD, DK). These will be mapped to the full names you've configured in Input Management.</li>
                 <li><b>Category:</b> Must be one of: Props, Main Markets, Futures, Parlays, SGP. If empty, will be auto-classified.</li>
+                <li><b>Over & Under:</b> Binary flags. Use "1" for Over bets, "1" for Under bets, or "0" for neither (e.g., moneyline bets).</li>
                 <li><b>Result:</b> Must contain 'Won', 'Lost', or 'Push'.</li>
                 <li><b>Bet & To Win:</b> Can include '$' signs; they will be removed automatically.</li>
-                <li><b>Notes:</b> If this column contains the word "Live", the bet will be marked as a live bet.</li>
+                <li><b>Live:</b> Binary flag. Use "1" for live bets, "0" or leave empty for pre-game bets.</li>
+                <li><b>Tail:</b> Binary flag. Use "1" if the bet was tailed, "0" or leave empty otherwise.</li>
                 <li>The <code>Net</code> column is ignored and will be recalculated by the app.</li>
                 <li>Each row is imported as a single bet. Parlays are not supported via this CSV import method yet.</li>
             </ul>

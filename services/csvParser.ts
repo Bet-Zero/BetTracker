@@ -8,14 +8,16 @@ export interface ParsedCsvRow {
     category?: string;
     type: string;
     name: string;
-    ou?: 'Over' | 'Under';
+    over?: string; // Binary flag: "1" for Over, "0" for not Over
+    under?: string; // Binary flag: "1" for Under, "0" for not Under
     line?: string;
     odds: number;
     bet: number;
     toWin: number;
     result: BetResult;
-    tail?: string;
-    notes?: string;
+    net?: string;
+    live?: string; // Binary flag: "1" for live bet, "0" or empty for not live
+    tail?: string; // Binary flag: "1" if tailed, "0" or empty if not tailed
 }
 
 // This interface is a direct mapping of the expected CSV headers.
@@ -26,15 +28,16 @@ interface CsvRow {
   Category: string;
   Type: string;
   Name: string;
-  'O/U': 'Over' | 'Under' | string;
+  Over: string; // Binary flag: "1" for Over, "0" for not Over
+  Under: string; // Binary flag: "1" for Under, "0" for not Under
   Line: string;
   Odds: string;
   Bet: string;
   'To Win': string;
   Result: string;
   Net: string;
-  Tail: string;
-  Notes: string;
+  Live: string; // Binary flag: "1" for live bet, "0" or empty for not live
+  Tail: string; // Binary flag: "1" if tailed, "0" or empty if not tailed
 }
 
 export const parseCsv = (csvString: string): ParsedCsvRow[] => {
@@ -94,8 +97,6 @@ export const parseCsv = (csvString: string): ParsedCsvRow[] => {
         else if (resultStr.startsWith('push')) result = 'push';
         else result = 'pending';
 
-        const ouStr = cleanString(rowObject['O/U']);
-        
         const parsedRow: ParsedCsvRow = {
             date: cleanString(rowObject.Date),
             site: cleanString(rowObject.Site),
@@ -103,14 +104,16 @@ export const parseCsv = (csvString: string): ParsedCsvRow[] => {
             category: cleanString(rowObject.Category) || undefined,
             type: cleanString(rowObject.Type),
             name: cleanString(rowObject.Name),
-            ou: ouStr.toLowerCase() === 'over' ? 'Over' : ouStr.toLowerCase() === 'under' ? 'Under' : undefined,
+            over: cleanString(rowObject.Over) || undefined,
+            under: cleanString(rowObject.Under) || undefined,
             line: cleanString(rowObject.Line),
             odds: parseFloat(cleanString(rowObject.Odds).replace('+', '')),
             bet: parseFloat(cleanString(rowObject.Bet).replace(/[\$,]/g, '')),
             toWin: parseFloat(cleanString(rowObject['To Win']).replace(/[\$,]/g, '')),
             result: result,
+            net: cleanString(rowObject.Net) || undefined,
+            live: cleanString(rowObject.Live) || undefined,
             tail: cleanString(rowObject.Tail) || undefined,
-            notes: cleanString(rowObject.Notes) || undefined,
         };
 
         // Validate required numeric fields
