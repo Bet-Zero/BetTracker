@@ -25,8 +25,11 @@ export function convertFinalRowToBet(finalRow: FinalRow): Bet {
   // Calculate payout from result and net
   const payout = calculatePayoutFromNet(stake, finalRow.Net, result);
 
-  // Determine bet type
-  const betType: BetType = finalRow.Live === '1' ? 'live' : 'single';
+  // Determine bet type (always single for FinalRow imports)
+  const betType: BetType = 'single';
+  
+  // Determine if bet is live from Live field
+  const isLive = finalRow.Live === '1';
 
   // Create bet ID from site, date, name, odds, and line
   const id = generateBetId(finalRow.Site, finalRow.Date, finalRow.Name, finalRow.Odds, finalRow.Line);
@@ -69,6 +72,7 @@ export function convertFinalRowToBet(finalRow: FinalRow): Bet {
     ou: finalRow.Over === '1' ? 'Over' : finalRow.Under === '1' ? 'Under' : undefined, // Store Over/Under directly
     legs: undefined, // Single bets don't have legs - legs are only for parlays/SGPs
     tail: finalRow.Tail === '1' ? 'tailed' : undefined,
+    isLive, // Set isLive from Live field (not from betType)
   };
   
   // Debug logging

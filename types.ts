@@ -40,6 +40,7 @@ export interface Bet {
   legs?: BetLeg[]; // Only for parlays/SGPs - single bets should NOT have legs
   tail?: string; // Who the bet was tailed from
   raw?: string; // Full raw text block for this bet
+  isLive?: boolean; // Whether bet was placed live/in-game (separate from betType)
 }
 
 export interface StrictBetRow {
