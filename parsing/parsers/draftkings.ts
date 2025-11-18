@@ -1,26 +1,27 @@
-import { Bet, BetResult, BetType, BetLeg } from '../../types';
-import { classifyBet } from '../../services/classificationService';
-import {
-  normalizeText,
-  parseAmount,
-  parseAmericanOdds,
-  parseDraftKingsDate,
-  parseBetResult,
-  inferBetType,
-  inferSport,
-} from '../utils';
+/**
+ * DraftKings Parser - Stage A: Raw Extraction Only
+ * 
+ * This parser ONLY extracts raw data from HTML.
+ * No interpretation, no mapping, no logic.
+ * All logic happens in normalizeBet.ts
+ */
+
+import { FinalRow } from '../../types';
+import { RawBet } from '../rawBetTypes';
+import { normalizeBet } from '../normalizeBet';
+import { normalizeText } from '../utils';
 
 /**
  * Parses raw HTML content from a DraftKings settled bets page.
- * Extracts bet information from the HTML structure and returns normalized Bet objects.
+ * Extracts RawBet objects and normalizes them to FinalRow[].
  */
-export const parse = (htmlContent: string): Bet[] => {
+export const parse = (htmlContent: string): FinalRow[] => {
   console.log("Starting DraftKings parse...");
-  const bets: Bet[] = [];
+  const rows: FinalRow[] = [];
 
   if (!htmlContent || !htmlContent.trim()) {
     console.warn("DraftKings parser: Empty HTML content provided.");
-    return bets;
+    return rows;
   }
 
   try {
@@ -44,202 +45,133 @@ export const parse = (htmlContent: string): Bet[] => {
         const endIndex = Math.min(htmlText.length, matchIndex + 20000);
         const betSection = htmlText.substring(startIndex, endIndex);
 
-        // Parse bet details from the section
-        const bet = parseDraftKingsBetCard(betId, betSection, htmlText);
-        if (bet) {
-          bets.push(bet);
+        // Create a temporary element to parse the section
+        const tempDiv = doc.createElement('div');
+        tempDiv.innerHTML = betSection;
+        const betCard = tempDiv.querySelector(`[data-test-id="bet-card-${betId}"]`);
+
+        if (!betCard) {
+          console.warn(`DraftKings parser: Could not find bet card element for ${betId}`);
+          continue;
+        }
+
+        // Extract RawBet from the bet card
+        const rawBet = extractRawBet(betId, betCard, betSection);
+        if (rawBet) {
+          // Normalize the raw bet
+          const finalRow = normalizeBet(rawBet);
+          if (finalRow) {
+            rows.push(finalRow);
+            console.log(`DraftKings parser: Successfully parsed bet ${betId}`);
+          } else {
+            console.log(`DraftKings parser: Skipped multi-leg bet ${betId}`);
+          }
+        } else {
+          console.warn(`DraftKings parser: Failed to extract raw bet ${betId}`);
         }
       } catch (error) {
         console.warn(`DraftKings parser: Failed to parse bet card for bet ID ${match[1]}:`, error);
       }
     }
 
-    console.log(`DraftKings parser: Successfully parsed ${bets.length} bets.`);
+    console.log(`DraftKings parser: Successfully parsed ${rows.length} bets.`);
   } catch (error) {
     console.error("DraftKings parser: Error parsing HTML:", error);
   }
 
-  return bets;
+  return rows;
 };
 
 /**
- * Parses a single DraftKings bet card section.
+ * Extracts raw bet data from a DraftKings bet card element.
+ * NO interpretation, NO mapping, just raw text extraction.
  */
-function parseDraftKingsBetCard(betId: string, betSection: string, fullHtml: string): Bet | null {
+function extractRawBet(betId: string, betCard: Element, betSection: string): RawBet | null {
   try {
+    const cardText = betCard.textContent || '';
+    const cardHtml = betCard.innerHTML || '';
+
     // Extract bet title (e.g., "4+" for 4-leg parlay)
     const titleMatch = betSection.match(new RegExp(`data-test-id="bet-details-title-${betId}"[^>]*>([^<]+)`));
     const title = titleMatch ? normalizeText(titleMatch[1]) : '';
 
-    // Extract odds
+    // Extract odds - raw string
     const oddsMatch = betSection.match(new RegExp(`data-test-id="bet-details-displayOdds-${betId}"[^>]*>([^<]+)`));
-    const odds = oddsMatch ? parseAmericanOdds(oddsMatch[1]) : 0;
+    const odds = oddsMatch ? normalizeText(oddsMatch[1]) : '';
 
-    // Extract subtitle (bet description/legs)
+    // Extract subtitle (bet description/legs) - this is the raw market text
     const subtitleMatch = betSection.match(new RegExp(`data-test-id="bet-details-subtitle-${betId}"[^>]*>([^<]+)`));
     const subtitle = subtitleMatch ? normalizeText(subtitleMatch[1]) : '';
+    const rawMarketText = subtitle || title || '';
 
-    // Extract status (Won/Lost/Pending)
+    // Extract status (Won/Lost/Pending) - not used in RawBet, but check for result context
     const statusMatch = betSection.match(new RegExp(`data-test-id="bet-details-status-${betId}"[^>]*>([^<]+)`));
     const statusText = statusMatch ? normalizeText(statusMatch[1]) : '';
-    const result = parseBetResult(statusText);
 
-    // Extract stake (Wager)
+    // Extract stake (Wager) - raw string
     const stakeMatch = betSection.match(new RegExp(`data-test-id="bet-stake-${betId}"[^>]*>([^<]+)`));
     const stakeText = stakeMatch ? stakeMatch[1] : '';
-    const stake = parseAmount(stakeText.replace(/Wager:\s*/i, ''));
+    const wager = stakeText.replace(/Wager:\s*/i, '').trim();
 
-    // Extract payout (Paid)
+    // Extract payout (Paid) - raw string
     const returnsMatch = betSection.match(new RegExp(`data-test-id="bet-returns-${betId}"[^>]*>([^<]+)`));
     const returnsText = returnsMatch ? returnsMatch[1] : '';
-    const payout = parseAmount(returnsText.replace(/Paid:\s*/i, ''));
+    const returned = returnsText.replace(/Paid:\s*/i, '').trim();
 
     // Extract team names (for event context)
     const team1Match = betSection.match(/data-test-id="event-team-name-1-(\d+)"[^>]*>([^<]+)/);
     const team2Match = betSection.match(/data-test-id="event-team-name-2-(\d+)"[^>]*>([^<]+)/);
     const team1 = team1Match ? normalizeText(team1Match[2]) : '';
     const team2 = team2Match ? normalizeText(team2Match[2]) : '';
+    const teamNames: string[] = [];
+    if (team1) teamNames.push(team1);
+    if (team2) teamNames.push(team2);
+    const game = team1 && team2 ? `${team1} vs ${team2}` : '';
 
-    // Extract date information
-    // Look for date patterns like "Nov 8, 2025, 6:05:21 PM"
+    // Extract date information - raw string
     const datePattern = /([A-Z][a-z]{2}\s+\d{1,2},\s+\d{4},\s+\d{1,2}:\d{2}:\d{2}\s+(?:AM|PM))/;
     const dateMatch = betSection.match(datePattern);
-    let placedAt = new Date().toISOString();
-    if (dateMatch) {
-      try {
-        const dateStr = dateMatch[1];
-        const parsedDate = new Date(dateStr);
-        if (!isNaN(parsedDate.getTime())) {
-          placedAt = parsedDate.toISOString();
-        }
-      } catch {
-        // Keep default
+    const placedAt = dateMatch ? dateMatch[1] : '';
+
+    // Extract player name from subtitle if present
+    let playerName = '';
+    if (subtitle) {
+      // Pattern: "Player Name Market" or "Player Name Market Over X"
+      const playerMatch = subtitle.match(/^([A-Z][a-zA-Z\s]+?)\s+([A-Z])/);
+      if (playerMatch && playerMatch[1]) {
+        playerName = playerMatch[1].trim();
       }
     }
 
-    // Parse legs from subtitle and bet section
-    const legs: BetLeg[] = [];
-    let description = subtitle || title || `DraftKings Bet ${betId}`;
-
-    // Determine bet type from title (e.g., "4+" means 4-leg parlay)
+    // Check for multi-leg (parlay/SGP)
     const legCountMatch = title.match(/(\d+)\+/);
     const legCount = legCountMatch ? parseInt(legCountMatch[1], 10) : 1;
+    const isMultiLeg = legCount > 1 || cardText.toLowerCase().includes('parlay') || cardText.toLowerCase().includes('sgp');
 
-    // Parse individual legs from subtitle or bet section
-    // DraftKings format: "Player Name Market" or "Player Name Market Over/Under X"
-    if (subtitle) {
-      // Try to parse subtitle as leg(s)
-      // Pattern: "Player Name Market" or "Player Name Market Over X"
-      const legPatterns = [
-        /([A-Z][a-zA-Z\s]+?)\s+([A-Z][a-zA-Z\s]+?)\s+(Over|Under)\s+([\d.]+)/g,
-        /([A-Z][a-zA-Z\s]+?)\s+([A-Z][a-zA-Z\s]+?)(?:\s+(\d+)\+)?/g,
-      ];
+    // Check for live bet
+    const isLive = cardText.toLowerCase().includes('live') || cardText.toLowerCase().includes('in-game');
 
-      for (const pattern of legPatterns) {
-        let legMatch;
-        const seenLegs = new Set<string>();
-        while ((legMatch = pattern.exec(subtitle)) !== null) {
-          const key = legMatch[0];
-          if (seenLegs.has(key)) continue;
-          seenLegs.add(key);
-
-          const entity = normalizeText(legMatch[1]);
-          const market = normalizeText(legMatch[2]);
-          const ou = legMatch[3] === 'Over' || legMatch[3] === 'Under' ? (legMatch[3] as 'Over' | 'Under') : undefined;
-          const target = legMatch[4] ? parseFloat(legMatch[4]) : (legMatch[3] && !ou ? parseFloat(legMatch[3]) : undefined);
-
-          legs.push({
-            entities: [entity],
-            market: market,
-            target: target,
-            ou: ou,
-            result: result,
-          });
-        }
-        if (legs.length > 0) break;
-      }
-
-      // If no structured legs found, create one from subtitle
-      if (legs.length === 0 && subtitle) {
-        // Try to split by common delimiters if multiple legs
-        const legTexts = subtitle.split(/[,\/]/).map(t => t.trim()).filter(t => t.length > 0);
-        for (const legText of legTexts) {
-          // Extract entity and market
-          const parts = legText.match(/([A-Z][a-zA-Z\s]+?)\s+(.+)/);
-          if (parts) {
-            legs.push({
-              entities: [normalizeText(parts[1])],
-              market: normalizeText(parts[2]),
-              result: result,
-            });
-          } else {
-            // Single entity or market
-            legs.push({
-              entities: [normalizeText(legText)],
-              market: 'Unknown',
-              result: result,
-            });
-          }
-        }
-      }
-    }
-
-    // If still no legs and we have teams, create a team-based leg
-    if (legs.length === 0 && (team1 || team2)) {
-      if (team1 && team2) {
-        legs.push({
-          entities: [team1, team2],
-          market: 'Moneyline',
-          result: result,
-        });
-        if (!description || description === title) {
-          description = `${team1} vs ${team2}`;
-        }
-      } else if (team1) {
-        legs.push({
-          entities: [team1],
-          market: 'Moneyline',
-          result: result,
-        });
-      }
-    }
-
-    // Infer bet type
-    const betType = inferBetType(description, legCount);
-
-    // Infer sport
-    const sport = inferSport(description, legs);
-
-    // Generate unique ID
-    const id = `DraftKings-${betId}-${placedAt}`;
-
-    // Create bet object (marketCategory will be set by classifyBet)
-    const betData: Omit<Bet, 'marketCategory'> = {
-      id,
-      book: 'DraftKings',
-      betId: `DK${betId}`,
-      placedAt,
-      settledAt: result !== 'pending' ? placedAt : undefined,
-      betType,
-      sport,
-      description: description || `DraftKings Bet ${betId}`,
-      odds: odds || (stake > 0 && payout > stake ? Math.round(((payout - stake) / stake) * 100) : 0),
-      stake,
-      payout,
-      result,
-      legs: legs.length > 0 ? legs : undefined,
-      raw: betSection.substring(0, 500), // Store first 500 chars for debugging
-    };
-
-    // Classify the bet
-    const marketCategory = classifyBet(betData);
+    // Check for tail
+    const isTail = false; // TODO: detect tailing if needed
 
     return {
-      ...betData,
-      marketCategory,
+      site: 'DraftKings',
+      rawMarketText: rawMarketText,
+      playerName: playerName || undefined,
+      teamNames: teamNames.length > 0 ? teamNames : undefined,
+      game: game || undefined,
+      eventDateTime: undefined,
+      placedAt: placedAt || undefined,
+      odds: odds || undefined,
+      wager: wager || undefined,
+      returned: returned || undefined,
+      betId: `DK${betId}`,
+      isMultiLeg,
+      isLive,
+      isTail,
     };
   } catch (error) {
-    console.warn(`DraftKings parser: Error parsing bet card for ${betId}:`, error);
+    console.warn(`DraftKings parser: Error extracting raw bet for ${betId}:`, error);
     return null;
   }
 }

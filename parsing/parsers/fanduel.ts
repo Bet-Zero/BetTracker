@@ -1,27 +1,27 @@
-import { Bet, BetResult, BetType, BetLeg, StrictBetRow } from "../../types";
-import { classifyBet } from "../../services/classificationService";
-import {
-  normalizeText,
-  parseAmount,
-  parseAmericanOdds,
-  parseFanDuelDate,
-  inferBetType,
-  inferSport,
-  parseMarketText,
-  convertBetToStrictRow,
-} from "../utils";
+/**
+ * FanDuel Parser - Stage A: Raw Extraction Only
+ *
+ * This parser ONLY extracts raw data from HTML.
+ * No interpretation, no mapping, no logic.
+ * All logic happens in normalizeBet.ts
+ */
+
+import { FinalRow } from "../../types";
+import { RawBet } from "../rawBetTypes";
+import { normalizeBet } from "../normalizeBet";
+import { normalizeText } from "../utils";
 
 /**
  * Parses raw HTML content from a FanDuel settled bets page.
- * Extracts bet information from the HTML structure and returns normalized Bet objects.
+ * Extracts RawBet objects and normalizes them to FinalRow[].
  */
-export const parse = (htmlContent: string): Bet[] => {
+export const parse = (htmlContent: string): FinalRow[] => {
   console.log("Starting FanDuel parse...");
-  const bets: Bet[] = [];
+  const rows: FinalRow[] = [];
 
   if (!htmlContent || !htmlContent.trim()) {
     console.warn("FanDuel parser: Empty HTML content provided.");
-    return bets;
+    return rows;
   }
 
   try {
@@ -70,37 +70,112 @@ export const parse = (htmlContent: string): Bet[] => {
         }
         seenBetIds.add(betId);
 
-        // Find the bet card by walking up from the BET ID text node
+        // Find the bet card by searching ALL <li> elements for one that contains this BET ID
+        // Strategy: Search all <li> elements, find ones with this BET ID, pick the one with market content
         let betCard: Element | null = null;
-        let current: Node | null = betIdNode.parentElement;
 
-        while (current && current.nodeType === Node.ELEMENT_NODE) {
-          const element = current as Element;
-          const text = element.textContent || "";
+        // Search ALL <li> elements in the document
+        // Structure: Each bet has TWO <li> elements:
+        //   1. Header <li>: Contains player name, market text, odds, game info
+        //   2. Footer <li>: Contains TOTAL WAGER, RETURNED, BET ID, PLACED
+        const allLis = Array.from(doc.querySelectorAll("li"));
 
-          // Check if this element contains all the key bet card markers
-          const hasBetId = text.includes("BET ID:");
-          const hasWager = text.includes("TOTAL WAGER");
-          const hasReturned = text.includes("RETURNED");
-          const hasPlaced = text.includes("PLACED:");
-          const hasOdds =
-            element.querySelector('span[aria-label^="Odds"]') !== null;
-          const hasSGP = text.includes("Same Game Parlay");
+        for (const li of allLis) {
+          const text = li.textContent || "";
+          const hasBetId = text.includes(`BET ID: ${betId}`);
 
-          // More lenient: require BET ID + at least 2 other markers
-          const markerCount = [
-            hasWager,
-            hasReturned,
-            hasPlaced,
-            hasOdds,
-            hasSGP,
-          ].filter(Boolean).length;
-          if (hasBetId && markerCount >= 2) {
-            betCard = element;
+          if (!hasBetId) continue;
+
+          // Check for market content indicators
+          const hasOdds = li.querySelector('span[aria-label^="Odds"]') !== null;
+          const hasMarketText =
+            text.includes("To Record") ||
+            text.includes("Made Threes") ||
+            text.includes("MADE THREES") ||
+            text.match(/\d+\+\s+(Made|MADE|Points|Rebounds|Assists)/i) ||
+            /[A-Z][a-z]+\s+[A-Z][a-z]+/.test(text);
+          const hasGame =
+            (text.includes("@") || text.includes("vs")) && text.length > 50;
+
+          // If this <li> has the BET ID AND has substantial content (odds, market text, or game), use it
+          if ((hasOdds || hasMarketText || hasGame) && text.length > 200) {
+            betCard = li;
+            console.log(
+              `FanDuel parser: Found full bet card for ${betId} with ${text.length} chars`
+            );
             break;
           }
 
-          current = current.parentElement;
+          // If this <li> has BET ID but is small (footer), check the PREVIOUS sibling (header)
+          if (text.length < 200 && li.previousElementSibling) {
+            const prevSibling = li.previousElementSibling;
+            const prevText = prevSibling.textContent || "";
+            const prevHasOdds = prevSibling.querySelector('span[aria-label^="Odds"]') !== null;
+            const prevHasMarketText =
+              prevText.includes("To Record") ||
+              prevText.includes("Made Threes") ||
+              prevText.includes("MADE THREES") ||
+              prevText.match(/\d+\+\s+(Made|MADE|Points|Rebounds|Assists)/i);
+
+            // If previous sibling has market content, use the PREVIOUS sibling (header)
+            if (prevHasOdds || prevHasMarketText) {
+              betCard = prevSibling;
+              console.log(
+                `FanDuel parser: Found header <li> (previous sibling) for ${betId} with ${prevText.length} chars`
+              );
+              break;
+            }
+          }
+        }
+
+        // If we didn't find a good one, use the first <li> that contains the BET ID (fallback)
+        if (!betCard) {
+          for (const li of allLis) {
+            const text = li.textContent || "";
+            if (text.includes(`BET ID: ${betId}`)) {
+              betCard = li;
+              console.warn(
+                `FanDuel parser: Using fallback <li> for ${betId} (only ${text.length} chars - may be collapsed)`
+              );
+              break;
+            }
+          }
+        }
+
+        // If still no <li>, fallback to finding element with bet card markers
+        if (!betCard) {
+          let fallbackCurrent: Node | null = betIdNode.parentElement;
+          while (
+            fallbackCurrent &&
+            fallbackCurrent.nodeType === Node.ELEMENT_NODE
+          ) {
+            const element = fallbackCurrent as Element;
+            const text = element.textContent || "";
+
+            // Check if this element contains all the key bet card markers
+            const hasBetId = text.includes("BET ID:");
+            const hasWager = text.includes("TOTAL WAGER");
+            const hasReturned = text.includes("RETURNED");
+            const hasPlaced = text.includes("PLACED:");
+            const hasOdds =
+              element.querySelector('span[aria-label^="Odds"]') !== null;
+            const hasSGP = text.includes("Same Game Parlay");
+
+            // More lenient: require BET ID + at least 2 other markers
+            const markerCount = [
+              hasWager,
+              hasReturned,
+              hasPlaced,
+              hasOdds,
+              hasSGP,
+            ].filter(Boolean).length;
+            if (hasBetId && markerCount >= 2) {
+              betCard = element;
+              break;
+            }
+
+            fallbackCurrent = fallbackCurrent.parentElement;
+          }
         }
 
         if (!betCard) {
@@ -110,85 +185,241 @@ export const parse = (htmlContent: string): Bet[] => {
           continue;
         }
 
-        // Try to find a larger container that includes the leg section
-        // The betCard might only include the footer, so check parent and siblings for leg content
+        // Use betCard directly - if it's an <li>, it should have everything
+        // The extractRawBet function will handle finding the <li> if needed
         let searchContainer = betCard;
-        let currentCheck: Element | null = betCard.parentElement;
-        let checkDepth = 0;
-        while (currentCheck && checkDepth < 3) {
-          const checkText = currentCheck.textContent || "";
-          // If this container has leg-related content and includes the BET ID, use it
-          if (
-            (checkText.includes("To Record") ||
-              checkText.includes("Made Threes") ||
-              checkText.includes("Isaiah Collier") ||
-              checkText.includes("Ace Bailey")) &&
-            checkText.includes("BET ID:")
-          ) {
-            searchContainer = currentCheck;
-            break;
+
+        // Debug: Log what container we're using and check for siblings/parents
+        let containerText = searchContainer.textContent || "";
+        console.log(`FanDuel parser: Using container for bet ${betId}:`, {
+          tagName: searchContainer.tagName,
+          className: searchContainer.className,
+          textLength: containerText.length,
+          textPreview: containerText.substring(0, 150),
+          hasOdds:
+            searchContainer.querySelector('span[aria-label^="Odds"]') !== null,
+          parentTag: searchContainer.parentElement?.tagName,
+          siblingCount: searchContainer.parentElement?.children.length || 0,
+        });
+
+        // If the container is too small, try to find a sibling <li> with market content
+        // The bet cards might be split: one <li> for header, one for footer
+        if (containerText.length < 200 && searchContainer.parentElement) {
+          const parent = searchContainer.parentElement;
+          
+          // If parent is a <ul>, search its children for an <li> with market content
+          if (parent.tagName === 'UL') {
+            const siblingLis = Array.from(parent.querySelectorAll('li'));
+            for (const siblingLi of siblingLis) {
+              const siblingText = siblingLi.textContent || "";
+              const hasBetId = siblingText.includes(`BET ID: ${betId}`);
+              const hasOdds = siblingLi.querySelector('span[aria-label^="Odds"]') !== null;
+              const hasMarketText = 
+                siblingText.includes("To Record") ||
+                siblingText.includes("Made Threes") ||
+                siblingText.includes("MADE THREES") ||
+                siblingText.match(/\d+\+\s+(Made|MADE|Points|Rebounds|Assists)/i);
+              
+              // If this sibling has the BET ID AND has market content, use it
+              if (hasBetId && (hasOdds || hasMarketText) && siblingText.length > 200) {
+                console.log(`FanDuel parser: Found sibling <li> with market content for ${betId} (${siblingText.length} chars)`);
+                searchContainer = siblingLi;
+                containerText = siblingText;
+                break;
+              }
+            }
           }
-          currentCheck = currentCheck.parentElement;
-          checkDepth++;
+          
+          // If still small and parent is not UL, try parent
+          if (containerText.length < 200 && parent.tagName !== 'UL') {
+            let currentParent: Element | null = parent;
+            for (let i = 0; i < 2 && currentParent; i++) {
+              const parentText = currentParent.textContent || "";
+              if (
+                parentText.length > containerText.length &&
+                parentText.includes(`BET ID: ${betId}`) &&
+                currentParent.tagName !== 'UL' // Don't use UL - it contains all bets
+              ) {
+                console.log(
+                  `FanDuel parser: Found larger parent container for ${betId} (${parentText.length} chars, tag: ${currentParent.tagName})`
+                );
+                searchContainer = currentParent;
+                containerText = parentText;
+                break;
+              }
+              currentParent = currentParent.parentElement;
+            }
+          }
         }
 
-        // Parse the bet card
-        const bet = parseFanDuelBetCard(betId, searchContainer, htmlText);
-        if (bet) {
-          bets.push(bet);
-          console.log(
-            `FanDuel parser: Successfully parsed bet ${betId} with ${
-              bet.legs?.length || 0
-            } legs`
-          );
+        // Extract RawBet from the bet card
+        const rawBet = extractRawBet(betId, searchContainer, htmlText);
+        if (rawBet) {
+          console.log(`FanDuel parser: Extracted raw bet ${betId}:`, {
+            rawMarketText: rawBet.rawMarketText?.substring(0, 50) || "(empty)",
+            playerName: rawBet.playerName || "(none)",
+            odds: rawBet.odds || "(none)",
+            wager: rawBet.wager || "(none)",
+            returned: rawBet.returned || "(none)",
+            isMultiLeg: rawBet.isMultiLeg,
+          });
+
+          // Normalize the raw bet
+          const finalRow = normalizeBet(rawBet);
+          if (finalRow) {
+            rows.push(finalRow);
+            console.log(
+              `FanDuel parser: Successfully parsed bet ${betId} -> ${finalRow.Category}/${finalRow.Type}`
+            );
+          } else {
+            console.log(
+              `FanDuel parser: Normalizer returned null for bet ${betId} (likely multi-leg or invalid category)`
+            );
+          }
         } else {
-          console.warn(`FanDuel parser: Failed to parse bet ${betId}`);
+          console.warn(`FanDuel parser: Failed to extract raw bet ${betId}`);
         }
       } catch (error) {
         console.warn(`FanDuel parser: Error parsing bet:`, error);
       }
     }
 
-    console.log(`FanDuel parser: Successfully parsed ${bets.length} bets.`);
+    console.log(`FanDuel parser: Successfully parsed ${rows.length} bets.`);
   } catch (error) {
     console.error("FanDuel parser: Error parsing HTML:", error);
-  }
-
-  return bets;
-};
-
-/**
- * Parses FanDuel HTML content and returns strict format rows.
- * Only processes single bets - skips all parlays and SGPs.
- */
-export const parseToStrictRows = (htmlContent: string): StrictBetRow[] => {
-  const bets = parse(htmlContent);
-  const rows: StrictBetRow[] = [];
-
-  for (const bet of bets) {
-    const row = convertBetToStrictRow(bet);
-    if (row) {
-      rows.push(row);
-    }
   }
 
   return rows;
 };
 
 /**
- * Parses a single FanDuel bet card element.
+ * Extracts raw bet data from a FanDuel bet card element.
+ * NO interpretation, NO mapping, just raw text extraction.
  */
-function parseFanDuelBetCard(
+function extractRawBet(
   betId: string,
   betCard: Element,
   fullHtml: string
-): Bet | null {
+): RawBet | null {
   try {
-    const cardText = betCard.textContent || "";
-    const cardHtml = betCard.innerHTML || "";
+    // Always try to find the <li> element that contains the full bet card
+    // The betCard parameter might be a footer div or UL, so we need to find the right <li>
+    let searchElement: Element = betCard;
 
-    // Extract PLACED date - try multiple patterns
-    let placedAt = new Date().toISOString();
+    // If betCard is already an <li>, use it
+    if (betCard.tagName === "LI") {
+      searchElement = betCard;
+      
+      // Check if this <li> is the header (has odds/market) - footer info might be in next sibling
+      const hasOdds = betCard.querySelector('span[aria-label^="Odds"]') !== null;
+      const hasMarketText = (betCard.textContent || "").includes("MADE THREES") || 
+                            (betCard.textContent || "").includes("To Record");
+      
+      // If this is the header <li>, we'll search it for market content
+      // The footer info (wager, returned) will be extracted from this <li> or next sibling if needed
+      if (hasOdds || hasMarketText) {
+        console.log(`FanDuel parser: Using header <li> for extraction (has odds: ${hasOdds}, has market: ${hasMarketText})`);
+      }
+    } else if (betCard.tagName === "UL") {
+      // If betCard is a <ul>, search for the <li> that contains this BET ID and has market content
+      const lis = Array.from(betCard.querySelectorAll("li"));
+      for (const li of lis) {
+        const text = li.textContent || "";
+        const hasBetId = text.includes(`BET ID: ${betId}`);
+        const hasOdds = li.querySelector('span[aria-label^="Odds"]') !== null;
+        const hasMarketText = 
+          text.includes("To Record") ||
+          text.includes("Made Threes") ||
+          text.includes("MADE THREES") ||
+          text.match(/\d+\+\s+(Made|MADE|Points|Rebounds|Assists)/i);
+        
+        if (hasBetId && (hasOdds || hasMarketText) && text.length > 200) {
+          searchElement = li;
+          console.log(`FanDuel parser: Found <li> within <ul> for ${betId} (${text.length} chars)`);
+          break;
+        }
+      }
+      // If no good <li> found, use the first one with this BET ID
+      if (searchElement === betCard) {
+        for (const li of lis) {
+          const text = li.textContent || "";
+          if (text.includes(`BET ID: ${betId}`)) {
+            searchElement = li;
+            break;
+          }
+        }
+      }
+    } else {
+      // Walk up the DOM tree to find the <li> element
+      let current: Element | null = betCard;
+      let foundLi = false;
+      while (current && current.parentElement) {
+        if (current.tagName === "LI") {
+          searchElement = current;
+          foundLi = true;
+          break;
+        }
+        current = current.parentElement;
+      }
+
+      // If we didn't find an <li>, use the original betCard but log a warning
+      if (!foundLi) {
+        console.warn(
+          `FanDuel parser: Could not find <li> parent for bet ${betId}, using provided element (tag: ${betCard.tagName})`
+        );
+      }
+    }
+
+    const cardText = searchElement.textContent || "";
+    const cardHtml = searchElement.innerHTML || "";
+
+    // Debug: Log what we're searching in
+    if (cardText.length < 200) {
+      console.warn(
+        `FanDuel parser: Warning - cardText is very short (${cardText.length} chars) for bet ${betId}. May not have found full bet card.`
+      );
+    }
+
+    // Find the footer element that contains TOTAL WAGER, RETURNED, BET ID, and PLACED
+    // The footer is typically a <div> within the same <li> parent
+    let footerElement: Element | null = null;
+    
+    // Strategy 1: Search within the <li> for a <div> containing "TOTAL WAGER"
+    if (searchElement.tagName === "LI") {
+      const footerDivs = Array.from(searchElement.querySelectorAll("div"));
+      for (const div of footerDivs) {
+        const divText = div.textContent || "";
+        if (divText.includes("TOTAL WAGER") && divText.includes("RETURNED")) {
+          footerElement = div;
+          console.log(`FanDuel parser: Found footer <div> for bet ${betId}`);
+          break;
+        }
+      }
+    }
+    
+    // Strategy 2: If not found, search parent containers
+    if (!footerElement && searchElement.parentElement) {
+      let current: Element | null = searchElement.parentElement;
+      for (let i = 0; i < 3 && current; i++) {
+        const footerDivs = Array.from(current.querySelectorAll("div"));
+        for (const div of footerDivs) {
+          const divText = div.textContent || "";
+          if (divText.includes("TOTAL WAGER") && divText.includes("RETURNED") && divText.includes(`BET ID: ${betId}`)) {
+            footerElement = div;
+            console.log(`FanDuel parser: Found footer <div> in parent for bet ${betId}`);
+            break;
+          }
+        }
+        if (footerElement) break;
+        current = current.parentElement;
+      }
+    }
+    
+    // Fallback: Use searchElement if footer not found separately
+    const elementToSearchForWager = footerElement || searchElement;
+
+    // Extract PLACED date - raw string
+    let placedAt = "";
     const placedPatterns = [
       /PLACED:\s*([^<\n]+)/,
       /PLACED:\s*([^<]+)/,
@@ -197,158 +428,129 @@ function parseFanDuelBetCard(
     for (const pattern of placedPatterns) {
       const match = cardText.match(pattern);
       if (match && match[1]) {
-        const dateStr = match[1].trim();
-        if (dateStr.length > 5) {
-          // Basic validation
-          placedAt = parseFanDuelDate(dateStr);
-          break;
-        }
+        placedAt = match[1].trim();
+        break;
       }
     }
 
-    // Extract TOTAL WAGER (stake) - try multiple approaches
-    let stake = 0;
-
-    // Method 1: Find "TOTAL WAGER" label and look for nearby dollar amount
-    const wagerLabel = Array.from(betCard.querySelectorAll("*")).find(
+    // Extract TOTAL WAGER - raw string (from footer if available)
+    let wager = "";
+    const wagerLabel = Array.from(elementToSearchForWager.querySelectorAll("*")).find(
       (el) =>
         normalizeText(el.textContent) === "TOTAL WAGER" ||
         normalizeText(el.textContent) === "TOTAL WAGER"
     );
 
     if (wagerLabel) {
-      // Look in parent and siblings
-      let searchElement: Element | null = wagerLabel.parentElement;
-      for (let i = 0; i < 3 && searchElement; i++) {
+      let wagerSearchElement: Element | null = wagerLabel.parentElement;
+      for (let i = 0; i < 3 && wagerSearchElement; i++) {
         const dollarElements = Array.from(
-          searchElement.querySelectorAll("*")
+          wagerSearchElement.querySelectorAll("*")
         ).filter((el) => {
           const text = el.textContent?.trim() || "";
           return text.startsWith("$") && /^\$[\d.]+$/.test(text);
         });
         if (dollarElements.length > 0) {
-          stake = parseAmount(dollarElements[0].textContent || "");
+          wager = (dollarElements[0].textContent || "").trim();
           break;
         }
-        searchElement = searchElement.parentElement;
+        wagerSearchElement = wagerSearchElement.parentElement;
       }
     }
 
-    // Method 2: Regex fallback
-    if (stake === 0) {
+    // Regex fallback for wager
+    if (!wager) {
+      const footerText = footerElement ? (footerElement.textContent || "") : "";
+      const footerHtml = footerElement ? (footerElement.innerHTML || "") : "";
       const wagerPatterns = [
         /TOTAL WAGER[^$]*\$([\d.]+)/,
         /TOTAL\s+WAGER[^$]*\$([\d.]+)/i,
         /\$([\d.]+)[^$]*TOTAL WAGER/,
       ];
       for (const pattern of wagerPatterns) {
-        const match = cardText.match(pattern) || cardHtml.match(pattern);
+        const match = footerText.match(pattern) || footerHtml.match(pattern) || 
+                      cardText.match(pattern) || cardHtml.match(pattern);
         if (match && match[1]) {
-          stake = parseAmount(match[1]);
-          if (stake > 0) break;
+          wager = `$${match[1]}`;
+          break;
         }
       }
     }
 
-    // Extract RETURNED (payout) - same approach
-    let payout = 0;
-
-    const returnedLabel = Array.from(betCard.querySelectorAll("*")).find(
+    // Extract RETURNED - raw string (from footer if available)
+    let returned = "";
+    const elementToSearchForReturned = footerElement || searchElement;
+    const returnedLabel = Array.from(elementToSearchForReturned.querySelectorAll("*")).find(
       (el) => normalizeText(el.textContent) === "RETURNED"
     );
 
     if (returnedLabel) {
-      let searchElement: Element | null = returnedLabel.parentElement;
-      for (let i = 0; i < 3 && searchElement; i++) {
+      let returnedSearchElement: Element | null = returnedLabel.parentElement;
+      for (let i = 0; i < 3 && returnedSearchElement; i++) {
         const dollarElements = Array.from(
-          searchElement.querySelectorAll("*")
+          returnedSearchElement.querySelectorAll("*")
         ).filter((el) => {
           const text = el.textContent?.trim() || "";
           return text.startsWith("$") && /^\$[\d.]+$/.test(text);
         });
         if (dollarElements.length > 0) {
-          payout = parseAmount(dollarElements[0].textContent || "");
+          returned = (dollarElements[0].textContent || "").trim();
           break;
         }
-        searchElement = searchElement.parentElement;
+        returnedSearchElement = returnedSearchElement.parentElement;
       }
     }
 
-    if (payout === 0) {
+    // Regex fallback for returned
+    if (!returned) {
+      const footerText = footerElement ? (footerElement.textContent || "") : "";
+      const footerHtml = footerElement ? (footerElement.innerHTML || "") : "";
       const returnedPatterns = [
         /RETURNED[^$]*\$([\d.]+)/,
         /RETURNED[^$]*\$([\d.]+)/i,
         /\$([\d.]+)[^$]*RETURNED/,
       ];
       for (const pattern of returnedPatterns) {
-        const match = cardText.match(pattern) || cardHtml.match(pattern);
+        const match = footerText.match(pattern) || footerHtml.match(pattern) || 
+                      cardText.match(pattern) || cardHtml.match(pattern);
         if (match && match[1]) {
-          payout = parseAmount(match[1]);
-          if (payout > 0) break;
+          returned = `$${match[1]}`;
+          break;
         }
       }
     }
 
-    // Determine result
-    let result: BetResult = "pending";
-    if (payout > stake && stake > 0) {
-      result = "win";
-    } else if (payout === stake && stake > 0) {
-      result = "push";
-    } else if (payout === 0 && stake > 0) {
-      result = "loss";
-    }
-
-    // Extract odds - try multiple methods
-    let odds = 0;
-
-    // Method 1: aria-label
-    const oddsSpan = betCard.querySelector('span[aria-label^="Odds"]');
+    // Extract odds - raw string
+    let odds = "";
+    const oddsSpan = searchElement.querySelector('span[aria-label^="Odds"]');
     if (oddsSpan) {
       const ariaLabel = oddsSpan.getAttribute("aria-label") || "";
       const oddsMatch = ariaLabel.match(/Odds\s*([+-]\d+)/);
       if (oddsMatch) {
-        odds = parseAmericanOdds(oddsMatch[1]);
+        odds = oddsMatch[1];
       } else {
         const text = normalizeText(oddsSpan.textContent);
-        odds = parseAmericanOdds(text);
-      }
-    }
-
-    // Method 2: Look for spans with odds patterns
-    if (odds === 0) {
-      const allSpans = Array.from(betCard.querySelectorAll("span"));
-      for (const span of allSpans) {
-        const text = normalizeText(span.textContent);
         if (/^[+-]\d+$/.test(text)) {
-          const parsed = parseAmericanOdds(text);
-          if (parsed !== 0 && Math.abs(parsed) > 100) {
-            // Likely a real odds value
-            odds = parsed;
-            break;
-          }
+          odds = text;
         }
       }
     }
 
-    // Method 3: Regex fallback
-    if (odds === 0) {
-      const oddsPatterns = [
-        /([+-]\d{4,})/, // Large odds like +31607
-        /([+-]\d{3,})/,
-      ];
-      for (const pattern of oddsPatterns) {
-        const match = cardText.match(pattern);
-        if (match && match[1]) {
-          odds = parseAmericanOdds(match[1]);
-          if (odds !== 0) break;
+    // Fallback: look for spans with odds patterns
+    if (!odds) {
+      const allSpans = Array.from(betCard.querySelectorAll("span"));
+      for (const span of allSpans) {
+        const text = normalizeText(span.textContent);
+        if (/^[+-]\d+$/.test(text)) {
+          odds = text;
+          break;
         }
       }
     }
 
     // Extract event/matchup
-    let event = "";
-    const allSpans = Array.from(betCard.querySelectorAll("span"));
+    let game = "";
+    const allSpans = Array.from(searchElement.querySelectorAll("span"));
     for (const span of allSpans) {
       const text = normalizeText(span.textContent);
       if (
@@ -360,495 +562,195 @@ function parseFanDuelBetCard(
         !text.includes("TOTAL WAGER") &&
         !text.includes("RETURNED")
       ) {
-        event = text;
+        game = text;
         break;
       }
     }
 
-    // Extract summary/description
-    let description = "";
+    // Extract raw market text and player name
+    let rawMarketText = "";
+    let playerName = "";
+    const teamNames: string[] = [];
 
-    // Look for the long description span
+    // Strategy 1: Look for description spans with market text
+    // First, try to find the combined "Player Name, Market" span or "Player Name Market" span
     for (const span of allSpans) {
       const text = normalizeText(span.textContent);
+      // Look for spans that contain market keywords
       if (
-        text.length > 50 &&
-        text.includes(",") &&
+        text.length > 10 &&
         (text.includes("To Record") ||
           text.includes("Made Threes") ||
+          text.includes("MADE THREES") ||
           text.includes("To Score") ||
           text.includes("Points") ||
           text.includes("Rebounds") ||
-          text.includes("Assists"))
+          text.includes("Assists") ||
+          text.match(/\d+\s*\+/) ||
+          text.match(/\+\s*\d+/))
       ) {
-        description = text;
+        rawMarketText = text;
         break;
       }
     }
-
-    // Extract legs first
-    let legs = extractLegs(betCard);
-
-    // Check for SGP - do this AFTER extracting legs to get accurate count
-    const hasSGP =
-      cardText.includes("Same Game Parlay") || cardText.includes("SGP");
-    let betType: BetType = "single";
-    if (hasSGP || legs.length > 1) {
-      betType = "sgp";
-      if (!description) {
-        description = "Same Game Parlay";
-      }
-    }
-
-    // If no legs found, try to create a leg from the description for single bets
-    if (legs.length === 0 && !hasSGP && betType === "single") {
-      // Try to parse description like "Will Richard, 3+ MADE THREES" or "Player Name, Market Text"
-      const descText = description || cardText;
-
-      // Pattern: "Player Name, X+ MADE THREES" or "Player Name To Record X+ Stat"
-      const singleBetPatterns = [
-        /([A-Z][a-zA-Z\s]+?)[,\s]+(\d+)\+\s+(MADE\s+THREES|Made\s+Threes)/i,
-        /([A-Z][a-zA-Z\s]+?)\s+To\s+Record\s+(\d+)\+\s+([A-Za-z\s]+)/i,
-        /([A-Z][a-zA-Z\s]+?)[,\s]+(\d+)\+\s+([A-Za-z\s]+)/i,
+    
+    // Strategy 2: If not found in spans, search the entire card text for market patterns
+    if (!rawMarketText) {
+      const cardTextLower = cardText.toLowerCase();
+      // Look for patterns like "3+ MADE THREES" or "X+ Made Threes" in the card text
+      const marketPatterns = [
+        /(\d+\+\s*MADE\s*THREES)/i,
+        /(\d+\+\s*Made\s*Threes)/i,
+        /(\d+\+\s*THREES)/i,
+        /(\d+\+\s*Points)/i,
+        /(\d+\+\s*Rebounds)/i,
+        /(\d+\+\s*Assists)/i,
+        /(To\s+Record\s+\d+\+)/i,
       ];
-
-      for (const pattern of singleBetPatterns) {
-        const match = descText.match(pattern);
-        if (match) {
-          const player = normalizeText(match[1].trim());
-          let rawMarket = "";
-
-          if (match[3]) {
-            if (match[3].toLowerCase().includes("made threes")) {
-              rawMarket = `${match[2]}+ Made Threes`;
-            } else if (match[0].includes("To Record")) {
-              rawMarket = `To Record ${match[2]}+ ${match[3].trim()}`;
-            } else {
-              rawMarket = `${match[2]}+ ${match[3].trim()}`;
-            }
-          } else if (match[2]) {
-            rawMarket = `${match[2]}+`;
-          }
-
-          if (player && rawMarket && player.length > 2) {
-            const parsed = parseMarketText(rawMarket);
-
-            // Determine result from SVG or payout
-            let legResult: BetResult = result;
-            const svgs = betCard.querySelectorAll("svg");
-            for (const svg of svgs) {
-              const fill = svg.getAttribute("fill") || "";
-              const paths = svg.querySelectorAll("path");
-              let pathFill = "";
-              if (paths.length > 0) {
-                pathFill = paths[paths.length - 1].getAttribute("fill") || "";
-              }
-              if (fill === "#128000" || pathFill === "#128000") {
-                legResult = "win";
-                break;
-              } else if (fill === "#D22839" || pathFill === "#D22839") {
-                legResult = "loss";
-                break;
-              }
-            }
-
-            legs = [
-              {
-                entities: [player],
-                market: parsed.type,
-                target: parsed.line,
-                ou: parsed.ou,
-                result: legResult,
-              },
-            ];
-
-            // Update description if we successfully parsed
-            if (!description || description.includes("FanDuel Bet")) {
-              description = `${player}, ${rawMarket}`;
-            }
-            break;
-          }
+      
+      for (const pattern of marketPatterns) {
+        const match = cardText.match(pattern);
+        if (match && match[1]) {
+          rawMarketText = match[1].trim();
+          break;
         }
       }
     }
 
-    // Build description from legs if not found
-    if (!description && legs.length > 0) {
-      description = legs
-        .map((leg) => {
-          const entities = leg.entities?.join(" ") || "";
-          return `${entities} ${leg.market}`;
-        })
-        .join(", ");
-    }
-
-    if (!description) {
-      description = `FanDuel Bet ${betId}`;
-    }
-
-    // Infer bet type if not already determined
-    if (betType === "single") {
-      betType = inferBetType(description, legs.length);
-    }
-
-    // Skip parlays and SGPs - only process single bets
-    // IMPORTANT: Only skip if it's clearly a multi-leg bet (SGP/parlay)
-    // Single bets can have 0 or 1 leg
-    if ((betType === "sgp" || betType === "parlay") && legs.length > 1) {
-      console.log(
-        `FanDuel parser: Skipping ${betType} bet with ${legs.length} legs (betId: ${betId})`
-      );
-      return null;
-    }
-
-    // Also skip if we have multiple legs but betType wasn't set correctly
-    if (legs.length > 1 && betType === "single") {
-      console.log(
-        `FanDuel parser: Skipping multi-leg bet detected as single (betId: ${betId}, legs: ${legs.length})`
-      );
-      return null;
-    }
-
-    console.log(
-      `FanDuel parser: Processing ${betType} bet (betId: ${betId}, legs: ${legs.length})`
-    );
-
-    // Infer sport - check legs for sport indicators if description doesn't have them
-    let sport = inferSport(description, legs);
-    // If sport inference failed, check legs' market types for sport indicators
-    if (sport === "Other" && legs.length > 0) {
-      const legMarkets = legs
-        .map((l) => l.market?.toLowerCase() || "")
-        .join(" ");
-      if (
-        legMarkets.includes("3pt") ||
-        legMarkets.includes("pts") ||
-        legMarkets.includes("ast") ||
-        legMarkets.includes("reb")
-      ) {
-        sport = "NBA";
+    // Extract player name from market text if it's combined
+    // Patterns: "Will Richard, 3+ MADE THREES" or "Will Richard 3+ MADE THREES" or "Will Richard+3603+ MADE THREES"
+    if (rawMarketText) {
+      // Try to extract player name from the beginning (comma-separated)
+      const commaMatch = rawMarketText.match(/^([A-Z][a-zA-Z\s]+?),\s*(.+)/);
+      if (commaMatch && commaMatch[1] && commaMatch[2]) {
+        playerName = commaMatch[1].trim();
+        rawMarketText = commaMatch[2].trim();
+      } else {
+        // Try "Player Name To Record X+ Stat" pattern
+        const toRecordMatch = rawMarketText.match(
+          /^([A-Z][a-zA-Z\s]+?)\s+To\s+Record\s+(.+)/i
+        );
+        if (toRecordMatch && toRecordMatch[1] && toRecordMatch[2]) {
+          playerName = toRecordMatch[1].trim();
+          rawMarketText = `To Record ${toRecordMatch[2].trim()}`;
+        } else {
+          // Try pattern where player name is concatenated: "Will Richard3+ MADE THREES" or "Will Richard+3603+ MADE THREES"
+          // Extract just the market part (X+ MADE THREES, etc.)
+          const marketOnlyMatch = rawMarketText.match(/(\d+\+\s*(?:MADE\s*THREES|Made\s*Threes|THREES|Points|Rebounds|Assists))/i);
+          if (marketOnlyMatch && marketOnlyMatch[1]) {
+            rawMarketText = marketOnlyMatch[1].trim();
+          }
+        }
       }
     }
-    // Also check event/matchup text for sport
-    if (sport === "Other" && event) {
-      const eventLower = event.toLowerCase();
-      if (
-        eventLower.includes("warriors") ||
-        eventLower.includes("pelicans") ||
-        eventLower.includes("bulls") ||
-        eventLower.includes("jazz")
-      ) {
-        sport = "NBA";
+    
+    // If we still don't have rawMarketText but we have playerName, try extracting from card text
+    if (!rawMarketText && playerName) {
+      // Look for market text near the player name in the card text
+      const playerNameEscaped = playerName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const combinedPattern = new RegExp(`${playerNameEscaped}[^\\w]*?(\\d+\\+\\s*(?:MADE\\s*THREES|Made\\s*Threes|THREES|Points|Rebounds|Assists))`, 'i');
+      const match = cardText.match(combinedPattern);
+      if (match && match[1]) {
+        rawMarketText = match[1].trim();
       }
     }
 
-    // Generate unique ID
-    const id = `FanDuel-${betId}-${placedAt}`;
+    // Also look for player name in separate spans
+    if (!playerName) {
+      for (const span of allSpans) {
+        const text = normalizeText(span.textContent);
+        // Player names: 3-30 chars, capitalized words, not common labels
+        const excludePatterns = [
+          "To Record",
+          "Made Threes",
+          "Finished",
+          "Open",
+          "Live",
+          "TOTAL WAGER",
+          "RETURNED",
+          "BET ID",
+          "PLACED",
+          "Box Score",
+          "Play-by-play",
+          "Same Game Parlay",
+          "@",
+          "vs",
+          "Odds",
+          "SGP",
+        ];
+        if (excludePatterns.some((pattern) => text.includes(pattern))) {
+          continue;
+        }
+        if (
+          text.length >= 3 &&
+          text.length <= 30 &&
+          /^[A-Z][a-z]+(\s+[A-Z][a-z]+)*$/.test(text) &&
+          !/^\$/.test(text) &&
+          !/^\d+$/.test(text) &&
+          !text.includes("+")
+        ) {
+          playerName = text;
+          break;
+        }
+      }
+    }
 
-    // Create bet object
-    // ALWAYS include legs - even for single bets, we should have at least one leg
-    const betData: Omit<Bet, "marketCategory"> = {
-      id,
-      book: "FanDuel",
-      betId,
-      placedAt,
-      settledAt: result !== "pending" ? placedAt : undefined,
-      betType,
-      sport,
-      description,
-      odds:
-        odds ||
-        (stake > 0 && payout > stake
-          ? Math.round(((payout - stake) / stake) * 100)
-          : 0),
-      stake,
-      payout,
-      result,
-      legs: legs.length > 0 ? legs : undefined, // Only include if we have legs
-      raw: cardText.substring(0, 500),
-    };
+    // Check for multi-leg (SGP/parlay)
+    const isMultiLeg =
+      cardText.includes("Same Game Parlay") ||
+      cardText.includes("SGP") ||
+      // Count SVG result icons - if more than 1, it's multi-leg
+      searchElement.querySelectorAll('svg[id*="tick"], svg[id*="cross"]')
+        .length > 1;
 
-    // Classify the bet
-    const marketCategory = classifyBet(betData);
+    // Check for live bet
+    const isLive =
+      cardText.toLowerCase().includes("live") ||
+      cardText.toLowerCase().includes("in-game");
+
+    // Check for tail
+    const isTail = false; // TODO: detect tailing if needed
+
+    // Extract event date/time if available
+    let eventDateTime = "";
+    // Try to extract from game text or other context
+    if (game) {
+      // Could parse date from game context if available
+    }
+
+    // Debug: Log what we found
+    if (!rawMarketText && !playerName && !game) {
+      console.warn(`FanDuel parser: Insufficient data for bet ${betId}:`, {
+        rawMarketText: rawMarketText || "(empty)",
+        playerName: playerName || "(empty)",
+        game: game || "(empty)",
+        cardTextLength: cardText.length,
+        cardTextPreview: cardText.substring(0, 200),
+      });
+      return null;
+    }
 
     return {
-      ...betData,
-      marketCategory,
+      site: "FanDuel",
+      rawMarketText: rawMarketText || "",
+      playerName: playerName || undefined,
+      teamNames: teamNames.length > 0 ? teamNames : undefined,
+      game: game || undefined,
+      eventDateTime: eventDateTime || undefined,
+      placedAt: placedAt || undefined,
+      odds: odds || undefined,
+      wager: wager || undefined,
+      returned: returned || undefined,
+      betId: betId,
+      isMultiLeg,
+      isLive,
+      isTail,
     };
   } catch (error) {
-    console.warn(`FanDuel parser: Error parsing bet card for ${betId}:`, error);
+    console.warn(
+      `FanDuel parser: Error extracting raw bet for ${betId}:`,
+      error
+    );
     return null;
   }
-}
-
-/**
- * Extracts leg information from a bet card.
- */
-function extractLegs(betCard: Element): BetLeg[] {
-  const legs: BetLeg[] = [];
-  const seenLegs = new Set<string>();
-
-  // Strategy 1: Find legs via SVG result icons
-  const svgElements = Array.from(betCard.querySelectorAll("svg"));
-
-  for (const svg of svgElements) {
-    const svgId = svg.getAttribute("id") || "";
-    const fill = svg.getAttribute("fill") || "";
-
-    // Also check fill on child path elements (fill might be on path, not SVG)
-    const paths = svg.querySelectorAll("path");
-    let pathFill = "";
-    if (paths.length > 0) {
-      // Check the last path (usually the colored one)
-      const lastPath = paths[paths.length - 1];
-      pathFill = lastPath.getAttribute("fill") || "";
-    }
-
-    // Check if this is a result icon
-    // Green tick: id contains "tick-circle" OR fill is green (#128000)
-    const isTick =
-      svgId.includes("tick-circle") ||
-      svgId.includes("tick") ||
-      fill === "#128000" ||
-      pathFill === "#128000";
-
-    // Red cross: id contains "cross" OR fill is red (#D22839)
-    const isCross =
-      svgId.includes("cross_circle") ||
-      svgId.includes("cross-circle") ||
-      svgId.includes("cross") ||
-      fill === "#D22839" ||
-      pathFill === "#D22839";
-
-    if (!isTick && !isCross) {
-      continue;
-    }
-
-    const legResult: BetResult = isTick ? "win" : "loss";
-
-    // Walk up from SVG to find the leg container that contains both the SVG and player/market info
-    // The SVG and player/market spans are siblings within a common parent (usually 2-3 levels up)
-    let current: Element | null = svg.parentElement;
-    let depth = 0;
-    const maxDepth = 10;
-    let playerSpan: HTMLSpanElement | null = null;
-    let marketSpan: HTMLSpanElement | null = null;
-
-    // Walk up the DOM tree to find a container that has both player and market spans
-    while (current && depth < maxDepth && (!playerSpan || !marketSpan)) {
-      // Get all spans in this container
-      const allSpans = Array.from(current.querySelectorAll("span"));
-
-      // Find player name if not found yet
-      if (!playerSpan) {
-        playerSpan =
-          (allSpans.find((span) => {
-            const text = normalizeText(span.textContent);
-            // Exclude patterns that are NOT player names
-            const excludePatterns = [
-              "To Record",
-              "Made Threes",
-              "Finished",
-              "Open",
-              "Live",
-              "TOTAL WAGER",
-              "RETURNED",
-              "BET ID",
-              "PLACED",
-              "Box Score",
-              "Play-by-play",
-              "Same Game Parlay",
-              "Chicago Bulls",
-              "Utah Jazz",
-              "Golden State Warriors",
-              "New Orleans Pelicans",
-              "Bulls",
-              "Jazz",
-              "Warriors",
-              "Pelicans",
-              "@",
-              "vs",
-              "Odds",
-              "SGP",
-            ];
-            if (excludePatterns.some((pattern) => text.includes(pattern))) {
-              return false;
-            }
-            // Player names: 3-30 chars, capitalized words
-            return (
-              text.length >= 3 &&
-              text.length <= 30 &&
-              /^[A-Z][a-z]+(\s+[A-Z][a-z]+)*$/.test(text) &&
-              !/^\$/.test(text) &&
-              !/^\d+$/.test(text) &&
-              !text.includes("+") // Exclude things like "3+"
-            );
-          }) as HTMLSpanElement | undefined) || null;
-      }
-
-      // Find market description if not found yet
-      if (!marketSpan) {
-        marketSpan =
-          (allSpans.find((span) => {
-            const text = normalizeText(span.textContent);
-            const marketKeywords = [
-              "To Record",
-              "Made Threes",
-              "To Score",
-              "Over",
-              "Under",
-              "Points",
-              "Rebounds",
-              "Assists",
-              "Threes",
-              "Yards",
-              "Touchdown",
-            ];
-            return (
-              marketKeywords.some((keyword) => text.includes(keyword)) &&
-              text.length > 5 &&
-              text.length < 50 &&
-              !text.includes("BET ID") &&
-              !text.includes("PLACED") &&
-              !text.includes("TOTAL WAGER") &&
-              !text.includes("RETURNED")
-            );
-          }) as HTMLSpanElement | undefined) || null;
-      }
-
-      // If we found both, we're done with this leg
-      if (playerSpan && marketSpan) {
-        const player = normalizeText(playerSpan.textContent);
-        const rawMarket = normalizeText(marketSpan.textContent);
-        const legKey = `${player}-${rawMarket}`;
-
-        if (!seenLegs.has(legKey)) {
-          seenLegs.add(legKey);
-
-          // Parse market text to extract TYPE and LINE
-          const parsed = parseMarketText(rawMarket);
-
-          legs.push({
-            entities: [player],
-            market: parsed.type, // Store stat code (TYPE) in market field
-            target: parsed.line, // Store numeric threshold (LINE) in target field
-            ou: parsed.ou, // Store Over/Under if present
-            result: legResult,
-          });
-        }
-        break; // Found this leg, move to next SVG
-      }
-
-      current = current.parentElement;
-      depth++;
-    }
-  }
-
-  // If no legs found via SVG method, try parsing from description text
-  if (legs.length === 0) {
-    // Get text from the bet card, including looking for description spans
-    let cardText = betCard.textContent || "";
-
-    // Also check for description spans that might contain the leg information
-    const descriptionSpans = Array.from(
-      betCard.querySelectorAll("span")
-    ).filter((span) => {
-      const text = normalizeText(span.textContent);
-      return (
-        text.length > 50 &&
-        (text.includes("To Record") ||
-          text.includes("Made Threes") ||
-          text.includes("Assists"))
-      );
-    });
-
-    // If we found description spans, use their text
-    if (descriptionSpans.length > 0) {
-      cardText = descriptionSpans.map((s) => s.textContent || "").join(" ");
-    }
-
-    // More comprehensive patterns to match player + market combinations
-    const legPatterns = [
-      // "Isaiah Collier To Record 6+ Assists" (no comma before "To Record")
-      /([A-Z][a-zA-Z\s]+?)\s+To\s+Record\s+(\d+)\+\s+([A-Za-z\s]+)/gi,
-      // "Ace Bailey 3+ Made Threes" (space before number, comma before player name)
-      /([A-Z][a-zA-Z\s]+?)[,\s]+(\d+)\+\s+Made\s+Threes/gi,
-      /([A-Z][a-zA-Z\s]+?)[,\s]+(\d+)\+\s+MADE\s+THREES/gi,
-      // "Player Name X+ Stat" general pattern (handles both comma and space)
-      /([A-Z][a-zA-Z\s]+?)[,\s]+(\d+)\+\s+([A-Za-z\s]+)/gi,
-    ];
-
-    for (const pattern of legPatterns) {
-      let match;
-      // Reset regex lastIndex to avoid issues with global regex
-      pattern.lastIndex = 0;
-      while ((match = pattern.exec(cardText)) !== null) {
-        const player = normalizeText(match[1].trim());
-        let rawMarket = "";
-
-        // Determine which pattern matched and construct market text accordingly
-        if (match[0].includes("To Record")) {
-          // Pattern 1: "Isaiah Collier To Record 6+ Assists"
-          rawMarket = `To Record ${match[2]}+ ${match[3].trim()}`;
-        } else if (
-          match[0].includes("Made Threes") ||
-          match[0].includes("MADE THREES")
-        ) {
-          // Pattern 2 or 3: "Ace Bailey 3+ Made Threes"
-          rawMarket = `${match[2]}+ Made Threes`;
-        } else if (match[3]) {
-          // Pattern 4: General "Player Name X+ Stat"
-          rawMarket = `${match[2]}+ ${match[3].trim()}`;
-        } else if (match[2]) {
-          // Fallback: just the number
-          rawMarket = `${match[2]}+`;
-        }
-
-        if (
-          player &&
-          rawMarket &&
-          player.length > 2 &&
-          !player.includes("@") &&
-          !player.includes("vs")
-        ) {
-          const legKey = `${player}-${rawMarket}`;
-          if (!seenLegs.has(legKey)) {
-            seenLegs.add(legKey);
-
-            // Parse market text to extract TYPE and LINE
-            const parsed = parseMarketText(rawMarket);
-
-            // Try to infer result from context if possible
-            let legResult: BetResult = "pending";
-            // Check if there's a win/loss indicator nearby in the text
-            const playerContext = cardText.substring(
-              Math.max(0, match.index! - 100),
-              Math.min(cardText.length, match.index! + 200)
-            );
-            if (
-              /won|win|✓|tick|green/i.test(playerContext) &&
-              !/loss|lost|✗|cross|red/i.test(playerContext)
-            ) {
-              legResult = "win";
-            } else if (
-              /loss|lost|✗|cross|red/i.test(playerContext) &&
-              !/won|win|✓|tick|green/i.test(playerContext)
-            ) {
-              legResult = "loss";
-            }
-
-            legs.push({
-              entities: [player],
-              market: parsed.type, // Store stat code (TYPE) in market field
-              target: parsed.line, // Store numeric threshold (LINE) in target field
-              ou: parsed.ou, // Store Over/Under if present
-              result: legResult,
-            });
-          }
-        }
-      }
-    }
-  }
-
-  return legs;
 }

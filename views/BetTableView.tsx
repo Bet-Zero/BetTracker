@@ -1,4 +1,10 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, {
+  useState,
+  useMemo,
+  useCallback,
+  useRef,
+  useEffect,
+} from "react";
 import { useBets } from "../hooks/useBets";
 import { useInputs } from "../hooks/useInputs";
 import {
@@ -10,7 +16,18 @@ import {
   BetType,
 } from "../types";
 import { Wifi } from "../components/icons";
-import { MARKET_CATEGORIES } from "../constants";
+
+// Cell coordinate type
+type CellCoordinate = {
+  rowIndex: number;
+  columnKey: keyof FlatBet;
+};
+
+// Selection range type
+type SelectionRange = {
+  start: CellCoordinate;
+  end: CellCoordinate;
+} | null;
 
 interface FlatBet {
   id: string; // unique ID for the row, e.g., bet.id or bet.id-leg-index
@@ -98,6 +115,10 @@ const EditableCell: React.FC<{
   formatAsOdds?: boolean;
   suggestions?: string[];
   className?: string;
+  isFocused?: boolean;
+  onFocus?: () => void;
+  inputRef?: React.RefObject<HTMLInputElement>;
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
 }> = ({
   value,
   onSave,
@@ -105,14 +126,28 @@ const EditableCell: React.FC<{
   formatAsOdds = false,
   suggestions = [],
   className = "",
+  isFocused = false,
+  onFocus,
+  inputRef,
+  onKeyDown,
 }) => {
   const [text, setText] = useState(value?.toString() || "");
   const listId = useMemo(() => `suggestions-${Math.random()}`, []);
+  const internalRef = useRef<HTMLInputElement>(null);
+  const ref = inputRef || internalRef;
 
   // Update internal state if the external value prop changes
   React.useEffect(() => {
     setText(value?.toString() || "");
   }, [value]);
+
+  // Focus input when isFocused becomes true
+  React.useEffect(() => {
+    if (isFocused && ref.current) {
+      ref.current.focus();
+      ref.current.select();
+    }
+  }, [isFocused, ref]);
 
   const handleBlur = () => {
     let formattedText = text;
@@ -136,24 +171,34 @@ const EditableCell: React.FC<{
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
+  const handleKeyDownInternal = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Don't handle navigation keys when editing - let parent handle them
+    if (e.key === "Enter" || e.key === "Escape") {
+      if (e.key === "Escape") {
+        setText(value?.toString() || "");
+      }
       (e.target as HTMLInputElement).blur();
-    } else if (e.key === "Escape") {
-      setText(value?.toString() || "");
-      (e.target as HTMLInputElement).blur();
+      e.preventDefault();
+      return;
+    }
+
+    // Call parent's onKeyDown if provided
+    if (onKeyDown) {
+      onKeyDown(e);
     }
   };
 
   return (
     <>
       <input
+        ref={ref}
         type={type === "number" ? "text" : "text"} // Use text to allow for '+' sign
         inputMode={type === "number" ? "decimal" : "text"}
         value={text}
         onChange={(e) => setText(e.target.value)}
         onBlur={handleBlur}
-        onKeyDown={handleKeyDown}
+        onFocus={onFocus}
+        onKeyDown={handleKeyDownInternal}
         className={`bg-transparent w-full p-0 m-0 border-none focus:ring-0 focus:outline-none focus:bg-neutral-100 dark:focus:bg-neutral-800 rounded text-sm ${className}`}
         placeholder=""
         list={suggestions.length > 0 ? listId : undefined}
@@ -187,25 +232,230 @@ const ResultCell: React.FC<{
   );
 };
 
-const OUCell: React.FC<{
-  value?: "Over" | "Under";
-  onSave: (newValue: "Over" | "Under" | undefined) => void;
-}> = ({ value, onSave }) => {
-  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const val = e.target.value;
-    onSave(val === "Over" || val === "Under" ? val : undefined);
+// Typable Dropdown Component (Combobox)
+const TypableDropdown: React.FC<{
+  value: string;
+  onSave: (newValue: string) => void;
+  options: string[];
+  className?: string;
+  isFocused?: boolean;
+  onFocus?: () => void;
+  inputRef?: React.RefObject<HTMLInputElement>;
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  placeholder?: string;
+  allowCustom?: boolean; // Allow typing values not in the list
+}> = ({
+  value,
+  onSave,
+  options,
+  className = "",
+  isFocused = false,
+  onFocus,
+  inputRef,
+  onKeyDown,
+  placeholder = "",
+  allowCustom = true,
+}) => {
+  const [text, setText] = useState(value || "");
+  const [isOpen, setIsOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [filterText, setFilterText] = useState(""); // Separate filter text from display text
+  const internalRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const ref = inputRef || internalRef;
+
+  // Update internal state if the external value prop changes
+  React.useEffect(() => {
+    setText(value || "");
+    setFilterText(""); // Reset filter when value changes externally
+  }, [value]);
+
+  // Focus input when isFocused becomes true
+  React.useEffect(() => {
+    if (isFocused && ref.current) {
+      ref.current.focus();
+      ref.current.select();
+      setIsOpen(true); // Open dropdown when focused
+      setFilterText(""); // Show all options when first focused
+    }
+  }, [isFocused, ref]);
+
+  // Filter options based on typed text
+  const filteredOptions = useMemo(() => {
+    if (!filterText) return options; // Show all options when filter is empty
+    const lowerFilter = filterText.toLowerCase();
+    return options.filter((opt) => opt.toLowerCase().includes(lowerFilter));
+  }, [filterText, options]);
+
+  const handleBlur = () => {
+    // Close dropdown on blur (with delay to allow click events)
+    setTimeout(() => {
+      setIsOpen(false);
+      setHighlightedIndex(-1);
+
+      // Save the value
+      if (text !== value) {
+        if (allowCustom || options.includes(text) || !text) {
+          onSave(text);
+        } else {
+          // If not allowing custom and value not in options, revert
+          setText(value || "");
+        }
+      }
+    }, 150);
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newText = e.target.value;
+    setText(newText);
+    setFilterText(newText); // Update filter text for dropdown filtering
+    setIsOpen(true);
+    setHighlightedIndex(-1);
+  };
+
+  const handleSelect = (selectedValue: string) => {
+    setText(selectedValue);
+    setFilterText(""); // Clear filter when selecting
+    onSave(selectedValue);
+    setIsOpen(false);
+    setHighlightedIndex(-1);
+    ref.current?.blur();
+  };
+
+  const handleKeyDownInternal = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Escape") {
+      setText(value || "");
+      setFilterText(""); // Reset filter on escape
+      setIsOpen(false);
+      setHighlightedIndex(-1);
+      ref.current?.blur();
+      e.preventDefault();
+      return;
+    }
+
+    if (e.key === "Enter") {
+      if (
+        isOpen &&
+        highlightedIndex >= 0 &&
+        filteredOptions[highlightedIndex]
+      ) {
+        handleSelect(filteredOptions[highlightedIndex]);
+      } else {
+        // Save current text
+        if (allowCustom || options.includes(text) || !text) {
+          onSave(text);
+        }
+        setIsOpen(false);
+        ref.current?.blur();
+      }
+      e.preventDefault();
+      return;
+    }
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (!isOpen) {
+        setIsOpen(true);
+      } else {
+        setHighlightedIndex((prev) =>
+          prev < filteredOptions.length - 1 ? prev + 1 : prev
+        );
+      }
+      return;
+    }
+
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (isOpen) {
+        setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : 0));
+      }
+      return;
+    }
+
+    // Open dropdown when typing
+    if (e.key.length === 1 || e.key === "Backspace" || e.key === "Delete") {
+      setIsOpen(true);
+    }
+
+    // Call parent's onKeyDown if provided
+    if (onKeyDown) {
+      onKeyDown(e);
+    }
   };
 
   return (
-    <select
-      value={value || "none"}
-      onChange={handleChange}
-      className="bg-transparent w-full p-0 m-0 border-none focus:ring-0 focus:outline-none capitalize font-semibold rounded text-center focus:bg-neutral-100 dark:focus:bg-neutral-800 appearance-none"
-    >
-      <option value="none"></option>
-      <option value="Over">O</option>
-      <option value="Under">U</option>
-    </select>
+    <div className="relative w-full">
+      <input
+        ref={ref}
+        type="text"
+        value={text}
+        onChange={handleChange}
+        onFocus={() => {
+          setIsOpen(true);
+          setFilterText(""); // Show all options when focusing
+          if (onFocus) onFocus();
+        }}
+        onBlur={handleBlur}
+        onKeyDown={handleKeyDownInternal}
+        className={`bg-transparent w-full p-0 m-0 border-none focus:ring-0 focus:outline-none focus:bg-neutral-100 dark:focus:bg-neutral-800 rounded text-sm ${className}`}
+        placeholder={placeholder}
+      />
+      {isOpen && filteredOptions.length > 0 && (
+        <div
+          ref={dropdownRef}
+          className="absolute z-50 w-full mt-1 bg-white dark:bg-neutral-800 rounded-lg shadow-lg border border-neutral-200 dark:border-neutral-700 max-h-60 overflow-y-auto"
+          style={{ top: "100%", left: 0 }}
+        >
+          {filteredOptions.map((option, index) => (
+            <div
+              key={option}
+              onMouseDown={(e) => {
+                e.preventDefault(); // Prevent input blur
+                handleSelect(option);
+              }}
+              className={`px-2 py-1 cursor-pointer text-sm ${
+                index === highlightedIndex
+                  ? "bg-blue-100 dark:bg-blue-900/50"
+                  : "hover:bg-neutral-100 dark:hover:bg-neutral-700"
+              }`}
+            >
+              {option}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const OUCell: React.FC<{
+  value?: "Over" | "Under";
+  onSave: (newValue: "Over" | "Under" | undefined) => void;
+  isFocused?: boolean;
+  onFocus?: () => void;
+  inputRef?: React.RefObject<HTMLInputElement>;
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+}> = ({ value, onSave, isFocused, onFocus, inputRef, onKeyDown }) => {
+  const handleSave = (val: string) => {
+    if (val === "Over" || val === "Under") {
+      onSave(val);
+    } else if (!val || val === "") {
+      onSave(undefined);
+    }
+  };
+
+  return (
+    <TypableDropdown
+      value={value || ""}
+      onSave={handleSave}
+      options={["Over", "Under"]}
+      className="text-center capitalize font-semibold"
+      isFocused={isFocused}
+      onFocus={onFocus}
+      inputRef={inputRef}
+      onKeyDown={onKeyDown}
+      allowCustom={false}
+    />
   );
 };
 
@@ -214,10 +464,12 @@ const BetTableView: React.FC = () => {
   const {
     sportsbooks,
     sports,
+    categories,
     betTypes,
     players,
     teams,
     addSport,
+    addCategory,
     addBetType,
     addPlayer,
     addTeam,
@@ -238,6 +490,39 @@ const BetTableView: React.FC = () => {
     key: keyof FlatBet;
     direction: "asc" | "desc";
   } | null>({ key: "date", direction: "desc" });
+
+  // Spreadsheet state management
+  const [focusedCell, setFocusedCell] = useState<CellCoordinate | null>(null);
+  const [selectionRange, setSelectionRange] = useState<SelectionRange>(null);
+  const [isSelecting, setIsSelecting] = useState(false);
+  const [selectionAnchor, setSelectionAnchor] = useState<CellCoordinate | null>(
+    null
+  );
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>(
+    () => {
+      const saved = localStorage.getItem("bettracker-column-widths");
+      return saved ? JSON.parse(saved) : {};
+    }
+  );
+  const [isResizing, setIsResizing] = useState<string | null>(null);
+  const [resizeStartX, setResizeStartX] = useState(0);
+  const [resizeStartWidth, setResizeStartWidth] = useState(0);
+  const [dragFillData, setDragFillData] = useState<{
+    start: CellCoordinate;
+    end: CellCoordinate;
+  } | null>(null);
+  const tableRef = useRef<HTMLTableElement>(null);
+  const cellRefs = useRef<Map<string, React.RefObject<HTMLInputElement>>>(
+    new Map()
+  );
+
+  // Save column widths to localStorage
+  useEffect(() => {
+    localStorage.setItem(
+      "bettracker-column-widths",
+      JSON.stringify(columnWidths)
+    );
+  }, [columnWidths]);
 
   const siteShortNameMap = useMemo(() => {
     return sportsbooks.reduce((acc, book) => {
@@ -270,7 +555,25 @@ const BetTableView: React.FC = () => {
       // For 'push' or 'pending', net remains 0, which is correct.
 
       if (!bet.legs || bet.legs.length === 0) {
-        // Handles single bets without leg data
+        // Handles single bets - use type, line, ou directly from bet object
+        const displayType = bet.type || (isLive ? "live" : bet.betType);
+
+        // Debug logging for single bets
+        if (!bet.type && bet.marketCategory === "Props") {
+          console.warn(
+            `BetTableView: Bet ${bet.id} has no type field but is Props`,
+            {
+              betId: bet.id,
+              betType: bet.betType,
+              type: bet.type,
+              marketCategory: bet.marketCategory,
+              description: bet.description,
+              hasLegs: !!bet.legs,
+              legCount: bet.legs?.length || 0,
+            }
+          );
+        }
+
         flatBets.push({
           id: bet.id,
           betId: bet.id,
@@ -281,11 +584,11 @@ const BetTableView: React.FC = () => {
           toWin: toWin,
           net,
           overallResult: bet.result,
-          type: isLive ? "live" : bet.betType,
+          type: displayType, // Use bet.type (stat code) if available
           category: bet.marketCategory,
-          name: bet.description,
-          ou: undefined,
-          line: undefined,
+          name: bet.name || bet.description, // Use bet.name (player/team name only) if available, fallback to description
+          ou: bet.ou,
+          line: bet.line,
           odds: bet.odds,
           result: bet.result,
           isLive,
@@ -408,12 +711,12 @@ const BetTableView: React.FC = () => {
     () => ({
       sports: sports,
       sites: availableSites,
-      categories: MARKET_CATEGORIES,
+      categories: categories,
       types: (sport: string) => betTypes[sport] || [],
       players: (sport: string) => players[sport] || [],
       teams: (sport: string) => teams[sport] || [],
     }),
-    [sports, availableSites, betTypes, players, teams]
+    [sports, availableSites, categories, betTypes, players, teams]
   );
 
   const filteredBets = useMemo(() => {
@@ -528,6 +831,679 @@ const BetTableView: React.FC = () => {
     return odds.toString();
   };
 
+  // Helper: Get editable columns (exclude readonly columns)
+  const editableColumns = useMemo(() => {
+    return headers
+      .filter(
+        (h) =>
+          h.key !== "date" &&
+          h.key !== "toWin" &&
+          h.key !== "net" &&
+          h.key !== "isLive"
+      )
+      .map((h) => h.key);
+  }, []);
+
+  // Helper: Check if a cell is editable
+  const isCellEditable = useCallback(
+    (columnKey: keyof FlatBet): boolean => {
+      return editableColumns.includes(columnKey);
+    },
+    [editableColumns]
+  );
+
+  // Helper: Get cell ref key
+  const getCellKey = useCallback(
+    (rowIndex: number, columnKey: keyof FlatBet): string => {
+      return `${rowIndex}-${columnKey}`;
+    },
+    []
+  );
+
+  // Helper: Get or create cell ref
+  const getCellRef = useCallback(
+    (
+      rowIndex: number,
+      columnKey: keyof FlatBet
+    ): React.RefObject<HTMLInputElement> => {
+      const key = getCellKey(rowIndex, columnKey);
+      if (!cellRefs.current.has(key)) {
+        cellRefs.current.set(key, React.createRef<HTMLInputElement>());
+      }
+      return cellRefs.current.get(key)!;
+    },
+    [getCellKey]
+  );
+
+  // Helper: Navigate to next editable cell
+  const navigateToCell = useCallback(
+    (
+      rowIndex: number,
+      columnKey: keyof FlatBet,
+      direction: "up" | "down" | "left" | "right"
+    ) => {
+      const currentColIndex = editableColumns.indexOf(columnKey);
+
+      if (direction === "left" || direction === "right") {
+        const newColIndex =
+          direction === "left" ? currentColIndex - 1 : currentColIndex + 1;
+        if (newColIndex >= 0 && newColIndex < editableColumns.length) {
+          const newColumnKey = editableColumns[newColIndex];
+          setFocusedCell({ rowIndex, columnKey: newColumnKey });
+          setSelectionRange(null);
+          return;
+        }
+      } else if (direction === "up" || direction === "down") {
+        const newRowIndex = direction === "up" ? rowIndex - 1 : rowIndex + 1;
+        if (newRowIndex >= 0 && newRowIndex < sortedBets.length) {
+          setFocusedCell({ rowIndex: newRowIndex, columnKey });
+          setSelectionRange(null);
+          return;
+        }
+      }
+    },
+    [editableColumns, sortedBets.length]
+  );
+
+  // Helper: Check if cell is in selection range
+  const isCellSelected = useCallback(
+    (rowIndex: number, columnKey: keyof FlatBet): boolean => {
+      if (!selectionRange) return false;
+      const { start, end } = selectionRange;
+      const minRow = Math.min(start.rowIndex, end.rowIndex);
+      const maxRow = Math.max(start.rowIndex, end.rowIndex);
+      const minCol = Math.min(
+        editableColumns.indexOf(start.columnKey),
+        editableColumns.indexOf(end.columnKey)
+      );
+      const maxCol = Math.max(
+        editableColumns.indexOf(start.columnKey),
+        editableColumns.indexOf(end.columnKey)
+      );
+
+      const cellRow = rowIndex;
+      const cellCol = editableColumns.indexOf(columnKey);
+
+      return (
+        cellRow >= minRow &&
+        cellRow <= maxRow &&
+        cellCol >= minCol &&
+        cellCol <= maxCol
+      );
+    },
+    [selectionRange, editableColumns]
+  );
+
+  // Helper: Check if cell is focused
+  const isCellFocused = useCallback(
+    (rowIndex: number, columnKey: keyof FlatBet): boolean => {
+      return (
+        focusedCell?.rowIndex === rowIndex &&
+        focusedCell?.columnKey === columnKey
+      );
+    },
+    [focusedCell]
+  );
+
+  // Keyboard navigation handler
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      // Don't handle if user is typing in an input/textarea
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.tagName === "SELECT"
+      ) {
+        // Only handle navigation keys if not actively editing (no text selected)
+        if (
+          target instanceof HTMLInputElement &&
+          target.selectionStart !== target.selectionEnd
+        ) {
+          return;
+        }
+        // Handle Tab, Enter, Arrow keys even when in input
+        if (
+          ![
+            "Tab",
+            "Enter",
+            "ArrowUp",
+            "ArrowDown",
+            "ArrowLeft",
+            "ArrowRight",
+            "Home",
+            "End",
+            "Escape",
+          ].includes(e.key)
+        ) {
+          return;
+        }
+      }
+
+      if (!focusedCell) return;
+
+      const { rowIndex, columnKey } = focusedCell;
+
+      // Handle copy (Ctrl+C or Cmd+C)
+      if ((e.ctrlKey || e.metaKey) && e.key === "c") {
+        e.preventDefault();
+        handleCopy();
+        return;
+      }
+
+      // Handle paste (Ctrl+V or Cmd+V)
+      if ((e.ctrlKey || e.metaKey) && e.key === "v") {
+        e.preventDefault();
+        handlePaste();
+        return;
+      }
+
+      // Navigation keys
+      switch (e.key) {
+        case "ArrowUp":
+          e.preventDefault();
+          navigateToCell(rowIndex, columnKey, "up");
+          break;
+        case "ArrowDown":
+          e.preventDefault();
+          navigateToCell(rowIndex, columnKey, "down");
+          break;
+        case "ArrowLeft":
+          e.preventDefault();
+          navigateToCell(rowIndex, columnKey, "left");
+          break;
+        case "ArrowRight":
+          e.preventDefault();
+          navigateToCell(rowIndex, columnKey, "right");
+          break;
+        case "Tab":
+          e.preventDefault();
+          if (e.shiftKey) {
+            navigateToCell(rowIndex, columnKey, "left");
+          } else {
+            navigateToCell(rowIndex, columnKey, "right");
+          }
+          break;
+        case "Enter":
+          if (!(target instanceof HTMLInputElement)) {
+            e.preventDefault();
+            navigateToCell(rowIndex, columnKey, "down");
+          }
+          break;
+        case "Home":
+          e.preventDefault();
+          if (e.ctrlKey || e.metaKey) {
+            // Go to first row
+            setFocusedCell({ rowIndex: 0, columnKey });
+          } else {
+            // Go to first column
+            setFocusedCell({ rowIndex, columnKey: editableColumns[0] });
+          }
+          break;
+        case "End":
+          e.preventDefault();
+          if (e.ctrlKey || e.metaKey) {
+            // Go to last row
+            setFocusedCell({ rowIndex: sortedBets.length - 1, columnKey });
+          } else {
+            // Go to last column
+            setFocusedCell({
+              rowIndex,
+              columnKey: editableColumns[editableColumns.length - 1],
+            });
+          }
+          break;
+      }
+    },
+    [focusedCell, navigateToCell, editableColumns, sortedBets.length]
+  );
+
+  // Helper: Get cell value as string
+  const getCellValue = useCallback(
+    (row: FlatBet, columnKey: keyof FlatBet): string => {
+      const value = row[columnKey];
+      if (value === undefined || value === null) return "";
+      if (columnKey === "odds") return formatOdds(value as number);
+      if (columnKey === "bet") return (value as number).toFixed(2);
+      if (columnKey === "ou") return (value as string) || "";
+      return String(value);
+    },
+    []
+  );
+
+  // Attach keyboard listener
+  useEffect(() => {
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
+
+  // Copy handler
+  const handleCopy = useCallback(() => {
+    if (!selectionRange && !focusedCell) return;
+
+    let cellsToCopy: Array<{
+      rowIndex: number;
+      columnKey: keyof FlatBet;
+      value: string;
+    }> = [];
+
+    if (selectionRange) {
+      const { start, end } = selectionRange;
+      const minRow = Math.min(start.rowIndex, end.rowIndex);
+      const maxRow = Math.max(start.rowIndex, end.rowIndex);
+      const minCol = Math.min(
+        editableColumns.indexOf(start.columnKey),
+        editableColumns.indexOf(end.columnKey)
+      );
+      const maxCol = Math.max(
+        editableColumns.indexOf(start.columnKey),
+        editableColumns.indexOf(end.columnKey)
+      );
+
+      for (let r = minRow; r <= maxRow; r++) {
+        for (let c = minCol; c <= maxCol; c++) {
+          const row = sortedBets[r];
+          const colKey = editableColumns[c];
+          if (row && colKey) {
+            const value = getCellValue(row, colKey);
+            cellsToCopy.push({ rowIndex: r, columnKey: colKey, value });
+          }
+        }
+      }
+    } else if (focusedCell) {
+      const row = sortedBets[focusedCell.rowIndex];
+      if (row) {
+        const value = getCellValue(row, focusedCell.columnKey);
+        cellsToCopy.push({
+          rowIndex: focusedCell.rowIndex,
+          columnKey: focusedCell.columnKey,
+          value,
+        });
+      }
+    }
+
+    // Format as tab-separated values
+    const rows: string[] = [];
+    let currentRow = cellsToCopy[0]?.rowIndex;
+    let currentRowData: string[] = [];
+
+    cellsToCopy.forEach((cell, index) => {
+      if (cell.rowIndex !== currentRow) {
+        rows.push(currentRowData.join("\t"));
+        currentRowData = [];
+        currentRow = cell.rowIndex;
+      }
+      currentRowData.push(cell.value);
+    });
+    if (currentRowData.length > 0) {
+      rows.push(currentRowData.join("\t"));
+    }
+
+    const text = rows.join("\n");
+    navigator.clipboard.writeText(text);
+  }, [selectionRange, focusedCell, editableColumns, sortedBets, getCellValue]);
+
+  // Paste handler
+  const handlePaste = useCallback(async () => {
+    if (!focusedCell) return;
+
+    try {
+      const text = await navigator.clipboard.readText();
+      const rows = text.split("\n").filter((r) => r.trim());
+      const pasteData = rows.map((row) => row.split("\t"));
+
+      const startRow = selectionRange
+        ? Math.min(selectionRange.start.rowIndex, selectionRange.end.rowIndex)
+        : focusedCell.rowIndex;
+      const startCol = selectionRange
+        ? Math.min(
+            editableColumns.indexOf(selectionRange.start.columnKey),
+            editableColumns.indexOf(selectionRange.end.columnKey)
+          )
+        : editableColumns.indexOf(focusedCell.columnKey);
+
+      pasteData.forEach((rowData, rowOffset) => {
+        rowData.forEach((cellValue, colOffset) => {
+          const targetRowIndex = startRow + rowOffset;
+          const targetColIndex = startCol + colOffset;
+
+          if (
+            targetRowIndex < sortedBets.length &&
+            targetColIndex < editableColumns.length
+          ) {
+            const targetRow = sortedBets[targetRowIndex];
+            const targetColumnKey = editableColumns[targetColIndex];
+
+            if (targetRow && isCellEditable(targetColumnKey)) {
+              handleCellPaste(targetRow, targetColumnKey, cellValue);
+            }
+          }
+        });
+      });
+    } catch (err) {
+      console.error("Failed to paste:", err);
+    }
+  }, [
+    focusedCell,
+    selectionRange,
+    editableColumns,
+    sortedBets,
+    isCellEditable,
+  ]);
+
+  // Helper: Handle cell paste
+  const handleCellPaste = useCallback(
+    (row: FlatBet, columnKey: keyof FlatBet, value: string) => {
+      const isLeg = row.id.includes("-leg-");
+      const legIndex = isLeg ? parseInt(row.id.split("-leg-").pop()!, 10) : -1;
+
+      switch (columnKey) {
+        case "site":
+          const book = sportsbooks.find(
+            (b) =>
+              b.name.toLowerCase() === value.toLowerCase() ||
+              b.abbreviation.toLowerCase() === value.toLowerCase()
+          );
+          updateBet(row.betId, { book: book ? book.name : value });
+          break;
+        case "sport":
+          addSport(value);
+          updateBet(row.betId, { sport: value });
+          break;
+        case "category":
+          addCategory(value);
+          updateBet(row.betId, { marketCategory: value as MarketCategory });
+          break;
+        case "type":
+          if (isLeg) {
+            addBetType(row.sport, value);
+            handleLegUpdate(row.betId, legIndex, { market: value });
+          } else {
+            updateBet(row.betId, { betType: value as BetType });
+          }
+          break;
+        case "name":
+          if (isLeg) {
+            autoAddEntity(row.sport, value, row.type);
+            handleLegUpdate(row.betId, legIndex, { entities: [value] });
+          } else {
+            autoAddEntity(row.sport, value, row.type);
+            updateBet(row.betId, { description: value });
+          }
+          break;
+        case "line":
+          if (isLeg) {
+            handleLegUpdate(row.betId, legIndex, { target: value });
+          }
+          break;
+        case "odds":
+          const numVal = parseInt(value.replace("+", ""), 10);
+          if (!isNaN(numVal)) {
+            updateBet(row.betId, { odds: numVal });
+          }
+          break;
+        case "bet":
+          const stakeVal = parseFloat(value);
+          if (!isNaN(stakeVal)) {
+            updateBet(row.betId, { stake: stakeVal });
+          }
+          break;
+        case "result":
+          if (isLeg) {
+            handleLegUpdate(row.betId, legIndex, {
+              result: value as BetResult,
+            });
+          } else {
+            updateBet(row.betId, { result: value as BetResult });
+          }
+          break;
+        case "tail":
+          updateBet(row.betId, { tail: value });
+          break;
+      }
+    },
+    [
+      sportsbooks,
+      addSport,
+      updateBet,
+      handleLegUpdate,
+      addBetType,
+      autoAddEntity,
+    ]
+  );
+
+  // Column resize handlers
+  const handleResizeStart = useCallback(
+    (columnKey: string, e: React.MouseEvent) => {
+      e.preventDefault();
+      setIsResizing(columnKey);
+      setResizeStartX(e.clientX);
+      const currentWidth =
+        columnWidths[columnKey] ||
+        headers.find((h) => h.key === columnKey)?.style.width;
+      if (typeof currentWidth === "string" && currentWidth.endsWith("%")) {
+        const table = tableRef.current;
+        if (table) {
+          const percent = parseFloat(currentWidth);
+          const tableWidth = table.offsetWidth;
+          setResizeStartWidth((tableWidth * percent) / 100);
+        } else {
+          setResizeStartWidth(100);
+        }
+      } else if (typeof currentWidth === "number") {
+        setResizeStartWidth(currentWidth);
+      } else {
+        setResizeStartWidth(100);
+      }
+    },
+    [columnWidths, headers]
+  );
+
+  const handleResizeMove = useCallback(
+    (e: MouseEvent) => {
+      if (!isResizing) return;
+
+      const deltaX = e.clientX - resizeStartX;
+      const newWidth = Math.max(50, resizeStartWidth + deltaX);
+      setColumnWidths((prev) => ({ ...prev, [isResizing!]: newWidth }));
+    },
+    [isResizing, resizeStartX, resizeStartWidth]
+  );
+
+  const handleResizeEnd = useCallback(() => {
+    setIsResizing(null);
+  }, []);
+
+  useEffect(() => {
+    if (isResizing) {
+      window.addEventListener("mousemove", handleResizeMove);
+      window.addEventListener("mouseup", handleResizeEnd);
+      return () => {
+        window.removeEventListener("mousemove", handleResizeMove);
+        window.removeEventListener("mouseup", handleResizeEnd);
+      };
+    }
+  }, [isResizing, handleResizeMove, handleResizeEnd]);
+
+  // Cell click handler
+  const handleCellClick = useCallback(
+    (rowIndex: number, columnKey: keyof FlatBet, e: React.MouseEvent) => {
+      if (!isCellEditable(columnKey)) return;
+
+      if (e.shiftKey && selectionAnchor) {
+        // Shift+Click: extend selection
+        setSelectionRange({
+          start: selectionAnchor,
+          end: { rowIndex, columnKey },
+        });
+        setFocusedCell({ rowIndex, columnKey });
+      } else if (e.ctrlKey || e.metaKey) {
+        // Ctrl/Cmd+Click: add to selection (multi-select)
+        if (selectionRange) {
+          // For simplicity, just extend the range
+          setSelectionRange({
+            start: selectionRange.start,
+            end: { rowIndex, columnKey },
+          });
+        } else {
+          setSelectionRange({
+            start: { rowIndex, columnKey },
+            end: { rowIndex, columnKey },
+          });
+        }
+        setFocusedCell({ rowIndex, columnKey });
+      } else {
+        // Regular click: single selection
+        setFocusedCell({ rowIndex, columnKey });
+        setSelectionAnchor({ rowIndex, columnKey });
+        setSelectionRange({
+          start: { rowIndex, columnKey },
+          end: { rowIndex, columnKey },
+        });
+      }
+    },
+    [isCellEditable, selectionAnchor, selectionRange]
+  );
+
+  // Drag-to-fill handlers
+  const handleDragFillStart = useCallback(
+    (rowIndex: number, columnKey: keyof FlatBet, e: React.MouseEvent) => {
+      e.preventDefault();
+      if (
+        !focusedCell ||
+        focusedCell.rowIndex !== rowIndex ||
+        focusedCell.columnKey !== columnKey
+      ) {
+        return;
+      }
+      setDragFillData({
+        start: { rowIndex, columnKey },
+        end: { rowIndex, columnKey },
+      });
+    },
+    [focusedCell]
+  );
+
+  const handleDragFillMove = useCallback(
+    (e: MouseEvent) => {
+      if (!dragFillData) return;
+
+      const table = tableRef.current;
+      if (!table) return;
+
+      const tbody = table.querySelector("tbody");
+      if (!tbody) return;
+
+      const rect = tbody.getBoundingClientRect();
+      const y = e.clientY - rect.top;
+      const x = e.clientX - rect.left;
+
+      // Find which cell we're over
+      const rows = Array.from(tbody.querySelectorAll("tr"));
+      let targetRowIndex = -1;
+      let targetColIndex = -1;
+
+      let currentY = 0;
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i] as HTMLTableRowElement;
+        if (y >= currentY && y < currentY + row.offsetHeight) {
+          targetRowIndex = i;
+          break;
+        }
+        currentY += row.offsetHeight;
+      }
+
+      if (targetRowIndex >= 0) {
+        const targetRow = rows[targetRowIndex] as HTMLTableRowElement;
+        const cells = Array.from(targetRow.querySelectorAll("td"));
+        let currentX = 0;
+        for (let i = 0; i < cells.length; i++) {
+          const cell = cells[i] as HTMLTableCellElement;
+          if (x >= currentX && x < currentX + cell.offsetWidth) {
+            targetColIndex = i;
+            break;
+          }
+          currentX += cell.offsetWidth;
+        }
+      }
+
+      if (
+        targetRowIndex >= 0 &&
+        targetColIndex >= 0 &&
+        targetColIndex < editableColumns.length
+      ) {
+        const targetColumnKey = editableColumns[targetColIndex];
+        setDragFillData({
+          start: dragFillData.start,
+          end: { rowIndex: targetRowIndex, columnKey: targetColumnKey },
+        });
+      }
+    },
+    [dragFillData, editableColumns]
+  );
+
+  const handleDragFillEnd = useCallback(() => {
+    if (!dragFillData) return;
+
+    const { start, end } = dragFillData;
+    const startRow = sortedBets[start.rowIndex];
+    if (!startRow) {
+      setDragFillData(null);
+      return;
+    }
+
+    const startValue = getCellValue(startRow, start.columnKey);
+    const minRow = Math.min(start.rowIndex, end.rowIndex);
+    const maxRow = Math.max(start.rowIndex, end.rowIndex);
+    const minCol = Math.min(
+      editableColumns.indexOf(start.columnKey),
+      editableColumns.indexOf(end.columnKey)
+    );
+    const maxCol = Math.max(
+      editableColumns.indexOf(start.columnKey),
+      editableColumns.indexOf(end.columnKey)
+    );
+
+    // Fill cells
+    for (let r = minRow; r <= maxRow; r++) {
+      for (let c = minCol; c <= maxCol; c++) {
+        if (
+          r === start.rowIndex &&
+          c === editableColumns.indexOf(start.columnKey)
+        )
+          continue;
+
+        const row = sortedBets[r];
+        const colKey = editableColumns[c];
+        if (row && colKey && isCellEditable(colKey)) {
+          // Simple fill: copy the value
+          // Could be enhanced to detect patterns (incrementing numbers, etc.)
+          handleCellPaste(row, colKey, startValue);
+        }
+      }
+    }
+
+    setDragFillData(null);
+  }, [
+    dragFillData,
+    sortedBets,
+    editableColumns,
+    getCellValue,
+    isCellEditable,
+    handleCellPaste,
+  ]);
+
+  useEffect(() => {
+    if (dragFillData) {
+      window.addEventListener("mousemove", handleDragFillMove);
+      window.addEventListener("mouseup", handleDragFillEnd);
+      return () => {
+        window.removeEventListener("mousemove", handleDragFillMove);
+        window.removeEventListener("mouseup", handleDragFillEnd);
+      };
+    }
+  }, [dragFillData, handleDragFillMove, handleDragFillEnd]);
+
   return (
     <div className="p-6 h-full flex flex-col space-y-4 bg-neutral-100 dark:bg-neutral-950">
       <header>
@@ -566,7 +1542,7 @@ const BetTableView: React.FC = () => {
             onChange={(e) =>
               setFilters({ ...filters, category: e.target.value as any })
             }
-            options={MARKET_CATEGORIES}
+            options={categories}
           />
           <FilterControl
             label="Type"
@@ -588,19 +1564,42 @@ const BetTableView: React.FC = () => {
       </div>
 
       <div className="flex-grow bg-white dark:bg-neutral-900 rounded-lg shadow-md overflow-auto">
-        <table className="w-full text-sm text-left text-neutral-500 dark:text-neutral-400 table-fixed">
+        <table
+          ref={tableRef}
+          className="w-full text-sm text-left text-neutral-500 dark:text-neutral-400"
+          style={{ tableLayout: "fixed" }}
+        >
           <thead className="text-xs text-neutral-700 uppercase bg-neutral-50 dark:bg-neutral-800 dark:text-neutral-400 sticky top-0 z-10">
             <tr className="whitespace-nowrap">
-              {headers.map((header) => (
-                <th
-                  key={header.key}
-                  scope="col"
-                  className="px-2 py-3"
-                  style={header.style}
-                >
-                  {header.label}
-                </th>
-              ))}
+              {headers.map((header) => {
+                const width =
+                  columnWidths[header.key] ||
+                  (typeof header.style.width === "string" &&
+                  header.style.width.endsWith("%")
+                    ? header.style.width
+                    : header.style.width || "auto");
+                const widthStyle =
+                  typeof width === "number" ? `${width}px` : width;
+                return (
+                  <th
+                    key={header.key}
+                    scope="col"
+                    className="px-2 py-3 relative"
+                    style={{
+                      ...header.style,
+                      width: widthStyle,
+                      minWidth: "50px",
+                    }}
+                  >
+                    {header.label}
+                    <div
+                      className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary-500 opacity-0 hover:opacity-100 transition-opacity"
+                      onMouseDown={(e) => handleResizeStart(header.key, e)}
+                      style={{ userSelect: "none" }}
+                    />
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
@@ -617,7 +1616,7 @@ const BetTableView: React.FC = () => {
                 </td>
               </tr>
             ) : (
-              sortedBets.map((row) => {
+              sortedBets.map((row, rowIndex) => {
                 const isLeg = row.id.includes("-leg-");
                 const legIndex = isLeg
                   ? parseInt(row.id.split("-leg-").pop()!, 10)
@@ -636,15 +1635,82 @@ const BetTableView: React.FC = () => {
                     ? "text-danger-500"
                     : "";
 
+                // Helper to check if cell is in drag fill range
+                const isInDragFillRange = (
+                  rowIndex: number,
+                  columnKey: keyof FlatBet
+                ): boolean => {
+                  if (!dragFillData) return false;
+                  const { start, end } = dragFillData;
+                  const minRow = Math.min(start.rowIndex, end.rowIndex);
+                  const maxRow = Math.max(start.rowIndex, end.rowIndex);
+                  const minCol = Math.min(
+                    editableColumns.indexOf(start.columnKey),
+                    editableColumns.indexOf(end.columnKey)
+                  );
+                  const maxCol = Math.max(
+                    editableColumns.indexOf(start.columnKey),
+                    editableColumns.indexOf(end.columnKey)
+                  );
+
+                  const cellRow = rowIndex;
+                  const cellCol = editableColumns.indexOf(columnKey);
+
+                  return (
+                    cellRow >= minRow &&
+                    cellRow <= maxRow &&
+                    cellCol >= minCol &&
+                    cellCol <= maxCol
+                  );
+                };
+
+                // Helper to get cell classes
+                const getCellClasses = (columnKey: keyof FlatBet) => {
+                  const baseClasses = "px-2 py-2 relative";
+                  const isSelected = isCellSelected(rowIndex, columnKey);
+                  const isFocused = isCellFocused(rowIndex, columnKey);
+                  const isEditable = isCellEditable(columnKey);
+                  const inDragFill = isInDragFillRange(rowIndex, columnKey);
+
+                  let classes = baseClasses;
+                  if (inDragFill) {
+                    classes += " bg-blue-200 dark:bg-blue-800/50";
+                  } else if (isSelected) {
+                    classes += " bg-blue-100 dark:bg-blue-900/30";
+                  }
+                  if (isFocused && isEditable) {
+                    classes += " ring-2 ring-blue-500 dark:ring-blue-400";
+                  }
+                  return classes;
+                };
+
                 return (
                   <tr
                     key={row.id}
                     className="border-b dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-800/50 odd:bg-white dark:odd:bg-neutral-900 even:bg-neutral-50 dark:even:bg-neutral-800/50 whitespace-nowrap"
                   >
-                    <td className="px-2 py-2">{formatDate(row.date)}</td>
-                    <td className="px-2 py-2 font-bold">
+                    <td className={getCellClasses("date")}>
+                      {formatDate(row.date)}
+                    </td>
+                    <td
+                      className={getCellClasses("site") + " font-bold"}
+                      onClick={(e) => handleCellClick(rowIndex, "site", e)}
+                    >
+                      {isCellFocused(rowIndex, "site") && (
+                        <div
+                          className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
+                          onMouseDown={(e) =>
+                            handleDragFillStart(rowIndex, "site", e)
+                          }
+                        />
+                      )}
                       <EditableCell
                         value={siteShortNameMap[row.site] || row.site}
+                        isFocused={isCellFocused(rowIndex, "site")}
+                        onFocus={() =>
+                          setFocusedCell({ rowIndex, columnKey: "site" })
+                        }
+                        inputRef={getCellRef(rowIndex, "site")}
                         onSave={(val) => {
                           const book = sportsbooks.find(
                             (b) =>
@@ -658,29 +1724,75 @@ const BetTableView: React.FC = () => {
                         suggestions={suggestionLists.sites}
                       />
                     </td>
-                    <td className="px-2 py-2">
-                      <EditableCell
+                    <td
+                      className={getCellClasses("sport")}
+                      onClick={(e) => handleCellClick(rowIndex, "sport", e)}
+                    >
+                      {isCellFocused(rowIndex, "sport") && (
+                        <div
+                          className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
+                          onMouseDown={(e) =>
+                            handleDragFillStart(rowIndex, "sport", e)
+                          }
+                        />
+                      )}
+                      <TypableDropdown
                         value={row.sport}
                         onSave={(val) => {
                           addSport(val);
                           updateBet(row.betId, { sport: val });
                         }}
-                        suggestions={suggestionLists.sports}
+                        options={suggestionLists.sports}
+                        isFocused={isCellFocused(rowIndex, "sport")}
+                        onFocus={() =>
+                          setFocusedCell({ rowIndex, columnKey: "sport" })
+                        }
+                        inputRef={getCellRef(rowIndex, "sport")}
+                        allowCustom={true}
                       />
                     </td>
-                    <td className="px-2 py-2">
-                      <EditableCell
+                    <td
+                      className={getCellClasses("category")}
+                      onClick={(e) => handleCellClick(rowIndex, "category", e)}
+                    >
+                      {isCellFocused(rowIndex, "category") && (
+                        <div
+                          className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
+                          onMouseDown={(e) =>
+                            handleDragFillStart(rowIndex, "category", e)
+                          }
+                        />
+                      )}
+                      <TypableDropdown
                         value={row.category}
-                        onSave={(val) =>
+                        onSave={(val) => {
+                          addCategory(val);
                           updateBet(row.betId, {
                             marketCategory: val as MarketCategory,
-                          })
+                          });
+                        }}
+                        options={suggestionLists.categories}
+                        isFocused={isCellFocused(rowIndex, "category")}
+                        onFocus={() =>
+                          setFocusedCell({ rowIndex, columnKey: "category" })
                         }
-                        suggestions={suggestionLists.categories}
+                        inputRef={getCellRef(rowIndex, "category")}
+                        allowCustom={true}
                       />
                     </td>
-                    <td className="px-2 py-2 capitalize">
-                      <EditableCell
+                    <td
+                      className={getCellClasses("type") + " capitalize"}
+                      onClick={(e) => handleCellClick(rowIndex, "type", e)}
+                    >
+                      {isCellFocused(rowIndex, "type") && (
+                        <div
+                          className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
+                          onMouseDown={(e) =>
+                            handleDragFillStart(rowIndex, "type", e)
+                          }
+                        />
+                      )}
+                      <TypableDropdown
                         value={row.type}
                         onSave={(val) => {
                           if (isLeg) {
@@ -692,16 +1804,41 @@ const BetTableView: React.FC = () => {
                             updateBet(row.betId, { betType: val as BetType });
                           }
                         }}
-                        suggestions={
+                        options={
                           isLeg
                             ? suggestionLists.types(row.sport)
                             : ["single", "parlay", "sgp", "live", "other"]
                         }
+                        isFocused={isCellFocused(rowIndex, "type")}
+                        onFocus={() =>
+                          setFocusedCell({ rowIndex, columnKey: "type" })
+                        }
+                        inputRef={getCellRef(rowIndex, "type")}
+                        allowCustom={true}
                       />
                     </td>
-                    <td className="px-2 py-2 font-medium text-neutral-900 dark:text-white truncate">
+                    <td
+                      className={
+                        getCellClasses("name") +
+                        " font-medium text-neutral-900 dark:text-white truncate"
+                      }
+                      onClick={(e) => handleCellClick(rowIndex, "name", e)}
+                    >
+                      {isCellFocused(rowIndex, "name") && (
+                        <div
+                          className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
+                          onMouseDown={(e) =>
+                            handleDragFillStart(rowIndex, "name", e)
+                          }
+                        />
+                      )}
                       <EditableCell
                         value={row.name}
+                        isFocused={isCellFocused(rowIndex, "name")}
+                        onFocus={() =>
+                          setFocusedCell({ rowIndex, columnKey: "name" })
+                        }
+                        inputRef={getCellRef(rowIndex, "name")}
                         onSave={(val) => {
                           if (isLeg) {
                             autoAddEntity(row.sport, val, row.type);
@@ -719,24 +1856,61 @@ const BetTableView: React.FC = () => {
                         ]}
                       />
                     </td>
-                    <td className="px-2 py-2 text-center">
-                      {isLeg ? (
-                        <OUCell
-                          value={row.ou}
-                          onSave={(val) =>
-                            handleLegUpdate(row.betId, legIndex, { ou: val })
+                    <td
+                      className={getCellClasses("ou") + " text-center"}
+                      onClick={(e) => handleCellClick(rowIndex, "ou", e)}
+                    >
+                      {isCellFocused(rowIndex, "ou") && (
+                        <div
+                          className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
+                          onMouseDown={(e) =>
+                            handleDragFillStart(rowIndex, "ou", e)
                           }
                         />
-                      ) : row.ou ? (
-                        row.ou[0]
-                      ) : (
-                        ""
                       )}
+                      <TypableDropdown
+                        value={row.ou || ""}
+                        onSave={(val) => {
+                          const ouValue =
+                            val === "Over" || val === "Under" ? val : undefined;
+                          if (isLeg) {
+                            handleLegUpdate(row.betId, legIndex, {
+                              ou: ouValue,
+                            });
+                          } else {
+                            updateBet(row.betId, { ou: ouValue });
+                          }
+                        }}
+                        options={["Over", "Under"]}
+                        isFocused={isCellFocused(rowIndex, "ou")}
+                        onFocus={() =>
+                          setFocusedCell({ rowIndex, columnKey: "ou" })
+                        }
+                        inputRef={getCellRef(rowIndex, "ou")}
+                        allowCustom={false}
+                        className="text-center capitalize"
+                      />
                     </td>
-                    <td className="px-2 py-2 text-center">
+                    <td
+                      className={getCellClasses("line") + " text-center"}
+                      onClick={(e) => handleCellClick(rowIndex, "line", e)}
+                    >
+                      {isCellFocused(rowIndex, "line") && (
+                        <div
+                          className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
+                          onMouseDown={(e) =>
+                            handleDragFillStart(rowIndex, "line", e)
+                          }
+                        />
+                      )}
                       <EditableCell
                         value={row.line || ""}
                         type="text"
+                        isFocused={isCellFocused(rowIndex, "line")}
+                        onFocus={() =>
+                          setFocusedCell({ rowIndex, columnKey: "line" })
+                        }
+                        inputRef={getCellRef(rowIndex, "line")}
                         onSave={(val) => {
                           if (isLeg) {
                             handleLegUpdate(row.betId, legIndex, {
@@ -746,11 +1920,27 @@ const BetTableView: React.FC = () => {
                         }}
                       />
                     </td>
-                    <td className="px-2 py-2">
+                    <td
+                      className={getCellClasses("odds")}
+                      onClick={(e) => handleCellClick(rowIndex, "odds", e)}
+                    >
+                      {isCellFocused(rowIndex, "odds") && (
+                        <div
+                          className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
+                          onMouseDown={(e) =>
+                            handleDragFillStart(rowIndex, "odds", e)
+                          }
+                        />
+                      )}
                       <EditableCell
                         value={formatOdds(row.odds)}
                         type="number"
                         formatAsOdds={true}
+                        isFocused={isCellFocused(rowIndex, "odds")}
+                        onFocus={() =>
+                          setFocusedCell({ rowIndex, columnKey: "odds" })
+                        }
+                        inputRef={getCellRef(rowIndex, "odds")}
                         onSave={(val) => {
                           const numVal = parseInt(val.replace("+", ""), 10);
                           if (!isNaN(numVal)) {
@@ -760,7 +1950,18 @@ const BetTableView: React.FC = () => {
                         }}
                       />
                     </td>
-                    <td className="px-2 py-2">
+                    <td
+                      className={getCellClasses("bet")}
+                      onClick={(e) => handleCellClick(rowIndex, "bet", e)}
+                    >
+                      {isCellFocused(rowIndex, "bet") && (
+                        <div
+                          className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
+                          onMouseDown={(e) =>
+                            handleDragFillStart(rowIndex, "bet", e)
+                          }
+                        />
+                      )}
                       <div className="relative">
                         <span className="absolute left-2 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none">
                           $
@@ -768,6 +1969,11 @@ const BetTableView: React.FC = () => {
                         <EditableCell
                           value={row.bet.toFixed(2)}
                           type="number"
+                          isFocused={isCellFocused(rowIndex, "bet")}
+                          onFocus={() =>
+                            setFocusedCell({ rowIndex, columnKey: "bet" })
+                          }
+                          inputRef={getCellRef(rowIndex, "bet")}
                           onSave={(val) => {
                             const numVal = parseFloat(val);
                             if (!isNaN(numVal))
@@ -777,8 +1983,17 @@ const BetTableView: React.FC = () => {
                         />
                       </div>
                     </td>
-                    <td className="px-2 py-2">${row.toWin.toFixed(2)}</td>
-                    <td className={`px-2 py-2 capitalize ${resultColorClass}`}>
+                    <td className={getCellClasses("toWin")}>
+                      ${row.toWin.toFixed(2)}
+                    </td>
+                    <td
+                      className={
+                        getCellClasses("result") +
+                        " capitalize " +
+                        resultColorClass
+                      }
+                      onClick={(e) => handleCellClick(rowIndex, "result", e)}
+                    >
                       <div
                         className={
                           net > 0
@@ -803,11 +2018,14 @@ const BetTableView: React.FC = () => {
                       </div>
                     </td>
                     <td
-                      className={`px-2 py-2 font-bold ${resultColorClass} ${netColorClass}`}
+                      className={
+                        getCellClasses("net") +
+                        ` font-bold ${resultColorClass} ${netColorClass}`
+                      }
                     >
                       {net < 0 ? "-" : ""}${Math.abs(net).toFixed(2)}
                     </td>
-                    <td className="px-2 py-2 text-center">
+                    <td className={getCellClasses("isLive") + " text-center"}>
                       {row.isLive && (
                         <Wifi
                           className="w-5 h-5 text-primary-500 mx-auto"
@@ -815,9 +2033,25 @@ const BetTableView: React.FC = () => {
                         />
                       )}
                     </td>
-                    <td className="px-2 py-2">
+                    <td
+                      className={getCellClasses("tail")}
+                      onClick={(e) => handleCellClick(rowIndex, "tail", e)}
+                    >
+                      {isCellFocused(rowIndex, "tail") && (
+                        <div
+                          className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
+                          onMouseDown={(e) =>
+                            handleDragFillStart(rowIndex, "tail", e)
+                          }
+                        />
+                      )}
                       <EditableCell
                         value={row.tail || ""}
+                        isFocused={isCellFocused(rowIndex, "tail")}
+                        onFocus={() =>
+                          setFocusedCell({ rowIndex, columnKey: "tail" })
+                        }
+                        inputRef={getCellRef(rowIndex, "tail")}
                         onSave={(newValue) => {
                           updateBet(row.betId, { tail: newValue });
                         }}

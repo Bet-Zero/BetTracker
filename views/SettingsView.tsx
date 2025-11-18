@@ -18,6 +18,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ theme, toggleTheme }) => {
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   
   const showNotification = (message: string, type: 'success' | 'error') => {
     setNotification({ message, type });
@@ -77,14 +78,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ theme, toggleTheme }) => {
             const betId = `csv-${placedAtDate.getTime()}-${index}`;
             const id = `${bookName}-${betId}`;
 
-            const singleLeg: BetLeg = {
-                market: row.type,
-                entities: [row.name],
-                ou: row.ou,
-                target: row.line ? (isNaN(Number(row.line)) ? row.line : Number(row.line)) : undefined,
-                result: row.result, // For single bets, leg result is same as bet result
-            };
-
+            // Don't create legs for single bets - store type, line, ou directly on bet
             const stake = row.bet;
             const profit = row.toWin;
             let payout: number;
@@ -116,11 +110,15 @@ const SettingsView: React.FC<SettingsViewProps> = ({ theme, toggleTheme }) => {
                 betType,
                 sport: row.sport,
                 description,
+                name: row.name, // Store player/team name separately
                 odds: row.odds,
                 stake: stake,
                 payout: payout,
                 result: row.result,
-                legs: [singleLeg],
+                type: row.type, // Store stat type directly for single bets
+                line: row.line, // Store line directly for single bets
+                ou: row.ou, // Store Over/Under directly for single bets
+                legs: undefined, // Single bets don't have legs
                 tail: row.tail,
                 raw: `Imported from CSV. Notes: ${row.notes || ''}`.trim()
             };
@@ -179,21 +177,51 @@ const SettingsView: React.FC<SettingsViewProps> = ({ theme, toggleTheme }) => {
     }
   };
 
-  const handleClearData = () => {
-    if (window.confirm("Are you sure you want to delete ALL bet data? This action cannot be undone.")) {
-      console.log("handleClearData called, clearing bets...");
-      const betCountBefore = bets.length;
-      clearBets();
-      // Verify localStorage was cleared
-      const storedBets = localStorage.getItem("bettracker-bets");
-      if (storedBets) {
-        console.error("ERROR: localStorage still contains bets after clear!");
-        alert(`Error: Failed to clear bets. ${JSON.parse(storedBets).length} bets still in storage.`);
-      } else {
-        console.log(`Successfully cleared ${betCountBefore} bets`);
-        alert(`All bet data has been cleared. ${betCountBefore} bet(s) removed.`);
-      }
+  const handleClearDataClick = () => {
+    setShowClearConfirm(true);
+  };
+
+  const handleClearDataConfirm = () => {
+    console.log("handleClearDataConfirm called");
+    
+    if (!clearBets) {
+      console.error("ERROR: clearBets is not defined!");
+      alert("Error: clearBets function is not available. Check console for details.");
+      setShowClearConfirm(false);
+      return;
     }
+    
+    const betCountBefore = bets.length;
+    console.log("Clearing bets...", betCountBefore);
+    
+    try {
+      clearBets();
+      console.log("clearBets() called successfully");
+      setShowClearConfirm(false);
+      
+      // Wait a moment then verify
+      setTimeout(() => {
+        const storedBets = localStorage.getItem("bettracker-bets");
+        console.log("localStorage after clear:", storedBets);
+        
+        if (storedBets) {
+          const remainingCount = JSON.parse(storedBets).length;
+          console.error("ERROR: localStorage still contains bets after clear!", remainingCount);
+          setNotification({ message: `Error: Failed to clear bets. ${remainingCount} bets still in storage.`, type: 'error' });
+        } else {
+          console.log(`✅ Successfully cleared ${betCountBefore} bets`);
+          setNotification({ message: `Success! All ${betCountBefore} bet(s) have been cleared.`, type: 'success' });
+        }
+      }, 100);
+    } catch (error) {
+      console.error("Error calling clearBets:", error);
+      setShowClearConfirm(false);
+      setNotification({ message: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`, type: 'error' });
+    }
+  };
+
+  const handleClearDataCancel = () => {
+    setShowClearConfirm(false);
   };
 
   const SettingCard: React.FC<{title: string, description: string, children: React.ReactNode}> = ({title, description, children}) => (
@@ -314,7 +342,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ theme, toggleTheme }) => {
          <div className="space-y-4 mt-4">
             <SettingCard title="Clear All Data" description="Permanently delete all imported bets from the application. This cannot be undone.">
                  <button
-                    onClick={handleClearData}
+                    onClick={handleClearDataClick}
                     className="px-4 py-2 bg-danger-600 text-white font-semibold rounded-lg shadow-md hover:bg-danger-700 focus:outline-none focus:ring-2 focus:ring-danger-500 focus:ring-opacity-75"
                 >
                     Clear All Bet Data
@@ -322,6 +350,36 @@ const SettingsView: React.FC<SettingsViewProps> = ({ theme, toggleTheme }) => {
             </SettingCard>
           </div>
       </div>
+      
+      {/* Clear Confirmation Modal */}
+      {showClearConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-xl p-6 max-w-md mx-4">
+            <h3 className="text-xl font-bold text-danger-600 dark:text-danger-500 mb-4">
+              ⚠️ Warning: Delete All Bet Data?
+            </h3>
+            <p className="text-neutral-700 dark:text-neutral-300 mb-6">
+              This will permanently delete <strong>ALL {bets.length} bet(s)</strong> from your account.
+              <br /><br />
+              This action <strong>cannot be undone</strong>.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={handleClearDataCancel}
+                className="px-4 py-2 bg-neutral-200 dark:bg-neutral-700 text-neutral-800 dark:text-neutral-200 font-semibold rounded-lg hover:bg-neutral-300 dark:hover:bg-neutral-600 focus:outline-none focus:ring-2 focus:ring-neutral-500"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleClearDataConfirm}
+                className="px-4 py-2 bg-danger-600 text-white font-semibold rounded-lg hover:bg-danger-700 focus:outline-none focus:ring-2 focus:ring-danger-500"
+              >
+                Yes, Delete All Data
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

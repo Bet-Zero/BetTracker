@@ -1,55 +1,83 @@
 import React, { useState } from 'react';
 import { useBets } from '../hooks/useBets';
 import { useInputs } from '../hooks/useInputs';
-import { SportsbookName } from '../types';
+import { SportsbookName, Bet } from '../types';
 import { AlertTriangle, CheckCircle2, ExternalLink } from '../components/icons';
 import { ManualPasteSourceProvider } from '../services/pageSourceProvider';
-import { handleImport } from '../services/importer';
+import { parseBets, handleImport } from '../services/importer';
 import { NoSourceDataError } from '../services/errors';
+import { ImportConfirmationModal } from '../components/ImportConfirmationModal';
 
 const ImportView: React.FC = () => {
   const { addBets } = useBets();
-  const { sportsbooks } = useInputs();
+  const { sportsbooks, sports, players, addPlayer, addSport } = useInputs();
   const [selectedBook, setSelectedBook] = useState<SportsbookName>(sportsbooks[0]?.name || '');
   const [pageHtml, setPageHtml] = useState('');
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [parsedBets, setParsedBets] = useState<Bet[] | null>(null);
   
   const selectedBookUrl = sportsbooks.find(b => b.name === selectedBook)?.url || 'https://google.com/search?q=sportsbooks';
 
-  const handleImportClick = async () => {
+  const handleParseClick = async () => {
     if (!selectedBook) {
         showNotification('Please select a sportsbook first.', 'error');
         return;
     }
+    if (!pageHtml.trim()) {
+        showNotification('Please paste the page source first.', 'error');
+        return;
+    }
+    
     setIsImporting(true);
     setNotification(null);
 
     const sourceProvider = new ManualPasteSourceProvider(() => pageHtml);
     
     try {
-      const { foundCount, importedCount } = await handleImport(selectedBook, sourceProvider, addBets);
-
-      if (foundCount > 0) {
-        if (importedCount > 0) {
-          showNotification(`Imported ${importedCount} new bets out of ${foundCount} found.`, 'success');
-        } else {
-          showNotification(`Found ${foundCount} bets, but none were new.`, 'info');
-        }
-      } else {
-        showNotification(`Could not find any bets to import. Check the source or parser.`, 'error');
+      const bets = await parseBets(selectedBook, sourceProvider);
+      
+      if (bets.length === 0) {
+        showNotification('Could not find any bets to import. Check the source or parser.', 'error');
+        setIsImporting(false);
+        return;
       }
-      setPageHtml('');
+      
+      setParsedBets(bets);
     } catch (error) {
       if (error instanceof NoSourceDataError) {
         showNotification(error.message, 'error');
       } else {
-        console.error("Import failed:", error);
-        showNotification(`An unexpected error occurred during import. Check console for details.`, 'error');
+        console.error("Parse failed:", error);
+        showNotification(`An unexpected error occurred while parsing. Check console for details.`, 'error');
       }
     } finally {
       setIsImporting(false);
     }
+  };
+
+  const handleConfirmImport = async () => {
+    if (!parsedBets || parsedBets.length === 0) return;
+    
+    setIsImporting(true);
+    try {
+      const importedCount = addBets(parsedBets);
+      showNotification(`Successfully imported ${importedCount} bet${importedCount !== 1 ? 's' : ''}.`, 'success');
+      setPageHtml('');
+      setParsedBets(null);
+    } catch (error) {
+      console.error("Import failed:", error);
+      showNotification(`An unexpected error occurred during import. Check console for details.`, 'error');
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const handleEditBet = (index: number, updates: Partial<Bet>) => {
+    if (!parsedBets) return;
+    const updatedBets = [...parsedBets];
+    updatedBets[index] = { ...updatedBets[index], ...updates };
+    setParsedBets(updatedBets);
   };
 
   const showNotification = (message: string, type: 'success' | 'info' | 'error') => {
@@ -78,6 +106,19 @@ const ImportView: React.FC = () => {
   return (
     <div className="p-6 h-full flex flex-col space-y-4 bg-neutral-100 dark:bg-neutral-950">
       {NotificationBanner()}
+      {parsedBets && (
+        <ImportConfirmationModal
+          bets={parsedBets}
+          onConfirm={handleConfirmImport}
+          onCancel={() => setParsedBets(null)}
+          onEditBet={handleEditBet}
+          availableSports={sports}
+          availablePlayers={players}
+          sportsbooks={sportsbooks}
+          onAddPlayer={addPlayer}
+          onAddSport={addSport}
+        />
+      )}
       <header className="flex-shrink-0">
         <h1 className="text-3xl font-bold text-neutral-900 dark:text-white">Import Bets</h1>
         <p className="text-neutral-500 dark:text-neutral-400 mt-1">Navigate to your bet history and paste the page source to import.</p>
@@ -99,11 +140,11 @@ const ImportView: React.FC = () => {
           </select>
         </div>
         <button
-          onClick={handleImportClick}
+          onClick={handleParseClick}
           disabled={isImporting || !pageHtml}
           className="px-6 py-2.5 bg-primary-600 text-white font-semibold rounded-lg shadow-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-75 transition-transform transform hover:scale-105 disabled:bg-neutral-600 dark:disabled:bg-neutral-700 disabled:cursor-not-allowed"
         >
-          {isImporting ? 'Importing...' : 'Import Bets From Source'}
+          {isImporting ? 'Parsing...' : 'Parse & Review Bets'}
         </button>
       </div>
 

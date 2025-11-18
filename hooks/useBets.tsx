@@ -94,14 +94,38 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
           localStorage.removeItem("bettracker-bets");
           setBets([]);
         } else {
-          // Retroactively classify bets that don't have a category for backward compatibility
-          const classifiedBets = parsedBets.map((bet) => {
-            if (!bet.marketCategory) {
-              return { ...bet, marketCategory: classifyBet(bet) };
+          // Migrate old bets: convert single-leg bets to new structure (no legs, type/line/ou on bet)
+          // Also retroactively classify bets that don't have a category
+          const migratedBets = parsedBets.map((bet) => {
+            let migratedBet = { ...bet };
+            
+            // Migration: If bet has exactly 1 leg and no type/line/ou, migrate leg data to bet
+            if (bet.legs && bet.legs.length === 1 && !bet.type && !bet.line && !bet.ou) {
+              const leg = bet.legs[0];
+              migratedBet = {
+                ...bet,
+                type: leg.market,
+                line: leg.target?.toString(),
+                ou: leg.ou,
+                legs: undefined, // Remove legs for single bets
+              };
             }
-            return bet;
+            
+            // Retroactively classify bets that don't have a category
+            // Also fix any bets that somehow got "Other" as category
+            if (!migratedBet.marketCategory || migratedBet.marketCategory === 'Other') {
+              migratedBet.marketCategory = classifyBet(migratedBet);
+            }
+            
+            return migratedBet;
           });
-          setBets(classifiedBets);
+          
+          // Save migrated bets back to localStorage
+          if (JSON.stringify(parsedBets) !== JSON.stringify(migratedBets)) {
+            localStorage.setItem("bettracker-bets", JSON.stringify(migratedBets));
+          }
+          
+          setBets(migratedBets);
         }
       } else {
         // No bets in storage - start with empty array
@@ -210,11 +234,17 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
           (newBet) => !existingBetIds.has(newBet.id)
         );
 
-        // Classify new bets before adding them
-        const classifiedNewBets = trulyNewBets.map((bet) => ({
-          ...bet,
-          marketCategory: classifyBet(bet),
-        }));
+        // Don't re-classify bets - they already have the correct category from normalizeBet
+        // Only classify if category is missing (shouldn't happen, but safety check)
+        const classifiedNewBets = trulyNewBets.map((bet) => {
+          if (!bet.marketCategory || bet.marketCategory === 'Other') {
+            return {
+              ...bet,
+              marketCategory: classifyBet(bet),
+            };
+          }
+          return bet;
+        });
         importedCount = classifiedNewBets.length;
 
         if (importedCount > 0) {

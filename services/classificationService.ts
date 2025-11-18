@@ -4,6 +4,16 @@ import { Bet, MarketCategory } from '../types';
 type ClassifiableBet = Omit<Bet, 'id' | 'marketCategory' | 'raw' | 'tail'>;
 
 const isProp = (bet: ClassifiableBet): boolean => {
+    // If bet has a name field (player/team name), it's almost certainly a prop
+    if (bet.name && bet.name.trim().length > 0) {
+        return true;
+    }
+    
+    // If bet has a type field (stat code like "3pt", "Pts", etc.), it's a prop
+    if (bet.type && bet.type.trim().length > 0) {
+        return true;
+    }
+    
     // Check legs for player/team props
     // FIX: The 'BetLeg' type does not have a 'player' property. Use 'entities' to check for player/team props.
     if (bet.legs?.some(leg => leg.entities && leg.entities.length > 0)) {
@@ -11,8 +21,8 @@ const isProp = (bet: ClassifiableBet): boolean => {
     }
     // Check description for common prop keywords
     const propKeywords = [
-        'Pts', 'Reb', 'Ast', // NBA
-        'Points', 'Rebounds', 'Assists', 'Threes', // General
+        'Pts', 'Reb', 'Ast', '3pt', // NBA
+        'Points', 'Rebounds', 'Assists', 'Threes', 'Made Threes', 'MADE THREES', // General
         'Yards', 'Touchdown', 'TD', 'Receiving', 'Rushing', 'Passing', // NFL
         'Home Runs', 'Strikeouts', 'Hits', 'Runs', // MLB
         'Goals', 'Shots on Goal', // NHL / Soccer
@@ -74,5 +84,12 @@ export const classifyBet = (bet: ClassifiableBet): MarketCategory => {
         return 'Props';
     }
 
-    return 'Other';
+    // NEVER return 'Other' - if we have a name or type, it's Props
+    // Otherwise default to Main Markets (safer default than Props)
+    if (bet.name || bet.type) {
+        return 'Props';
+    }
+    
+    // Last resort: default to Main Markets (never Other)
+    return 'Main Markets';
 };

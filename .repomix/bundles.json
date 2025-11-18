@@ -13,6 +13,14 @@
       "lastUsed": "2025-11-17T03:30:40.744Z",
       "tags": [],
       "files": []
+    },
+    "full-433": {
+      "name": "full",
+      "created": "2025-11-18T11:55:00.687Z",
+      "lastUsed": "2025-11-18T11:55:00.687Z",
+      "tags": [],
+      "files": [],
+      "configPath": ".repomix/config/full-repomix.config.json"
     }
   }
 }

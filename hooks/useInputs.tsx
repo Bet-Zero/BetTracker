@@ -1,5 +1,12 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { Sportsbook, SportsbookName } from '../types';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+  useCallback,
+} from "react";
+import { Sportsbook, SportsbookName } from "../types";
 
 export interface ItemsBySport {
   [sport: string]: string[];
@@ -12,6 +19,9 @@ interface InputsContextType {
   sports: string[];
   addSport: (sport: string) => boolean;
   removeSport: (sport: string) => void;
+  categories: string[];
+  addCategory: (category: string) => boolean;
+  removeCategory: (category: string) => void;
   betTypes: ItemsBySport;
   addBetType: (sport: string, type: string) => boolean;
   removeBetType: (sport: string, type: string) => void;
@@ -26,7 +36,10 @@ interface InputsContextType {
 
 const InputsContext = createContext<InputsContextType | undefined>(undefined);
 
-const useLocalStorage = <T,>(key: string, initialValue: T): [T, (value: T | ((val: T) => T)) => void] => {
+const useLocalStorage = <T,>(
+  key: string,
+  initialValue: T
+): [T, (value: T | ((val: T) => T)) => void] => {
   const [storedValue, setStoredValue] = useState<T>(() => {
     try {
       const item = window.localStorage.getItem(key);
@@ -39,7 +52,8 @@ const useLocalStorage = <T,>(key: string, initialValue: T): [T, (value: T | ((va
 
   const setValue = (value: T | ((val: T) => T)) => {
     try {
-      const valueToStore = value instanceof Function ? value(storedValue) : value;
+      const valueToStore =
+        value instanceof Function ? value(storedValue) : value;
       setStoredValue(valueToStore);
       window.localStorage.setItem(key, JSON.stringify(valueToStore));
     } catch (error) {
@@ -51,24 +65,68 @@ const useLocalStorage = <T,>(key: string, initialValue: T): [T, (value: T | ((va
 };
 
 const defaultSportsbooks: Sportsbook[] = [
-    { name: 'FanDuel', abbreviation: 'FD', url: 'https://www.fanduel.com/' },
-    { name: 'DraftKings', abbreviation: 'DK', url: 'https://www.draftkings.com/' }
+  { name: "FanDuel", abbreviation: "FD", url: "https://www.fanduel.com/" },
+  {
+    name: "DraftKings",
+    abbreviation: "DK",
+    url: "https://www.draftkings.com/",
+  },
 ];
-const defaultSports: string[] = ['NBA', 'NFL', 'MLB', 'NHL', 'Soccer', 'Tennis'];
+const defaultSports: string[] = [
+  "NBA",
+  "NFL",
+  "MLB",
+  "NHL",
+  "Soccer",
+  "Tennis",
+];
+const defaultCategories: string[] = [
+  "Props",
+  "Main Markets",
+  "Futures",
+  "SGP/SGP+",
+  "Parlays",
+];
 const defaultBetTypes: ItemsBySport = {
-    'NBA': ['Player Points', 'Player Rebounds', 'Player Assists', 'Player Threes'],
-    'NFL': ['Passing Yards', 'Rushing Yards', 'Receiving Yards', 'Anytime Touchdown Scorer'],
-    'MLB': ['Home Runs', 'Strikeouts', 'Hits'],
-    'NHL': ['Goals', 'Assists', 'Shots on Goal'],
-    'Soccer': ['Goals', 'Shots', 'Assists']
+  NBA: ["Player Points", "Player Rebounds", "Player Assists", "Player Threes"],
+  NFL: [
+    "Passing Yards",
+    "Rushing Yards",
+    "Receiving Yards",
+    "Anytime Touchdown Scorer",
+  ],
+  MLB: ["Home Runs", "Strikeouts", "Hits"],
+  NHL: ["Goals", "Assists", "Shots on Goal"],
+  Soccer: ["Goals", "Shots", "Assists"],
 };
 
-export const InputsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [sportsbooks, setSportsbooks] = useLocalStorage<Sportsbook[]>('bettracker-sportsbooks', defaultSportsbooks);
-  const [sports, setSports] = useLocalStorage<string[]>('bettracker-sports', defaultSports);
-  const [betTypes, setBetTypes] = useLocalStorage<ItemsBySport>('bettracker-bettypes', defaultBetTypes);
-  const [players, setPlayers] = useLocalStorage<ItemsBySport>('bettracker-players', {});
-  const [teams, setTeams] = useLocalStorage<ItemsBySport>('bettracker-teams', {});
+export const InputsProvider: React.FC<{ children: ReactNode }> = ({
+  children,
+}) => {
+  const [sportsbooks, setSportsbooks] = useLocalStorage<Sportsbook[]>(
+    "bettracker-sportsbooks",
+    defaultSportsbooks
+  );
+  const [sports, setSports] = useLocalStorage<string[]>(
+    "bettracker-sports",
+    defaultSports
+  );
+  const [categories, setCategories] = useLocalStorage<string[]>(
+    "bettracker-categories",
+    defaultCategories
+  );
+  const [betTypes, setBetTypes] = useLocalStorage<ItemsBySport>(
+    "bettracker-bettypes",
+    defaultBetTypes
+  );
+  const [players, setPlayers] = useLocalStorage<ItemsBySport>(
+    "bettracker-players",
+    {}
+  );
+  const [teams, setTeams] = useLocalStorage<ItemsBySport>(
+    "bettracker-teams",
+    {}
+  );
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -76,112 +134,209 @@ export const InputsProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     setLoading(false);
   }, []);
 
-  const addSportsbook = useCallback((book: Sportsbook) => {
-    if (sportsbooks.some(b => b.name.toLowerCase() === book.name.toLowerCase())) {
+  const addSportsbook = useCallback(
+    (book: Sportsbook) => {
+      if (
+        sportsbooks.some(
+          (b) => b.name.toLowerCase() === book.name.toLowerCase()
+        )
+      ) {
         return false;
-    }
-    setSportsbooks([...sportsbooks, book].sort((a,b) => a.name.localeCompare(b.name)));
-    return true;
-  }, [sportsbooks, setSportsbooks]);
+      }
+      setSportsbooks(
+        [...sportsbooks, book].sort((a, b) => a.name.localeCompare(b.name))
+      );
+      return true;
+    },
+    [sportsbooks, setSportsbooks]
+  );
 
-  const removeSportsbook = useCallback((name: SportsbookName) => {
-    setSportsbooks(sportsbooks.filter(b => b.name !== name));
-  }, [sportsbooks, setSportsbooks]);
+  const removeSportsbook = useCallback(
+    (name: SportsbookName) => {
+      setSportsbooks(sportsbooks.filter((b) => b.name !== name));
+    },
+    [sportsbooks, setSportsbooks]
+  );
 
-  const addSport = useCallback((sport: string) => {
-    if (sports.some(s => s.toLowerCase() === sport.toLowerCase())) {
+  const addSport = useCallback(
+    (sport: string) => {
+      if (sports.some((s) => s.toLowerCase() === sport.toLowerCase())) {
         return false;
-    }
-    setSports([...sports, sport].sort());
-    return true;
-  }, [sports, setSports]);
+      }
+      setSports([...sports, sport].sort());
+      return true;
+    },
+    [sports, setSports]
+  );
 
-  const removeSport = useCallback((sportToRemove: string) => {
-    setSports(sports.filter(s => s !== sportToRemove));
-    // Also remove associated bet types, players, and teams
-    const newBetTypes = { ...betTypes };
-    delete newBetTypes[sportToRemove];
-    setBetTypes(newBetTypes);
-    const newPlayers = { ...players };
-    delete newPlayers[sportToRemove];
-    setPlayers(newPlayers);
-    const newTeams = { ...teams };
-    delete newTeams[sportToRemove];
-    setTeams(newTeams);
-  }, [sports, setSports, betTypes, setBetTypes, players, setPlayers, teams, setTeams]);
+  const removeSport = useCallback(
+    (sportToRemove: string) => {
+      setSports(sports.filter((s) => s !== sportToRemove));
+      // Also remove associated bet types, players, and teams
+      const newBetTypes = { ...betTypes };
+      delete newBetTypes[sportToRemove];
+      setBetTypes(newBetTypes);
+      const newPlayers = { ...players };
+      delete newPlayers[sportToRemove];
+      setPlayers(newPlayers);
+      const newTeams = { ...teams };
+      delete newTeams[sportToRemove];
+      setTeams(newTeams);
+    },
+    [
+      sports,
+      setSports,
+      betTypes,
+      setBetTypes,
+      players,
+      setPlayers,
+      teams,
+      setTeams,
+    ]
+  );
 
-  const addBetType = useCallback((sport: string, type: string) => {
-    const sportTypes = betTypes[sport] || [];
-    if (sportTypes.some(t => t.toLowerCase() === type.toLowerCase())) {
+  const addCategory = useCallback(
+    (category: string) => {
+      if (categories.some((c) => c.toLowerCase() === category.toLowerCase())) {
         return false;
-    }
-    const newBetTypes = {
-      ...betTypes,
-      [sport]: [...sportTypes, type].sort()
-    };
-    setBetTypes(newBetTypes);
-    return true;
-  }, [betTypes, setBetTypes]);
+      }
+      setCategories([...categories, category].sort());
+      return true;
+    },
+    [categories, setCategories]
+  );
 
-  const removeBetType = useCallback((sport: string, typeToRemove: string) => {
-    const sportTypes = betTypes[sport] || [];
-    const newSportTypes = sportTypes.filter(t => t !== typeToRemove);
-    const newBetTypes = {
-      ...betTypes,
-      [sport]: newSportTypes
-    };
-    if (newSportTypes.length === 0) {
+  const removeCategory = useCallback(
+    (categoryToRemove: string) => {
+      setCategories(categories.filter((c) => c !== categoryToRemove));
+    },
+    [categories, setCategories]
+  );
+
+  const addBetType = useCallback(
+    (sport: string, type: string) => {
+      const sportTypes = betTypes[sport] || [];
+      if (sportTypes.some((t) => t.toLowerCase() === type.toLowerCase())) {
+        return false;
+      }
+      const newBetTypes = {
+        ...betTypes,
+        [sport]: [...sportTypes, type].sort(),
+      };
+      setBetTypes(newBetTypes);
+      return true;
+    },
+    [betTypes, setBetTypes]
+  );
+
+  const removeBetType = useCallback(
+    (sport: string, typeToRemove: string) => {
+      const sportTypes = betTypes[sport] || [];
+      const newSportTypes = sportTypes.filter((t) => t !== typeToRemove);
+      const newBetTypes = {
+        ...betTypes,
+        [sport]: newSportTypes,
+      };
+      if (newSportTypes.length === 0) {
         delete newBetTypes[sport];
-    }
-    setBetTypes(newBetTypes);
-  }, [betTypes, setBetTypes]);
+      }
+      setBetTypes(newBetTypes);
+    },
+    [betTypes, setBetTypes]
+  );
 
-  const addBySport = useCallback((sport: string, item: string, setter: (value: ItemsBySport | ((val: ItemsBySport) => ItemsBySport)) => void) => {
-    if (!sport || !item) return;
-    setter(prevList => {
-      const sportList = prevList[sport] || [];
-      if (!sportList.some(i => i.toLowerCase() === item.toLowerCase())) {
-        const newList = { ...prevList, [sport]: [...sportList, item].sort() };
+  const addBySport = useCallback(
+    (
+      sport: string,
+      item: string,
+      setter: (
+        value: ItemsBySport | ((val: ItemsBySport) => ItemsBySport)
+      ) => void
+    ) => {
+      if (!sport || !item) return;
+      setter((prevList) => {
+        const sportList = prevList[sport] || [];
+        if (!sportList.some((i) => i.toLowerCase() === item.toLowerCase())) {
+          const newList = { ...prevList, [sport]: [...sportList, item].sort() };
+          return newList;
+        }
+        return prevList;
+      });
+    },
+    []
+  );
+
+  const removeBySport = useCallback(
+    (
+      sport: string,
+      itemToRemove: string,
+      setter: (
+        value: ItemsBySport | ((val: ItemsBySport) => ItemsBySport)
+      ) => void
+    ) => {
+      setter((prevList) => {
+        const sportList = prevList[sport] || [];
+        const newSportList = sportList.filter((item) => item !== itemToRemove);
+        const newList = { ...prevList, [sport]: newSportList };
+        if (newSportList.length === 0) {
+          delete newList[sport];
+        }
         return newList;
-      }
-      return prevList;
-    });
-  }, []);
+      });
+    },
+    []
+  );
 
-  const removeBySport = useCallback((sport: string, itemToRemove: string, setter: (value: ItemsBySport | ((val: ItemsBySport) => ItemsBySport)) => void) => {
-    setter(prevList => {
-      const sportList = prevList[sport] || [];
-      const newSportList = sportList.filter(item => item !== itemToRemove);
-      const newList = { ...prevList, [sport]: newSportList };
-      if (newSportList.length === 0) {
-        delete newList[sport];
-      }
-      return newList;
-    });
-  }, []);
-
-  const addPlayer = useCallback((sport: string, player: string) => addBySport(sport, player, setPlayers), [addBySport, setPlayers]);
-  const removePlayer = useCallback((sport: string, player: string) => removeBySport(sport, player, setPlayers), [removeBySport, setPlayers]);
-  const addTeam = useCallback((sport: string, team: string) => addBySport(sport, team, setTeams), [addBySport, setTeams]);
-  const removeTeam = useCallback((sport: string, team: string) => removeBySport(sport, team, setTeams), [removeBySport, setTeams]);
-
+  const addPlayer = useCallback(
+    (sport: string, player: string) => addBySport(sport, player, setPlayers),
+    [addBySport, setPlayers]
+  );
+  const removePlayer = useCallback(
+    (sport: string, player: string) => removeBySport(sport, player, setPlayers),
+    [removeBySport, setPlayers]
+  );
+  const addTeam = useCallback(
+    (sport: string, team: string) => addBySport(sport, team, setTeams),
+    [addBySport, setTeams]
+  );
+  const removeTeam = useCallback(
+    (sport: string, team: string) => removeBySport(sport, team, setTeams),
+    [removeBySport, setTeams]
+  );
 
   const value = {
-    sportsbooks, addSportsbook, removeSportsbook,
-    sports, addSport, removeSport,
-    betTypes, addBetType, removeBetType,
-    players, addPlayer, removePlayer,
-    teams, addTeam, removeTeam,
-    loading
+    sportsbooks,
+    addSportsbook,
+    removeSportsbook,
+    sports,
+    addSport,
+    removeSport,
+    categories,
+    addCategory,
+    removeCategory,
+    betTypes,
+    addBetType,
+    removeBetType,
+    players,
+    addPlayer,
+    removePlayer,
+    teams,
+    addTeam,
+    removeTeam,
+    loading,
   };
 
-  return <InputsContext.Provider value={value}>{!loading && children}</InputsContext.Provider>;
+  return (
+    <InputsContext.Provider value={value}>
+      {!loading && children}
+    </InputsContext.Provider>
+  );
 };
 
 export const useInputs = (): InputsContextType => {
   const context = useContext(InputsContext);
   if (context === undefined) {
-    throw new Error('useInputs must be used within an InputsProvider');
+    throw new Error("useInputs must be used within an InputsProvider");
   }
   return context;
 };

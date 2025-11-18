@@ -1,21 +1,21 @@
-import { SportsbookName, Bet } from '../types';
+import { SportsbookName, FinalRow } from '../types';
 import { parse as parseFanDuel } from './parsers/fanduel';
 import { parse as parseDraftKings } from './parsers/draftkings';
 
-export const processPage = (book: SportsbookName, html: string): Bet[] => {
+export const processPage = (book: SportsbookName, html: string): FinalRow[] => {
   if (!html) {
     console.warn("HTML content is empty, skipping parse.");
     return [];
   }
 
-  let parsedBets: Bet[] = [];
+  let parsedRows: FinalRow[] = [];
   try {
     switch (book) {
       case 'FanDuel':
-        parsedBets = parseFanDuel(html);
+        parsedRows = parseFanDuel(html);
         break;
       case 'DraftKings':
-        parsedBets = parseDraftKings(html);
+        parsedRows = parseDraftKings(html);
         break;
       case 'Other':
         // A generic parser or a user-defined parser could be called here.
@@ -31,5 +31,5 @@ export const processPage = (book: SportsbookName, html: string): Bet[] => {
     return [];
   }
 
-  return parsedBets;
+  return parsedRows;
 };
