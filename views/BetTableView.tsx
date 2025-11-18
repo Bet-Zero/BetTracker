@@ -17,6 +17,23 @@ import {
 } from "../types";
 import { Wifi } from "../components/icons";
 
+// Custom hook for debounced value
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
 // Cell coordinate type
 type CellCoordinate = {
   rowIndex: number;
@@ -51,13 +68,21 @@ interface FlatBet {
 }
 
 // --- Calculation Helper ---
+// Optimized profit calculation with early returns
 const calculateProfit = (stake: number, odds: number): number => {
+  // Fast path for invalid inputs
   if (isNaN(stake) || isNaN(odds) || stake <= 0) return 0;
+  
+  // Fast path for positive odds
   if (odds > 0) {
     return stake * (odds / 100);
-  } else if (odds < 0) {
+  }
+  
+  // Fast path for negative odds
+  if (odds < 0) {
     return stake / (Math.abs(odds) / 100);
   }
+  
   return 0;
 };
 
@@ -481,6 +506,9 @@ const BetTableView: React.FC = () => {
     addTeam,
   } = useInputs();
   const [searchTerm, setSearchTerm] = useState("");
+  // Debounce search term to reduce filtering overhead
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
+  
   const [filters, setFilters] = useState<{
     sport: string | "all";
     type: string | "all";
@@ -655,54 +683,57 @@ const BetTableView: React.FC = () => {
     [bets, updateBet]
   );
 
-  // Very basic entity detection for auto-add
-  const autoAddEntity = (sport: string, entity: string, market: string) => {
-    const lowerMarket = market.toLowerCase();
-    const teamMarketKeywords = [
-      "moneyline",
-      "ml",
-      "spread",
-      "total",
-      "run line",
-      "money line",
-      "outright winner",
-      "to win",
-    ];
-    const playerMarketKeywords = [
-      "player",
-      "prop",
-      "yards",
-      "points",
-      "rebounds",
-      "assists",
-      "touchdown",
-      "strikeouts",
-      "hits",
-      "goals",
-      "scorer",
-      "triple-double",
-      "threes",
-    ];
-    const isTeamMarket = teamMarketKeywords.some((keyword) =>
-      lowerMarket.includes(keyword)
-    );
-    const isPlayerMarket = playerMarketKeywords.some((keyword) =>
-      lowerMarket.includes(keyword)
-    );
+  // Very basic entity detection for auto-add - memoized for performance
+  const autoAddEntity = useCallback(
+    (sport: string, entity: string, market: string) => {
+      const lowerMarket = market.toLowerCase();
+      const teamMarketKeywords = [
+        "moneyline",
+        "ml",
+        "spread",
+        "total",
+        "run line",
+        "money line",
+        "outright winner",
+        "to win",
+      ];
+      const playerMarketKeywords = [
+        "player",
+        "prop",
+        "yards",
+        "points",
+        "rebounds",
+        "assists",
+        "touchdown",
+        "strikeouts",
+        "hits",
+        "goals",
+        "scorer",
+        "triple-double",
+        "threes",
+      ];
+      const isTeamMarket = teamMarketKeywords.some((keyword) =>
+        lowerMarket.includes(keyword)
+      );
+      const isPlayerMarket = playerMarketKeywords.some((keyword) =>
+        lowerMarket.includes(keyword)
+      );
 
-    if (isPlayerMarket && !isTeamMarket) {
-      addPlayer(sport, entity);
-    } else if (isTeamMarket && !isPlayerMarket) {
-      addTeam(sport, entity);
-    } else {
-      const teamSports = ["NFL", "NBA", "MLB", "NHL", "Soccer"];
-      if (teamSports.includes(sport)) {
+      if (isPlayerMarket && !isTeamMarket) {
+        addPlayer(sport, entity);
+      } else if (isTeamMarket && !isPlayerMarket) {
         addTeam(sport, entity);
       } else {
-        addPlayer(sport, entity);
+        const teamSports = ["NFL", "NBA", "MLB", "NHL", "Soccer"];
+        if (teamSports.includes(sport)) {
+          addTeam(sport, entity);
+        } else {
+          addPlayer(sport, entity);
+        }
       }
-    }
-  };
+    },
+    [addPlayer, addTeam]
+  );
 
   const availableTypes = useMemo(() => {
     if (filters.sport === "all") {
@@ -730,8 +761,11 @@ const BetTableView: React.FC = () => {
     [sports, availableSites, categories, betTypes, players, teams]
   );
 
-  // Optimize filtering with lowercase search term cached
-  const lowerSearchTerm = useMemo(() => searchTerm.toLowerCase(), [searchTerm]);
+  // Optimize filtering with lowercase search term cached (using debounced value)
+  const lowerSearchTerm = useMemo(
+    () => debouncedSearchTerm.toLowerCase(),
+    [debouncedSearchTerm]
+  );
   
   const filteredBets = useMemo(() => {
     // Early return if no filters and no search
@@ -740,7 +774,7 @@ const BetTableView: React.FC = () => {
       filters.type === "all" &&
       filters.result === "all" &&
       filters.category === "all" &&
-      searchTerm === ""
+      debouncedSearchTerm === ""
     ) {
       return flattenedBets;
     }
@@ -759,7 +793,7 @@ const BetTableView: React.FC = () => {
         return false;
 
       // Apply search last (most expensive)
-      if (searchTerm !== "") {
+      if (debouncedSearchTerm !== "") {
         return (
           bet.name.toLowerCase().includes(lowerSearchTerm) ||
           bet.type.toLowerCase().includes(lowerSearchTerm) ||
@@ -770,7 +804,7 @@ const BetTableView: React.FC = () => {
 
       return true;
     });
-  }, [flattenedBets, filters, searchTerm, lowerSearchTerm]);
+  }, [flattenedBets, filters, debouncedSearchTerm, lowerSearchTerm]);
 
   // Optimize sorting - avoid array copy when no sort config
   const sortedBets = useMemo(() => {
@@ -824,7 +858,7 @@ const BetTableView: React.FC = () => {
     value: string;
     onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
     options: string[];
-  }> = ({ label, value, onChange, options }) => (
+  }> = React.memo(({ label, value, onChange, options }) => (
     <div>
       <label className="text-sm font-medium text-neutral-500 dark:text-neutral-400 mr-2">
         {label}:
@@ -842,7 +876,9 @@ const BetTableView: React.FC = () => {
         ))}
       </select>
     </div>
-  );
+  ));
+
+  FilterControl.displayName = 'FilterControl';
 
   const headers: {
     key: keyof FlatBet;
