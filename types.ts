@@ -62,9 +62,20 @@ export interface StrictBetRow {
 }
 
 /**
- * FinalRow represents the normalized output from the global normalizer.
- * All fields are strings matching the exact column schema.
- * Date format: MM/DD/YY
+ * FinalRow - THE CANONICAL SPREADSHEET ROW TYPE
+ * 
+ * This interface represents the EXACT columns in the user's spreadsheet.
+ * All fields must match the spreadsheet schema exactly.
+ * 
+ * RULES:
+ * - Name: SUBJECT ONLY (player or team name, nothing else)
+ * - Type: Depends on Category:
+ *   - Props → stat type (Pts, Reb, Ast, 3pt, PRA, etc.)
+ *   - Main → {Spread, Total, Moneyline}
+ *   - Futures → {Win Total, NBA Finals, Super Bowl, Make Playoffs, Miss Playoffs, etc.}
+ * - Type must NEVER contain bet form concepts (single/parlay/sgp/etc.)
+ * - Over/Under: "1" or "0" (or "" when not applicable)
+ * - Date format: MM/DD/YY
  */
 export interface FinalRow {
   Date: string;        // MM/DD/YY format
@@ -73,8 +84,8 @@ export interface FinalRow {
   Category: string;
   Type: string;
   Name: string;
-  Over: string;        // "1" or "0"
-  Under: string;      // "1" or "0"
+  Over: string;        // "1" or "0" or ""
+  Under: string;      // "1" or "0" or ""
   Line: string;
   Odds: string;       // "+360" or "-120" (keep sign)
   Bet: string;        // "1.00" (no $)
