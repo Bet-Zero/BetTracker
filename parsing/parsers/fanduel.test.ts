@@ -1,3 +1,8 @@
+/**
+ * DEPRECATED: This test file tests the old FinalRow-based parser.
+ * The new simplified parser (fanduel-v2) is tested in fanduel-v2.test.ts.
+ * This file is kept for reference but tests are skipped.
+ */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
@@ -7,7 +12,7 @@ import { parse } from './fanduel';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-describe('FanDuel Parser - SGP Parsing', () => {
+describe.skip('FanDuel Parser - SGP Parsing (DEPRECATED)', () => {
   let fixtureHtml: string;
 
   beforeAll(() => {
@@ -158,7 +163,7 @@ describe('FanDuel Parser - SGP Parsing', () => {
   });
 });
 
-describe('FanDuel Parser - Single Bet Parsing', () => {
+describe.skip('FanDuel Parser - Single Bet Parsing (DEPRECATED)', () => {
   let fixtureHtml: string;
 
   beforeAll(() => {
