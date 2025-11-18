@@ -127,7 +127,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ theme, toggleTheme }) => {
 
             return {
                 ...betData,
-                marketCategory: classifyBet(betData)
+                marketCategory: row.category || classifyBet(betData)
             };
         });
 
@@ -215,13 +215,14 @@ const SettingsView: React.FC<SettingsViewProps> = ({ theme, toggleTheme }) => {
             <p>Your CSV file should match the format of common bet tracking spreadsheets.</p>
             <p><b>Required Header Row:</b></p>
             <code className="block text-xs bg-neutral-200 dark:bg-neutral-900 p-2 rounded">
-              Date,Site,Sport,Type,Name,O/U,Line,Odds,Bet,To Win,Result,Net,Tail,Notes
+              Date,Site,Sport,Category,Type,Name,O/U,Line,Odds,Bet,To Win,Result,Net,Tail,Notes
             </code>
             <p><b>Notes:</b></p>
             <ul className="list-disc list-inside space-y-1 text-xs">
                 <li>The header row is <b>required</b> and must match the names above. Column order does not matter.</li>
                 <li><b>Date:</b> Should be a recognizable format, like <code>MM/DD/YYYY</code>.</li>
                 <li><b>Site:</b> Use abbreviations (e.g., FD, DK). These will be mapped to the full names you've configured in Input Management.</li>
+                <li><b>Category:</b> Must be one of: Props, Main Markets, Futures, Parlays, SGP. If empty, will be auto-classified.</li>
                 <li><b>Result:</b> Must contain 'Won', 'Lost', or 'Push'.</li>
                 <li><b>Bet & To Win:</b> Can include '$' signs; they will be removed automatically.</li>
                 <li><b>Notes:</b> If this column contains the word "Live", the bet will be marked as a live bet.</li>

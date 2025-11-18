@@ -5,6 +5,7 @@ export interface ParsedCsvRow {
     date: string;
     site: string;
     sport: string;
+    category?: string;
     type: string;
     name: string;
     ou?: 'Over' | 'Under';
@@ -22,6 +23,7 @@ interface CsvRow {
   Date: string;
   Site: string;
   Sport: string;
+  Category: string;
   Type: string;
   Name: string;
   'O/U': 'Over' | 'Under' | string;
@@ -66,7 +68,7 @@ export const parseCsv = (csvString: string): ParsedCsvRow[] => {
     };
 
     const header = parseLine(lines[0]);
-    const requiredHeaders = ['Date', 'Site', 'Sport', 'Type', 'Name', 'Odds', 'Bet', 'To Win', 'Result'];
+    const requiredHeaders = ['Date', 'Site', 'Sport', 'Category', 'Type', 'Name', 'Odds', 'Bet', 'To Win', 'Result'];
     const missingHeaders = requiredHeaders.filter(h => !header.includes(h));
 
     // Allow for flexibility if some optional columns are missing, but error on required ones.
@@ -98,6 +100,7 @@ export const parseCsv = (csvString: string): ParsedCsvRow[] => {
             date: cleanString(rowObject.Date),
             site: cleanString(rowObject.Site),
             sport: cleanString(rowObject.Sport),
+            category: cleanString(rowObject.Category) || undefined,
             type: cleanString(rowObject.Type),
             name: cleanString(rowObject.Name),
             ou: ouStr.toLowerCase() === 'over' ? 'Over' : ouStr.toLowerCase() === 'under' ? 'Under' : undefined,

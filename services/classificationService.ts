@@ -49,7 +49,7 @@ const isFuture = (bet: ClassifiableBet): boolean => {
 
 export const classifyBet = (bet: ClassifiableBet): MarketCategory => {
     if (bet.betType === 'sgp') {
-        return 'SGP/SGP+';
+        return 'SGP';
     }
     if (bet.betType === 'parlay') {
         return 'Parlays';
@@ -74,5 +74,6 @@ export const classifyBet = (bet: ClassifiableBet): MarketCategory => {
         return 'Props';
     }
 
-    return 'Other';
+    // Default to Props for unclassified bets
+    return 'Props';
 };
