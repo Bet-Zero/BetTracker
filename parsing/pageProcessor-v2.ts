@@ -39,7 +39,7 @@ export const processPage = (book: SportsbookName, html: string): Bet[] => {
     }
   } catch (error) {
     console.error(`Error parsing data for ${book}:`, error);
-    alert(`An error occurred while parsing the page for ${book}. Check the console for details.`);
+    // Optionally, handle error notification via a toast/snackbar in the calling component.
     return [];
   }
 
