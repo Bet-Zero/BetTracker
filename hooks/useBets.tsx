@@ -231,7 +231,7 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
           (newBet) => !existingBetIds.has(newBet.id)
         );
 
-        // Don't re-classify bets - they already have the correct category from normalizeBet
+        // Don't re-classify bets - they already have the correct category from the parser
         // Only classify if category is missing (shouldn't happen, but safety check)
         const classifiedNewBets = trulyNewBets.map((bet) => {
           if (!bet.marketCategory || bet.marketCategory === 'Other') {
