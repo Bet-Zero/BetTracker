@@ -8,6 +8,7 @@ import SettingsView from './views/SettingsView';
 import SportsbookBreakdownView from './views/SportsbookBreakdownView';
 import BySportView from './views/BySportView';
 import PlayerProfileView from './views/PlayerProfileView';
+import ErrorBoundary from './components/ErrorBoundary';
 import { DownloadCloud, BarChart2, Settings, Table, Sun, Moon, Scale, User, Trophy } from './components/icons';
 
 type Tab = 'import' | 'table' | 'dashboard' | 'bySport' | 'sportsbooks' | 'player' | 'settings';
@@ -101,7 +102,9 @@ const App: React.FC = () => {
             </div>
           </aside>
           <main className="flex-1 overflow-y-auto">
-            {renderTab()}
+            <ErrorBoundary>
+              {renderTab()}
+            </ErrorBoundary>
           </main>
         </div>
       </BetsProvider>

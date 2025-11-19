@@ -45,7 +45,11 @@ const useLocalStorage = <T,>(
       const item = window.localStorage.getItem(key);
       return item ? JSON.parse(item) : initialValue;
     } catch (error) {
-      console.error(error);
+      console.error(`Failed to load ${key} from localStorage:`, error);
+      // Show error notification for load failures
+      if (error instanceof Error && (error.message.includes('QuotaExceededError') || error.message.includes('SecurityError'))) {
+        alert(`Failed to load ${key} from storage. Your data may not be saved. Please check browser settings.`);
+      }
       return initialValue;
     }
   });
@@ -57,7 +61,17 @@ const useLocalStorage = <T,>(
       setStoredValue(valueToStore);
       window.localStorage.setItem(key, JSON.stringify(valueToStore));
     } catch (error) {
-      console.error(error);
+      console.error(`Failed to save ${key} to localStorage:`, error);
+      // Show error notification for save failures
+      if (error instanceof Error) {
+        if (error.message.includes('QuotaExceededError') || error.message.includes('quota')) {
+          alert(`Storage is full. Failed to save ${key}. Please clear browser storage or export your data.`);
+        } else if (error.message.includes('SecurityError') || error.message.includes('disabled')) {
+          alert(`Browser storage is disabled. Failed to save ${key}. Please enable localStorage in browser settings.`);
+        } else {
+          alert(`Failed to save ${key}. Check console for details.`);
+        }
+      }
     }
   };
 

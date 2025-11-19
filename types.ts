@@ -1,7 +1,7 @@
 export type BetResult = 'win' | 'loss' | 'push' | 'pending';
 export type BetType = 'single' | 'parlay' | 'sgp' | 'live' | 'other';
 export type SportsbookName = string;
-export type MarketCategory = string;
+export type MarketCategory = "Props" | "Main Markets" | "Futures" | "SGP/SGP+" | "Parlays";
 
 export interface Sportsbook {
   name: SportsbookName;
@@ -41,6 +41,7 @@ export interface Bet {
   tail?: string; // Who the bet was tailed from
   raw?: string; // Full raw text block for this bet
   isLive?: boolean; // Whether bet was placed live/in-game (separate from betType)
+  isSample?: boolean; // Whether this is sample data (for migration detection)
 }
 
 export interface StrictBetRow {

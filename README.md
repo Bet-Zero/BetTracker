@@ -1,20 +1,81 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# BetTracker
 
-# Run and deploy your AI Studio app
+A web application for tracking sports bets from multiple sportsbooks. Parse HTML from your settled bets pages and track your betting history with a spreadsheet-like interface.
 
-This contains everything you need to run your app locally.
+## Features
 
-View your app in AI Studio: https://ai.studio/apps/drive/11os0u2vJGgezQeyxDfX31mtnYZfTnl_y
+- **HTML Parsing**: Paste HTML from FanDuel, DraftKings, or other sportsbooks to automatically extract bet information
+- **CSV Import/Export**: Import bets from CSV files or export your data for backup
+- **Bet Tracking**: Track bets across multiple categories (Props, Main Markets, Futures, Parlays, SGPs)
+- **Statistics**: View breakdowns by sport, sportsbook, category, and player
+- **Edit & Review**: Review and edit bets before importing, with validation and error detection
+
+## How It Works
+
+### Data Flow
+
+**HTML Import:**
+1. Paste HTML from your sportsbook's settled bets page
+2. Parser extracts bet information (odds, stake, payout, legs, etc.)
+3. Bets are stored as `Bet` objects internally
+4. For display, bets are converted to `FinalRow` format (spreadsheet columns)
+
+**CSV Import:**
+1. Upload a CSV file matching the spreadsheet format
+2. CSV is parsed into `FinalRow[]` format
+3. `FinalRow[]` is converted to `Bet[]` for storage
+
+**Storage & Display:**
+- Bets are stored internally as `Bet` objects with structured data (legs, entities, etc.)
+- For the table view, `Bet` objects are converted to `FinalRow[]` (one row per leg for multi-leg bets)
+- All data is stored in browser localStorage
+
+### Field Definitions
+
+**Name**: Subject only (player or team name), not the full market text
+
+**Type**: Depends on Category:
+- **Props** → Stat type code (Pts, Ast, 3pt, Reb, PRA, etc.)
+- **Main** → {Spread, Total, Moneyline}
+- **Futures** → {Win Total, NBA Finals, Super Bowl, Make Playoffs, etc.}
+- Type must NEVER contain bet form concepts (single/parlay/sgp/etc.)
+
+**Category**: {Props, Main Markets, Futures, SGP/SGP+, Parlays}
+
+**Over/Under**: "1" or "0" flags (or "" when not applicable)
+
+**Line**: The numeric threshold (e.g., "3+", "25.5")
+
+**Live**: "1" or "" flag (uses `isLive` field on Bet, not `betType`)
 
 ## Run Locally
 
-**Prerequisites:**  Node.js
-
+**Prerequisites:** Node.js
 
 1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+   ```bash
+   npm install
+   ```
+
+2. Run the app:
+   ```bash
+   npm run dev
+   ```
+
+3. Open your browser to the URL shown in the terminal (typically `http://localhost:5173`)
+
+## Project Structure
+
+- `parsing/parsers/` - HTML parsers for each sportsbook (FanDuel, DraftKings)
+- `parsing/betToFinalRows.ts` - Converts Bet objects to FinalRow format for display
+- `parsing/pageProcessor.ts` - Routes HTML to the appropriate parser
+- `services/` - Import, classification, CSV parsing services
+- `views/` - Main UI views (Dashboard, Bet Table, Import, Settings)
+- `types.ts` - TypeScript type definitions (Bet, FinalRow, etc.)
+- `docs/` - Architecture and parser documentation
+
+## Documentation
+
+See `docs/` for detailed documentation:
+- `ARCHITECTURE.md` - Parsing architecture and data flow
+- `PARSERS.md` - Parser requirements and implementation guide

@@ -29,6 +29,7 @@ export const sampleBets: Bet[] = [
     stake: 25,
     payout: 0,
     result: 'pending',
+    isSample: true,
     legs: [
       { entities: ['Patrick Mahomes'], market: 'Passing Touchdowns', ou: 'Over', target: 2.5, result: 'pending' },
       { entities: ['Travis Kelce'], market: 'Receiving Yards', ou: 'Over', target: 70.5, result: 'pending' }
@@ -47,6 +48,7 @@ export const sampleBets: Bet[] = [
     stake: 50,
     payout: 0,
     result: 'pending',
+    isSample: true,
     legs: [
       { entities: ['Los Angeles Lakers'], market: 'Moneyline', result: 'pending' }
     ]
@@ -69,6 +71,7 @@ export const sampleBets: Bet[] = [
     stake: 20,
     payout: 90.00,
     result: 'win',
+    isSample: true,
     tail: 'ActionAl',
     legs: [
         { market: "Player Points", entities: ["LeBron James"], result: 'win', ou: 'Over', target: '25.5' },
@@ -89,6 +92,7 @@ export const sampleBets: Bet[] = [
     stake: 23,
     payout: 0,
     result: 'loss',
+    isSample: true,
     legs: [
         { entities: ['Stephen Curry'], market: 'Player Threes', ou: 'Over', target: 4.5, result: 'loss' }
     ]
@@ -107,6 +111,7 @@ export const sampleBets: Bet[] = [
     stake: 30,
     payout: 105.00,
     result: 'win',
+    isSample: true,
     legs: [
         { market: "Moneyline", entities: ["Boston Celtics"], result: 'win' },
         { market: "Moneyline", entities: ["Milwaukee Bucks"], result: 'win' }
@@ -126,6 +131,7 @@ export const sampleBets: Bet[] = [
     stake: 50,
     payout: 0,
     result: 'loss',
+    isSample: true,
     legs: [
         { market: "Spread", entities: ["Denver Nuggets"], target: 6.5, result: 'loss' }
     ],
@@ -145,6 +151,7 @@ export const sampleBets: Bet[] = [
     stake: 25,
     payout: 80.00,
     result: 'win',
+    isSample: true,
     legs: [
       { entities: ['Nikola Jokic'], market: 'To Record a Triple-Double', result: 'win' }
     ]
@@ -163,6 +170,7 @@ export const sampleBets: Bet[] = [
     stake: 110,
     payout: 110,
     result: 'push',
+    isSample: true,
     legs: [
       { entities: ['76ers', 'Heat'], market: 'Total Points', ou: 'Over', target: 215.0, result: 'push' }
     ]
@@ -183,6 +191,7 @@ export const sampleBets: Bet[] = [
     stake: 55,
     payout: 0,
     result: 'loss',
+    isSample: true,
     tail: 'BettingPro',
     legs: [
         { entities: ['Buffalo Bills'], market: 'Spread', target: -3.5, result: 'loss' }
@@ -202,6 +211,7 @@ export const sampleBets: Bet[] = [
     stake: 23,
     payout: 43.00,
     result: 'win',
+    isSample: true,
     legs: [
       { entities: ['Christian McCaffrey'], market: 'Rushing Yards', ou: 'Over', target: 85.5, result: 'win' }
     ]
@@ -220,6 +230,7 @@ export const sampleBets: Bet[] = [
     stake: 10,
     payout: 0,
     result: 'loss',
+    isSample: true,
     legs: [
       { market: "Anytime Touchdown Scorer", entities: ["A.J. Brown"], result: 'win' },
       { market: "Player Rushing Yards", entities: ["Tony Pollard"], result: 'win', ou: 'Over', target: '60.5' },
@@ -240,6 +251,7 @@ export const sampleBets: Bet[] = [
     stake: 10,
     payout: 0,
     result: 'loss',
+    isSample: true,
     tail: 'ActionAl',
     legs: [
         { market: "Moneyline", entities: ["Kansas City Chiefs"], result: 'win' },
@@ -260,7 +272,8 @@ export const sampleBets: Bet[] = [
     odds: 650,
     stake: 100,
     payout: 750.00,
-    result: 'win', // Pretend they won
+    result: 'win',
+    isSample: true, // Pretend they won
     legs: [
       { entities: ['Kansas City Chiefs'], market: 'Outright Winner', result: 'win' }
     ]
@@ -281,6 +294,7 @@ export const sampleBets: Bet[] = [
     stake: 100,
     payout: 250.00,
     result: 'win',
+    isSample: true,
     legs: [
         { entities: ['Carlos Alcaraz'], market: 'Outright Winner', result: 'win' }
     ]
@@ -299,6 +313,7 @@ export const sampleBets: Bet[] = [
     stake: 20,
     payout: 0,
     result: 'loss',
+    isSample: true,
     legs: [
       { entities: ['Connor McDavid'], market: 'Points', ou: 'Over', target: 1.5, result: 'loss' }
     ]
@@ -317,6 +332,7 @@ export const sampleBets: Bet[] = [
     stake: 40,
     payout: 72.00,
     result: 'win',
+    isSample: true,
     legs: [
       { entities: ['Manchester United', 'Arsenal'], market: 'Total Goals', ou: 'Over', target: 2.5, result: 'win' }
     ]
@@ -335,6 +351,7 @@ export const sampleBets: Bet[] = [
     stake: 15,
     payout: 0,
     result: 'loss',
+    isSample: true,
     tail: 'BettingPro',
     legs: [
         { market: "Run Line", entities: ["Los Angeles Dodgers"], result: 'win', target: -1.5 },
@@ -355,6 +372,7 @@ export const sampleBets: Bet[] = [
     stake: 5,
     payout: 45.00,
     result: 'win',
+    isSample: true,
     legs: [
         { market: "Player Home Runs", entities: ["Aaron Judge"], result: 'win', ou: 'Over', target: '0.5' },
         { market: "Player Strikeouts", entities: ["Gerrit Cole"], result: 'win', ou: 'Over', target: '6.5' },
@@ -375,6 +393,7 @@ export const sampleBets: Bet[] = [
     stake: 50,
     payout: 0,
     result: 'loss',
+    isSample: true,
     tail: 'ActionAl',
     isLive: true,
     legs: [

@@ -9,6 +9,10 @@ import React, {
 import { Bet, BetResult } from "../types";
 import { useInputs } from "./useInputs";
 import { classifyBet } from "../services/classificationService";
+import { calculateProfit, recalculatePayout } from "../utils/betCalculations";
+import { isSampleData, migrateBets } from "../utils/migrations";
+import { validateBet } from "../utils/validation";
+import { handleStorageError, showStorageError } from "../utils/storageErrorHandler";
 
 interface BetsContextType {
   bets: Bet[];
@@ -19,36 +23,6 @@ interface BetsContextType {
 }
 
 const BetsContext = createContext<BetsContextType | undefined>(undefined);
-
-// --- Calculation Helpers ---
-const calculateProfit = (stake: number, odds: number): number => {
-  if (isNaN(stake) || isNaN(odds)) return 0;
-  if (odds > 0) {
-    return stake * (odds / 100);
-  } else if (odds < 0) {
-    return stake / (Math.abs(odds) / 100);
-  }
-  return 0;
-};
-
-const recalculatePayout = (
-  stake: number,
-  odds: number,
-  result: BetResult
-): number => {
-  switch (result) {
-    case "win":
-      return stake + calculateProfit(stake, odds);
-    case "loss":
-      return 0;
-    case "push":
-      return stake;
-    case "pending":
-      return 0;
-    default:
-      return 0;
-  }
-};
 
 export const BetsProvider: React.FC<{ children: ReactNode }> = ({
   children,
@@ -63,75 +37,23 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
       if (storedBets) {
         const parsedBets: Bet[] = JSON.parse(storedBets);
 
-        // Check if this is sample data by looking for known sample bet IDs
-        const sampleBetIds = [
-          "DK-PENDING-NFL-2025-11-15-1",
-          "FD-PENDING-NBA-2025-11-15-2",
-          "FD-SGP1-NBA-2025-11-14",
-          "DK-SINGLE1-NBA-2025-11-14",
-          "FD-PARLAY1-NBA-2025-11-13",
-          "DK-LIVE-NBA-2025-11-13",
-          "FD-PROP-NBA-2025-11-12",
-          "DK-PUSH-NBA-2025-11-12",
-          "DK-SINGLE1-NFL-2025-11-09",
-          "FD-PROP-NFL-2025-11-09",
-          "DK-SGP-NFL-2025-11-09",
-          "FD-PARLAY-NFL-2025-11-02",
-          "DK-FUTURE-NFL-2025-08-01",
-          "FD-FUTURE1-TENNIS-2025-08-20",
-          "DK-PROP-NHL-2025-10-25",
-          "FD-TOTAL-SOCCER-2025-10-18",
-          "DK-PARLAY-MLB-2025-09-10",
-          "FD-SGP-MLB-2025-09-05",
-          "FD-LIVE-NBA-2025-11-01",
-        ];
-        const containsSampleData = parsedBets.some((bet) =>
-          sampleBetIds.includes(bet.id)
-        );
-
-        if (containsSampleData) {
+        // Check if this is sample data
+        if (isSampleData(parsedBets)) {
           // Clear sample data from localStorage
           localStorage.removeItem("bettracker-bets");
           setBets([]);
         } else {
-          // Migrate old bets: ensure all bets have legs array (unified legs model)
-          // Also retroactively classify bets that don't have a category
-          const migratedBets = parsedBets.map((bet) => {
-            let migratedBet = { ...bet };
-            
-            // Migration: If bet doesn't have legs but has top-level fields, create a leg from them
-            if (!bet.legs || bet.legs.length === 0) {
-              if (bet.name || bet.type || bet.line) {
-                migratedBet.legs = [{
-                  entities: bet.name ? [bet.name] : undefined,
-                  market: bet.type || '',
-                  target: bet.line,
-                  ou: bet.ou,
-                  result: bet.result,
-                }];
-              }
-            }
-            
-            // Migration: Ensure single bets have exactly one leg (if they have legs but more than one, keep as-is)
-            // This handles edge cases where a single bet might have been incorrectly parsed with multiple legs
-            
-            // Migration: Backfill isLive from betType for existing bets
-            if (migratedBet.isLive === undefined && migratedBet.betType === 'live') {
-              migratedBet.isLive = true;
-            }
-            
-            // Retroactively classify bets that don't have a category
-            // Also fix any bets that somehow got "Other" as category
-            if (!migratedBet.marketCategory || migratedBet.marketCategory === 'Other') {
-              migratedBet.marketCategory = classifyBet(migratedBet);
-            }
-            
-            return migratedBet;
-          });
+          // Migrate old bets to current format
+          const migratedBets = migrateBets(parsedBets);
           
-          // Save migrated bets back to localStorage
+          // Save migrated bets back to localStorage if changes were made
           if (JSON.stringify(parsedBets) !== JSON.stringify(migratedBets)) {
-            localStorage.setItem("bettracker-bets", JSON.stringify(migratedBets));
+            try {
+              localStorage.setItem("bettracker-bets", JSON.stringify(migratedBets));
+            } catch (storageError) {
+              console.error("Failed to save migrated bets to localStorage", storageError);
+              // Continue with migrated bets in memory even if save fails
+            }
           }
           
           setBets(migratedBets);
@@ -141,7 +63,10 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
         setBets([]);
       }
     } catch (error) {
+      const errorInfo = handleStorageError(error, 'load');
       console.error("Failed to load bets from localStorage", error);
+      // Show error but don't block app initialization
+      showStorageError(errorInfo);
     } finally {
       setLoading(false);
     }
@@ -152,7 +77,10 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
       localStorage.setItem("bettracker-bets", JSON.stringify(updatedBets));
       setBets(updatedBets);
     } catch (error) {
-      console.error("Failed to save bets to localStorage", error);
+      const errorInfo = handleStorageError(error, 'save');
+      showStorageError(errorInfo);
+      // Still update state so UI reflects changes, even if localStorage failed
+      setBets(updatedBets);
     }
   };
 
@@ -243,7 +171,7 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
         // Don't re-classify bets - they already have the correct category from the parser
         // Only classify if category is missing (shouldn't happen, but safety check)
         const classifiedNewBets = trulyNewBets.map((bet) => {
-          if (!bet.marketCategory || bet.marketCategory === 'Other') {
+          if (!bet.marketCategory) {
             return {
               ...bet,
               marketCategory: classifyBet(bet),
@@ -279,6 +207,15 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
       const originalBet = updatedBets[betIndex];
       const updatedBet = { ...originalBet, ...updates };
 
+      // Validate the updated bet
+      const validation = validateBet(updatedBet);
+      if (!validation.valid) {
+        console.warn(`Bet validation failed: ${validation.errors.join(', ')}`);
+        // For now, we'll still allow the update but log the warning
+        // In the future, this could show a toast notification or prevent the update
+        // TODO: Show validation errors to user via toast/notification system
+      }
+
       // If tail is an empty string, remove the property
       if (updatedBet.tail === "") {
         delete updatedBet.tail;
@@ -308,8 +245,8 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
       setBets([]);
       console.log("clearBets completed - bets should now be empty");
     } catch (error) {
-      console.error("Failed to clear bets from localStorage", error);
-      alert("Failed to clear bets. Check console for details.");
+      const errorInfo = handleStorageError(error, 'clear');
+      showStorageError(errorInfo);
     }
   }, []);
 

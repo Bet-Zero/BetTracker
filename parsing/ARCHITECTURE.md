@@ -19,9 +19,17 @@ The `FinalRow` type represents spreadsheet columns (Date, Site, Type, Over/Under
 ### Data Flow
 
 ```
-CSV Import:  CSV → FinalRow → Bet  ✓ (correct use of FinalRow)
-HTML Parse:  HTML → Bet            ✓ (direct, no intermediate steps)
+HTML Parse:  HTML → Parser → Bet[] → useBets.addBets() → localStorage
+             Bet[] → betToFinalRows() → FinalRow[] (for display/UI)
+
+CSV Import:  CSV → FinalRow[] → Bet[] → useBets.addBets() → localStorage
+             Bet[] → betToFinalRows() → FinalRow[] (for display/UI)
 ```
+
+**Key Points:**
+- Parsers return `Bet[]` directly (no intermediate formats)
+- `FinalRow` is only used for CSV import/export and UI display
+- For display, `betToFinalRows()` converts `Bet[]` → `FinalRow[]` (one row per leg for multi-leg bets)
 
 ### Components
 
@@ -32,13 +40,18 @@ HTML Parse:  HTML → Bet            ✓ (direct, no intermediate steps)
 
 2. **Page Processor** (`parsing/pageProcessor.ts`)
    - Routes HTML to the appropriate parser based on sportsbook
-   - Returns: `Bet[]` array
+   - Returns: `ParseResult` with `Bet[]` array and optional error message
 
 3. **Importer** (`services/importer.ts`)
-   - Orchestrates: Get HTML → Parse → Store
+   - `parseBets()`: Gets HTML → Parses → Returns `Bet[]` for confirmation
+   - `handleImport()`: Gets HTML → Parses → Stores via `useBets.addBets()`
    - Uses `PageSourceProvider` to get HTML
-   - Uses `pageProcessor` to parse
-   - Returns parsed bets for confirmation or imports directly
+   - Uses `pageProcessor.processPage()` to parse
+
+4. **Bet to FinalRow Converter** (`parsing/betToFinalRows.ts`)
+   - Converts `Bet[]` → `FinalRow[]` for display in spreadsheet-like UI
+   - Creates one `FinalRow` per leg (multi-leg bets produce multiple rows)
+   - Maps Bet fields to spreadsheet columns (Date, Site, Sport, Category, Type, Name, etc.)
 
 ### Key Types
 
@@ -58,7 +71,13 @@ interface Bet {
   stake: number;
   payout: number;
   result: BetResult;  // 'win' | 'loss' | 'push' | 'pending'
-  legs?: BetLeg[];  // For parlays/SGPs
+  legs?: BetLeg[];  // All bets have legs: singles have legs.length === 1, parlays/SGPs have legs.length > 1
+  name?: string;    // Player/team name only (convenience field from legs[0])
+  type?: string;    // Stat type for props (convenience field from legs[0])
+  line?: string;    // Line/threshold (convenience field from legs[0])
+  ou?: 'Over' | 'Under'; // Over/Under (convenience field from legs[0])
+  isLive?: boolean; // Whether bet was placed live/in-game (separate from betType)
+  tail?: string;    // Who the bet was tailed from
 }
 
 // CSV/Spreadsheet format (NOT used for parsing)
@@ -110,27 +129,24 @@ export const parse = (htmlContent: string): Bet[] => {
 
 ## Benefits of This Architecture
 
-1. **Simplicity**: Single transformation (HTML → Bet)
+1. **Simplicity**: Single transformation for parsing (HTML → Bet)
 2. **Clarity**: Each component has clear responsibility
 3. **Maintainability**: Easier to understand and modify
-4. **Testability**: Direct input/output, no intermediate formats
+4. **Testability**: Direct input/output, no intermediate formats for parsing
 5. **Flexibility**: Easy to add new sportsbooks
-6. **No Duplication**: FinalRow only for CSV, Bet for storage
+6. **Separation of Concerns**: 
+   - `Bet` type for internal storage (structured data with legs)
+   - `FinalRow` type for CSV import/export and UI display (spreadsheet format)
+   - `betToFinalRows()` handles conversion when needed for display
 
 ## Migration Notes
 
-### Deprecated Files
-- `parsing/parsers/fanduel.ts` (old parser returning FinalRow[])
-- `parsing/normalizeBet.ts` (no longer needed for parsing)
-- `parsing/rawBetTypes.ts` (no longer needed)
-- `parsing/convertFinalRowToBet.ts` (no longer needed for parsing)
-- `services/importer.ts` (old importer)
-- `parsing/pageProcessor.ts` (old processor)
-
 ### Active Files
-- `parsing/parsers/fanduel.ts` ✓ (simplified parser)
-- `parsing/pageProcessor.ts` ✓ (processor)
-- `services/importer.ts` ✓ (importer)
+- `parsing/parsers/fanduel.ts` ✓ (simplified parser returning Bet[])
+- `parsing/pageProcessor.ts` ✓ (routes HTML to parser)
+- `services/importer.ts` ✓ (orchestrates import process)
+- `parsing/betToFinalRows.ts` ✓ (converts Bet[] to FinalRow[] for display)
+- `services/classificationService.ts` ✓ (classifies bets, used as fallback if parser doesn't set category)
 - `parsing/parsers/fanduel.test.ts` ✓ (tests)
 
 ### CSV Import Still Uses FinalRow

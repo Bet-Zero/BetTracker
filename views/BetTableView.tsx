@@ -16,6 +16,7 @@ import {
   BetType,
 } from "../types";
 import { Wifi } from "../components/icons";
+import { calculateProfit } from "../utils/betCalculations";
 
 // Cell coordinate type
 type CellCoordinate = {
@@ -49,17 +50,6 @@ interface FlatBet {
   overallResult: BetResult;
   tail?: string;
 }
-
-// --- Calculation Helper ---
-const calculateProfit = (stake: number, odds: number): number => {
-  if (isNaN(stake) || isNaN(odds) || stake <= 0) return 0;
-  if (odds > 0) {
-    return stake * (odds / 100);
-  } else if (odds < 0) {
-    return stake / (Math.abs(odds) / 100);
-  }
-  return 0;
-};
 
 // --- Formatting Helpers ---
 const formatDate = (isoString: string) => {

@@ -5,10 +5,15 @@
  * for display and editing in the spreadsheet-like UI.
  * 
  * KEY PRINCIPLES:
- * - Name: SUBJECT ONLY (player/team name from entities)
- * - Type: Based on Category rules (never uses betType)
- * - One FinalRow per leg for multi-leg bets
- * - Over/Under: "1"/"0" format
+ * - Name: SUBJECT ONLY (player/team name from entities/leg.name)
+ * - Type: Depends on Category:
+ *   - Props → stat type code (Pts, Ast, 3pt, Reb, PRA, etc.) from market text
+ *   - Main → {Spread, Total, Moneyline} from market text
+ *   - Futures → {Win Total, NBA Finals, Super Bowl, etc.} from market text
+ *   - Type must NEVER contain bet form concepts (single/parlay/sgp/etc.)
+ * - One FinalRow per leg for multi-leg bets (parlays/SGPs produce multiple rows)
+ * - Over/Under: "1"/"0" flags (or "" when not applicable)
+ * - Live: "1" or "" flag (uses bet.isLive boolean, not bet.betType)
  */
 
 import { Bet, FinalRow } from '../types';
@@ -179,7 +184,7 @@ function createFinalRow(
   const netResult = isMultiLeg ? bet.result : legData.result;
   const net = calculateNet(netResult, bet.stake, bet.odds, bet.payout);
   
-  // Live flag (use isLive field, not betType)
+  // Live flag (uses isLive boolean field on Bet, not betType which is 'single'|'parlay'|'sgp'|'live'|'other')
   const live = bet.isLive ? '1' : '';
   
   // Tail
@@ -206,7 +211,8 @@ function createFinalRow(
 }
 
 /**
- * Normalizes marketCategory to one of the three main categories.
+ * Normalizes marketCategory (from Bet) to spreadsheet Category values.
+ * Maps MarketCategory values (Props, Main Markets, Futures, SGP/SGP+, Parlays) to simpler Category values (Props, Main, Futures).
  */
 function normalizeCategory(marketCategory: string): string {
   const lower = marketCategory.toLowerCase();
@@ -214,7 +220,7 @@ function normalizeCategory(marketCategory: string): string {
   if (lower.includes('prop')) return 'Props';
   if (lower.includes('main')) return 'Main';
   if (lower.includes('future')) return 'Futures';
-  if (lower.includes('parlay') || lower.includes('sgp')) return 'Props'; // Default multi-leg to Props for now
+  if (lower.includes('parlay') || lower.includes('sgp')) return 'Props'; // SGP/SGP+ and Parlays default to Props in spreadsheet
   
   // Default to Props if unclear
   return 'Props';

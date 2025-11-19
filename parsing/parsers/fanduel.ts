@@ -205,7 +205,7 @@ function extractBet(betId: string, betCard: Element): Bet | null {
     }
 
     // Classify market category
-    const marketCategory = legs.length > 0 ? "Props" : "Other";
+    const marketCategory = legs.length > 0 ? "Props" : "Main Markets";
 
     // Generate unique ID
     const id = `FanDuel-${betId}-${placedAt}`;

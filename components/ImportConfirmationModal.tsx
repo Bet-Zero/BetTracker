@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Bet, Sportsbook, FinalRow } from '../types';
+import { Bet, Sportsbook, FinalRow, MarketCategory } from '../types';
 import { X, AlertTriangle, CheckCircle2 } from './icons';
 import { betToFinalRows } from '../parsing/betToFinalRows';
 
@@ -121,7 +121,7 @@ export const ImportConfirmationModal: React.FC<ImportConfirmationModalProps> = (
         updates.sport = value;
         break;
       case 'Category':
-        updates.marketCategory = value;
+        updates.marketCategory = value as MarketCategory;
         break;
       case 'Type':
         if (legIndex !== undefined && bet.legs) {

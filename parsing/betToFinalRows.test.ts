@@ -300,7 +300,7 @@ describe('betToFinalRows', () => {
         betId: 'ABC128',
         placedAt: '2024-11-18T19:00:00.000Z',
         betType: 'single',
-        marketCategory: 'Player Props',
+        marketCategory: 'Props',
         sport: 'NBA',
         description: 'Test',
         name: 'Player',

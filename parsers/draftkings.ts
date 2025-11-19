@@ -4,6 +4,11 @@ import { classifyBet } from '../services/classificationService';
 
 /**
  * Parses raw HTML content from a DraftKings settled bets page.
+ * 
+ * TODO [CRIT-04][NEEDS_DECISION]: This parser currently returns hardcoded example bets.
+ * Decision required: Either implement a real HTML parser (similar to FanDuel parser)
+ * or disable DraftKings option in the UI with clear messaging.
+ * 
  * This is a placeholder and needs to be implemented with real data.
  */
 export const parse = (htmlContent: string): Bet[] => {
