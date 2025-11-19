@@ -111,6 +111,11 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
               };
             }
             
+            // Migration: Backfill isLive from betType for existing bets
+            if (migratedBet.isLive === undefined && migratedBet.betType === 'live') {
+              migratedBet.isLive = true;
+            }
+            
             // Retroactively classify bets that don't have a category
             // Also fix any bets that somehow got "Other" as category
             if (!migratedBet.marketCategory || migratedBet.marketCategory === 'Other') {
