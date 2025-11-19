@@ -1,3 +1,6 @@
+# Custom Cursor Commands
+# Commands defined here will be available via /command-name in Cursor chat
+
 commands:
   - name: audit
     description: Run the Apex Audit on the selected files, folders, or full codebase.
