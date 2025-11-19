@@ -61,6 +61,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ theme, toggleTheme }) => {
             const bookName = siteMap.get(row.site.toLowerCase()) || row.site;
             const description = `${row.name} ${row.ou || ''} ${row.line || ''} ${row.type}`.replace(/\s+/g, ' ').trim();
             const betType: BetType = row.notes?.toLowerCase().includes('live') ? 'live' : 'single';
+            const isLive = row.notes?.toLowerCase().includes('live') || false;
             
             let placedAtDate: Date;
             if (row.date.includes('/')) {
@@ -120,7 +121,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ theme, toggleTheme }) => {
                 ou: row.ou, // Store Over/Under directly for single bets
                 legs: undefined, // Single bets don't have legs
                 tail: row.tail,
-                raw: `Imported from CSV. Notes: ${row.notes || ''}`.trim()
+                raw: `Imported from CSV. Notes: ${row.notes || ''}`.trim(),
+                isLive, // Set isLive from notes field
             };
 
             return {

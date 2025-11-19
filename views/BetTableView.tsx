@@ -534,7 +534,7 @@ const BetTableView: React.FC = () => {
   const flattenedBets = useMemo(() => {
     const flatBets: FlatBet[] = [];
     bets.forEach((bet) => {
-      const isLive = bet.betType === "live";
+      const isLive = bet.isLive || false;
 
       // Calculate potential profit from stake and odds.
       const potentialProfit = calculateProfit(bet.stake, bet.odds);
@@ -556,7 +556,8 @@ const BetTableView: React.FC = () => {
 
       if (!bet.legs || bet.legs.length === 0) {
         // Handles single bets - use type, line, ou directly from bet object
-        const displayType = bet.type || (isLive ? "live" : bet.betType);
+        // NEVER use betType for the type field - it's for bet form (single/parlay/sgp), not stat type
+        const displayType = bet.type || '';
 
         // Debug logging for single bets
         if (!bet.type && bet.marketCategory === "Props") {
@@ -564,10 +565,8 @@ const BetTableView: React.FC = () => {
             `BetTableView: Bet ${bet.id} has no type field but is Props`,
             {
               betId: bet.id,
-              betType: bet.betType,
               type: bet.type,
               marketCategory: bet.marketCategory,
-              description: bet.description,
               hasLegs: !!bet.legs,
               legCount: bet.legs?.length || 0,
             }
@@ -584,9 +583,9 @@ const BetTableView: React.FC = () => {
           toWin: toWin,
           net,
           overallResult: bet.result,
-          type: displayType, // Use bet.type (stat code) if available
+          type: displayType, // Use bet.type (stat code) only - never betType
           category: bet.marketCategory,
-          name: bet.name || bet.description, // Use bet.name (player/team name only) if available, fallback to description
+          name: bet.name || '', // Use bet.name (player/team name only) - description is for display/debug only
           ou: bet.ou,
           line: bet.line,
           odds: bet.odds,
@@ -611,7 +610,8 @@ const BetTableView: React.FC = () => {
             category: bet.marketCategory,
             name:
               leg.entities?.join(" / ") ||
-              (bet.legs.length === 1 ? bet.description : "N/A"),
+              bet.name ||
+              "N/A",
             ou: leg.ou,
             line: leg.target,
             odds: bet.odds, // All legs share bet-level odds for SGPs/parlays
@@ -1219,7 +1219,9 @@ const BetTableView: React.FC = () => {
             addBetType(row.sport, value);
             handleLegUpdate(row.betId, legIndex, { market: value });
           } else {
-            updateBet(row.betId, { betType: value as BetType });
+            // Update bet.type (stat type), NOT betType (bet form)
+            addBetType(row.sport, value);
+            updateBet(row.betId, { type: value });
           }
           break;
         case "name":
@@ -1227,8 +1229,9 @@ const BetTableView: React.FC = () => {
             autoAddEntity(row.sport, value, row.type);
             handleLegUpdate(row.betId, legIndex, { entities: [value] });
           } else {
+            // Update bet.name (player/team name only), NOT description
             autoAddEntity(row.sport, value, row.type);
-            updateBet(row.betId, { description: value });
+            updateBet(row.betId, { name: value });
           }
           break;
         case "line":
@@ -1801,13 +1804,15 @@ const BetTableView: React.FC = () => {
                               market: val,
                             });
                           } else {
-                            updateBet(row.betId, { betType: val as BetType });
+                            // Update bet.type (stat type), NOT betType (bet form)
+                            addBetType(row.sport, val);
+                            updateBet(row.betId, { type: val });
                           }
                         }}
                         options={
                           isLeg
                             ? suggestionLists.types(row.sport)
-                            : ["single", "parlay", "sgp", "live", "other"]
+                            : suggestionLists.types(row.sport) // Use stat types for single bets too
                         }
                         isFocused={isCellFocused(rowIndex, "type")}
                         onFocus={() =>
@@ -1846,8 +1851,9 @@ const BetTableView: React.FC = () => {
                               entities: [val],
                             });
                           } else {
+                            // Update bet.name (player/team name), NOT description
                             autoAddEntity(row.sport, val, row.type);
-                            updateBet(row.betId, { description: val });
+                            updateBet(row.betId, { name: val });
                           }
                         }}
                         suggestions={[

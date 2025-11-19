@@ -226,6 +226,9 @@ function extractBet(betId: string, betCard: Element): Bet | null {
     // Determine bet type
     const betType: BetType = isMultiLeg ? 'sgp' : 'single';
     
+    // Check for live bet
+    const isLive = cardText.toLowerCase().includes('live') || cardText.toLowerCase().includes('in-game');
+    
     // Build description
     let description = '';
     if (isMultiLeg) {
@@ -261,6 +264,7 @@ function extractBet(betId: string, betCard: Element): Bet | null {
       payout,
       result,
       legs: legs.length > 0 ? legs : undefined,
+      isLive, // Set isLive field separately from betType
     };
     
     return bet;

@@ -111,6 +111,11 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
               };
             }
             
+            // Migration: Backfill isLive from betType for existing bets
+            if (migratedBet.isLive === undefined && migratedBet.betType === 'live') {
+              migratedBet.isLive = true;
+            }
+            
             // Retroactively classify bets that don't have a category
             // Also fix any bets that somehow got "Other" as category
             if (!migratedBet.marketCategory || migratedBet.marketCategory === 'Other') {
@@ -212,17 +217,14 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
           }
         });
 
-        // Fallback for single bets without structured legs: parse description for team names in main markets
-        if (!bet.legs || bet.legs.length === 0) {
-          const teamPatterns = [
-            /^(.*?)\s+(?:ML|Moneyline|[+-]\d{1,4}(?:\.\d+)?)\s*$/i, // "Team Name ML", "Team Name -3.5"
-          ];
-          for (const pattern of teamPatterns) {
-            const match = bet.description.match(pattern);
-            if (match && match[1]) {
-              addTeam(bet.sport, match[1].trim());
-              break;
-            }
+        // For single bets without structured legs, use bet.name if available
+        if ((!bet.legs || bet.legs.length === 0) && bet.name) {
+          // Check if this is a main market bet by category
+          if (bet.marketCategory.toLowerCase().includes('main')) {
+            addTeam(bet.sport, bet.name);
+          } else {
+            // For props, it's likely a player name
+            addPlayer(bet.sport, bet.name);
           }
         }
       });
@@ -234,7 +236,7 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
           (newBet) => !existingBetIds.has(newBet.id)
         );
 
-        // Don't re-classify bets - they already have the correct category from normalizeBet
+        // Don't re-classify bets - they already have the correct category from the parser
         // Only classify if category is missing (shouldn't happen, but safety check)
         const classifiedNewBets = trulyNewBets.map((bet) => {
           if (!bet.marketCategory || bet.marketCategory === 'Other') {
