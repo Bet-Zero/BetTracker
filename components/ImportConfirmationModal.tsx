@@ -38,11 +38,13 @@ export const ImportConfirmationModal: React.FC<ImportConfirmationModalProps> = (
     const rows: FinalRowWithBetRef[] = [];
     bets.forEach((bet, betIndex) => {
       const betRows = betToFinalRows(bet);
+      const hasLegs = bet.legs && bet.legs.length > 0;
       betRows.forEach((row, legIndex) => {
         rows.push({
           ...row,
           _betIndex: betIndex,
-          _legIndex: betRows.length > 1 ? legIndex : undefined,
+          // Set legIndex whenever bet has legs structure (even for single-leg bets)
+          _legIndex: hasLegs ? legIndex : undefined,
         });
       });
     });

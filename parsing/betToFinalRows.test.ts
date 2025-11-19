@@ -207,6 +207,89 @@ describe('betToFinalRows', () => {
       expect(rows[0].Odds).toBe('+500');
       expect(rows[1].Odds).toBe('+500');
     });
+
+    it('should calculate Net based on bet result for multi-leg bets, not individual leg results', () => {
+      const bet: Bet = {
+        id: 'sgp-2',
+        book: 'FanDuel',
+        betId: 'SGP456',
+        placedAt: '2024-11-18T19:00:00.000Z',
+        betType: 'sgp',
+        marketCategory: 'SGP/SGP+',
+        sport: 'NBA',
+        description: 'SGP with mixed leg results',
+        odds: 500,
+        stake: 10.0,
+        payout: 0, // Lost overall
+        result: 'loss', // Overall bet lost
+        legs: [
+          {
+            entities: ['Player A'],
+            market: '3pt',
+            target: '3+',
+            result: 'win', // This leg won
+          },
+          {
+            entities: ['Player B'],
+            market: 'Pts',
+            target: '25.5',
+            ou: 'Over',
+            result: 'loss', // This leg lost
+          },
+        ],
+      };
+
+      const rows = betToFinalRows(bet);
+
+      expect(rows).toHaveLength(2);
+      
+      // Both legs should show the bet loss (not the individual leg results)
+      // because stake/odds/payout are at bet level
+      expect(rows[0].Net).toBe('-10.00'); // Loss, not win
+      expect(rows[1].Net).toBe('-10.00'); // Both legs reflect actual bankroll impact
+      
+      // But individual leg results are still shown in Result column
+      expect(rows[0].Result).toBe('Win');
+      expect(rows[1].Result).toBe('Loss');
+    });
+
+    it('should handle single-leg bets with legs structure correctly', () => {
+      // FanDuel parser creates legs even for single bets
+      const bet: Bet = {
+        id: 'single-with-leg',
+        book: 'FanDuel',
+        betId: 'SINGLE123',
+        placedAt: '2024-11-18T19:00:00.000Z',
+        betType: 'single',
+        marketCategory: 'Props',
+        sport: 'NBA',
+        description: 'Single bet with leg structure',
+        odds: 200,
+        stake: 5.0,
+        payout: 15.0,
+        result: 'win',
+        legs: [
+          {
+            entities: ['Player Name'],
+            market: 'Pts',
+            target: '25.5',
+            ou: 'Over',
+            result: 'win',
+          },
+        ],
+      };
+
+      const rows = betToFinalRows(bet);
+
+      expect(rows).toHaveLength(1);
+      
+      // For single-leg bet, Net should still be based on leg result
+      // (which matches bet result anyway)
+      expect(rows[0].Net).toBe('10.00'); // Payout - stake
+      expect(rows[0].Result).toBe('Win');
+      expect(rows[0].Name).toBe('Player Name');
+      expect(rows[0].Type).toBe('Pts');
+    });
   });
 
   describe('Category normalization', () => {

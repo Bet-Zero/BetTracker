@@ -103,10 +103,12 @@ export function betToFinalRows(bet: Bet): FinalRow[] {
       target: bet.line,
       ou: bet.ou,
       result: bet.result,
-    });
+    }, false);
     rows.push(row);
   } else {
-    // Multi-leg bet - create one row per leg
+    // Bet with structured legs - create one row per leg
+    // For multi-leg bets (parlays/SGPs), use bet result for Net calculation
+    const isMultiLeg = bet.legs.length > 1;
     bet.legs!.forEach((leg) => {
       const row = createFinalRow(bet, {
         name: leg.entities?.[0] || '',
@@ -114,7 +116,7 @@ export function betToFinalRows(bet: Bet): FinalRow[] {
         target: leg.target,
         ou: leg.ou,
         result: leg.result,
-      });
+      }, isMultiLeg);
       rows.push(row);
     });
   }
@@ -124,6 +126,7 @@ export function betToFinalRows(bet: Bet): FinalRow[] {
 
 /**
  * Creates a single FinalRow from a Bet and leg data.
+ * @param isMultiLeg - If true, Net is calculated from bet result (not leg result) for parlays/SGPs
  */
 function createFinalRow(
   bet: Bet,
@@ -133,7 +136,8 @@ function createFinalRow(
     target?: string | number;
     ou?: 'Over' | 'Under';
     result: string;
-  }
+  },
+  isMultiLeg: boolean
 ): FinalRow {
   // Format date to MM/DD/YY
   const date = formatDate(bet.placedAt);
@@ -168,11 +172,12 @@ function createFinalRow(
   // To Win (potential payout)
   const toWin = calculateToWin(bet.stake, bet.odds);
   
-  // Result
+  // Result - for display, show leg result
   const result = capitalizeFirstLetter(legData.result);
   
-  // Net (profit/loss)
-  const net = calculateNet(legData.result, bet.stake, bet.odds, bet.payout);
+  // Net (profit/loss) - for multi-leg bets, use bet result to reflect actual bankroll impact
+  const netResult = isMultiLeg ? bet.result : legData.result;
+  const net = calculateNet(netResult, bet.stake, bet.odds, bet.payout);
   
   // Live flag (use isLive field, not betType)
   const live = bet.isLive ? '1' : '';
