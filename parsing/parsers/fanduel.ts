@@ -12,6 +12,22 @@ import { Bet, BetResult, BetType, BetLeg } from "../../types";
 /**
  * Parses raw HTML content from a FanDuel settled bets page.
  * Returns Bet objects directly for internal storage.
+ * 
+ * HOW TO USE:
+ * 1. Go to FanDuel's "Settled" or "Bet History" page
+ * 2. Right-click and select "View Page Source" or "Inspect Element"
+ * 3. Copy the FULL HTML source code (Ctrl+A, Ctrl+C)
+ * 4. Paste it into the import field
+ * 
+ * The parser looks for:
+ * - "BET ID: " text patterns to identify bets
+ * - "TOTAL WAGER" and "RETURNED" labels for amounts
+ * - "PLACED:" for dates
+ * - Player names in "FirstName LastName" format
+ * - Market text like "3+ Made Threes", "To Record 10+ Points", etc.
+ * 
+ * @param htmlContent - Full HTML source from FanDuel settled bets page
+ * @returns Array of parsed Bet objects
  */
 export const parse = (htmlContent: string): Bet[] => {
   console.log("Starting FanDuel parse (v2)...");
@@ -19,6 +35,14 @@ export const parse = (htmlContent: string): Bet[] => {
 
   if (!htmlContent || !htmlContent.trim()) {
     console.warn("FanDuel parser: Empty HTML content provided.");
+    console.warn("Make sure you're copying the full page source from FanDuel's settled bets page.");
+    return bets;
+  }
+
+  // Validate HTML structure
+  if (!htmlContent.includes("<")) {
+    console.error("FanDuel parser: HTML content doesn't appear to be valid HTML (no angle brackets found).");
+    console.error("Make sure you're copying the HTML source, not just the text from the page.");
     return bets;
   }
 
@@ -34,6 +58,12 @@ export const parse = (htmlContent: string): Bet[] => {
     console.log(
       `FanDuel parser: Found ${betIdMatches.length} BET ID patterns.`
     );
+
+    if (betIdMatches.length === 0) {
+      console.warn("FanDuel parser: No 'BET ID:' patterns found in HTML.");
+      console.warn("This HTML might not be from a FanDuel settled bets page.");
+      console.warn("Make sure you're on the 'Settled' or 'Bet History' page and copying the full page source.");
+    }
 
     const seenBetIds = new Set<string>();
 
@@ -58,6 +88,11 @@ export const parse = (htmlContent: string): Bet[] => {
     console.log(
       `FanDuel parser: Found ${betIdTextNodes.length} BET ID text nodes.`
     );
+
+    if (betIdTextNodes.length === 0 && betIdMatches.length > 0) {
+      console.warn("FanDuel parser: Found BET ID patterns but couldn't locate them in the DOM tree.");
+      console.warn("This might indicate a parsing issue. Please report this with your HTML sample.");
+    }
 
     for (const { node: betIdNode, betId } of betIdTextNodes) {
       try {
