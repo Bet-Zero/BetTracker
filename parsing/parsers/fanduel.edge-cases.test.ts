@@ -183,4 +183,42 @@ describe('FanDuel Parser - Edge Cases', () => {
       expect(bets[0].payout).toBe(10.00);
     }
   });
+
+  it('should handle HTML without proper structure (plain text)', () => {
+    // User accidentally copies visible text instead of HTML source
+    const text = 'BET ID: TEST999 $50.00 TOTAL WAGER Golden State Warriors';
+    const bets = parse(text);
+    // Should return empty array with error message
+    expect(bets).toHaveLength(0);
+  });
+
+  it('should handle HTML from wrong page (no BET IDs)', () => {
+    const html = `
+      <html>
+        <body>
+          <h1>Welcome to FanDuel</h1>
+          <p>Place your bets!</p>
+          <button>Login</button>
+        </body>
+      </html>
+    `;
+    const bets = parse(html);
+    // Should return empty array with warning
+    expect(bets).toHaveLength(0);
+  });
+
+  it('should handle extremely minimal bet card', () => {
+    // Absolute minimum structure with just BET ID
+    const html = `
+      <html>
+        <body>
+          <div>BET ID: MINIMAL123</div>
+        </body>
+      </html>
+    `;
+    const bets = parse(html);
+    // Parser requires proper bet card structure, so minimal HTML won't parse
+    // This is expected behavior - better to return nothing than incorrect data
+    expect(bets).toHaveLength(0);
+  });
 });
