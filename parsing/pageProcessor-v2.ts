@@ -7,6 +7,7 @@
 
 import { SportsbookName, Bet } from '../types';
 import { parse as parseFanDuel } from './parsers/fanduel-v2';
+import { parse as parseDraftKings } from '../parsers/draftkings';
 
 /**
  * Processes HTML from a sportsbook page and returns parsed bets.
@@ -27,8 +28,8 @@ export const processPage = (book: SportsbookName, html: string): Bet[] => {
         parsedBets = parseFanDuel(html);
         break;
       case 'DraftKings':
-        // TODO: Implement DraftKings v2 parser
-        console.warn('DraftKings parser v2 not yet implemented.');
+        // Using the old parser as placeholder until v2 is implemented
+        parsedBets = parseDraftKings(html);
         break;
       case 'Other':
         console.warn('Parsing for "Other" is not implemented.');
