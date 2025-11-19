@@ -107,7 +107,7 @@ describe('betToFinalRows', () => {
         book: 'FanDuel',
         betId: 'ABC126',
         placedAt: '2024-11-18T19:00:00.000Z',
-        betType: 'live',
+        betType: 'single',
         marketCategory: 'Props',
         sport: 'NBA',
         description: 'Live bet',
@@ -116,6 +116,7 @@ describe('betToFinalRows', () => {
         stake: 5.0,
         payout: 0,
         result: 'pending',
+        isLive: true,
       };
 
       const rows = betToFinalRows(bet);

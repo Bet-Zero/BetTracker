@@ -174,8 +174,8 @@ function createFinalRow(
   // Net (profit/loss)
   const net = calculateNet(legData.result, bet.stake, bet.odds, bet.payout);
   
-  // Live flag
-  const live = bet.betType === 'live' ? '1' : '';
+  // Live flag (use isLive field, not betType)
+  const live = bet.isLive ? '1' : '';
   
   // Tail
   const tail = bet.tail ? '1' : '';

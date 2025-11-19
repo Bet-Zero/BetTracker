@@ -128,7 +128,8 @@ export const sampleBets: Bet[] = [
     result: 'loss',
     legs: [
         { market: "Spread", entities: ["Denver Nuggets"], target: 6.5, result: 'loss' }
-    ]
+    ],
+    isLive: true
   },
   {
     id: 'FD-PROP-NBA-2025-11-12',
@@ -375,6 +376,7 @@ export const sampleBets: Bet[] = [
     payout: 0,
     result: 'loss',
     tail: 'ActionAl',
+    isLive: true,
     legs: [
       { entities: ['Phoenix Suns'], market: 'Moneyline', result: 'loss' }
     ]

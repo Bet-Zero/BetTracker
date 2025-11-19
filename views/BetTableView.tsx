@@ -534,7 +534,7 @@ const BetTableView: React.FC = () => {
   const flattenedBets = useMemo(() => {
     const flatBets: FlatBet[] = [];
     bets.forEach((bet) => {
-      const isLive = bet.betType === "live";
+      const isLive = bet.isLive || false;
 
       // Calculate potential profit from stake and odds.
       const potentialProfit = calculateProfit(bet.stake, bet.odds);
@@ -610,7 +610,8 @@ const BetTableView: React.FC = () => {
             category: bet.marketCategory,
             name:
               leg.entities?.join(" / ") ||
-              (bet.legs.length === 1 ? bet.description : "N/A"),
+              bet.name ||
+              "N/A",
             ou: leg.ou,
             line: leg.target,
             odds: bet.odds, // All legs share bet-level odds for SGPs/parlays
