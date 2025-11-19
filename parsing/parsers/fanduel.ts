@@ -68,8 +68,8 @@ export const parse = (htmlContent: string): Bet[] => {
         }
         seenBetIds.add(betId);
 
-        // Find the bet card containing this BET ID
-        const betCard = findBetCard(doc, betId);
+        // Find the bet card containing this BET ID - start from the text node's parent
+        const betCard = findBetCardFromNode(betIdNode) || findBetCard(doc, betId);
         if (!betCard) {
           console.warn(
             `FanDuel parser: Could not find bet card for BET ID ${betId}`
@@ -81,7 +81,7 @@ export const parse = (htmlContent: string): Bet[] => {
         const bet = extractBet(betId, betCard);
         if (bet) {
           bets.push(bet);
-          console.log(`FanDuel parser: Successfully parsed bet ${betId}`);
+          console.log(`FanDuel parser: Successfully parsed bet ${betId} - Sport: ${bet.sport}, Category: ${bet.marketCategory}, Type: ${bet.type || 'N/A'}`);
         } else {
           console.warn(`FanDuel parser: Failed to extract bet ${betId}`);
         }
@@ -99,8 +99,48 @@ export const parse = (htmlContent: string): Bet[] => {
 };
 
 /**
+ * Finds the bet card element by walking up from the BET ID text node.
+ * This ensures we get the correct unique card for each bet.
+ * Returns the SMALLEST container that contains this specific BET ID.
+ */
+function findBetCardFromNode(betIdNode: Node): Element | null {
+  let current: Node | null = betIdNode;
+  let depth = 0;
+  const maxDepth = 20;
+  let bestMatch: Element | null = null;
+  let bestMatchSize = Infinity;
+
+  while (current && depth < maxDepth) {
+    // If we hit an element node, check if it looks like a bet card container
+    if (current.nodeType === Node.ELEMENT_NODE) {
+      const element = current as Element;
+      const text = element.textContent || "";
+      
+      // Look for a container that has this specific BET ID and substantial content
+      // Count how many BET IDs are in this container - we want the one with only ONE
+      const betIdMatches = text.match(/BET ID:\s*[^\s<]+/g) || [];
+      
+      if (betIdMatches.length === 1 && text.includes("BET ID:") && text.length > 200) {
+        // This container has exactly one BET ID - it's likely the bet card
+        // Prefer smaller containers (more specific)
+        if (text.length < bestMatchSize && text.length < 50000) {
+          bestMatch = element;
+          bestMatchSize = text.length;
+        }
+      }
+    }
+    
+    current = current.parentNode;
+    depth++;
+  }
+
+  return bestMatch;
+}
+
+/**
  * Finds the bet card element containing the given bet ID.
  * Uses text-based traversal to find the <li> containing the BET ID.
+ * This is a fallback method if findBetCardFromNode fails.
  */
 function findBetCard(doc: Document, betId: string): Element | null {
   const allLis = Array.from(doc.querySelectorAll("li"));
@@ -175,11 +215,18 @@ function extractBet(betId: string, betCard: Element): Bet | null {
     );
     const isMultiLeg = isSGP || resultIcons.length > 1;
 
-    // Extract sport from team names or market keywords
-    const sport = inferSport(cardText);
-
     // Extract legs using robust traversal
     const legs: BetLeg[] = extractLegs(betCard, isMultiLeg, result);
+    
+    // Safety check: If we extracted way too many legs, something is wrong
+    // Limit to reasonable maximum (e.g., 10 legs for a parlay is already very high)
+    if (legs.length > 10) {
+      console.error(`FanDuel parser: Bet ${betId} has ${legs.length} legs - this is likely a parsing error. Limiting to first 10.`);
+      legs.splice(10);
+    }
+
+    // Extract sport from team image URLs (most reliable), then fall back to text inference
+    const sport = inferSportFromImages(betCard) || inferSport(cardText, legs, betCard);
 
     // Determine bet type
     const betType: BetType = isMultiLeg ? "sgp" : "single";
@@ -305,7 +352,8 @@ function extractLegs(
     }
   } else {
     // For single bets, extract from the entire card
-    const leg = extractLegFromContainer(betCard, betCard);
+    // BUT: Only extract ONE leg - be very selective to avoid matching unrelated content
+    const leg = extractSingleBetLeg(betCard);
     if (leg) {
       legs.push(leg);
     }
@@ -315,10 +363,179 @@ function extractLegs(
 }
 
 /**
+ * Extracts a single leg for a single bet (not multi-leg).
+ * This is more precise than extractLegFromContainer to avoid matching unrelated content.
+ */
+function extractSingleBetLeg(betCard: Element): BetLeg | null {
+  const cardText = betCard.textContent || "";
+  
+  // Check if this is a Main Market bet first
+  const isMainMarket = /(SPREAD BETTING|MONEYLINE|TOTAL POINTS)/i.test(cardText);
+  
+  if (isMainMarket) {
+    return extractMainMarketLeg(betCard, betCard);
+  }
+  
+  // For Props: Look for the primary bet content, not all player names in the card
+  // Strategy: Find elements with headshots (most reliable for props) or look for specific bet structure
+  const headshotImages = betCard.querySelectorAll('img[src*="headshots"]');
+  
+  if (headshotImages.length > 0) {
+    // Use the first headshot to find the associated leg (most reliable)
+    const firstHeadshot = headshotImages[0];
+    let container: Element | null = firstHeadshot.parentElement;
+    let depth = 0;
+    
+    while (container && depth < 10) {
+      const text = container.textContent || "";
+      if (text.length > 20 && text.length < 500) {
+        const hasPlayerName = /[A-Z][a-z]+ [A-Z][a-z]+/.test(text);
+        const hasMarketText = /(Made Threes|Assists|Points|Rebounds|Steals|Blocks|To Record)/i.test(text);
+        
+        if (hasPlayerName && hasMarketText) {
+          return extractPropLeg(container, betCard);
+        }
+      }
+      container = container.parentElement;
+      depth++;
+    }
+  }
+  
+  // Fallback: Try to extract from the card, but be very strict
+  // Only match if we find a clear prop pattern
+  const propPattern = /([A-Z][a-z]+ [A-Z][a-z]+).*?(\d+\+\s*(?:Made Threes|Assists|Points|Rebounds|Steals|Blocks)|To Record)/i;
+  if (propPattern.test(cardText)) {
+    return extractPropLeg(betCard, betCard);
+  }
+  
+  return null;
+}
+
+/**
  * Extracts a single leg from a container element.
- * Uses text-based patterns to find player names and market text.
+ * Handles both Props (player bets) and Main Markets (team bets: Spread, Moneyline, Total).
+ * Used for multi-leg bets where we know the container is a specific leg.
  */
 function extractLegFromContainer(
+  container: Element,
+  betCard: Element
+): BetLeg | null {
+  const containerText = container.textContent || "";
+  
+  // Check if this is a Main Market bet (Spread, Moneyline, Total Points)
+  const isMainMarket = /(SPREAD BETTING|MONEYLINE|TOTAL POINTS)/i.test(containerText);
+  
+  if (isMainMarket) {
+    return extractMainMarketLeg(container, betCard);
+  } else {
+    return extractPropLeg(container, betCard);
+  }
+}
+
+/**
+ * Extracts a leg for Main Market bets (Spread, Moneyline, Total Points).
+ * These bets have team names, not player names.
+ */
+function extractMainMarketLeg(
+  container: Element,
+  betCard: Element
+): BetLeg | null {
+  const containerText = container.textContent || "";
+  
+  // Find market type from text
+  let marketType = "";
+  if (/SPREAD BETTING/i.test(containerText)) {
+    marketType = "Spread";
+  } else if (/MONEYLINE/i.test(containerText)) {
+    marketType = "Moneyline";
+  } else if (/TOTAL POINTS/i.test(containerText)) {
+    marketType = "Total";
+  }
+  
+  // Extract team names from aria-label or text
+  // Pattern from user's HTML: "Orlando Magic, SPREAD BETTING, , -112, Golden State Warriors @ Orlando Magic"
+  let teamName = "";
+  const ariaLabels = Array.from(container.querySelectorAll('[aria-label]'));
+  for (const el of ariaLabels) {
+    const ariaLabel = el.getAttribute('aria-label') || '';
+    // Match pattern: "TeamName, MARKET_TYPE, ..."
+    const teamMatch = ariaLabel.match(/^([^,]+),/);
+    if (teamMatch) {
+      teamName = normalizeText(teamMatch[1].trim());
+      break;
+    }
+  }
+  
+  // Fallback: look for team names in spans with role="text"
+  if (!teamName) {
+    const teamSpans = container.querySelectorAll('span[role="text"]');
+    for (const span of teamSpans) {
+      const text = span.textContent || '';
+      // Team names are usually 2-4 words, capitalized
+      if (text.length > 5 && text.length < 50 && /^[A-Z][a-z]+(\s+[A-Z][a-z]+)+$/.test(text.trim())) {
+        // Check if it's not a date/time pattern
+        if (!/\d{1,2}:\d{2}/.test(text) && !/\d{1,2}\/\d{1,2}/.test(text)) {
+          teamName = normalizeText(text.trim());
+          break;
+        }
+      }
+    }
+  }
+  
+  // Extract line (spread/total) - look for patterns like "+2.5", "-3", "O 225.5", "U 225.5"
+  let line = "";
+  let ou: 'Over' | 'Under' | undefined = undefined;
+  
+  // Look for spread line in spans (e.g., "+2.5")
+  const lineSpans = container.querySelectorAll('span');
+  for (const span of lineSpans) {
+    const text = span.textContent || '';
+    // Match patterns like "+2.5", "-3", "O 225.5", "U 225.5"
+    const lineMatch = text.match(/([+-]?\d+\.?\d*)/);
+    if (lineMatch && text.length < 10) {
+      const potentialLine = lineMatch[1];
+      // Check if it's not odds (odds are usually -150 to +150 range, but can be wider)
+      const numLine = parseFloat(potentialLine);
+      if (Math.abs(numLine) < 100 || marketType === "Total") {
+        line = potentialLine;
+        // Check for Over/Under indicators
+        if (/O\s*\d|OVER/i.test(text)) {
+          ou = 'Over';
+        } else if (/U\s*\d|UNDER/i.test(text)) {
+          ou = 'Under';
+        }
+        break;
+      }
+    }
+  }
+  
+  // Determine leg result from icon
+  const hasWinIcon = container.querySelector('svg[id*="tick"]') !== null;
+  const hasLossIcon = container.querySelector('svg[id*="cross"]') !== null;
+  const legResult: BetResult = hasWinIcon
+    ? "win"
+    : hasLossIcon
+    ? "loss"
+    : "pending";
+  
+  if (!teamName || !marketType) {
+    return null;
+  }
+  
+  return {
+    entities: [teamName],
+    market: marketType,
+    target: line || undefined,
+    ou,
+    result: legResult,
+  };
+}
+
+/**
+ * Extracts a leg for Prop bets (player stat bets).
+ * Uses text-based patterns to find player names and market text.
+ */
+function extractPropLeg(
   container: Element,
   betCard: Element
 ): BetLeg | null {
@@ -397,157 +614,150 @@ function extractLegFromContainer(
 }
 
 /**
+ * Extracts sport from team image URLs (most reliable method).
+ * Looks for patterns like /team/nba/, /team/nfl/, etc. in image src attributes.
+ * Returns sport abbreviation or empty string if not found.
+ */
+function inferSportFromImages(betCard: Element): string {
+  const images = betCard.querySelectorAll('img[src*="/team/"]');
+  
+  for (const img of Array.from(images)) {
+    const src = img.getAttribute('src') || '';
+    // Check for sport in URL pattern: /team/{sport}/
+    const sportMatch = src.match(/\/team\/(nba|nfl|mlb|nhl|ncaa|wnba|cfb|soccer|tennis|golf|mma|ufc|boxing|f1|nascar)/i);
+    if (sportMatch) {
+      const sport = sportMatch[1].toUpperCase();
+      // Normalize some variations
+      if (sport === 'CFB') return 'NCAAF';
+      if (sport === 'NCAA') return 'NCAA';
+      return sport;
+    }
+  }
+  
+  return '';
+}
+
+/**
  * Infers sport from card text using team names and market keywords.
  * Returns sport abbreviation or 'Unknown' if cannot determine.
  */
-function inferSport(cardText: string): string {
+function inferSport(cardText: string, legs?: BetLeg[], betCard?: Element): string {
+  const normalizedText = cardText.toLowerCase();
+  
   // Check for explicit sport indicators in team names
   const nbaTeams = [
-    "Warriors",
-    "Lakers",
-    "Celtics",
-    "Heat",
-    "Bulls",
-    "Knicks",
-    "Mavericks",
-    "Nuggets",
-    "76ers",
-    "Bucks",
-    "Suns",
-    "Clippers",
-    "Nets",
-    "Pelicans",
-    "Jazz",
-    "Rockets",
-    "Spurs",
-    "Thunder",
-    "Trail Blazers",
-    "Kings",
-    "Timberwolves",
-    "Hornets",
-    "Pistons",
-    "Magic",
-    "Pacers",
-    "Hawks",
-    "Wizards",
-    "Raptors",
-    "Cavaliers",
-    "Grizzlies",
+    "warriors", "lakers", "celtics", "heat", "bulls", "knicks", "mavericks",
+    "nuggets", "76ers", "sixers", "bucks", "suns", "clippers", "nets",
+    "pelicans", "jazz", "rockets", "spurs", "thunder", "trail blazers",
+    "blazers", "kings", "timberwolves", "wolves", "hornets", "pistons",
+    "magic", "pacers", "hawks", "wizards", "raptors", "cavaliers", "cavs",
+    "grizzlies", "grizz",
   ];
 
   const nflTeams = [
-    "Chiefs",
-    "Patriots",
-    "Packers",
-    "Cowboys",
-    "Steelers",
-    "49ers",
-    "Ravens",
-    "Bills",
-    "Dolphins",
-    "Jets",
-    "Browns",
-    "Bengals",
-    "Titans",
-    "Colts",
-    "Texans",
-    "Jaguars",
-    "Raiders",
-    "Chargers",
-    "Broncos",
-    "Giants",
-    "Eagles",
-    "Commanders",
-    "Bears",
-    "Lions",
-    "Vikings",
-    "Falcons",
-    "Panthers",
-    "Saints",
-    "Buccaneers",
-    "Cardinals",
-    "Rams",
-    "Seahawks",
+    "chiefs", "patriots", "pats", "packers", "cowboys", "steelers", "49ers",
+    "ravens", "bills", "dolphins", "jets", "browns", "bengals", "titans",
+    "colts", "texans", "jaguars", "jags", "raiders", "chargers", "broncos",
+    "giants", "eagles", "commanders", "bears", "lions", "vikings", "vikes",
+    "falcons", "panthers", "saints", "buccaneers", "bucs", "cardinals",
+    "rams", "seahawks", "hawks",
   ];
 
   const mlbTeams = [
-    "Yankees",
-    "Red Sox",
-    "Dodgers",
-    "Giants",
-    "Cubs",
-    "Cardinals",
-    "Astros",
-    "Braves",
-    "Mets",
-    "Phillies",
-    "Nationals",
-    "Marlins",
-    "Brewers",
-    "Reds",
-    "Pirates",
-    "Rockies",
-    "Diamondbacks",
-    "Padres",
-    "Angels",
-    "Athletics",
-    "Mariners",
-    "Rangers",
-    "Twins",
-    "White Sox",
-    "Indians",
-    "Guardians",
-    "Royals",
-    "Tigers",
-    "Orioles",
-    "Blue Jays",
-    "Rays",
-    "Rangers",
+    "yankees", "red sox", "dodgers", "giants", "cubs", "cardinals", "astros",
+    "braves", "mets", "phillies", "nationals", "marlins", "brewers", "reds",
+    "pirates", "rockies", "diamondbacks", "dbacks", "padres", "angels",
+    "athletics", "a's", "mariners", "rangers", "twins", "white sox",
+    "indians", "guardians", "royals", "tigers", "orioles", "blue jays",
+    "rays", "rangers",
   ];
 
   // Check for market keywords FIRST (most reliable indicator)
   // This avoids misclassifying ambiguous team names like "Giants" and "Cardinals"
   const marketKeywords: Record<string, string[]> = {
     NBA: [
-      "Made Threes",
-      "Rebounds",
-      "Assists",
-      "Points",
-      "Steals",
-      "Blocks",
-      "Triple-Double",
+      "made threes", "rebounds", "assists", "points", "steals", "blocks",
+      "triple-double", "3pt", "3-point", "pts", "reb", "ast", "stl", "blk",
     ],
     NFL: [
-      "Touchdowns",
-      "Passing Yards",
-      "Rushing Yards",
-      "Receiving Yards",
-      "Receptions",
+      "touchdowns", "passing yards", "rushing yards", "receiving yards",
+      "receptions", "tds", "pass yds", "rush yds", "rec yds", "receptions",
     ],
-    MLB: ["Hits", "Home Runs", "Strikeouts", "RBIs", "Runs"],
-    NHL: ["Goals", "Assists", "Saves", "Shots"],
+    MLB: ["hits", "home runs", "strikeouts", "rbis", "runs", "hr", "so", "k"],
+    NHL: ["goals", "assists", "saves", "shots", "g", "a", "sv"],
   };
 
+  // Check market keywords (case-insensitive)
   for (const [sport, keywords] of Object.entries(marketKeywords)) {
-    if (keywords.some((keyword) => cardText.includes(keyword))) {
+    if (keywords.some((keyword) => normalizedText.includes(keyword))) {
       return sport;
     }
   }
 
-  // Check for NBA teams
-  if (nbaTeams.some((team) => cardText.includes(team))) {
+  // Also check legs for market keywords if available
+  if (legs && legs.length > 0) {
+    const legText = legs.map(leg => leg.market?.toLowerCase() || '').join(' ');
+    for (const [sport, keywords] of Object.entries(marketKeywords)) {
+      if (keywords.some((keyword) => legText.includes(keyword))) {
+        return sport;
+      }
+    }
+  }
+
+  // Check for Main market indicators that might help
+  const mainMarketIndicators = {
+    NBA: ["nba", "basketball"],
+    NFL: ["nfl", "football"],
+    MLB: ["mlb", "baseball"],
+    NHL: ["nhl", "hockey"],
+  };
+
+  for (const [sport, indicators] of Object.entries(mainMarketIndicators)) {
+    if (indicators.some((indicator) => normalizedText.includes(indicator))) {
+      // Only use this if we also find a team name to avoid false positives
+      const teamLists: Record<string, string[]> = {
+        NBA: nbaTeams,
+        NFL: nflTeams,
+        MLB: mlbTeams,
+      };
+      const teams = teamLists[sport] || [];
+      if (teams.some((team) => normalizedText.includes(team))) {
+        return sport;
+      }
+    }
+  }
+
+  // Check for NBA teams (case-insensitive, partial match)
+  if (nbaTeams.some((team) => normalizedText.includes(team))) {
     return "NBA";
   }
 
   // Check for MLB teams BEFORE NFL to handle ambiguous team names
   // (e.g., "Giants" and "Cardinals" exist in both leagues)
-  if (mlbTeams.some((team) => cardText.includes(team))) {
+  if (mlbTeams.some((team) => normalizedText.includes(team))) {
     return "MLB";
   }
 
   // Check for NFL teams (after MLB to avoid misclassifying ambiguous names)
-  if (nflTeams.some((team) => cardText.includes(team))) {
+  if (nflTeams.some((team) => normalizedText.includes(team))) {
     return "NFL";
+  }
+
+  // Check legs for team names if available
+  if (legs && legs.length > 0) {
+    const legText = legs.map(leg => 
+      leg.entities?.join(' ').toLowerCase() || ''
+    ).join(' ');
+    
+    if (nbaTeams.some((team) => legText.includes(team))) {
+      return "NBA";
+    }
+    if (mlbTeams.some((team) => legText.includes(team))) {
+      return "MLB";
+    }
+    if (nflTeams.some((team) => legText.includes(team))) {
+      return "NFL";
+    }
   }
 
   // Default to unknown if we can't determine

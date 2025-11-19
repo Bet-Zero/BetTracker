@@ -114,7 +114,15 @@ export function betToFinalRows(bet: Bet): FinalRow[] {
     // Bet with structured legs - create one row per leg
     // For multi-leg bets (parlays/SGPs), use bet result for Net calculation
     const isMultiLeg = bet.legs.length > 1;
-    bet.legs!.forEach((leg) => {
+    
+    // Safety check: Limit legs to prevent parsing errors from creating thousands of rows
+    const legsToProcess = bet.legs.length > 10 ? bet.legs.slice(0, 10) : bet.legs;
+    
+    if (bet.legs.length > 10) {
+      console.error(`betToFinalRows: Bet ${bet.betId} has ${bet.legs.length} legs - limiting to 10 to prevent excessive rows`);
+    }
+    
+    legsToProcess.forEach((leg) => {
       const row = createFinalRow(bet, {
         name: leg.entities?.[0] || '',
         market: leg.market,
