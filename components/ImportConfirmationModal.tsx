@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { Bet, Sportsbook } from '../types';
+import { Bet, Sportsbook, FinalRow } from '../types';
 import { X, AlertTriangle, CheckCircle2 } from './icons';
+import { betToFinalRows } from '../parsing/betToFinalRows';
 
 interface ImportConfirmationModalProps {
   bets: Bet[];
@@ -12,6 +13,11 @@ interface ImportConfirmationModalProps {
   sportsbooks: Sportsbook[];
   onAddPlayer: (sport: string, playerName: string) => void;
   onAddSport: (sport: string) => void;
+}
+
+interface FinalRowWithBetRef extends FinalRow {
+  _betIndex: number; // Reference to original bet for editing
+  _legIndex?: number; // Reference to leg index if multi-leg bet
 }
 
 export const ImportConfirmationModal: React.FC<ImportConfirmationModalProps> = ({
@@ -27,6 +33,24 @@ export const ImportConfirmationModal: React.FC<ImportConfirmationModalProps> = (
 }) => {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
+  // Convert Bets to FinalRows
+  const finalRows = useMemo<FinalRowWithBetRef[]>(() => {
+    const rows: FinalRowWithBetRef[] = [];
+    bets.forEach((bet, betIndex) => {
+      const betRows = betToFinalRows(bet);
+      const hasLegs = bet.legs && bet.legs.length > 0;
+      betRows.forEach((row, legIndex) => {
+        rows.push({
+          ...row,
+          _betIndex: betIndex,
+          // Set legIndex whenever bet has legs structure (even for single-leg bets)
+          _legIndex: hasLegs ? legIndex : undefined,
+        });
+      });
+    });
+    return rows;
+  }, [bets]);
+
   // Map sportsbook names to abbreviations
   const siteShortNameMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -36,29 +60,29 @@ export const ImportConfirmationModal: React.FC<ImportConfirmationModalProps> = (
     return map;
   }, [sportsbooks]);
 
-  // Check for issues in each bet and return issues by field
-  const getBetIssues = (bet: Bet, index: number): { field: string; message: string }[] => {
+  // Check for issues in each FinalRow and return issues by field
+  const getRowIssues = (row: FinalRow): { field: string; message: string }[] => {
     const issues: { field: string; message: string }[] = [];
     
-    if (!bet.sport || bet.sport.trim() === '') {
-      issues.push({ field: 'sport', message: 'Sport is missing' });
-    } else if (!availableSports.includes(bet.sport)) {
-      issues.push({ field: 'sport', message: `Sport "${bet.sport}" not in database` });
+    if (!row.Sport || row.Sport.trim() === '') {
+      issues.push({ field: 'Sport', message: 'Sport is missing' });
+    } else if (!availableSports.includes(row.Sport)) {
+      issues.push({ field: 'Sport', message: `Sport "${row.Sport}" not in database` });
     }
     
-    if (bet.marketCategory === 'Other' || !bet.marketCategory) {
-      issues.push({ field: 'category', message: 'Category is missing or invalid' });
+    if (!row.Category || row.Category.trim() === '') {
+      issues.push({ field: 'Category', message: 'Category is missing or invalid' });
     }
     
-    if (bet.name) {
-      const sportPlayers = availablePlayers[bet.sport] || [];
-      if (!sportPlayers.includes(bet.name)) {
-        issues.push({ field: 'name', message: `Player "${bet.name}" not in database` });
+    if (row.Name && row.Name.trim()) {
+      const sportPlayers = availablePlayers[row.Sport] || [];
+      if (!sportPlayers.includes(row.Name)) {
+        issues.push({ field: 'Name', message: `Player "${row.Name}" not in database` });
       }
     }
     
-    if (!bet.type && bet.marketCategory === 'Props') {
-      issues.push({ field: 'type', message: 'Stat type is missing' });
+    if (!row.Type && row.Category === 'Props') {
+      issues.push({ field: 'Type', message: 'Stat type is missing' });
     }
     
     return issues;
@@ -76,31 +100,54 @@ export const ImportConfirmationModal: React.FC<ImportConfirmationModalProps> = (
     }
   };
 
-  const hasAnyIssues = bets.some((bet, index) => getBetIssues(bet, index).length > 0);
+  const hasAnyIssues = finalRows.some((row) => getRowIssues(row).length > 0);
 
-  const formatDate = (isoString: string) => {
-    const date = new Date(isoString);
-    if (isNaN(date.getTime())) return "Invalid Date";
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    const year = String(date.getFullYear()).slice(-2);
-    return `${month}/${day}/${year}`;
-  };
-
-  const calculateToWin = (stake: number, odds: number): number => {
-    if (isNaN(stake) || isNaN(odds) || stake <= 0) return 0;
-    if (odds > 0) {
-      return stake + (stake * (odds / 100));
-    } else if (odds < 0) {
-      return stake + (stake / (Math.abs(odds) / 100));
+  // Handle editing a FinalRow field by updating the original Bet
+  const handleEditRow = (rowIndex: number, field: keyof FinalRow, value: string) => {
+    const row = finalRows[rowIndex];
+    const betIndex = row._betIndex;
+    const legIndex = row._legIndex;
+    
+    // For now, we'll update the bet directly
+    // This is a simplified approach - a full implementation would need to
+    // map FinalRow changes back to Bet structure
+    const bet = bets[betIndex];
+    
+    // Update based on field
+    const updates: Partial<Bet> = {};
+    
+    switch (field) {
+      case 'Sport':
+        updates.sport = value;
+        break;
+      case 'Category':
+        updates.marketCategory = value;
+        break;
+      case 'Type':
+        if (legIndex !== undefined && bet.legs) {
+          // Update leg market
+          const newLegs = [...bet.legs];
+          newLegs[legIndex] = { ...newLegs[legIndex], market: value };
+          updates.legs = newLegs;
+        } else {
+          updates.type = value;
+        }
+        break;
+      case 'Name':
+        if (legIndex !== undefined && bet.legs) {
+          // Update leg entity
+          const newLegs = [...bet.legs];
+          newLegs[legIndex] = { ...newLegs[legIndex], entities: [value] };
+          updates.legs = newLegs;
+        } else {
+          updates.name = value;
+        }
+        break;
     }
-    return 0;
-  };
-
-  const formatOdds = (odds: number | undefined): string => {
-    if (odds === undefined || odds === null) return "";
-    if (odds > 0) return `+${odds}`;
-    return odds.toString();
+    
+    if (Object.keys(updates).length > 0) {
+      onEditBet(betIndex, updates);
+    }
   };
 
   return (
@@ -149,21 +196,9 @@ export const ImportConfirmationModal: React.FC<ImportConfirmationModalProps> = (
                 </tr>
               </thead>
               <tbody>
-                {bets.map((bet, index) => {
-                  const issues = getBetIssues(bet, index);
+                {finalRows.map((row, index) => {
+                  const issues = getRowIssues(row);
                   const isEditing = editingIndex === index;
-                  const toWin = calculateToWin(bet.stake, bet.odds);
-                  
-                  // Calculate net based on result
-                  let net = 0;
-                  if (bet.result === 'win') {
-                    net = bet.payout ? bet.payout - bet.stake : toWin - bet.stake;
-                  } else if (bet.result === 'loss') {
-                    net = -bet.stake;
-                  } else if (bet.result === 'push') {
-                    net = 0;
-                  }
-                  // pending: net stays 0
 
                   return (
                     <tr
@@ -174,14 +209,14 @@ export const ImportConfirmationModal: React.FC<ImportConfirmationModalProps> = (
                           : 'odd:bg-white dark:odd:bg-neutral-900 even:bg-neutral-50 dark:even:bg-neutral-800/50'
                       }`}
                     >
-                      <td className="px-2 py-3 whitespace-nowrap">{formatDate(bet.placedAt)}</td>
-                      <td className="px-2 py-3 font-bold">{siteShortNameMap[bet.book] || bet.book}</td>
+                      <td className="px-2 py-3 whitespace-nowrap">{row.Date}</td>
+                      <td className="px-2 py-3 font-bold">{siteShortNameMap[row.Site] || row.Site}</td>
                       <td className="px-2 py-3">
                         {isEditing ? (
                           <div className="flex gap-1">
                             <select
-                              value={bet.sport || ''}
-                              onChange={(e) => onEditBet(index, { sport: e.target.value })}
+                              value={row.Sport || ''}
+                              onChange={(e) => handleEditRow(index, 'Sport', e.target.value)}
                               className="w-full p-1 text-sm border rounded bg-white dark:bg-neutral-800"
                             >
                               <option value="">Select</option>
@@ -189,9 +224,9 @@ export const ImportConfirmationModal: React.FC<ImportConfirmationModalProps> = (
                                 <option key={sport} value={sport}>{sport}</option>
                               ))}
                             </select>
-                            {bet.sport && !availableSports.includes(bet.sport) && (
+                            {row.Sport && !availableSports.includes(row.Sport) && (
                               <button
-                                onClick={() => handleAddSport(bet.sport!)}
+                                onClick={() => handleAddSport(row.Sport)}
                                 className="px-1 py-0.5 text-xs bg-primary-600 text-white rounded hover:bg-primary-700"
                                 title="Add Sport"
                               >
@@ -201,19 +236,19 @@ export const ImportConfirmationModal: React.FC<ImportConfirmationModalProps> = (
                           </div>
                         ) : (
                           <div className="flex items-center gap-1">
-                            <span className={!bet.sport ? 'text-red-500' : ''}>{bet.sport || '(missing)'}</span>
-                            {issues.find(i => i.field === 'sport') && (
+                            <span className={!row.Sport ? 'text-red-500' : ''}>{row.Sport || '(missing)'}</span>
+                            {issues.find(i => i.field === 'Sport') && (
                               <button
                                 onClick={() => {
-                                  const issue = issues.find(i => i.field === 'sport');
-                                  if (issue?.message.includes('not in database') && bet.sport) {
-                                    handleAddSport(bet.sport);
+                                  const issue = issues.find(i => i.field === 'Sport');
+                                  if (issue?.message.includes('not in database') && row.Sport) {
+                                    handleAddSport(row.Sport);
                                   } else {
                                     setEditingIndex(index);
                                   }
                                 }}
                                 className="flex-shrink-0"
-                                title={issues.find(i => i.field === 'sport')?.message}
+                                title={issues.find(i => i.field === 'Sport')?.message}
                               >
                                 <AlertTriangle className="w-3 h-3 text-yellow-600 dark:text-yellow-400" />
                               </button>
@@ -224,25 +259,23 @@ export const ImportConfirmationModal: React.FC<ImportConfirmationModalProps> = (
                       <td className="px-2 py-3">
                         {isEditing ? (
                           <select
-                            value={bet.marketCategory || ''}
-                            onChange={(e) => onEditBet(index, { marketCategory: e.target.value })}
+                            value={row.Category || ''}
+                            onChange={(e) => handleEditRow(index, 'Category', e.target.value)}
                             className="w-full p-1 text-sm border rounded bg-white dark:bg-neutral-800"
                           >
                             <option value="">Select</option>
                             <option value="Props">Props</option>
-                            <option value="Main Markets">Main Markets</option>
+                            <option value="Main">Main</option>
                             <option value="Futures">Futures</option>
-                            <option value="Parlays">Parlays</option>
-                            <option value="SGP/SGP+">SGP/SGP+</option>
                           </select>
                         ) : (
                           <div className="flex items-center gap-1">
-                            <span className={!bet.marketCategory ? 'text-red-500' : ''}>{bet.marketCategory || '(missing)'}</span>
-                            {issues.find(i => i.field === 'category') && (
+                            <span className={!row.Category ? 'text-red-500' : ''}>{row.Category || '(missing)'}</span>
+                            {issues.find(i => i.field === 'Category') && (
                               <button
                                 onClick={() => setEditingIndex(index)}
                                 className="flex-shrink-0"
-                                title={issues.find(i => i.field === 'category')?.message}
+                                title={issues.find(i => i.field === 'Category')?.message}
                               >
                                 <AlertTriangle className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
                               </button>
@@ -250,23 +283,23 @@ export const ImportConfirmationModal: React.FC<ImportConfirmationModalProps> = (
                           </div>
                         )}
                       </td>
-                      <td className="px-2 py-3 capitalize">
+                      <td className={`px-2 py-3 ${!row.Type ? 'bg-yellow-100 dark:bg-yellow-900/30' : ''}`}>
                         {isEditing ? (
                           <input
                             type="text"
-                            value={bet.type || ''}
-                            onChange={(e) => onEditBet(index, { type: e.target.value })}
+                            value={row.Type || ''}
+                            onChange={(e) => handleEditRow(index, 'Type', e.target.value)}
                             className="w-full p-1 text-sm border rounded bg-white dark:bg-neutral-800"
-                            placeholder="e.g., 3pt"
+                            placeholder="e.g., 3pt, Pts"
                           />
                         ) : (
                           <div className="flex items-center gap-1">
-                            <span>{bet.type || ''}</span>
-                            {issues.find(i => i.field === 'type') && (
+                            <span className={!row.Type ? 'text-yellow-700 dark:text-yellow-400 font-semibold' : ''}>{row.Type || '(needs review)'}</span>
+                            {issues.find(i => i.field === 'Type') && (
                               <button
                                 onClick={() => setEditingIndex(index)}
                                 className="flex-shrink-0"
-                                title={issues.find(i => i.field === 'type')?.message}
+                                title={issues.find(i => i.field === 'Type')?.message}
                               >
                                 <AlertTriangle className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
                               </button>
@@ -279,14 +312,14 @@ export const ImportConfirmationModal: React.FC<ImportConfirmationModalProps> = (
                           <div className="flex gap-1">
                             <input
                               type="text"
-                              value={bet.name || ''}
-                              onChange={(e) => onEditBet(index, { name: e.target.value })}
+                              value={row.Name || ''}
+                              onChange={(e) => handleEditRow(index, 'Name', e.target.value)}
                               className="flex-1 p-1 text-sm border rounded bg-white dark:bg-neutral-800"
-                              placeholder="Player name"
+                              placeholder="Player/Team name only"
                             />
-                            {bet.name && bet.sport && !(availablePlayers[bet.sport] || []).includes(bet.name) && (
+                            {row.Name && row.Sport && !(availablePlayers[row.Sport] || []).includes(row.Name) && (
                               <button
-                                onClick={() => handleAddPlayer(bet.sport!, bet.name!)}
+                                onClick={() => handleAddPlayer(row.Sport, row.Name)}
                                 className="px-1 py-0.5 text-xs bg-primary-600 text-white rounded hover:bg-primary-700"
                                 title="Add Player"
                               >
@@ -296,21 +329,21 @@ export const ImportConfirmationModal: React.FC<ImportConfirmationModalProps> = (
                           </div>
                         ) : (
                           <div className="flex items-center gap-1">
-                            <span className={bet.name && bet.sport && !(availablePlayers[bet.sport] || []).includes(bet.name) ? 'text-yellow-600' : ''}>
-                              {bet.name || ''}
+                            <span className={row.Name && row.Sport && !(availablePlayers[row.Sport] || []).includes(row.Name) ? 'text-yellow-600' : ''}>
+                              {row.Name || ''}
                             </span>
-                            {issues.find(i => i.field === 'name') && (
+                            {issues.find(i => i.field === 'Name') && (
                               <button
                                 onClick={() => {
-                                  const issue = issues.find(i => i.field === 'name');
-                                  if (issue?.message.includes('not in database') && bet.name && bet.sport) {
-                                    handleAddPlayer(bet.sport, bet.name);
+                                  const issue = issues.find(i => i.field === 'Name');
+                                  if (issue?.message.includes('not in database') && row.Name && row.Sport) {
+                                    handleAddPlayer(row.Sport, row.Name);
                                   } else {
                                     setEditingIndex(index);
                                   }
                                 }}
                                 className="flex-shrink-0"
-                                title={issues.find(i => i.field === 'name')?.message}
+                                title={issues.find(i => i.field === 'Name')?.message}
                               >
                                 <AlertTriangle className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
                               </button>
@@ -318,23 +351,23 @@ export const ImportConfirmationModal: React.FC<ImportConfirmationModalProps> = (
                           </div>
                         )}
                       </td>
-                      <td className="px-2 py-3 text-center capitalize">
-                        {bet.ou ? bet.ou[0] : ''}
+                      <td className="px-2 py-3 text-center">
+                        {row.Over === '1' ? 'O' : row.Under === '1' ? 'U' : ''}
                       </td>
                       <td className="px-2 py-3 text-center">
-                        {bet.line || ''}
+                        {row.Line || ''}
                       </td>
-                      <td className="px-2 py-3">{formatOdds(bet.odds)}</td>
-                      <td className="px-2 py-3">${bet.stake.toFixed(2)}</td>
-                      <td className="px-2 py-3">${toWin.toFixed(2)}</td>
-                      <td className="px-2 py-3 capitalize">{bet.result || 'pending'}</td>
+                      <td className="px-2 py-3">{row.Odds}</td>
+                      <td className="px-2 py-3">${row.Bet}</td>
+                      <td className="px-2 py-3">${row['To Win']}</td>
+                      <td className="px-2 py-3 capitalize">{row.Result}</td>
                       <td className={`px-2 py-3 ${
-                        net > 0 ? 'text-accent-500' : net < 0 ? 'text-danger-500' : ''
+                        parseFloat(row.Net) > 0 ? 'text-accent-500' : parseFloat(row.Net) < 0 ? 'text-danger-500' : ''
                       }`}>
-                        {bet.result === 'pending' ? '' : `$${net.toFixed(2)}`}
+                        {row.Net ? `$${row.Net}` : ''}
                       </td>
-                      <td className="px-2 py-3 text-center whitespace-nowrap">{bet.betType === 'live' ? '✓' : ''}</td>
-                      <td className="px-2 py-3 whitespace-nowrap truncate">{bet.tail || ''}</td>
+                      <td className="px-2 py-3 text-center whitespace-nowrap">{row.Live === '1' ? '✓' : ''}</td>
+                      <td className="px-2 py-3 text-center whitespace-nowrap">{row.Tail === '1' ? '✓' : ''}</td>
                       <td className="px-2 py-3">
                         {isEditing ? (
                           <button
@@ -366,11 +399,11 @@ export const ImportConfirmationModal: React.FC<ImportConfirmationModalProps> = (
           <div className="text-sm text-neutral-600 dark:text-neutral-400">
             {hasAnyIssues && (
               <span className="text-yellow-600 dark:text-yellow-400">
-                {bets.filter((bet, i) => getBetIssues(bet, i).length > 0).length} bet(s) have issues
+                {finalRows.filter((row) => getRowIssues(row).length > 0).length} row(s) have issues
               </span>
             )}
             {!hasAnyIssues && (
-              <span className="text-green-600 dark:text-green-400">All bets look good!</span>
+              <span className="text-green-600 dark:text-green-400">All rows look good!</span>
             )}
           </div>
           <div className="flex gap-3">
@@ -384,7 +417,7 @@ export const ImportConfirmationModal: React.FC<ImportConfirmationModalProps> = (
               onClick={onConfirm}
               className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
             >
-              Import {bets.length} Bet{bets.length !== 1 ? 's' : ''}
+              Import {bets.length} Bet{bets.length !== 1 ? 's' : ''} ({finalRows.length} row{finalRows.length !== 1 ? 's' : ''})
             </button>
           </div>
         </div>

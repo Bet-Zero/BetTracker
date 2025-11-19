@@ -323,9 +323,4 @@ export function formatAmericanOdds(odds: number): string {
   return odds > 0 ? `+${odds}` : `${odds}`;
 }
 
-/**
- * NOTE: convertBetToStrictRow has been removed.
- * All new parsing should use normalizeBet() from normalizeBet.ts instead.
- * This function was used to convert Bet objects to StrictBetRow format,
- * but the new architecture uses RawBet → normalizeBet → FinalRow.
- */
+

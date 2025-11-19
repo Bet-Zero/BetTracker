@@ -289,7 +289,7 @@ const LiveVsPreMatchBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
         filteredBets.forEach(bet => {
             const result = bet.result;
             const net = bet.payout - bet.stake;
-            const liveTarget = bet.betType === 'live' ? stats.live : stats.preMatch;
+            const liveTarget = bet.isLive ? stats.live : stats.preMatch;
             liveTarget.count++; 
             liveTarget.stake += bet.stake; 
             liveTarget.net += net;
@@ -483,8 +483,10 @@ const BySportView: React.FC = () => {
                     if (result === 'win') mStats.wins++; if (result === 'loss') mStats.losses++;
                 });
             } else {
-                const entity = extractEntityFromDescription(bet.description);
-                addToMap(playerTeamStatsMap, entity, bet.stake, net, result);
+                // Use bet.name only - never derive from description
+                if (bet.name) {
+                    addToMap(playerTeamStatsMap, bet.name, bet.stake, net, result);
+                }
             }
         });
 

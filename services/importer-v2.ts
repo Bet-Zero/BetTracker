@@ -1,7 +1,13 @@
-import { processPage } from "../parsing/pageProcessor";
+/**
+ * Importer V2 - Simplified Architecture
+ * 
+ * Direct flow: HTML → Bet (via pageProcessor)
+ * No intermediate transformations.
+ */
+
+import { processPage } from "../parsing/pageProcessor-v2";
 import { PageSourceProvider } from "./pageSourceProvider";
 import { SportsbookName, Bet } from "../types";
-import { convertFinalRowToBet } from "../parsing/convertFinalRowToBet";
 
 /**
  * Parses HTML and returns bets without importing them.
@@ -13,11 +19,8 @@ export async function parseBets(
 ): Promise<Bet[]> {
   const rawHtml = await provider.getPageSource(book);
 
-  // Parse HTML to FinalRow[] (normalized format)
-  const finalRows = processPage(book, rawHtml);
-
-  // Convert FinalRow[] to Bet[] for internal storage
-  const parsedBets: Bet[] = finalRows.map(convertFinalRowToBet);
+  // Parse HTML directly to Bet[]
+  const parsedBets: Bet[] = processPage(book, rawHtml);
 
   return parsedBets;
 }
@@ -36,11 +39,8 @@ export async function handleImport(
 ): Promise<{ foundCount: number; importedCount: number }> {
   const rawHtml = await provider.getPageSource(book);
 
-  // Parse HTML to FinalRow[] (normalized format)
-  const finalRows = processPage(book, rawHtml);
-
-  // Convert FinalRow[] to Bet[] for internal storage
-  const parsedBets: Bet[] = finalRows.map(convertFinalRowToBet);
+  // Parse HTML directly to Bet[]
+  const parsedBets: Bet[] = processPage(book, rawHtml);
 
   const importedCount = addBets(parsedBets);
 
