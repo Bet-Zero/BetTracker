@@ -132,21 +132,20 @@ const bet: Bet = {
 ## What Changed
 
 ### Created (New Simplified System)
-- ✅ `parsing/parsers/fanduel-v2.ts` - Direct HTML → Bet parser
-- ✅ `parsing/parsers/fanduel-v2.test.ts` - All tests passing
-- ✅ `parsing/pageProcessor-v2.ts` - Routes to appropriate parser
-- ✅ `services/importer-v2.ts` - Simplified import flow
+- ✅ `parsing/parsers/fanduel.ts` - Direct HTML → Bet parser
+- ✅ `parsing/parsers/fanduel.test.ts` - All tests passing
+- ✅ `parsing/pageProcessor.ts` - Routes to appropriate parser
+- ✅ `services/importer.ts` - Simplified import flow
 - ✅ `parsing/ARCHITECTURE.md` - Comprehensive documentation
 - ✅ `REFACTORING_SUMMARY.md` - Summary of changes
 - ✅ `BEFORE_AND_AFTER.md` - This file
 
 ### Modified
-- ✅ `views/ImportView.tsx` - Now uses v2 importer
-- ✅ `parsing/parsers/fanduel.test.ts` - Deprecated, tests skipped
+- ✅ `views/ImportView.tsx` - Now uses new importer
 
-### Deprecated (Kept for Reference)
-- `parsing/parsers/fanduel.ts` - Old FinalRow-based parser
-- `parsing/normalizeBet.ts` - No longer needed for parsing
+### Deprecated (Removed During Cleanup)
+- Old `parsing/parsers/fanduel.ts` - FinalRow-based parser (removed)
+- `parsing/normalizeBet.ts` - No longer needed (removed)
 - `parsing/rawBetTypes.ts` - No longer needed
 - `parsing/convertFinalRowToBet.ts` - No longer needed for parsing
 - `services/importer.ts` - Old importer

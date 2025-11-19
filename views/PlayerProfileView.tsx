@@ -321,6 +321,7 @@ const PlayerProfileView: React.FC<PlayerProfileViewProps> = ({ selectedPlayer, s
     const [isSearchFocused, setIsSearchFocused] = useState(false);
     const [dateRange, setDateRange] = useState<DateRange>('all');
     const [customDateRange, setCustomDateRange] = useState<{ start: string; end: string }>({ start: '', end: '' });
+    const [betTypeFilter, setBetTypeFilter] = useState<"singles" | "parlays" | "all">("singles");
 
     useEffect(() => {
         setSearchTerm(selectedPlayer || '');
@@ -383,10 +384,20 @@ const PlayerProfileView: React.FC<PlayerProfileViewProps> = ({ selectedPlayer, s
             }
         }
 
-        return dateFilteredBets.filter(bet =>
+        let filtered = dateFilteredBets.filter(bet =>
             bet.legs?.some(leg => leg.entities?.includes(selectedPlayer))
         );
-    }, [bets, selectedPlayer, dateRange, customDateRange]);
+        
+        // Filter by betType
+        if (betTypeFilter === "singles") {
+            filtered = filtered.filter(bet => bet.betType === "single");
+        } else if (betTypeFilter === "parlays") {
+            filtered = filtered.filter(bet => bet.betType === "sgp" || bet.betType === "parlay");
+        }
+        // "all" includes everything, no additional filter needed
+        
+        return filtered;
+    }, [bets, selectedPlayer, dateRange, customDateRange, betTypeFilter]);
 
     const processedData = useMemo(() => {
         if (!selectedPlayer || playerBets.length === 0) return null;
@@ -501,14 +512,48 @@ const PlayerProfileView: React.FC<PlayerProfileViewProps> = ({ selectedPlayer, s
                                     </button>
                                 </div>
 
-                                <div className="flex items-center space-x-1 flex-wrap gap-y-2 bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-lg">
-                                    <DateRangeButton range="all" label="All Time" currentRange={dateRange} onClick={setDateRange} />
-                                    <DateRangeButton range="1d" label="1D" currentRange={dateRange} onClick={setDateRange} />
-                                    <DateRangeButton range="3d" label="3D" currentRange={dateRange} onClick={setDateRange} />
-                                    <DateRangeButton range="1w" label="1W" currentRange={dateRange} onClick={setDateRange} />
-                                    <DateRangeButton range="1m" label="1M" currentRange={dateRange} onClick={setDateRange} />
-                                    <DateRangeButton range="1y" label="1Y" currentRange={dateRange} onClick={setDateRange} />
-                                    <DateRangeButton range="custom" label="Custom" currentRange={dateRange} onClick={setDateRange} />
+                                <div className="flex flex-col sm:flex-row gap-2">
+                                    <div className="flex items-center space-x-1 flex-wrap gap-y-2 bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-lg">
+                                        <button
+                                            onClick={() => setBetTypeFilter("singles")}
+                                            className={`px-3 py-1.5 rounded-md font-medium text-xs transition-colors ${
+                                                betTypeFilter === "singles"
+                                                    ? "bg-primary-600 text-white shadow"
+                                                    : "text-neutral-600 dark:text-neutral-300 hover:bg-white dark:hover:bg-neutral-700"
+                                            }`}
+                                        >
+                                            Singles Only
+                                        </button>
+                                        <button
+                                            onClick={() => setBetTypeFilter("parlays")}
+                                            className={`px-3 py-1.5 rounded-md font-medium text-xs transition-colors ${
+                                                betTypeFilter === "parlays"
+                                                    ? "bg-primary-600 text-white shadow"
+                                                    : "text-neutral-600 dark:text-neutral-300 hover:bg-white dark:hover:bg-neutral-700"
+                                            }`}
+                                        >
+                                            Parlays Only
+                                        </button>
+                                        <button
+                                            onClick={() => setBetTypeFilter("all")}
+                                            className={`px-3 py-1.5 rounded-md font-medium text-xs transition-colors ${
+                                                betTypeFilter === "all"
+                                                    ? "bg-primary-600 text-white shadow"
+                                                    : "text-neutral-600 dark:text-neutral-300 hover:bg-white dark:hover:bg-neutral-700"
+                                            }`}
+                                        >
+                                            All Bets
+                                        </button>
+                                    </div>
+                                    <div className="flex items-center space-x-1 flex-wrap gap-y-2 bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-lg">
+                                        <DateRangeButton range="all" label="All Time" currentRange={dateRange} onClick={setDateRange} />
+                                        <DateRangeButton range="1d" label="1D" currentRange={dateRange} onClick={setDateRange} />
+                                        <DateRangeButton range="3d" label="3D" currentRange={dateRange} onClick={setDateRange} />
+                                        <DateRangeButton range="1w" label="1W" currentRange={dateRange} onClick={setDateRange} />
+                                        <DateRangeButton range="1m" label="1M" currentRange={dateRange} onClick={setDateRange} />
+                                        <DateRangeButton range="1y" label="1Y" currentRange={dateRange} onClick={setDateRange} />
+                                        <DateRangeButton range="custom" label="Custom" currentRange={dateRange} onClick={setDateRange} />
+                                    </div>
                                 </div>
                             </div>
 

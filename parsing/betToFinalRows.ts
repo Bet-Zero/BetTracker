@@ -1,7 +1,7 @@
 /**
  * Bet to FinalRow Converter
  * 
- * This module converts Bet objects (from v2 parsers) into FinalRow format
+ * This module converts Bet objects (from parsers) into FinalRow format
  * for display and editing in the spreadsheet-like UI.
  * 
  * KEY PRINCIPLES:
@@ -86,7 +86,7 @@ const FUTURES_TYPES: Record<string, string> = {
  * Converts a Bet to one or more FinalRow objects.
  * Multi-leg bets produce one FinalRow per leg.
  * 
- * @param bet - The Bet object from the v2 parser
+ * @param bet - The Bet object from the parser
  * @returns Array of FinalRow objects (one per leg, or one for single bets)
  */
 export function betToFinalRows(bet: Bet): FinalRow[] {

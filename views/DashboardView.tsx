@@ -707,6 +707,7 @@ const DashboardView: React.FC = () => {
   const [entityType, setEntityType] = useState<"all" | "player" | "team">(
     "all"
   );
+  const [betTypeFilter, setBetTypeFilter] = useState<"singles" | "parlays" | "all">("singles");
 
   const allPlayers = useMemo(
     () => new Set(Object.values(players).flat()),
@@ -716,6 +717,14 @@ const DashboardView: React.FC = () => {
 
   const filteredBets = useMemo(() => {
     let betsToFilter = bets.filter((bet) => {
+      // Filter by betType
+      if (betTypeFilter === "singles") {
+        if (bet.betType !== "single") return false;
+      } else if (betTypeFilter === "parlays") {
+        if (bet.betType !== "sgp" && bet.betType !== "parlay") return false;
+      }
+      // "all" includes everything, no filter needed
+      
       if (
         selectedMarketCategory !== "all" &&
         bet.marketCategory !== selectedMarketCategory
@@ -770,7 +779,7 @@ const DashboardView: React.FC = () => {
     }
 
     return betsToFilter;
-  }, [bets, selectedMarketCategory, dateRange, customDateRange]);
+  }, [bets, selectedMarketCategory, dateRange, customDateRange, betTypeFilter]);
 
   const processedData = useMemo(() => {
     const initialData = {
@@ -1083,6 +1092,38 @@ const DashboardView: React.FC = () => {
                 {cat}
               </button>
             ))}
+          </div>
+          <div className="flex items-center space-x-1 flex-wrap gap-y-2 bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-lg">
+            <button
+              onClick={() => setBetTypeFilter("singles")}
+              className={`px-3 py-1.5 rounded-md font-medium text-xs transition-colors ${
+                betTypeFilter === "singles"
+                  ? "bg-primary-600 text-white shadow"
+                  : "text-neutral-600 dark:text-neutral-300 hover:bg-white dark:hover:bg-neutral-700"
+              }`}
+            >
+              Singles Only
+            </button>
+            <button
+              onClick={() => setBetTypeFilter("parlays")}
+              className={`px-3 py-1.5 rounded-md font-medium text-xs transition-colors ${
+                betTypeFilter === "parlays"
+                  ? "bg-primary-600 text-white shadow"
+                  : "text-neutral-600 dark:text-neutral-300 hover:bg-white dark:hover:bg-neutral-700"
+              }`}
+            >
+              Parlays Only
+            </button>
+            <button
+              onClick={() => setBetTypeFilter("all")}
+              className={`px-3 py-1.5 rounded-md font-medium text-xs transition-colors ${
+                betTypeFilter === "all"
+                  ? "bg-primary-600 text-white shadow"
+                  : "text-neutral-600 dark:text-neutral-300 hover:bg-white dark:hover:bg-neutral-700"
+              }`}
+            >
+              All Bets
+            </button>
           </div>
           <div className="flex items-center space-x-1 flex-wrap gap-y-2 bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-lg">
             <DateRangeButton

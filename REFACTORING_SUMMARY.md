@@ -47,14 +47,14 @@ HTML → parse → Bet
 Created a new, streamlined parsing system:
 
 1. **Direct HTML → Bet Transformation**
-   - New parser: `parsing/parsers/fanduel-v2.ts` (330 lines, clean and readable)
+   - Parser: `parsing/parsers/fanduel.ts` (simplified, clean and readable)
    - Eliminates RawBet and FinalRow intermediate steps
    - Handles both single bets AND multi-leg bets (SGPs/parlays)
 
 2. **Updated Integration**
-   - New processor: `parsing/pageProcessor-v2.ts`
-   - New importer: `services/importer-v2.ts`
-   - Updated `ImportView.tsx` to use v2 system
+   - Processor: `parsing/pageProcessor.ts`
+   - Importer: `services/importer.ts`
+   - Updated `ImportView.tsx` to use new system
 
 3. **Preserved Correct Uses**
    - CSV import still uses FinalRow (which is correct)
@@ -68,25 +68,24 @@ Created a new, streamlined parsing system:
 
 ### File Summary
 
-**New Files Created:**
-- ✓ `parsing/parsers/fanduel-v2.ts` - Simplified parser
-- ✓ `parsing/parsers/fanduel-v2.test.ts` - Tests (all passing)
-- ✓ `parsing/pageProcessor-v2.ts` - Simplified processor
-- ✓ `services/importer-v2.ts` - Simplified importer
+**Active Files:**
+- ✓ `parsing/parsers/fanduel.ts` - Simplified parser
+- ✓ `parsing/parsers/fanduel.test.ts` - Tests (all passing)
+- ✓ `parsing/pageProcessor.ts` - Simplified processor
+- ✓ `services/importer.ts` - Simplified importer
 - ✓ `parsing/ARCHITECTURE.md` - Documentation
 - ✓ `REFACTORING_SUMMARY.md` - This file
 
 **Modified Files:**
-- ✓ `views/ImportView.tsx` - Uses v2 importer
-- ✓ `parsing/parsers/fanduel.test.ts` - Marked as deprecated
+- ✓ `views/ImportView.tsx` - Uses new importer
 
-**Deprecated (kept for reference, can be removed later):**
-- `parsing/parsers/fanduel.ts` (old FinalRow-based parser)
-- `parsing/normalizeBet.ts` 
-- `parsing/rawBetTypes.ts`
-- `parsing/convertFinalRowToBet.ts`
-- `services/importer.ts`
-- `parsing/pageProcessor.ts`
+**Deprecated (removed during cleanup):**
+- Old `parsing/parsers/fanduel.ts` (FinalRow-based parser) - removed
+- `parsing/normalizeBet.ts` - removed
+- `parsing/rawBetTypes.ts` - removed
+- `parsing/convertFinalRowToBet.ts` - removed
+- Old `services/importer.ts` - removed
+- Old `parsing/pageProcessor.ts` - removed
 
 ## Benefits of the New Architecture
 
@@ -100,25 +99,10 @@ Created a new, streamlined parsing system:
 
 ## What You Can Do Now
 
-### Option 1: Keep Both Systems (Transition Period)
-- v2 system is now active and working
-- Old system still exists but isn't used
-- Remove old files when you're comfortable
-
-### Option 2: Complete the Migration
-- Delete deprecated files:
-  - `parsing/parsers/fanduel.ts`
-  - `parsing/normalizeBet.ts`
-  - `parsing/rawBetTypes.ts`
-  - `parsing/convertFinalRowToBet.ts`
-  - `services/importer.ts`
-  - `parsing/pageProcessor.ts`
-- Rename v2 files to remove the "-v2" suffix
-
-### Option 3: Add DraftKings Support
-- Create `parsing/parsers/draftkings-v2.ts` following the same pattern
+### Option 1: Add DraftKings Support
+- Create `parsing/parsers/draftkings.ts` following the same pattern as `fanduel.ts`
 - Add fixture HTML file for testing
-- Update `pageProcessor-v2.ts` to route to DraftKings parser
+- Update `pageProcessor.ts` to route to DraftKings parser
 
 ## Key Takeaway
 

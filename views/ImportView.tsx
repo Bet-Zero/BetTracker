@@ -4,7 +4,7 @@ import { useInputs } from '../hooks/useInputs';
 import { SportsbookName, Bet } from '../types';
 import { AlertTriangle, CheckCircle2, ExternalLink } from '../components/icons';
 import { ManualPasteSourceProvider } from '../services/pageSourceProvider';
-import { parseBets, handleImport } from '../services/importer-v2';
+import { parseBets, handleImport } from '../services/importer';
 import { NoSourceDataError } from '../services/errors';
 import { ImportConfirmationModal } from '../components/ImportConfirmationModal';
 

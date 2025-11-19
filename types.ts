@@ -34,10 +34,10 @@ export interface Bet {
   stake: number;
   payout: number;
   result: BetResult;
-  type?: string; // Stat type for props (e.g., "3pt", "Pts", "Ast") - only for single bets
-  line?: string; // Line/threshold (e.g., "3+", "25.5") - only for single bets
-  ou?: 'Over' | 'Under'; // Over/Under - only for single bets
-  legs?: BetLeg[]; // Only for parlays/SGPs - single bets should NOT have legs
+  type?: string; // Stat type for props (e.g., "3pt", "Pts", "Ast") - convenience field derived from legs[0]
+  line?: string; // Line/threshold (e.g., "3+", "25.5") - convenience field derived from legs[0]
+  ou?: 'Over' | 'Under'; // Over/Under - convenience field derived from legs[0]
+  legs?: BetLeg[]; // All bets have legs: singles have legs.length === 1, parlays/SGPs have legs.length > 1
   tail?: string; // Who the bet was tailed from
   raw?: string; // Full raw text block for this bet
   isLive?: boolean; // Whether bet was placed live/in-game (separate from betType)

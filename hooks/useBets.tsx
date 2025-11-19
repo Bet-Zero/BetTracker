@@ -94,22 +94,26 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
           localStorage.removeItem("bettracker-bets");
           setBets([]);
         } else {
-          // Migrate old bets: convert single-leg bets to new structure (no legs, type/line/ou on bet)
+          // Migrate old bets: ensure all bets have legs array (unified legs model)
           // Also retroactively classify bets that don't have a category
           const migratedBets = parsedBets.map((bet) => {
             let migratedBet = { ...bet };
             
-            // Migration: If bet has exactly 1 leg and no type/line/ou, migrate leg data to bet
-            if (bet.legs && bet.legs.length === 1 && !bet.type && !bet.line && !bet.ou) {
-              const leg = bet.legs[0];
-              migratedBet = {
-                ...bet,
-                type: leg.market,
-                line: leg.target?.toString(),
-                ou: leg.ou,
-                legs: undefined, // Remove legs for single bets
-              };
+            // Migration: If bet doesn't have legs but has top-level fields, create a leg from them
+            if (!bet.legs || bet.legs.length === 0) {
+              if (bet.name || bet.type || bet.line) {
+                migratedBet.legs = [{
+                  entities: bet.name ? [bet.name] : undefined,
+                  market: bet.type || '',
+                  target: bet.line,
+                  ou: bet.ou,
+                  result: bet.result,
+                }];
+              }
             }
+            
+            // Migration: Ensure single bets have exactly one leg (if they have legs but more than one, keep as-is)
+            // This handles edge cases where a single bet might have been incorrectly parsed with multiple legs
             
             // Migration: Backfill isLive from betType for existing bets
             if (migratedBet.isLive === undefined && migratedBet.betType === 'live') {

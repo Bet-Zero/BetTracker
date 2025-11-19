@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { parse } from './fanduel-v2';
+import { parse } from './fanduel';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

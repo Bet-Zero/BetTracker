@@ -1,0 +1,22 @@
+commands:
+  - name: audit
+    description: Run the Apex Audit on the selected files, folders, or full codebase.
+    prompt: |
+      You are running the /audit command in Cursor.
+      The user selects the TARGET_SCOPE using @-mentions or #codebase.
+
+      Load and follow the full audit instructions stored in:
+      docs/ApexAuditPrompt.md
+
+      Treat the selected scope as TARGET_SCOPE.
+      Perform the complete Apex Audit exactly as described in that file.
+
+      Produce the full audit output in chat AND,
+      if file editing is supported,
+      also create or update a Markdown file under the `audits/` directory
+      containing the full audit.
+
+      Name the audit file based on the selection:
+        - Single file: audits/<filename>-audit.md
+        - Folder: audits/<folder-name>-audit.md
+        - Entire codebase: audits/codebase-audit.md

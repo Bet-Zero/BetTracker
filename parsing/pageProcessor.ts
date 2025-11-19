@@ -6,7 +6,7 @@
  */
 
 import { SportsbookName, Bet } from '../types';
-import { parse as parseFanDuel } from './parsers/fanduel-v2';
+import { parse as parseFanDuel } from './parsers/fanduel';
 import { parse as parseDraftKings } from '../parsers/draftkings';
 
 /**

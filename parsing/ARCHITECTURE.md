@@ -25,16 +25,16 @@ HTML Parse:  HTML → Bet            ✓ (direct, no intermediate steps)
 
 ### Components
 
-1. **Parsers** (`parsing/parsers/fanduel-v2.ts`, etc.)
+1. **Parsers** (`parsing/parsers/fanduel.ts`, etc.)
    - Input: Raw HTML string
    - Output: `Bet[]` array
    - Responsibility: Extract all bet information from HTML and create `Bet` objects
 
-2. **Page Processor** (`parsing/pageProcessor-v2.ts`)
+2. **Page Processor** (`parsing/pageProcessor.ts`)
    - Routes HTML to the appropriate parser based on sportsbook
    - Returns: `Bet[]` array
 
-3. **Importer** (`services/importer-v2.ts`)
+3. **Importer** (`services/importer.ts`)
    - Orchestrates: Get HTML → Parse → Store
    - Uses `PageSourceProvider` to get HTML
    - Uses `pageProcessor` to parse
@@ -128,10 +128,10 @@ export const parse = (htmlContent: string): Bet[] => {
 - `parsing/pageProcessor.ts` (old processor)
 
 ### Active Files
-- `parsing/parsers/fanduel-v2.ts` ✓ (new simplified parser)
-- `parsing/pageProcessor-v2.ts` ✓ (new processor)
-- `services/importer-v2.ts` ✓ (new importer)
-- `parsing/parsers/fanduel-v2.test.ts` ✓ (tests)
+- `parsing/parsers/fanduel.ts` ✓ (simplified parser)
+- `parsing/pageProcessor.ts` ✓ (processor)
+- `services/importer.ts` ✓ (importer)
+- `parsing/parsers/fanduel.test.ts` ✓ (tests)
 
 ### CSV Import Still Uses FinalRow
 The CSV import functionality still uses `FinalRow` as an intermediate format, which is correct:
@@ -147,12 +147,10 @@ npm test
 ```
 
 Test files:
-- `parsing/parsers/fanduel-v2.test.ts` - Tests the v2 parser (7 tests, all passing)
-- `parsing/parsers/fanduel.test.ts` - Deprecated, tests skipped
+- `parsing/parsers/fanduel.test.ts` - Tests the parser (7 tests, all passing)
 
 ## Future Work
 
-1. Create DraftKings v2 parser when fixture is available
-2. Remove deprecated parsing files after validation
-3. Add more comprehensive tests for edge cases
-4. Document HTML structure patterns for each sportsbook
+1. Create DraftKings parser when fixture is available
+2. Add more comprehensive tests for edge cases
+3. Document HTML structure patterns for each sportsbook

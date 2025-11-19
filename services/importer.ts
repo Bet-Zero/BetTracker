@@ -5,7 +5,7 @@
  * No intermediate transformations.
  */
 
-import { processPage } from "../parsing/pageProcessor-v2";
+import { processPage } from "../parsing/pageProcessor";
 import { PageSourceProvider } from "./pageSourceProvider";
 import { SportsbookName, Bet } from "../types";
 
