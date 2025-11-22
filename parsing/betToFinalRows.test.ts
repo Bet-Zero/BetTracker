@@ -44,6 +44,11 @@ describe('betToFinalRows', () => {
         Net: '3.60',
         Live: '',
         Tail: '',
+        _parlayGroupId: null,
+        _legIndex: null,
+        _legCount: null,
+        _isParlayHeader: false,
+        _isParlayChild: false,
       });
     });
 
@@ -201,11 +206,31 @@ describe('betToFinalRows', () => {
       expect(rows[1].Over).toBe('1');
       expect(rows[1].Under).toBe('0');
       
-      // Both legs share the same bet/odds/toWin
+      // Header leg has monetary values, child leg does not
       expect(rows[0].Bet).toBe('5.00');
-      expect(rows[1].Bet).toBe('5.00');
+      expect(rows[1].Bet).toBe('');
       expect(rows[0].Odds).toBe('+500');
-      expect(rows[1].Odds).toBe('+500');
+      expect(rows[1].Odds).toBe('');
+      expect(rows[0]['To Win']).toBe('30.00');
+      expect(rows[1]['To Win']).toBe('');
+      expect(rows[0].Net).toBe('-5.00');
+      expect(rows[1].Net).toBe('');
+      
+      // Parlay metadata
+      expect(rows[0]._parlayGroupId).toBe('sgp-1');
+      expect(rows[1]._parlayGroupId).toBe('sgp-1');
+      expect(rows[0]._legIndex).toBe(1);
+      expect(rows[1]._legIndex).toBe(2);
+      expect(rows[0]._legCount).toBe(2);
+      expect(rows[1]._legCount).toBeNull();
+      expect(rows[0]._isParlayHeader).toBe(true);
+      expect(rows[1]._isParlayHeader).toBe(false);
+      expect(rows[0]._isParlayChild).toBe(true);
+      expect(rows[1]._isParlayChild).toBe(true);
+      
+      // Result: header shows bet result, child shows leg result
+      expect(rows[0].Result).toBe('Loss'); // bet.result
+      expect(rows[1].Result).toBe('Loss'); // leg.result
     });
 
     it('should calculate Net based on bet result for multi-leg bets, not individual leg results', () => {
@@ -243,10 +268,15 @@ describe('betToFinalRows', () => {
 
       expect(rows).toHaveLength(2);
       
-      // Both legs should show the bet loss (not the individual leg results)
-      // because stake/odds/payout are at bet level
-      expect(rows[0].Net).toBe('-10.00'); // Loss, not win
-      expect(rows[1].Net).toBe('-10.00'); // Both legs reflect actual bankroll impact
+      // Only header leg shows monetary values
+      expect(rows[0].Net).toBe('-10.00'); // Header shows bet loss
+      expect(rows[1].Net).toBe(''); // Child leg has no monetary values
+      expect(rows[0].Bet).toBe('10.00');
+      expect(rows[1].Bet).toBe('');
+      
+      // Result: header shows bet result, child shows leg result
+      expect(rows[0].Result).toBe('Loss'); // bet.result
+      expect(rows[1].Result).toBe('Loss'); // leg.result
       
       // But individual leg results are still shown in Result column
       expect(rows[0].Result).toBe('Win');
@@ -368,6 +398,10 @@ describe('betToFinalRows', () => {
         { market: 'blocks', expected: 'Blk' },
         { market: 'points rebounds assists', expected: 'PRA' },
         { market: 'points rebounds', expected: 'PR' },
+        { market: 'first basket', expected: 'FB' },
+        { market: 'top scorer', expected: 'Top Pts' },
+        { market: 'double double', expected: 'DD' },
+        { market: 'triple double', expected: 'TD' },
       ];
 
       testCases.forEach(({ market, expected }) => {
@@ -622,6 +656,211 @@ describe('betToFinalRows', () => {
       const rows = betToFinalRows(bet);
       expect(rows[0].Type).not.toBe('sgp');
       expect(rows[0].Type).toBe('Reb');
+    });
+  });
+
+  describe('parlay metadata', () => {
+    it('should set all metadata to null/false for single bets', () => {
+      const bet: Bet = {
+        id: 'single-1',
+        book: 'FanDuel',
+        betId: 'SINGLE123',
+        placedAt: '2024-11-18T19:00:00.000Z',
+        betType: 'single',
+        marketCategory: 'Props',
+        sport: 'NBA',
+        description: 'Single bet',
+        name: 'Player',
+        odds: 200,
+        stake: 10.0,
+        payout: 30.0,
+        result: 'win',
+        type: 'Pts',
+        line: '25.5',
+        ou: 'Over',
+      };
+
+      const rows = betToFinalRows(bet);
+
+      expect(rows).toHaveLength(1);
+      expect(rows[0]._parlayGroupId).toBeNull();
+      expect(rows[0]._legIndex).toBeNull();
+      expect(rows[0]._legCount).toBeNull();
+      expect(rows[0]._isParlayHeader).toBe(false);
+      expect(rows[0]._isParlayChild).toBe(false);
+    });
+
+    it('should set correct metadata for 2-leg parlay', () => {
+      const bet: Bet = {
+        id: 'parlay-2leg',
+        book: 'FanDuel',
+        betId: 'PARLAY123',
+        placedAt: '2024-11-18T19:00:00.000Z',
+        betType: 'parlay',
+        marketCategory: 'SGP/SGP+',
+        sport: 'NBA',
+        description: '2-leg parlay',
+        odds: 300,
+        stake: 20.0,
+        payout: 80.0,
+        result: 'win',
+        legs: [
+          {
+            entities: ['Player A'],
+            market: 'Pts',
+            target: '25.5',
+            ou: 'Over',
+            result: 'win',
+          },
+          {
+            entities: ['Player B'],
+            market: 'Reb',
+            target: '10.5',
+            ou: 'Over',
+            result: 'win',
+          },
+        ],
+      };
+
+      const rows = betToFinalRows(bet);
+
+      expect(rows).toHaveLength(2);
+      
+      // Header row (leg 1)
+      expect(rows[0]._parlayGroupId).toBe('parlay-2leg');
+      expect(rows[0]._legIndex).toBe(1);
+      expect(rows[0]._legCount).toBe(2);
+      expect(rows[0]._isParlayHeader).toBe(true);
+      expect(rows[0]._isParlayChild).toBe(true);
+      expect(rows[0].Odds).toBe('+300');
+      expect(rows[0].Bet).toBe('20.00');
+      expect(rows[0]['To Win']).toBe('80.00');
+      expect(rows[0].Net).toBe('60.00');
+      expect(rows[0].Result).toBe('Win'); // bet.result
+      
+      // Child row (leg 2)
+      expect(rows[1]._parlayGroupId).toBe('parlay-2leg');
+      expect(rows[1]._legIndex).toBe(2);
+      expect(rows[1]._legCount).toBeNull();
+      expect(rows[1]._isParlayHeader).toBe(false);
+      expect(rows[1]._isParlayChild).toBe(true);
+      expect(rows[1].Odds).toBe('');
+      expect(rows[1].Bet).toBe('');
+      expect(rows[1]['To Win']).toBe('');
+      expect(rows[1].Net).toBe('');
+      expect(rows[1].Result).toBe('Win'); // leg.result
+    });
+
+    it('should set correct metadata for 4+ leg parlay', () => {
+      const bet: Bet = {
+        id: 'parlay-4leg',
+        book: 'DraftKings',
+        betId: 'PARLAY456',
+        placedAt: '2024-11-18T19:00:00.000Z',
+        betType: 'sgp',
+        marketCategory: 'SGP/SGP+',
+        sport: 'NBA',
+        description: '4-leg SGP',
+        odds: 1500,
+        stake: 5.0,
+        payout: 0,
+        result: 'loss',
+        legs: [
+          {
+            entities: ['Player A'],
+            market: 'Pts',
+            target: '25.5',
+            ou: 'Over',
+            result: 'win',
+          },
+          {
+            entities: ['Player B'],
+            market: 'Reb',
+            target: '10.5',
+            ou: 'Over',
+            result: 'win',
+          },
+          {
+            entities: ['Player C'],
+            market: 'Ast',
+            target: '8.5',
+            ou: 'Over',
+            result: 'loss',
+          },
+          {
+            entities: ['Player D'],
+            market: '3pt',
+            target: '3+',
+            result: 'win',
+          },
+        ],
+      };
+
+      const rows = betToFinalRows(bet);
+
+      expect(rows).toHaveLength(4);
+      
+      // All rows share same parlayGroupId
+      rows.forEach(row => {
+        expect(row._parlayGroupId).toBe('parlay-4leg');
+        expect(row._isParlayChild).toBe(true);
+      });
+      
+      // Header row
+      expect(rows[0]._legIndex).toBe(1);
+      expect(rows[0]._legCount).toBe(4);
+      expect(rows[0]._isParlayHeader).toBe(true);
+      expect(rows[0].Odds).toBe('+1500');
+      expect(rows[0].Bet).toBe('5.00');
+      expect(rows[0].Result).toBe('Loss'); // bet.result
+      
+      // Child rows
+      for (let i = 1; i < 4; i++) {
+        expect(rows[i]._legIndex).toBe(i + 1);
+        expect(rows[i]._legCount).toBeNull();
+        expect(rows[i]._isParlayHeader).toBe(false);
+        expect(rows[i].Odds).toBe('');
+        expect(rows[i].Bet).toBe('');
+        expect(rows[i]['To Win']).toBe('');
+        expect(rows[i].Net).toBe('');
+      }
+      
+      // Results: header shows bet.result, children show leg.result
+      expect(rows[0].Result).toBe('Loss'); // bet.result
+      expect(rows[1].Result).toBe('Win'); // leg.result
+      expect(rows[2].Result).toBe('Loss'); // leg.result
+      expect(rows[3].Result).toBe('Win'); // leg.result
+    });
+
+    it('should have consistent parlayGroupId across all legs', () => {
+      const bet: Bet = {
+        id: 'consistent-id',
+        book: 'FanDuel',
+        betId: 'CONSISTENT',
+        placedAt: '2024-11-18T19:00:00.000Z',
+        betType: 'parlay',
+        marketCategory: 'SGP/SGP+',
+        sport: 'NBA',
+        description: '3-leg parlay',
+        odds: 500,
+        stake: 10.0,
+        payout: 0,
+        result: 'pending',
+        legs: [
+          { entities: ['A'], market: 'Pts', result: 'pending' },
+          { entities: ['B'], market: 'Reb', result: 'pending' },
+          { entities: ['C'], market: 'Ast', result: 'pending' },
+        ],
+      };
+
+      const rows = betToFinalRows(bet);
+
+      expect(rows).toHaveLength(3);
+      const groupId = rows[0]._parlayGroupId;
+      expect(groupId).toBe('consistent-id');
+      rows.forEach(row => {
+        expect(row._parlayGroupId).toBe(groupId);
+      });
     });
   });
 });

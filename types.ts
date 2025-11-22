@@ -96,4 +96,11 @@ export interface FinalRow {
   Net: string;        // "-1.00", "0", "3.60"
   Live: string;       // "1" or ""
   Tail: string;       // "1" or ""
+  
+  // Internal parlay metadata (not visible in spreadsheet)
+  _parlayGroupId?: string | null;
+  _legIndex?: number | null;
+  _legCount?: number | null;
+  _isParlayHeader?: boolean;
+  _isParlayChild?: boolean;
 }

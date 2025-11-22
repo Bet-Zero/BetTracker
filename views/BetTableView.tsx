@@ -17,6 +17,7 @@ import {
 } from "../types";
 import { Wifi } from "../components/icons";
 import { calculateProfit } from "../utils/betCalculations";
+import { betToFinalRows } from "../parsing/betToFinalRows";
 
 // Cell coordinate type
 type CellCoordinate = {
@@ -49,6 +50,12 @@ interface FlatBet {
   isLive: boolean;
   overallResult: BetResult;
   tail?: string;
+  // Parlay metadata
+  _parlayGroupId?: string | null;
+  _legIndex?: number | null;
+  _legCount?: number | null;
+  _isParlayHeader?: boolean;
+  _isParlayChild?: boolean;
 }
 
 // --- Formatting Helpers ---
@@ -524,93 +531,56 @@ const BetTableView: React.FC = () => {
   const flattenedBets = useMemo(() => {
     const flatBets: FlatBet[] = [];
     bets.forEach((bet) => {
-      const isLive = bet.isLive || false;
-
-      // Calculate potential profit from stake and odds.
-      const potentialProfit = calculateProfit(bet.stake, bet.odds);
-
-      // "To Win" is the total potential payout (stake + profit).
-      // For a push, the payout is just the stake.
-      const toWin =
-        bet.result === "push" ? bet.stake : bet.stake + potentialProfit;
-
-      // "Net" is the actualized profit or loss.
-      let net = 0;
-      if (bet.result === "win") {
-        // For a win, the net profit is the calculated profit amount.
-        net = potentialProfit;
-      } else if (bet.result === "loss") {
-        net = -bet.stake; // For a loss, the net is the stake lost.
-      }
-      // For 'push' or 'pending', net remains 0, which is correct.
-
-      if (!bet.legs || bet.legs.length === 0) {
-        // Handles single bets - use type, line, ou directly from bet object
-        // NEVER use betType for the type field - it's for bet form (single/parlay/sgp), not stat type
-        const displayType = bet.type || '';
-
-        // Debug logging for single bets
-        if (!bet.type && bet.marketCategory === "Props") {
-          console.warn(
-            `BetTableView: Bet ${bet.id} has no type field but is Props`,
-            {
-              betId: bet.id,
-              type: bet.type,
-              marketCategory: bet.marketCategory,
-              hasLegs: !!bet.legs,
-              legCount: bet.legs?.length || 0,
-            }
-          );
-        }
-
+      // Use betToFinalRows to get properly formatted rows with parlay metadata
+      const finalRows = betToFinalRows(bet);
+      
+      finalRows.forEach((finalRow, index) => {
+        // Convert FinalRow to FlatBet format
+        const isLive = bet.isLive || false;
+        
+        // Parse monetary values (empty string means child row, should be 0)
+        const betAmount = finalRow.Bet ? parseFloat(finalRow.Bet) : 0;
+        const toWinAmount = finalRow['To Win'] ? parseFloat(finalRow['To Win']) : 0;
+        const netAmount = finalRow.Net ? parseFloat(finalRow.Net) : 0;
+        const oddsValue = finalRow.Odds ? parseFloat(finalRow.Odds.replace('+', '')) : undefined;
+        
+        // Parse Over/Under
+        const ou = finalRow.Over === '1' ? 'Over' as const : finalRow.Under === '1' ? 'Under' as const : undefined;
+        
+        // Parse Result
+        const result = finalRow.Result.toLowerCase() as BetResult;
+        
+        // Generate unique ID
+        const id = finalRow._isParlayChild && finalRow._legIndex 
+          ? `${bet.id}-leg-${finalRow._legIndex - 1}` 
+          : bet.id;
+        
         flatBets.push({
-          id: bet.id,
+          id,
           betId: bet.id,
           date: bet.placedAt,
-          site: bet.book,
-          sport: bet.sport,
-          bet: bet.stake,
-          toWin: toWin,
-          net,
+          site: bet.book as SportsbookName,
+          sport: finalRow.Sport,
+          bet: betAmount,
+          toWin: toWinAmount,
+          net: netAmount,
           overallResult: bet.result,
-          type: displayType, // Use bet.type (stat code) only - never betType
-          category: bet.marketCategory,
-          name: bet.name || '', // Use bet.name (player/team name only) - description is for display/debug only
-          ou: bet.ou,
-          line: bet.line,
-          odds: bet.odds,
-          result: bet.result,
+          type: finalRow.Type,
+          category: finalRow.Category as MarketCategory,
+          name: finalRow.Name,
+          ou,
+          line: finalRow.Line || undefined,
+          odds: oddsValue,
+          result,
           isLive,
-          tail: bet.tail,
+          tail: finalRow.Tail === '1' ? bet.tail : undefined,
+          _parlayGroupId: finalRow._parlayGroupId,
+          _legIndex: finalRow._legIndex,
+          _legCount: finalRow._legCount,
+          _isParlayHeader: finalRow._isParlayHeader,
+          _isParlayChild: finalRow._isParlayChild,
         });
-      } else {
-        // Handles parlays, SGPs, and single bets with structured leg data
-        bet.legs.forEach((leg, index) => {
-          flatBets.push({
-            id: `${bet.id}-leg-${index}`,
-            betId: bet.id,
-            date: bet.placedAt,
-            site: bet.book,
-            sport: bet.sport,
-            bet: bet.stake,
-            toWin: toWin, // Parlay payout is for the whole bet
-            net, // Parlay net is for the whole bet
-            overallResult: bet.result,
-            type: leg.market,
-            category: bet.marketCategory,
-            name:
-              leg.entities?.join(" / ") ||
-              bet.name ||
-              "N/A",
-            ou: leg.ou,
-            line: leg.target,
-            odds: bet.odds, // All legs share bet-level odds for SGPs/parlays
-            result: leg.result,
-            isLive,
-            tail: bet.tail,
-          });
-        });
-      }
+      });
     });
     return flatBets;
   }, [bets]);
@@ -663,6 +633,14 @@ const BetTableView: React.FC = () => {
       "goals",
       "scorer",
       "triple-double",
+      "triple double",
+      "double double",
+      "first basket",
+      "first field goal",
+      "first fg",
+      "top scorer",
+      "top points",
+      "top pts",
       "threes",
     ];
     const isTeamMarket = teamMarketKeywords.some((keyword) =>
@@ -751,6 +729,24 @@ const BetTableView: React.FC = () => {
     }
     return sortableBets;
   }, [filteredBets, sortConfig]);
+
+  // Calculate stripe index for each row based on parlay groups
+  const rowStripeIndex = useMemo(() => {
+    const stripeMap = new Map<number, number>();
+    let currentGroupId: string | null = null;
+    let stripeIndex = 0;
+
+    sortedBets.forEach((row, index) => {
+      const groupId = row._parlayGroupId;
+      if (groupId !== currentGroupId) {
+        currentGroupId = groupId;
+        stripeIndex++;
+      }
+      stripeMap.set(index, stripeIndex);
+    });
+
+    return stripeMap;
+  }, [sortedBets]);
 
   const requestSort = (key: keyof FlatBet) => {
     let direction: "asc" | "desc" = "asc";
@@ -1677,13 +1673,36 @@ const BetTableView: React.FC = () => {
                   return classes;
                 };
 
+                // Get stripe index for this row
+                const stripeIdx = rowStripeIndex.get(rowIndex) || 0;
+                const isEvenStripe = stripeIdx % 2 === 0;
+                const bgClass = isEvenStripe 
+                  ? "bg-white dark:bg-neutral-900" 
+                  : "bg-neutral-50 dark:bg-neutral-800/50";
+                
+                // Get bet type for badge
+                const originalBet = bets.find(b => b.id === row.betId);
+                const betTypeLabel = originalBet?.betType === 'sgp' ? 'SGP' : 'PARLAY';
+                
                 return (
                   <tr
                     key={row.id}
-                    className="border-b dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-800/50 odd:bg-white dark:odd:bg-neutral-900 even:bg-neutral-50 dark:even:bg-neutral-800/50 whitespace-nowrap"
+                    className={`border-b dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-800/50 ${bgClass} whitespace-nowrap ${
+                      row._isParlayHeader ? 'font-semibold' : ''
+                    }`}
                   >
                     <td className={getCellClasses("date")}>
-                      {formatDate(row.date)}
+                      <div className="flex items-center gap-2">
+                        {row._isParlayHeader && row._legCount && (
+                          <span className="text-xs px-1.5 py-0.5 bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded font-semibold">
+                            {betTypeLabel} ({row._legCount})
+                          </span>
+                        )}
+                        {row._isParlayChild && !row._isParlayHeader && (
+                          <span className="text-neutral-400 dark:text-neutral-500">↳</span>
+                        )}
+                        <span>{formatDate(row.date)}</span>
+                      </div>
                     </td>
                     <td
                       className={getCellClasses("site") + " font-bold"}
@@ -1928,23 +1947,27 @@ const BetTableView: React.FC = () => {
                           }
                         />
                       )}
-                      <EditableCell
-                        value={formatOdds(row.odds)}
-                        type="number"
-                        formatAsOdds={true}
-                        isFocused={isCellFocused(rowIndex, "odds")}
-                        onFocus={() =>
-                          setFocusedCell({ rowIndex, columnKey: "odds" })
-                        }
-                        inputRef={getCellRef(rowIndex, "odds")}
-                        onSave={(val) => {
-                          const numVal = parseInt(val.replace("+", ""), 10);
-                          if (!isNaN(numVal)) {
-                            // Always update the main bet's odds, which drives the "To Win" calculation.
-                            updateBet(row.betId, { odds: numVal });
+                      {row._isParlayChild && !row._isParlayHeader ? (
+                        <span className="text-neutral-300 dark:text-neutral-600">↳</span>
+                      ) : (
+                        <EditableCell
+                          value={formatOdds(row.odds)}
+                          type="number"
+                          formatAsOdds={true}
+                          isFocused={isCellFocused(rowIndex, "odds")}
+                          onFocus={() =>
+                            setFocusedCell({ rowIndex, columnKey: "odds" })
                           }
-                        }}
-                      />
+                          inputRef={getCellRef(rowIndex, "odds")}
+                          onSave={(val) => {
+                            const numVal = parseInt(val.replace("+", ""), 10);
+                            if (!isNaN(numVal)) {
+                              // Always update the main bet's odds, which drives the "To Win" calculation.
+                              updateBet(row.betId, { odds: numVal });
+                            }
+                          }}
+                        />
+                      )}
                     </td>
                     <td
                       className={getCellClasses("bet")}
@@ -1958,29 +1981,37 @@ const BetTableView: React.FC = () => {
                           }
                         />
                       )}
-                      <div className="relative">
-                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none">
-                          $
-                        </span>
-                        <EditableCell
-                          value={row.bet.toFixed(2)}
-                          type="number"
-                          isFocused={isCellFocused(rowIndex, "bet")}
-                          onFocus={() =>
-                            setFocusedCell({ rowIndex, columnKey: "bet" })
-                          }
-                          inputRef={getCellRef(rowIndex, "bet")}
-                          onSave={(val) => {
-                            const numVal = parseFloat(val);
-                            if (!isNaN(numVal))
-                              updateBet(row.betId, { stake: numVal });
-                          }}
-                          className="pl-5"
-                        />
-                      </div>
+                      {row._isParlayChild && !row._isParlayHeader ? (
+                        <span className="text-neutral-300 dark:text-neutral-600">↳</span>
+                      ) : (
+                        <div className="relative">
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none">
+                            $
+                          </span>
+                          <EditableCell
+                            value={row.bet.toFixed(2)}
+                            type="number"
+                            isFocused={isCellFocused(rowIndex, "bet")}
+                            onFocus={() =>
+                              setFocusedCell({ rowIndex, columnKey: "bet" })
+                            }
+                            inputRef={getCellRef(rowIndex, "bet")}
+                            onSave={(val) => {
+                              const numVal = parseFloat(val);
+                              if (!isNaN(numVal))
+                                updateBet(row.betId, { stake: numVal });
+                            }}
+                            className="pl-5"
+                          />
+                        </div>
+                      )}
                     </td>
                     <td className={getCellClasses("toWin")}>
-                      ${row.toWin.toFixed(2)}
+                      {row._isParlayChild && !row._isParlayHeader ? (
+                        <span className="text-neutral-300 dark:text-neutral-600">↳</span>
+                      ) : (
+                        `$${row.toWin.toFixed(2)}`
+                      )}
                     </td>
                     <td
                       className={
@@ -2019,7 +2050,11 @@ const BetTableView: React.FC = () => {
                         ` font-bold ${resultColorClass} ${netColorClass}`
                       }
                     >
-                      {net < 0 ? "-" : ""}${Math.abs(net).toFixed(2)}
+                      {row._isParlayChild && !row._isParlayHeader ? (
+                        <span className="text-neutral-300 dark:text-neutral-600">↳</span>
+                      ) : (
+                        `${net < 0 ? "-" : ""}$${Math.abs(net).toFixed(2)}`
+                      )}
                     </td>
                     <td className={getCellClasses("isLive") + " text-center"}>
                       {row.isLive && (

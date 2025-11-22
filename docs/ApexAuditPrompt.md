@@ -102,6 +102,22 @@ When you suggest improvements or redesigns, they must be:
 
 Explain all architectural concepts in **plain English**.
 
+Also explicitly look for:
+
+- **Duplicate or overlapping implementations**
+  - Multiple files or functions that appear to do the same job (e.g. `parser_v1`, `parser_v2`, `newParser`, `parser-old`, etc.)
+  - Old vs new versions where only one is actually wired into the app
+
+For each case you find:
+
+- Call it out clearly:
+  - Which versions exist
+  - Which one is currently used (if obvious from imports/usage)
+- Recommend a **canonical** choice (for example: “Treat `betParser.ts` as the canonical implementation”)
+- Suggest follow-up actions:
+  - Archive or delete unused variants (after manual confirmation)
+  - Update callers to use the canonical implementation
+
 ---
 
 ### 4. Polish & Cleanup (Exclusion Rule Applied)

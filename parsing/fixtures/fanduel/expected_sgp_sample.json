@@ -1,0 +1,23 @@
+[
+  {
+    "id": "FanDuel:O/0242888/0028078:2025-11-19T22:11:00-05:00",
+    "book": "FanDuel",
+    "betId": "O/0242888/0028078",
+    "placedAt": "2025-11-19T22:11:00-05:00",
+    "betType": "sgp",
+    "marketCategory": "Parlays",
+    "sport": "NBA",
+    "description": "Josh Giddey 10+ Ast, Coby White 4+ 3pt, Deni Avdija 8+ Ast, Deni Avdija 10+ Reb",
+    "odds": 6058,
+    "stake": 2,
+    "payout": 123.18,
+    "result": "win",
+    "legs": [
+      { "entities": ["Josh Giddey"], "market": "Ast", "target": "10+", "result": "win" },
+      { "entities": ["Coby White"], "market": "3pt", "target": "4+", "result": "win" },
+      { "entities": ["Deni Avdija"], "market": "Ast", "target": "8+", "result": "win" },
+      { "entities": ["Deni Avdija"], "market": "Reb", "target": "10+", "result": "win" }
+    ],
+    "isLive": false
+  }
+]

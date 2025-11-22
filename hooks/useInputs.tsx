@@ -102,7 +102,16 @@ const defaultCategories: string[] = [
   "Parlays",
 ];
 const defaultBetTypes: ItemsBySport = {
-  NBA: ["Player Points", "Player Rebounds", "Player Assists", "Player Threes"],
+  NBA: [
+    "Player Points",
+    "Player Rebounds",
+    "Player Assists",
+    "Player Threes",
+    "First Basket (FB)",
+    "Top Scorer (Top Pts)",
+    "Double Double (DD)",
+    "Triple Double (TD)",
+  ],
   NFL: [
     "Passing Yards",
     "Rushing Yards",

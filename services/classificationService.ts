@@ -22,7 +22,7 @@ const isProp = (bet: ClassifiableBet): boolean => {
     // Check description for common prop keywords
     const propKeywords = [
         'Pts', 'Reb', 'Ast', '3pt', // NBA
-        'Points', 'Rebounds', 'Assists', 'Threes', 'Made Threes', 'MADE THREES', // General
+        'Points', 'Rebounds', 'Assists', 'Threes', 'Made Threes', 'MADE THREES', 'Double Double', 'Triple Double', 'First Basket', 'Top Scorer', 'Top Points', // General
         'Yards', 'Touchdown', 'TD', 'Receiving', 'Rushing', 'Passing', // NFL
         'Home Runs', 'Strikeouts', 'Hits', 'Runs', // MLB
         'Goals', 'Shots on Goal', // NHL / Soccer

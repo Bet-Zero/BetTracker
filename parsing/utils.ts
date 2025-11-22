@@ -205,6 +205,31 @@ export function parseMarketText(
   // Normalize stat text to stat code
   const statLower = statText.toLowerCase();
 
+  // Special props without numeric thresholds
+  if (
+    statLower.includes("first basket") ||
+    statLower.includes("first field goal") ||
+    statLower.includes("first fg")
+  ) {
+    return { type: "FB", line, ou };
+  }
+
+  if (
+    statLower.includes("top scorer") ||
+    statLower.includes("top points") ||
+    statLower.includes("top pts")
+  ) {
+    return { type: "Top Pts", line, ou };
+  }
+
+  if (statLower.includes("triple double")) {
+    return { type: "TD", line, ou };
+  }
+
+  if (statLower.includes("double double")) {
+    return { type: "DD", line, ou };
+  }
+
   // Map stat phrases to stat codes (case-insensitive)
   // IMPORTANT: Check combined stats BEFORE individual stats to avoid early matches
   
@@ -322,5 +347,4 @@ export function formatAmericanOdds(odds: number): string {
   if (odds === 0) return "";
   return odds > 0 ? `+${odds}` : `${odds}`;
 }
-
 
