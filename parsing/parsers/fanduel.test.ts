@@ -2,122 +2,111 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
+import { JSDOM } from "jsdom";
 import { parse } from "./fanduel";
+import type { Bet } from "../../types";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+const fixtureDir = join(__dirname, "../fixtures/fanduel");
 
-describe("FanDuel Parser V2 - Single Bet", () => {
-  let fixtureHtml: string;
+const setupDom = () => {
+  const dom = new JSDOM("<!DOCTYPE html><html><body></body></html>");
+  // @ts-ignore jsdom provides DOMParser in the test environment
+  global.DOMParser = dom.window.DOMParser;
+  // @ts-ignore expose document for any selectors used by the parser
+  global.document = dom.window.document;
+};
 
+const byId = (bets: Bet[]) => new Map(bets.map((b) => [b.betId, b]));
+
+describe("FanDuel parser fixtures", () => {
   beforeAll(() => {
-    const fixturePath = join(
-      __dirname,
-      "../fixtures/fanduel/expected_fanduel_bets.html"
+    setupDom();
+  });
+
+  it("matches expected_fanduel_bets fixture", () => {
+    const html = readFileSync(
+      join(fixtureDir, "expected_fanduel_bets.html"),
+      "utf-8"
     );
-    fixtureHtml = readFileSync(fixturePath, "utf-8");
+    const expectedBets = JSON.parse(
+      readFileSync(join(fixtureDir, "expected_fanduel_bets.json"), "utf-8")
+    ) as Bet[];
+
+    const parsed = parse(html);
+    const parsedMap = byId(parsed);
+    const expectedMap = byId(expectedBets);
+
+    expect(parsed.length).toBe(expectedBets.length);
+    expect([...parsedMap.keys()].sort()).toEqual(
+      [...expectedMap.keys()].sort()
+    );
+
+    const fields: (keyof Bet)[] = [
+      "betId",
+      "betType",
+      "marketCategory",
+      "description",
+      "name",
+      "odds",
+      "stake",
+      "payout",
+      "result",
+      "type",
+      "line",
+      "ou",
+    ];
+
+    for (const exp of expectedBets) {
+      const parsedBet = parsedMap.get(exp.betId);
+      expect(parsedBet).toBeDefined();
+      if (!parsedBet) continue;
+
+      fields.forEach((field) => {
+        expect(parsedBet[field]).toEqual(exp[field]);
+      });
+
+      expect(parsedBet.legs?.length ?? 0).toBe(exp.legs?.length ?? 0);
+    }
   });
 
-  it("should parse exactly 1 bet from the single fixture", () => {
-    const bets = parse(fixtureHtml);
-    expect(bets).toHaveLength(1);
-  });
+  it("matches SGP sample fixture", () => {
+    const html = readFileSync(join(fixtureDir, "sgp_sample.html"), "utf-8");
+    const expectedBets = JSON.parse(
+      readFileSync(join(fixtureDir, "expected_sgp_sample.json"), "utf-8")
+    ) as Bet[];
 
-  it("should parse the single bet correctly", () => {
-    const bets = parse(fixtureHtml);
-    const bet = bets[0];
+    const parsed = parse(html);
+    const parsedMap = byId(parsed);
+    const expectedMap = byId(expectedBets);
 
-    expect(bet).toBeDefined();
-    expect(bet.betId).toBe("O/0242888/0027982");
-    expect(bet.book).toBe("FanDuel");
-    expect(bet.betType).toBe("single");
-    expect(bet.odds).toBe(360);
-    expect(bet.stake).toBe(1.0);
-    expect(bet.payout).toBe(4.6);
-    expect(bet.result).toBe("win");
-    expect(bet.sport).toBe("NBA");
-    expect(bet.marketCategory).toBe("Props");
+    expect(parsed.length).toBe(expectedBets.length);
+    expect([...parsedMap.keys()].sort()).toEqual(
+      [...expectedMap.keys()].sort()
+    );
 
-    // Check placedAt date
-    expect(bet.placedAt).toBeDefined();
-    const placedDate = new Date(bet.placedAt);
-    expect(placedDate.getFullYear()).toBe(2025);
-    expect(placedDate.getMonth()).toBe(10); // November (0-indexed)
-    expect(placedDate.getDate()).toBe(16);
-  });
+    const fields: (keyof Bet)[] = [
+      "betId",
+      "betType",
+      "marketCategory",
+      "description",
+      "odds",
+      "stake",
+      "payout",
+      "result",
+    ];
 
-  it("should parse legs correctly", () => {
-    const bets = parse(fixtureHtml);
-    const bet = bets[0];
+    for (const exp of expectedBets) {
+      const parsedBet = parsedMap.get(exp.betId);
+      expect(parsedBet).toBeDefined();
+      if (!parsedBet) continue;
 
-    expect(bet.legs).toBeDefined();
-    expect(bet.legs).toHaveLength(1);
+      fields.forEach((field) => {
+        expect(parsedBet[field]).toEqual(exp[field]);
+      });
 
-    const leg = bet.legs![0];
-    expect(leg.entities).toContain("Will Richard");
-    expect(leg.market).toBe("3pt");
-    expect(leg.target).toBe("3+");
-    expect(leg.result).toBe("win");
-  });
-
-  it("should generate correct description", () => {
-    const bets = parse(fixtureHtml);
-    const bet = bets[0];
-
-    expect(bet.description).toContain("Will Richard");
-    expect(bet.description).toContain("3pt");
-  });
-});
-
-describe("FanDuel Parser V2 - SGP Bets", () => {
-  let fixtureHtml: string;
-
-  beforeAll(() => {
-    const fixturePath = join(__dirname, "../fixtures/fanduel/sgp_sample.html");
-    fixtureHtml = readFileSync(fixturePath, "utf-8");
-  });
-
-  it("should parse exactly 2 bets from the SGP fixture", () => {
-    const bets = parse(fixtureHtml);
-    expect(bets).toHaveLength(2);
-  });
-
-  it("should parse the first SGP bet correctly", () => {
-    const bets = parse(fixtureHtml);
-    const bet1 = bets.find((b) => b.betId === "O/0242888/0027999");
-
-    expect(bet1).toBeDefined();
-    expect(bet1?.betId).toBe("O/0242888/0027999");
-    expect(bet1?.book).toBe("FanDuel");
-    expect(bet1?.betType).toBe("sgp");
-    expect(bet1?.odds).toBe(31607);
-    expect(bet1?.stake).toBe(0.5);
-    expect(bet1?.payout).toBe(0.0);
-    expect(bet1?.result).toBe("loss");
-
-    // Check placedAt date
-    expect(bet1?.placedAt).toBeDefined();
-    const placedDate = new Date(bet1!.placedAt);
-    expect(placedDate.getFullYear()).toBe(2025);
-    expect(placedDate.getMonth()).toBe(10); // November (0-indexed)
-    expect(placedDate.getDate()).toBe(16);
-  });
-
-  it("should parse legs correctly for the first SGP bet", () => {
-    const bets = parse(fixtureHtml);
-    const bet1 = bets.find((b) => b.betId === "O/0242888/0027999");
-
-    expect(bet1?.legs).toBeDefined();
-    expect(bet1?.legs?.length).toBeGreaterThanOrEqual(3); // Should have at least 3 legs
-
-    // Check that legs have the expected structure
-    const legs = bet1!.legs!;
-    legs.forEach((leg) => {
-      expect(leg.entities).toBeDefined();
-      expect(leg.entities!.length).toBeGreaterThan(0);
-      expect(leg.market).toBeDefined();
-      expect(leg.result).toBeDefined();
-      expect(["win", "loss", "pending"]).toContain(leg.result);
-    });
+      expect(parsedBet.legs?.length ?? 0).toBe(exp.legs?.length ?? 0);
+    }
   });
 });

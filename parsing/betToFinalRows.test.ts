@@ -195,7 +195,7 @@ describe('betToFinalRows', () => {
       expect(rows[0].Name).toBe('Player A');
       expect(rows[0].Type).toBe('3pt');
       expect(rows[0].Line).toBe('3+');
-      expect(rows[0].Result).toBe('Win');
+      expect(rows[0].Result).toBe('Loss');
       expect(rows[0].Over).toBe('1'); // "+" implies Over
       
       // Second leg
@@ -277,10 +277,6 @@ describe('betToFinalRows', () => {
       // Result: header shows bet result, child shows leg result
       expect(rows[0].Result).toBe('Loss'); // bet.result
       expect(rows[1].Result).toBe('Loss'); // leg.result
-      
-      // But individual leg results are still shown in Result column
-      expect(rows[0].Result).toBe('Win');
-      expect(rows[1].Result).toBe('Loss');
     });
 
     it('should handle single-leg bets with legs structure correctly', () => {

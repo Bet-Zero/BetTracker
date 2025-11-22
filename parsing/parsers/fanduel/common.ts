@@ -114,7 +114,56 @@ export const extractOdds = (root: HTMLElement): number | null => {
     }
   }
 
-  // Strategy 3: Extract from raw text
+  // Strategy 3: Check parent elements for odds spans
+  if (!txt) {
+    let parent = root.parentElement;
+    while (parent && parent !== root.ownerDocument?.body) {
+      const parentOddsSpan = parent.querySelector<HTMLElement>(
+        'span[aria-label^="Odds"]'
+      );
+      if (parentOddsSpan) {
+        txt = parentOddsSpan.textContent?.trim() ?? "";
+        if (txt) break;
+      }
+      // Also check for odds patterns in parent spans
+      const parentSpans = Array.from(parent.querySelectorAll("span"));
+      for (const span of parentSpans) {
+        const spanText = span.textContent ?? "";
+        const oddsMatch = spanText.match(/^([+\-]\d{3,})$/);
+        if (oddsMatch) {
+          txt = oddsMatch[1];
+          break;
+        }
+      }
+      if (txt) break;
+      parent = parent.parentElement;
+    }
+  }
+
+  // Strategy 4: Check sibling elements for odds
+  if (!txt) {
+    const siblings = Array.from(
+      (root.parentElement?.children ?? []) as HTMLElement[]
+    );
+    for (const sibling of siblings) {
+      if (sibling === root) continue;
+      const siblingOddsSpan = sibling.querySelector<HTMLElement>(
+        'span[aria-label^="Odds"]'
+      );
+      if (siblingOddsSpan) {
+        txt = siblingOddsSpan.textContent?.trim() ?? "";
+        if (txt) break;
+      }
+      const siblingText = sibling.textContent ?? "";
+      const oddsMatch = siblingText.match(/\b([+\-]\d{3,})\b/);
+      if (oddsMatch) {
+        txt = oddsMatch[1];
+        break;
+      }
+    }
+  }
+
+  // Strategy 5: Extract from raw text (more comprehensive patterns)
   if (!txt) {
     const text = root.textContent ?? "";
     // Look for patterns like "+240", "-120", "+116" (3+ digits after +/-)
@@ -124,10 +173,15 @@ export const extractOdds = (root: HTMLElement): number | null => {
     ];
 
     for (const pattern of patterns) {
-      const m = text.match(pattern);
-      if (m && m[1]) {
-        txt = m[1];
-        break;
+      const matches = text.match(pattern);
+      if (matches && matches[1]) {
+        // Validate it's likely odds (not a spread or stat line)
+        const value = parseInt(matches[1].replace(/[+\-]/, ""), 10);
+        // Odds are typically >= 100 or negative values like -110
+        if (value >= 100 || (matches[1].startsWith("-") && value >= 100)) {
+          txt = matches[1];
+          break;
+        }
       }
     }
   }
@@ -175,6 +229,42 @@ export const cleanDescriptionFromAria = (aria: string): string => {
 
   // Remove "Finished" text that sometimes appears in descriptions
   desc = desc.replace(/\s*Finished\s*/gi, " ").trim();
+
+  // Remove redundant text like "Current rebounds: 1" or "Current rebounds: X"
+  desc = desc.replace(/\s*Current\s+\w+:\s*\d+\s*/gi, " ").trim();
+
+  // Fix "Over [Name]" patterns - remove redundant name after "Over"
+  // Pattern: "Onyeka Okongwu Over Onyeka OKONGWU - REBOUNDS" -> "Onyeka Okongwu Over [line]"
+  const overNameMatch = desc.match(/^([A-Za-z' .-]+)\s+Over\s+([A-Z][A-Z\s]+)/i);
+  if (overNameMatch) {
+    const name = overNameMatch[1].trim();
+    const afterOver = overNameMatch[2].trim();
+    // If what comes after "Over" looks like a name (all caps or mixed case), remove it
+    if (/^[A-Z\s]+$/.test(afterOver) || /^[A-Z][a-z]+\s+[A-Z]/.test(afterOver)) {
+      // Extract market type if present
+      const marketMatch = desc.match(/-\s*(\w+)/i);
+      const market = marketMatch ? marketMatch[1] : "";
+      desc = market ? `${name} Over ${market}` : `${name} Over`;
+    }
+  }
+
+  // Remove duplicate player/team names
+  // Pattern: "Name ... Name ..." where name appears twice
+  const nameMatch = desc.match(/^([A-Za-z' .-]+?)(?:\s|,)/);
+  if (nameMatch) {
+    const name = nameMatch[1].trim();
+    // Check if name appears again later in the description
+    const nameRegex = new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
+    const matches = desc.match(nameRegex);
+    if (matches && matches.length > 1) {
+      // Remove the duplicate occurrence (keep the first one)
+      const parts = desc.split(nameRegex);
+      if (parts.length > 2) {
+        // Reconstruct with name only appearing once at the start
+        desc = name + " " + parts.slice(1).join(" ").trim();
+      }
+    }
+  }
 
   // Format: "Cade Cunningham, TO SCORE 30+ POINTS" -> "Cade Cunningham To Score 30+ Points"
   // Split by comma and format each part
@@ -245,6 +335,16 @@ export const deriveFieldsFromDescription = (
     type = "FB";
   }
 
+  // Pattern: "Player Name To Record X+ Assists" (check before To Score to avoid misclassification)
+  const toRecordAstMatch = desc.match(
+    /^([A-Za-z' .-]+?)\s+To\s+Record\s+(\d+(?:\.\d+)?)\+\s+Assists/i
+  );
+  if (toRecordAstMatch && !name) {
+    name = toRecordAstMatch[1].trim();
+    line = `${toRecordAstMatch[2]}+`;
+    type = "Ast";
+  }
+
   // Pattern: "Player Name To Score X+ Points"
   const toScorePtsMatch = desc.match(
     /^([A-Za-z' .-]+?)\s+To\s+Score\s+(\d+(?:\.\d+)?)\+\s+Points/i
@@ -292,38 +392,48 @@ export const deriveFieldsFromDescription = (
           name = spreadMatch[1].trim();
           line = spreadMatch[2];
         } else {
-          // Pattern: "Royce O'Neale 5+ MADE THREES" - extract name before number+
-          const madeThreesMatch = desc.match(
-            /^([A-Za-z' .-]+?)\s+(\d+)\+\s+(MADE THREES|THREES|3PT)/i
-          );
-          if (madeThreesMatch) {
-            name = madeThreesMatch[1].trim();
-            line = `${madeThreesMatch[2]}+`;
+          // Pattern: "Made Threes Isaiah Collier" or "Made Threes 8+" - extract name after prefix
+          const madeThreesPrefixMatch = desc.match(/^Made\s+Threes\s+([A-Za-z' .-]+)/i);
+          if (madeThreesPrefixMatch) {
+            name = madeThreesPrefixMatch[1].trim();
+            // Also try to extract the line if present
+            const lineMatch = desc.match(/(\d+)\+/i);
+            if (lineMatch) {
+              line = `${lineMatch[1]}+`;
+            }
           } else {
-            // Pattern: "Player Name X+ POINTS" or "Player Name TO SCORE X+ POINTS"
-            const pointsMatch = desc.match(
-              /^([A-Za-z' .-]+?)\s+(\d+)\+\s+(POINTS|TO SCORE)/i
+            // Pattern: "Royce O'Neale 5+ MADE THREES" - extract name before number+
+            const madeThreesMatch = desc.match(
+              /^([A-Za-z' .-]+?)\s+(\d+)\+\s+(MADE THREES|THREES|3PT)/i
             );
-            if (pointsMatch) {
-              name = pointsMatch[1].trim();
-              line = `${pointsMatch[2]}+`;
+            if (madeThreesMatch) {
+              name = madeThreesMatch[1].trim();
+              line = `${madeThreesMatch[2]}+`;
             } else {
-              // Pattern: "Player Name 50+ Yards" or "Player Name 3+ Receptions" - extract name before stat
-              const statLineMatch = desc.match(
-                /^([A-Za-z' .-]+?)\s+(\d+)\+\s+(Yards|Yds|Receptions|Rec|Points|Pts|Rebounds|Reb|Assists|Ast|Made\s+Threes|3pt|Threes)/i
+              // Pattern: "Player Name X+ POINTS" or "Player Name TO SCORE X+ POINTS"
+              const pointsMatch = desc.match(
+                /^([A-Za-z' .-]+?)\s+(\d+)\+\s+(POINTS|TO SCORE)/i
               );
-              if (statLineMatch) {
-                name = statLineMatch[1].trim();
-                line = `${statLineMatch[2]}+`;
-                // Type will be set later based on the stat
+              if (pointsMatch) {
+                name = pointsMatch[1].trim();
+                line = `${pointsMatch[2]}+`;
               } else {
-                // Try to extract just the name (first part before any market type)
-                const nameMatch = desc.match(
-                  /^([A-Za-z' .-]+?)(?:\s+(?:Under|Over|To|Top|First|TO SCORE|MONEYLINE|SPREAD|MADE THREES|THREES|3PT|POINTS|REBOUNDS|ASSISTS|TRIPLE DOUBLE|TOP POINTS|FIRST BASKET))/i
+                // Pattern: "Player Name 50+ Yards" or "Player Name 3+ Receptions" - extract name before stat
+                const statLineMatch = desc.match(
+                  /^([A-Za-z' .-]+?)\s+(\d+)\+\s+(Yards|Yds|Receptions|Rec|Points|Pts|Rebounds|Reb|Assists|Ast|Made\s+Threes|3pt|Threes)/i
                 );
-                if (nameMatch) {
-                  name = nameMatch[1].trim();
+                if (statLineMatch) {
+                  name = statLineMatch[1].trim();
+                  line = `${statLineMatch[2]}+`;
+                  // Type will be set later based on the stat
                 } else {
+                  // Try to extract just the name (first part before any market type)
+                  const nameMatch = desc.match(
+                    /^([A-Za-z' .-]+?)(?:\s+(?:Under|Over|To|Top|First|TO SCORE|MONEYLINE|SPREAD|MADE THREES|THREES|3PT|POINTS|REBOUNDS|ASSISTS|TRIPLE DOUBLE|TOP POINTS|FIRST BASKET))/i
+                  );
+                  if (nameMatch) {
+                    name = nameMatch[1].trim();
+                  } else {
                   // Last resort: take first 2-3 words as name
                   const words = desc.split(/\s+/);
                   if (words.length >= 2) {
@@ -344,23 +454,44 @@ export const deriveFieldsFromDescription = (
         }
       }
     }
+    }
   }
 
   // 2) Over / Under lines (only if not already extracted)
   if (!ou || !line) {
     const overMatch = ouLeading
       ? null
-      : desc.match(/\bOver\s+(\d+(\.\d+)?)\b/i);
+      : desc.match(/\bOver\s+(\d+(?:\.\d+)?)\b/i);
     const underMatch = ouLeading
       ? null
-      : desc.match(/\bUnder\s+(\d+(\.\d+)?)\b/i);
+      : desc.match(/\bUnder\s+(\d+(?:\.\d+)?)\b/i);
 
-    if (overMatch && !ou) {
-      ou = "Over";
+    if (overMatch) {
+      if (!ou) ou = "Over";
       if (!line) line = overMatch[1];
-    } else if (underMatch && !ou) {
-      ou = "Under";
+    } else if (underMatch) {
+      if (!ou) ou = "Under";
       if (!line) line = underMatch[1];
+    }
+  }
+
+  // Fallback: If we have ou but no line, try to extract from anywhere in the description
+  if (ou && !line) {
+    const ouText = ou === "Over" ? "Over" : "Under";
+    const fallbackMatch = desc.match(
+      new RegExp(`\\b${ouText}\\s+(\\d+(?:\\.\\d+)?)`, "i")
+    );
+    if (fallbackMatch && fallbackMatch[1]) {
+      line = fallbackMatch[1];
+    }
+  }
+
+  // Special handling for Total bets: if type is Total and description is generic, extract from rawText
+  if (type === "Total" && (!line || desc.toLowerCase().trim() === "total")) {
+    const totalMatch = rawText.match(/(Over|Under)\s+(\d+(?:\.\d+)?)/i);
+    if (totalMatch) {
+      if (!ou) ou = totalMatch[1] === "Over" ? "Over" : "Under";
+      if (!line) line = totalMatch[2];
     }
   }
 
@@ -390,19 +521,30 @@ export const deriveFieldsFromDescription = (
         if (inlineMatch) {
           line = `${inlineMatch[1]}+`;
         } else {
-          // Pattern: "To Record 30+ Points" (without player name prefix)
-          const toRecordMatch = desc.match(/TO RECORD\s+(\d+)\+\s+(\w+)/i);
-          if (toRecordMatch) {
-            line = `${toRecordMatch[1]}+`;
-          } else {
-            // Pattern: "X+ Stat" anywhere (e.g., "10+ Assists", "6+ Assists")
-            const statMatch = desc.match(
-              /(\d+)\+\s+(ASSISTS|REBOUNDS|POINTS|THREES|MADE THREES)/i
-            );
-            if (statMatch) {
-              line = `${statMatch[1]}+`;
+            // Pattern: "To Record 30+ Points" or "To Record 10+ Assists" (without player name prefix)
+            const toRecordMatch = desc.match(/TO RECORD\s+(\d+)\+\s+(\w+)/i);
+            if (toRecordMatch) {
+              line = `${toRecordMatch[1]}+`;
+              // If it's assists, set type to Ast (important for high targets like 8+, 10+)
+              if (/ASSIST/i.test(toRecordMatch[2])) {
+                type = "Ast";
+              }
+            } else {
+              // Pattern: "X+ Stat" anywhere (e.g., "10+ Assists", "6+ Assists")
+              // Check for Assists FIRST to avoid misclassification as 3pt
+              const assistsMatch = desc.match(/(\d+)\+\s+ASSISTS/i);
+              if (assistsMatch) {
+                line = `${assistsMatch[1]}+`;
+                type = "Ast";
+              } else {
+                const statMatch = desc.match(
+                  /(\d+)\+\s+(REBOUNDS|POINTS|THREES|MADE THREES)/i
+                );
+                if (statMatch) {
+                  line = `${statMatch[1]}+`;
+                }
+              }
             }
-          }
         }
       }
     }
@@ -447,11 +589,6 @@ export const deriveFieldsFromDescription = (
   } else if (/MONEYLINE/.test(textCombined)) {
     type = "Moneyline";
   } else if (
-    /MADE THREES|3PT|THREE POINT|THREES|MADE 3/.test(textCombined) ||
-    /MADE THREES|3PT|THREE/.test(descUpper)
-  ) {
-    type = "3pt";
-  } else if (
     /\bSPREAD\b/.test(textCombined) ||
     (/\b[+\-]\d+(?:\.\d+)?\b/.test(desc) &&
       !/POINTS|REBOUNDS|ASSISTS|MADE THREES|THREES/.test(textCombined))
@@ -465,12 +602,18 @@ export const deriveFieldsFromDescription = (
     type = "TD";
   } else if (/DOUBLE DOUBLE/.test(textCombined)) {
     type = "DD";
+  } else if (/ASSISTS|TO RECORD.*ASSISTS|\d+\+\s+ASSISTS/i.test(textCombined)) {
+    // Check for assists BEFORE checking for 3pt, especially for high targets
+    type = "Ast";
+  } else if (
+    /MADE THREES|3PT|THREE POINT|THREES|MADE 3/.test(textCombined) ||
+    /MADE THREES|3PT|THREE/.test(descUpper)
+  ) {
+    type = "3pt";
   } else if (/POINTS/.test(textCombined)) {
     type = "Pts";
   } else if (/REBOUNDS/.test(textCombined)) {
     type = "Reb";
-  } else if (/ASSISTS/.test(textCombined)) {
-    type = "Ast";
   } else if (/YARDS|YDS/.test(textCombined)) {
     type = "Yds";
   } else if (/RECEPTIONS|REC\b/.test(textCombined)) {
@@ -507,9 +650,10 @@ export const guessMarketFromText = (text: string): string => {
   )
     return "Top Pts";
   if (upper.includes("TOTAL")) return "Total";
+  // Check for assists BEFORE 3pt to avoid misclassification of high targets (8+, 10+)
+  if (upper.includes("ASSIST") || /TO RECORD.*ASSIST|\d+\+\s+ASSIST/i.test(upper)) return "Ast";
   if (/MADE THREES|3PT|THREES/.test(upper)) return "3pt";
   if (upper.includes("POINT")) return "Pts";
-  if (upper.includes("ASSIST")) return "Ast";
   if (upper.includes("REBOUND")) return "Reb";
   if (upper.includes("YARD")) return "Yds";
   if (upper.includes("RECEPTION")) return "Rec";
@@ -542,18 +686,28 @@ export const cleanEntityName = (raw: string): string => {
     "receptions",
     "available same game",
     "same game",
-    "yards",
-    "yards",
+    "parlay",
+    "parlay™",
   ];
-  if (genericWords.some((word) => cleaned.toLowerCase() === word)) {
+  if (genericWords.some((word) => cleaned.toLowerCase() === word || cleaned.toLowerCase() === word.toLowerCase())) {
     return "";
   }
 
-  // Strip leftover prefixes from promo/scoreboard text
+  // Strip promotional text prefixes (e.g., "Parlay™", "Same Game", etc.)
+  cleaned = cleaned.replace(/^parlay™\s*/i, "");
+  cleaned = cleaned.replace(/^parlay\s*/i, "");
+  cleaned = cleaned.replace(/^same\s+game\s*/i, "");
   cleaned = cleaned.replace(/^play[-\s]*/i, "");
   cleaned = cleaned.replace(/^plus available[-\s]*/i, "");
   cleaned = cleaned.replace(/^includes[-\s]*/i, "");
   cleaned = cleaned.replace(/^available\s+same\s+game\s*/i, "");
+
+  // Strip market prefixes like "Made Threes", "To Record", "To Score" (e.g., "Made Threes Isaiah Collier" → "Isaiah Collier")
+  cleaned = cleaned.replace(/^made\s+threes\s+/i, "");
+  cleaned = cleaned.replace(/^made\s+three\s+/i, "");
+  cleaned = cleaned.replace(/^to\s+record\s+/i, "");
+  cleaned = cleaned.replace(/^to\s+score\s+/i, "");
+  cleaned = cleaned.replace(/^to\s+record\s+a\s+/i, "");
 
   // Strip suffixes: "Top", "First", "To" (when followed by market type)
   cleaned = cleaned.replace(/\s+Top\s*$/i, "");
@@ -599,6 +753,21 @@ export const parseLegFromText = (
 ): BetLeg | null => {
   const cleaned = stripScoreboardText(text);
   if (!cleaned) return null;
+
+  // Extract odds from text if not provided
+  let extractedOdds = odds;
+  if (!extractedOdds && !skipOdds) {
+    // Look for odds patterns in text (e.g., "+410", "-120")
+    const oddsMatch = cleaned.match(/\b([+\-]\d{3,})\b/);
+    if (oddsMatch && oddsMatch[1]) {
+      const value = parseInt(oddsMatch[1].replace(/[+\-]/, ""), 10);
+      // Validate it's likely odds (>= 100 or negative like -110)
+      if (value >= 100 || (oddsMatch[1].startsWith("-") && value >= 100)) {
+        extractedOdds = parseInt(oddsMatch[1], 10);
+        if (Number.isNaN(extractedOdds)) extractedOdds = null;
+      }
+    }
+  }
 
   const derived = deriveFieldsFromDescription(cleaned, cleaned);
   const market = derived.type || guessMarketFromText(cleaned) || "Other";
@@ -662,7 +831,7 @@ export const parseLegFromText = (
     market,
     target,
     ou: derived.ou,
-    odds: skipOdds ? undefined : odds ?? undefined,
+    odds: skipOdds ? undefined : extractedOdds ?? undefined,
     result,
   };
 
@@ -679,11 +848,49 @@ export const parseLegFromNode = (
   const source = stripScoreboardText(aria || text);
   const odds = skipOdds ? null : extractOdds(node);
 
-  const derived = deriveFieldsFromDescription(source, source);
-  const market = derived.type || guessMarketFromText(source) || "Other";
+  // Check for void status in HTML structure
+  // Void legs typically have:
+  // 1. A warning icon (svg with warning or fill="#C15400")
+  // 2. Text containing "Void"
+  // 3. A span with "Void" text
+  let isVoid = false;
+  const voidIndicators = [
+    node.querySelector('svg[fill="#C15400"]'), // Warning icon (orange)
+    node.querySelector('svg[aria-label*="warning" i]'),
+    node.querySelector('span:contains("Void")'),
+  ];
+  
+  // Check text content for "Void"
+  if (/\bVoid\b/i.test(text) || /\bVoid\b/i.test(aria)) {
+    isVoid = true;
+  }
+  
+  // Check for warning icon
+  const warningIcon = node.querySelector('svg[fill="#C15400"]') || 
+                       node.querySelector('svg[fill*="C15400"]') ||
+                       node.querySelector('svg[id*="warning" i]');
+  if (warningIcon) {
+    isVoid = true;
+  }
+  
+  // Check for "Void" text in spans
+  const spans = node.querySelectorAll('span');
+  for (const span of spans) {
+    if (/\bVoid\b/i.test(span.textContent || "")) {
+      isVoid = true;
+      break;
+    }
+  }
+
+  // Strip "Void" from source text if present
+  let cleanedSource = source.replace(/\bVoid\b/gi, "").trim();
+  cleanedSource = cleanedSource.replace(/^\s*Void\s+/i, "").trim();
+
+  const derived = deriveFieldsFromDescription(cleanedSource, cleanedSource);
+  const market = derived.type || guessMarketFromText(cleanedSource) || "Other";
   let target =
     derived.line ||
-    (market === "Spread" ? extractSpreadTarget(source) : undefined);
+    (market === "Spread" ? extractSpreadTarget(cleanedSource) : undefined);
 
   // For TD (Triple Double) markets, don't extract numeric targets
   if (market === "TD" || market === "DD") {
@@ -720,7 +927,7 @@ export const parseLegFromNode = (
   }
 
   if (finalMarket === "Spread" && !target) {
-    const spreadLike = source.match(/[+\-]\d+(?:\.\d+)?/);
+    const spreadLike = cleanedSource.match(/[+\-]\d+(?:\.\d+)?/);
     if (spreadLike) {
       const candidate = (spreadLike as RegExpMatchArray)[1] ?? spreadLike[0];
       const numeric = parseFloat(candidate);
@@ -749,9 +956,19 @@ export const parseLegFromNode = (
 
   if (!finalMarket && !derived.name) return null;
 
-  const entityName = derived.name
+  let entityName = derived.name
     ? cleanEntityName(stripTargetFromName(derived.name, target))
     : undefined;
+  
+  // Strip "Void" from entity name if it somehow got included
+  if (entityName) {
+    entityName = entityName.replace(/^Void\s+/i, "").trim();
+  }
+
+  // Ensure target is set from line when ou is present
+  if (!target && derived.ou && derived.line) {
+    target = derived.line;
+  }
 
   const leg: BetLeg = {
     entities: entityName ? [entityName] : undefined,
@@ -759,7 +976,7 @@ export const parseLegFromNode = (
     target,
     ou: derived.ou,
     odds: odds ?? undefined,
-    result,
+    result: isVoid ? "push" : result,
   };
 
   return leg;
@@ -805,27 +1022,165 @@ export const buildLegsFromStatText = (
 ): BetLeg[] => {
   if (!rawText) return [];
 
+  // First, detect "Void" status in the text and mark positions
+  // Pattern: "Player Name ... Void" or "Player Name ... Void Player Name ..."
+  // We need to track which leg should be marked as void
+  const voidPositions = new Map<number, boolean>();
+  
+  // Find all "Void" occurrences and check if they're associated with a previous leg
+  // Look for patterns like "Player Name To Score 30+ Points Void" or "Player Name ... Void Will Richard"
+  const voidPattern = /\bVoid\b/gi;
+  let voidMatch;
+  while ((voidMatch = voidPattern.exec(rawText)) !== null) {
+    const voidIndex = voidMatch.index;
+    // Check the text before "Void" to see if it ends with a leg pattern
+    const beforeVoid = rawText.substring(Math.max(0, voidIndex - 200), voidIndex);
+    // Check if there's a leg pattern ending just before "Void"
+    const legEndPattern = /(?:Points|Assists|Yards|Receptions|Made Threes|Triple Double)\s*$/i;
+    if (legEndPattern.test(beforeVoid.trim())) {
+      // This "Void" is associated with the previous leg
+      // We'll mark the leg index when we process matches
+    }
+  }
+
   // Collect stat legs like "Player 80+ Yards" or "Player To Record 10+ Assists"
+  // Enhanced patterns to catch more variations, especially for SGP+ bets
   const patterns = [
+    // Pattern for stat-based legs: "Player Name 50+ Yards" or "Player Name 3+ Receptions"
     new RegExp(
-      `(${PLAYER_NAME_PATTERN}\\s+\\d+\\+\\s+(?:Yards|Receptions|Yds|Rec|Points|Assists))`,
+      `(${PLAYER_NAME_PATTERN})\\s+(\\d+\\+)\\s+(Yards|Receptions|Yds|Rec|Points|Assists|Made Threes|Receiving Yds|Alt Receiving Yds|Alt Receptions)`,
       "gi"
     ),
+    // Pattern for "To Record" legs: "Player Name To Record A Triple Double" or "Player Name To Record 10+ Assists"
     new RegExp(
-      `(${PLAYER_NAME_PATTERN}\\s+To\\s+Record\\s+\\d+\\+\\s+\\w+)`,
+      `(${PLAYER_NAME_PATTERN})\\s+To\\s+Record\\s+(?:A\\s+)?(Triple Double|\\d+\\+\\s+\\w+)`,
+      "gi"
+    ),
+    // Pattern for "To Score" legs: "Player Name To Score 30+ Points"
+    new RegExp(
+      `(${PLAYER_NAME_PATTERN})\\s+To\\s+Score\\s+(\\d+\\+)\\s+Points`,
       "gi"
     ),
   ];
 
-  const matches: string[] = [];
-  for (const pattern of patterns) {
-    const found = rawText.match(pattern);
-    if (found) matches.push(...found);
+  const matches: Array<{full: string, player: string, target?: string, market: string, isVoid?: boolean, matchIndex: number}> = [];
+  for (let i = 0; i < patterns.length; i++) {
+    const pattern = patterns[i];
+    let match;
+    while ((match = pattern.exec(rawText)) !== null) {
+      const full = match[0];
+      let player = match[1];
+      
+      // Strip "Void" from the beginning of player names
+      // This handles cases like "Void Will Richard" where "Void" got attached to the name
+      player = player.replace(/^Void\s+/i, "").trim();
+      
+      let target: string | undefined;
+      let market: string | undefined;
+      let isVoid = false;
+      
+      if (i === 0) {
+        // Pattern 1: "Player Name 50+ Yards" or "Player Name 3+ Receptions"
+        // match[1] = player, match[2] = "50+", match[3] = "Yards" or "Receptions"
+        if (match[2] && match[3]) {
+          target = match[2];
+          market = match[3];
+        } else {
+          continue;
+        }
+      } else if (i === 1) {
+        // Pattern 2: "Player Name To Record A Triple Double" or "Player Name To Record 10+ Assists"
+        // match[1] = player, match[2] = "Triple Double" or "10+ Assists"
+        if (match[2] === "Triple Double" || match[2]?.includes("Triple Double")) {
+          market = "TD";
+        } else if (match[2]) {
+          // "10+ Assists" format
+          const targetMatch = match[2].match(/(\d+\+)\s+(\w+)/);
+          if (targetMatch && targetMatch[1] && targetMatch[2]) {
+            target = targetMatch[1];
+            market = targetMatch[2];
+          } else {
+            continue;
+          }
+        } else {
+          continue;
+        }
+      } else if (i === 2) {
+        // Pattern 3: "Player Name To Score 30+ Points"
+        // match[1] = player, match[2] = "30+", match[3] = "Points"
+        if (match[2] && match[3]) {
+          target = match[2];
+          market = match[3];
+        } else {
+          continue;
+        }
+      } else {
+        continue;
+      }
+      
+      // Validate that we have a market before proceeding
+      if (!market) {
+        continue;
+      }
+      
+      // Check if "Void" appears right after this match in the text
+      const matchEnd = match.index + match[0].length;
+      const afterMatch = rawText.substring(matchEnd, matchEnd + 10).trim();
+      if (/^Void\b/i.test(afterMatch)) {
+        isVoid = true;
+      }
+      
+      // Normalize market names
+      if (market.includes("Yards") || market.includes("Yds") || market.includes("Receiving")) {
+        market = "Yds";
+      } else if (market.includes("Receptions") || market.includes("Rec")) {
+        market = "Rec";
+      } else if (market.includes("Points") || market.includes("Pts")) {
+        market = "Pts";
+      } else if (market.includes("Assists") || market.includes("Ast")) {
+        market = "Ast";
+      } else if (market.includes("Threes") || market.includes("3pt")) {
+        market = "3pt";
+      }
+      
+      matches.push({ full, player, target, market, isVoid, matchIndex: match.index });
+    }
   }
 
   const legs: BetLeg[] = [];
+  const seen = new Set<string>();
+  
   matches.forEach((m) => {
-    const leg = parseLegFromText(m, null, result, false);
+    // Create a unique key to avoid duplicates
+    const key = `${m.player}_${m.market}_${m.target || ""}`.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    
+    // Strip "Void" from the full match text if it was included
+    let cleanedFull = m.full.replace(/^Void\s+/i, "");
+    
+    // Try parsing the cleaned full match first
+    let leg = parseLegFromText(cleanedFull, null, result, false);
+    
+    // If that doesn't work, try constructing it manually
+    if (!leg) {
+      leg = {
+        entities: [m.player],
+        market: m.market,
+        target: m.target,
+        result: m.isVoid ? "push" : result,
+      };
+    } else {
+      // Update result if this leg is void
+      if (m.isVoid) {
+        leg.result = "push";
+      }
+      // Also ensure the entity name doesn't have "Void" in it
+      if (leg.entities && leg.entities[0]) {
+        leg.entities[0] = leg.entities[0].replace(/^Void\s+/i, "").trim();
+      }
+    }
+    
     if (leg) legs.push(leg);
   });
 
@@ -943,7 +1298,7 @@ export const dedupeLegs = (legs: BetLeg[]): BetLeg[] => {
 
 export const filterMeaningfulLegs = (legs: BetLeg[]): BetLeg[] => {
   const promoPatterns =
-    /(same game parlay|parlay available|same-game parlay|plus available|includes|profit boost|profitboost)/i;
+    /(same game parlay|parlay available|same-game parlay|plus available|includes|profit boost|profitboost|parlay™)/i;
 
   // Generic words that should not be entities
   const genericWords = new Set([
@@ -952,9 +1307,21 @@ export const filterMeaningfulLegs = (legs: BetLeg[]): BetLeg[] => {
     "receptions",
     "available same game",
     "same game",
-    "yards",
-    "yards",
+    "parlay",
+    "parlay™",
+    "parlaytm",
   ]);
+
+  // Promotional text patterns that should not be entities
+  const promoEntityPatterns = [
+    /^parlay™$/i,
+    /^parlay$/i,
+    /^same\s+game$/i,
+    /^available\s+same\s+game$/i,
+    /^made\s+threes?$/i,
+    /^to\s+record$/i,
+    /^to\s+score$/i,
+  ];
 
   // Team names that should not be entities for prop bets
   const teamNames = new Set([
@@ -991,6 +1358,23 @@ export const filterMeaningfulLegs = (legs: BetLeg[]): BetLeg[] => {
     // Filter out generic words as entities
     if (hasEntity && genericWords.has(entity.toLowerCase().trim())) {
       return false;
+    }
+
+    // Filter out promotional text patterns as entities
+    if (hasEntity && promoEntityPatterns.some((pattern) => pattern.test(entity))) {
+      return false;
+    }
+
+    // Filter out single-word entities that are market types (unless they're valid player names)
+    if (hasEntity && entity.split(/\s+/).length === 1) {
+      const singleWord = entity.toLowerCase().trim();
+      if (
+        ["made", "yards", "receptions", "points", "rebounds", "assists", "threes"].includes(
+          singleWord
+        )
+      ) {
+        return false;
+      }
     }
 
     // Filter out team names when market is a prop (Pts, Reb, Ast, Yds, Rec, 3pt)
@@ -1107,7 +1491,22 @@ export const formatDescription = (
     .replace(/^same\s+game\s+parlay\s+available\s*/i, "")
     .replace(/\s*same\s+game\s+parlay\s+available\s*/gi, "")
     .replace(/^parlay\s+available\s*/i, "")
-    .replace(/\s*parlay\s+available\s*/gi, "");
+    .replace(/\s*parlay\s+available\s*/gi, "")
+    // Remove "Parlay™" and trademark symbols
+    .replace(/^parlay™\s*/i, "")
+    .replace(/^parlay™\s*/i, "")
+    .replace(/™/g, "")
+    .replace(/parlay\s*™/gi, "")
+    // Remove "Same Game Parlay" variations at start
+    .replace(/^same\s+game\s+parlay\s*/i, "")
+    .replace(/^same\s+game\s+parlay™\s*/i, "")
+    // Remove promotional prefixes
+    .replace(/^includes[:\s]*/i, "")
+    .replace(/^plus\s+available\s*/i, "")
+    // Clean up leading/trailing spaces and commas
+    .replace(/^,\s*/, "")
+    .replace(/\s*,\s*$/, "")
+    .trim();
 
   // For parlays, return as-is (already formatted)
   if (betType === "parlay" || betType === "sgp") {
@@ -1115,6 +1514,11 @@ export const formatDescription = (
     return cleaned
       .replace(/\s*Spread Betting\s*/gi, "")
       .replace(/,\s*/g, ", ")
+      // Remove any remaining promotional text
+      .replace(/^parlay™\s*/i, "")
+      .replace(/^parlay\s*™\s*/i, "")
+      .replace(/^same\s+game\s+parlay\s*/i, "")
+      .replace(/^available\s+same\s+game\s*/i, "")
       .trim();
   }
 
@@ -1166,6 +1570,44 @@ export const formatDescription = (
     return `${name} Moneyline`;
   }
 
+  // Handle Over/Under bets for Rebounds, Yards, etc.
+  // If we have ou, line, name, and type, rebuild the description properly
+  // This fixes cases like "Onyeka Okongwu Over Okongwu - REBOUNDS" -> "Onyeka Okongwu Over 8.5 Rebounds"
+  if (ou && line && name && type) {
+    // Check if description has malformed "Over [Name]" pattern (Over followed by letters, not the line number)
+    const hasMalformedOver = description && 
+      /Over\s+[A-Za-z]/.test(description) && 
+      !description.match(new RegExp(`Over\\s+${line.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "i"));
+    
+    // Also check if description has "Over" followed by part of the name (like "Over Okongwu" or "Over Pearsall")
+    const nameParts = name ? name.split(/\s+/) : [];
+    const lastName = nameParts.length > 0 ? nameParts[nameParts.length - 1] : "";
+    const hasOverLastName = description && lastName &&
+      new RegExp(`Over\\s+${lastName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "i").test(description) &&
+      !description.match(new RegExp(`Over\\s+${line.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "i"));
+    
+    // Rebuild description for Over/Under bets if:
+    // 1. Description is malformed (has "Over [Name]"), OR
+    // 2. Type is one that should have Over/Under format
+    if (hasMalformedOver || hasOverLastName || ["Reb", "Yds", "Rec", "Ast", "3pt"].includes(type)) {
+      if (type === "Reb") {
+        return `${name} ${ou} ${line} Rebounds`;
+      }
+      if (type === "Yds") {
+        return `${name} ${ou} ${line} Yards`;
+      }
+      if (type === "Rec") {
+        return `${name} ${ou} ${line} Receptions`;
+      }
+      if (type === "Ast") {
+        return `${name} ${ou} ${line} Assists`;
+      }
+      if (type === "3pt") {
+        return `${name} ${ou} ${line} Made Threes`;
+      }
+    }
+  }
+
   // Fallback to original description
   return description;
 };
@@ -1200,61 +1642,7 @@ export const inferSportFromText = (
 ): string => {
   const upper = text.toUpperCase();
 
-  // NBA teams
-  if (
-    upper.includes("PISTONS") ||
-    upper.includes("MAGIC") ||
-    upper.includes("HAWKS") ||
-    upper.includes("LAKERS") ||
-    upper.includes("WARRIORS") ||
-    upper.includes("CELTICS") ||
-    upper.includes("HEAT") ||
-    upper.includes("SUNS") ||
-    upper.includes("TRAIL BLAZERS") ||
-    upper.includes("GRIZZLIES") ||
-    upper.includes("SPURS") ||
-    upper.includes("JAZZ") ||
-    upper.includes("PELICANS") ||
-    upper.includes("BULLS") ||
-    upper.includes("MAVERICKS") ||
-    upper.includes("NBA") ||
-    upper.includes("BASKETBALL")
-  ) {
-    return "NBA";
-  }
-
-  // NFL teams
-  if (
-    upper.includes("PATRIOTS") ||
-    upper.includes("COWBOYS") ||
-    upper.includes("PACKERS") ||
-    upper.includes("CHIEFS") ||
-    upper.includes("RAVENS") ||
-    upper.includes("BROWNS") ||
-    upper.includes("BRONCOS") ||
-    upper.includes("SEAHAWKS") ||
-    upper.includes("RAMS") ||
-    upper.includes("CARDINALS") ||
-    upper.includes("49ERS") ||
-    upper.includes("NINERS") ||
-    upper.includes("NFL") ||
-    upper.includes("FOOTBALL")
-  ) {
-    return "NFL";
-  }
-
-  // MLB
-  if (
-    upper.includes("YANKEES") ||
-    upper.includes("RED SOX") ||
-    upper.includes("DODGERS") ||
-    upper.includes("MLB") ||
-    upper.includes("BASEBALL")
-  ) {
-    return "MLB";
-  }
-
-  // Market-based detection: If we have market types, use them to infer sport
+  // PRIORITY 1: Market-based detection from parsed market types (highest priority)
   if (marketTypes && marketTypes.length > 0) {
     const marketsUpper = marketTypes.map((m) => m.toUpperCase());
     // NFL markets: Yds, Rec (Yards, Receptions)
@@ -1287,7 +1675,7 @@ export const inferSportFromText = (
     }
   }
 
-  // Check for market keywords in text itself
+  // PRIORITY 2: Market keywords in text itself (high priority)
   if (
     /YARDS|YDS|RECEPTIONS|REC\b/.test(upper) &&
     !/POINTS|REBOUNDS|ASSISTS/.test(upper)
@@ -1299,6 +1687,66 @@ export const inferSportFromText = (
     !/YARDS|RECEPTIONS/.test(upper)
   ) {
     return "NBA";
+  }
+
+  // PRIORITY 3: Explicit sport mentions (high priority)
+  if (upper.includes("NFL") || upper.includes("FOOTBALL")) {
+    return "NFL";
+  }
+  if (upper.includes("NBA") || upper.includes("BASKETBALL")) {
+    return "NBA";
+  }
+  if (upper.includes("MLB") || upper.includes("BASEBALL")) {
+    return "MLB";
+  }
+
+  // PRIORITY 4: Team name matching (fallback - lower priority)
+  // NBA teams
+  if (
+    upper.includes("PISTONS") ||
+    upper.includes("MAGIC") ||
+    upper.includes("HAWKS") ||
+    upper.includes("LAKERS") ||
+    upper.includes("WARRIORS") ||
+    upper.includes("CELTICS") ||
+    upper.includes("HEAT") ||
+    upper.includes("SUNS") ||
+    upper.includes("TRAIL BLAZERS") ||
+    upper.includes("GRIZZLIES") ||
+    upper.includes("SPURS") ||
+    upper.includes("JAZZ") ||
+    upper.includes("PELICANS") ||
+    upper.includes("BULLS") ||
+    upper.includes("MAVERICKS")
+  ) {
+    return "NBA";
+  }
+
+  // NFL teams
+  if (
+    upper.includes("PATRIOTS") ||
+    upper.includes("COWBOYS") ||
+    upper.includes("PACKERS") ||
+    upper.includes("CHIEFS") ||
+    upper.includes("RAVENS") ||
+    upper.includes("BROWNS") ||
+    upper.includes("BRONCOS") ||
+    upper.includes("SEAHAWKS") ||
+    upper.includes("RAMS") ||
+    upper.includes("CARDINALS") ||
+    upper.includes("49ERS") ||
+    upper.includes("NINERS")
+  ) {
+    return "NFL";
+  }
+
+  // MLB teams
+  if (
+    upper.includes("YANKEES") ||
+    upper.includes("RED SOX") ||
+    upper.includes("DODGERS")
+  ) {
+    return "MLB";
   }
 
   return "";
@@ -1327,9 +1775,9 @@ export const extractHeaderInfo = (
     const descSpan = allSpans.find((s) => {
       const text = s.textContent || "";
       return (
-        text.includes("Spread Betting") &&
+        /Spread Betting/i.test(text) &&
         text.includes(",") &&
-        (text.includes("Magic") || text.includes("Pistons"))
+        /[+\-]\d/.test(text)
       );
     });
 
@@ -1507,6 +1955,40 @@ export const extractHeaderInfo = (
     type = derived.type;
     line = derived.line;
     ou = derived.ou;
+
+    // Fallback: If we have ou but no line, try to extract from raw text
+    if (ou && !line) {
+      const ouText = ou === "Over" ? "Over" : "Under";
+      const rawMatch = rawText.match(
+        new RegExp(`\\b${ouText}\\s+(\\d+(?:\\.\\d+)?)`, "i")
+      );
+      if (rawMatch && rawMatch[1]) {
+        line = rawMatch[1];
+      }
+    }
+
+    // Special handling for Total bets: if type is Total and line is missing, extract from rawText
+    if (type === "Total" && !line) {
+      const totalMatch = rawText.match(/(Over|Under)\s+(\d+(?:\.\d+)?)/i);
+      if (totalMatch) {
+        ou = totalMatch[1] === "Over" ? "Over" : "Under";
+        line = totalMatch[2];
+      }
+    }
+
+    // Fix "Over [Name]" patterns in description - extract line from rawText
+    // Pattern: "Onyeka Okongwu Over Onyeka OKONGWU - REBOUNDS" should become "Onyeka Okongwu Over 8.5"
+    if (description && ou && !line) {
+      const overNamePattern = new RegExp(`^${(name || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s+Over\\s+[A-Z]`, "i");
+      if (overNamePattern.test(description)) {
+        // Try to extract line from rawText
+        const ouText = ou === "Over" ? "Over" : "Under";
+        const lineMatch = rawText.match(new RegExp(`\\b${ouText}\\s+(\\d+(?:\\.\\d+)?)`, "i"));
+        if (lineMatch && lineMatch[1]) {
+          line = lineMatch[1];
+        }
+      }
+    }
   }
 
   // Extract market types from description for better sport detection
@@ -1533,7 +2015,50 @@ export const extractHeaderInfo = (
     description = description.replace(/TOTAL POINTS/i, "Total Points");
   }
 
-  // Remove promotional text from descriptions
+  // Improve Total bet descriptions: if description is generic "Total" and we have line/ou, rebuild it
+  if (type === "Total" && line && ou && (description.toLowerCase().trim() === "total" || !description)) {
+    description = `${ou} ${line} Total Points`;
+  }
+
+  // Fix "Over [Name]" patterns in descriptions - rebuild when we have line value
+  // Pattern: "Onyeka Okongwu Over Okongwu - REBOUNDS" -> "Onyeka Okongwu Over 8.5 Rebounds"
+  if (name && ou && line && type) {
+    // Check if description has "Over" followed by letters (name) instead of the line number
+    // More flexible: check if description contains name + "Over" + letters (not numbers)
+    const nameEscaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const hasMalformedOver = description && 
+      new RegExp(`${nameEscaped}\\s+Over\\s+[A-Za-z]`, "i").test(description) &&
+      !description.match(new RegExp(`Over\\s+${line.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "i"));
+    
+    // Also check if description just has "Over" followed by part of the name (like "Over Okongwu" or "Over Pearsall")
+    const nameParts = name.split(/\s+/);
+    const lastName = nameParts[nameParts.length - 1];
+    const hasOverLastName = description && 
+      new RegExp(`Over\\s+${lastName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "i").test(description) &&
+      !description.match(new RegExp(`Over\\s+${line.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "i"));
+    
+    if (hasMalformedOver || hasOverLastName) {
+      const typeName =
+        type === "Reb"
+          ? "Rebounds"
+          : type === "Yds"
+          ? "Yards"
+          : type === "Rec"
+          ? "Receptions"
+          : type === "Ast"
+          ? "Assists"
+          : type === "3pt"
+          ? "Made Threes"
+          : "";
+      if (typeName) {
+        description = `${name} ${ou} ${line} ${typeName}`;
+      } else {
+        description = `${name} ${ou} ${line}`;
+      }
+    }
+  }
+
+  // Remove promotional text from descriptions (enhanced)
   if (description) {
     description = description
       .replace(/^available\s+Same\s+Game\s*/i, "")
@@ -1542,7 +2067,38 @@ export const extractHeaderInfo = (
       .replace(/\s*same\s+game\s+parlay\s+available\s*/gi, "")
       .replace(/^parlay\s+available\s*/i, "")
       .replace(/\s*parlay\s+available\s*/gi, "")
+      // Remove "Parlay™" and trademark symbols
+      .replace(/^parlay™\s*/i, "")
+      .replace(/^parlay\s*™\s*/i, "")
+      .replace(/\bparlay™\b/gi, "")
+      .replace(/™/g, "")
+      // Remove "Same Game Parlay" variations at start
+      .replace(/^same\s+game\s+parlay\s*/i, "")
+      .replace(/^same\s+game\s+parlay™\s*/i, "")
+      // Remove promotional prefixes
+      .replace(/^includes[:\s]*/i, "")
+      .replace(/^plus\s+available\s*/i, "")
+      // Remove redundant text like "Current rebounds: 1"
+      .replace(/\s*Current\s+\w+:\s*\d+\s*/gi, " ")
+      // Clean up leading/trailing spaces and commas
+      .replace(/^,\s*/, "")
+      .replace(/\s*,\s*$/, "")
       .trim();
+
+    // If description still starts with promotional text, try to extract actual bet legs
+    if (/^(parlay|parlay™|same\s+game|available\s+same\s+game)/i.test(description)) {
+      // Try to extract meaningful parts after promotional text
+      const parts = description.split(/,\s*/);
+      const meaningfulParts = parts.filter(
+        (part) =>
+          !/^(parlay|parlay™|same\s+game|available\s+same\s+game|includes|plus\s+available)/i.test(
+            part.trim()
+          )
+      );
+      if (meaningfulParts.length > 0) {
+        description = meaningfulParts.join(", ").trim();
+      }
+    }
   }
 
   return {
@@ -1579,6 +2135,107 @@ export const findLegRows = (cardLi: HTMLElement): HTMLElement[] => {
     if (parentDiv) candidates.push(parentDiv);
   }
 
+  // Tertiary: For SGP+ bets, find nested SGP legs that don't have aria-labels or individual odds
+  // Look for divs containing player names + market text (e.g., "To Record A Triple Double")
+  // These are typically inside nested SGP sections
+  const cardText = cardLi.textContent || "";
+  const isSGPPlusBet = 
+    cardText.toLowerCase().includes("same game parlay plus") ||
+    cardText.toLowerCase().includes("same game parlay+") ||
+    (cardText.toLowerCase().includes("includes:") &&
+      /includes:\s*\d+\s+same\s+game\s+parlay/i.test(cardText));
+  if (isSGPPlusBet) {
+    // For SGP+ bets, also extract legs from raw text as a fallback
+    // This catches nested SGP legs that don't have aria-labels
+    const rawText = cardLi.textContent || "";
+    
+    // Look for patterns like "Player Name 50+ Yards" or "Player Name To Record A Triple Double"
+    const legPatterns = [
+      // Pattern for stat-based legs: "Player Name 50+ Yards" or "Player Name 3+ Receptions"
+      new RegExp(
+        `(${PLAYER_NAME_PATTERN})\\s+(\\d+\\+)\\s+(Yards|Receptions|Points|Assists|Made Threes|Yds|Rec|Receiving Yds|Alt Receiving Yds|Alt Receptions)`,
+        "gi"
+      ),
+      // Pattern for "To Record" legs: "Player Name To Record A Triple Double"
+      new RegExp(
+        `(${PLAYER_NAME_PATTERN})\\s+To Record A Triple Double`,
+        "gi"
+      ),
+      // Pattern for "To Score" legs: "Player Name To Score 30+ Points"
+      new RegExp(
+        `(${PLAYER_NAME_PATTERN})\\s+To Score (\\d+\\+)\\s+Points`,
+        "gi"
+      ),
+    ];
+    
+    // Extract all leg matches from raw text
+    const textLegMatches: Array<{player: string, target?: string, market: string}> = [];
+    for (const pattern of legPatterns) {
+      let match;
+      while ((match = pattern.exec(rawText)) !== null) {
+        const player = match[1];
+        const target = match[2] || match[3] || undefined;
+        const market = match[3] || match[4] || "TD";
+        
+        // Skip if this player is already in candidates (from aria-label method)
+        const alreadyFound = candidates.some(c => {
+          const cText = normalizeSpaces(c.textContent || "");
+          return cText.includes(player);
+        });
+        
+        if (!alreadyFound) {
+          textLegMatches.push({ player, target, market });
+        }
+      }
+    }
+    
+    // For each text match, try to find the corresponding div
+    // This helps us get the actual DOM element for better parsing
+    for (const legMatch of textLegMatches) {
+      // Find divs that contain this player name and market text
+      const matchingDivs = Array.from(cardLi.querySelectorAll<HTMLElement>("div")).filter(div => {
+        const text = normalizeSpaces(div.textContent || "");
+        const hasPlayer = text.includes(legMatch.player);
+        const hasMarket = text.includes(legMatch.target || "") || 
+                         text.includes(legMatch.market) ||
+                         (legMatch.market === "TD" && text.includes("Triple Double"));
+        
+        // Must not be a header/footer/scoreboard
+        const isParlayHeader = /\b\d+\s+leg\s+parlay\b/i.test(text) || 
+                               /same game parlay\s*(?:plus|available)/i.test(text);
+        const isFooterLike = /TOTAL WAGER|BET ID|PLACED:/i.test(text);
+        const hasScoreboard = /\d{1,3}\s+\d{1,3}\s*Finished/i.test(text) || 
+                              /Box Score|Play-by-play/i.test(text);
+        
+        return hasPlayer && hasMarket && !isParlayHeader && !isFooterLike && !hasScoreboard;
+      });
+      
+      // Use the most specific div (smallest text content that still matches)
+      if (matchingDivs.length > 0) {
+        const bestDiv = matchingDivs.reduce((best, current) => {
+          const bestText = normalizeSpaces(best.textContent || "");
+          const currentText = normalizeSpaces(current.textContent || "");
+          // Prefer divs that are more specific (shorter text) but still contain the full leg info
+          if (currentText.length < bestText.length && currentText.length > 20) {
+            return current;
+          }
+          return best;
+        });
+        
+        // Check if not already a candidate
+        const isAlreadyCandidate = candidates.some(c => {
+          if (c === bestDiv) return true;
+          const cText = normalizeSpaces(c.textContent || "");
+          return cText.includes(legMatch.player) && (c.contains(bestDiv) || bestDiv.contains(c));
+        });
+        
+        if (!isAlreadyCandidate) {
+          candidates.push(bestDiv);
+        }
+      }
+    }
+  }
+
   const marketPattern =
     /SPREAD BETTING|MONEYLINE|TOTAL|TO RECORD|TO SCORE|MADE THREES|ASSISTS|REBOUNDS|POINTS|OVER|UNDER/i;
 
@@ -1597,15 +2254,41 @@ export const findLegRows = (cardLi: HTMLElement): HTMLElement[] => {
 
     if (isParlayHeader || isFooterLike) return false;
     if (!hasLetters) return false;
+    // For SGP+ nested legs, allow without odds if they have market text
+    if (isSGPPlusBet && hasMarket) {
+      return true; // Nested SGP legs may not have individual odds
+    }
     if (!(hasOdds || hasMarket)) return false;
 
     return true;
   });
 
-  // Prefer top-level selection blocks: drop nested candidates that live inside another candidate
-  const topLevel = filtered.filter(
-    (node) => !filtered.some((other) => other !== node && other.contains(node))
-  );
+  // For SGP+ bets, we want to keep nested legs even if they're inside other candidates
+  // (because the nested SGP container might also be a candidate)
+  // But we still want to avoid true duplicates
+  let topLevel: HTMLElement[];
+  if (isSGPPlusBet) {
+    // For SGP+, be more permissive - only remove if one candidate is a direct child of another
+    // and they represent the same leg (same player name)
+    topLevel = filtered.filter((node) => {
+      const nodeText = normalizeSpaces(node.textContent || "");
+      const nodePlayerMatch = nodeText.match(new RegExp(`(${PLAYER_NAME_PATTERN})`, "i"));
+      if (!nodePlayerMatch) return true;
+      
+      // Check if another candidate contains this one AND has the same player name
+      return !filtered.some((other) => {
+        if (other === node || !other.contains(node)) return false;
+        const otherText = normalizeSpaces(other.textContent || "");
+        const otherPlayerMatch = otherText.match(new RegExp(`(${PLAYER_NAME_PATTERN})`, "i"));
+        return otherPlayerMatch && otherPlayerMatch[1] === nodePlayerMatch[1];
+      });
+    });
+  } else {
+    // Original logic for non-SGP+ bets
+    topLevel = filtered.filter(
+      (node) => !filtered.some((other) => other !== node && other.contains(node))
+    );
+  }
 
   // Deduplicate by reference and by normalized text to avoid double-counting the same row
   const seenText = new Set<string>();
@@ -1613,8 +2296,19 @@ export const findLegRows = (cardLi: HTMLElement): HTMLElement[] => {
 
   for (const node of topLevel) {
     const text = normalizeSpaces(node.textContent || "");
-    if (seenText.has(text)) continue;
-    seenText.add(text);
+    // For SGP+ bets, use a more lenient deduplication (just player name + market)
+    if (isSGPPlusBet) {
+      const playerMatch = text.match(new RegExp(`(${PLAYER_NAME_PATTERN})`, "i"));
+      const marketMatch = text.match(/(To Record|To Score|\d+\+\s+\w+)/i);
+      const key = playerMatch && marketMatch 
+        ? `${playerMatch[1]}_${marketMatch[1]}`.toLowerCase()
+        : text.toLowerCase();
+      if (seenText.has(key)) continue;
+      seenText.add(key);
+    } else {
+      if (seenText.has(text)) continue;
+      seenText.add(text);
+    }
     unique.push(node);
   }
 
@@ -1648,3 +2342,35 @@ export const formatParlayLegDescription = (rawText: string): string => {
 };
 
 export const inferMarketCategoryFromType = inferMarketCategory;
+
+/**
+ * Identifies if a parlay is an SGP+ (Same Game Parlay Plus) structure.
+ * SGP+ is a parlay containing SGP(s) as legs, where each SGP has multiple players/teams
+ * but one combined odds value.
+ */
+export const isSGPPlus = (rawText: string): boolean => {
+  const text = rawText.toLowerCase();
+  return (
+    text.includes("same game parlay plus") ||
+    text.includes("same game parlay+") ||
+    (text.includes("includes:") &&
+      /includes:\s*\d+\s+same\s+game\s+parlay/i.test(rawText))
+  );
+};
+
+/**
+ * Attempts to identify SGP boundaries within an SGP+ structure.
+ * Returns an array of SGP groups, where each group contains the indices of legs that belong to that SGP.
+ * 
+ * Note: This is a heuristic approach. In practice, SGP legs are grouped by game/matchup context.
+ * For now, we return empty array if we can't reliably detect boundaries.
+ */
+export const identifySGPBoundaries = (
+  legs: BetLeg[],
+  rawText: string
+): number[][] => {
+  // For now, return empty array - SGP+ structure is complex and would require
+  // more sophisticated game/matchup detection. The missing odds in some legs
+  // is expected behavior for SGP+ where SGP legs share one combined odds value.
+  return [];
+};

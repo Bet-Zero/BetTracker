@@ -97,8 +97,25 @@ export const parseFanDuel = (htmlContent: string): Bet[] => {
     );
 
     // Gather leg rows to classify bet type structurally
-    const legRows = findLegRows(headerLi);
-    const betType = inferBetType(headerLi, legRows.length);
+  const legRows = findLegRows(headerLi);
+  let betType = inferBetType(headerLi, legRows.length);
+  
+  // Check if a parlay with single leg is actually an SGP+ case
+  // SGP+ can have a single SGP leg that contains multiple selections
+  if (betType === "parlay") {
+    const fullText = (headerLi.textContent ?? "").replace(/\s+/g, " ").trim();
+    const isSGPPlus =
+      fullText.toLowerCase().includes("same game parlay plus") ||
+      fullText.toLowerCase().includes("same game parlay+") ||
+      (fullText.toLowerCase().includes("includes:") &&
+        /includes:\s*\d+\s+same\s+game\s+parlay/i.test(fullText));
+    
+    // If it's SGP+ with only 1 leg row, it might be a nested SGP that wasn't fully expanded
+    // Keep it as parlay type - the SGP+ structure will be handled in parsing
+    if (isSGPPlus && legRows.length === 1) {
+      fdDebug("Detected SGP+ with single leg row - may contain nested SGP");
+    }
+  }
 
     const result = inferResult(
       meta.stake,
@@ -285,7 +302,7 @@ const extractFooterMeta = (footerLi: HTMLElement): FooterMeta => {
       ? payoutWon
       : payoutReturned !== null
       ? payoutReturned
-      : 0;
+      : null;
 
   return {
     betId,
@@ -474,13 +491,17 @@ const inferBetType = (headerLi: HTMLElement, legCount: number): BetType => {
   // Check for "same game parlay" - need to check both text content and raw HTML
   // Even if aria-label says "same game parlay available", the raw text often contains actual bet legs
   const fullText = (headerLi.textContent ?? "").replace(/\s+/g, " ").trim();
-  // SGP+ (multi-game combo) – treat as regular parlay
-  if (
+  // SGP+ (multi-game combo) – explicit detection for Same Game Parlay+
+  // SGP+ contains SGP(s) as legs, where each SGP has multiple players/teams but one combined odds value
+  const isSGPPlus =
     text.includes("same game parlay plus") ||
     fullText.toLowerCase().includes("same game parlay+") ||
-    fullText.toLowerCase().includes("includes:")
-  ) {
-    return "parlay";
+    (fullText.toLowerCase().includes("includes:") &&
+      /includes:\s*\d+\s+same\s+game\s+parlay/i.test(fullText));
+  
+  if (isSGPPlus) {
+    fdDebug("Detected SGP+ (Same Game Parlay Plus)");
+    return "parlay"; // Keep as parlay type but will be handled specially in parsing
   }
   const hasSGPText =
     text.includes("same game parlay") || fullText.includes("Same Game Parlay");
@@ -667,6 +688,23 @@ const findHeaderLiForFooter = (
       }
     }
     prev = prev.previousElementSibling as HTMLElement | null;
+  }
+
+  // Fallback: scan earlier <li> nodes in the provided list to find the closest non-footer candidate
+  if (allLiNodes && allLiNodes.length) {
+    const idx = allLiNodes.indexOf(footerLi);
+    for (let i = idx - 1; i >= 0; i--) {
+      const candidate = allLiNodes[i];
+      if (!candidate || candidate.tagName?.toLowerCase() !== "li") continue;
+      const text = (candidate.textContent ?? "").toLowerCase();
+      const isFooterLike =
+        text.includes("bet id") ||
+        (text.includes("total wager") && text.includes("won on fanduel")) ||
+        text.includes("placed:");
+      if (!isFooterLike) {
+        return candidate;
+      }
+    }
   }
 
   return null;

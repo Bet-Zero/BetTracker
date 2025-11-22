@@ -11,6 +11,7 @@ import {
   formatDescription,
   formatParlayDescriptionFromLegs,
   inferMarketCategory,
+  isSGPPlus,
 } from "./common";
 
 export interface ParlayBetParams {
@@ -46,14 +47,19 @@ export const parseParlayBet = ({
   const betOdds = headerInfo.odds ?? 0;
 
   // Build legs from structured rows and textual description together
-  // For SGPs, skip individual leg odds extraction as only total odds matter
-  const skipLegOdds = betType === "sgp";
+  // Extract individual leg odds when available - they're useful even for SGPs
+  const skipLegOdds = false;
   const legsFromRows = buildLegsFromRows(legRows, result, skipLegOdds);
   const legsFromDescription = headerInfo.description
     ? buildLegsFromDescription(headerInfo.description, result, skipLegOdds)
     : [];
   const baseLegs = [...legsFromRows, ...legsFromDescription];
-  const shouldPullExtras = baseLegs.length < 2;
+  
+  // For SGP+ bets, always try to extract from raw text to catch nested SGP legs
+  // For other bets, only do this if we have fewer than 2 legs
+  const isSGPPlusStructure = isSGPPlus(headerInfo.rawText);
+  const shouldPullExtras = baseLegs.length < 2 || isSGPPlusStructure;
+  
   const legsFromStatText = shouldPullExtras
     ? buildLegsFromStatText(headerInfo.rawText, result)
     : [];
@@ -76,6 +82,18 @@ export const parseParlayBet = ({
       ])
     )
   );
+
+  // Check if this is an SGP+ structure
+  // In SGP+, nested SGPs have multiple legs but share one combined odds value
+  // This is expected behavior - missing odds in some legs is normal for SGP+ structure
+  // (isSGPPlusStructure already declared above)
+  
+  if (isSGPPlusStructure && legs.length > 0) {
+    // For SGP+, some legs may be missing individual odds because they're part of an SGP
+    // that has a combined odds value. This is expected and not an error.
+    // The SGP+ itself has the overall parlay odds, and each nested SGP has its combined odds.
+    // Individual legs within an SGP don't have separate odds - they share the SGP's odds.
+  }
 
   const description = legs.length
     ? formatParlayDescriptionFromLegs(legs)

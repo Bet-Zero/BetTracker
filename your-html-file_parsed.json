@@ -40,7 +40,7 @@
     "marketCategory": "Main Markets",
     "sport": "NBA",
     "description": "Jalen Johnson To RECORD A TRIPLE DOUBLE",
-    "name": "Jalen Johnson To",
+    "name": "Jalen Johnson",
     "odds": 850,
     "stake": 1.12,
     "payout": 0,
@@ -69,7 +69,7 @@
     "betType": "parlay",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Luka Doncic TD, Deni Avdija TD, Triple Double Luka Doncic +410 TD",
+    "description": "Luka Doncic TD, Deni Avdija TD, Cade Cunningham TD, Jalen Johnson TD",
     "odds": 1108261,
     "stake": 0.5,
     "payout": 0,
@@ -93,10 +93,17 @@
       },
       {
         "entities": [
-          "Triple Double Luka Doncic"
+          "Cade Cunningham"
         ],
         "market": "TD",
-        "target": "+410",
+        "odds": 16617,
+        "result": "loss"
+      },
+      {
+        "entities": [
+          "Jalen Johnson"
+        ],
+        "market": "TD",
         "result": "loss"
       }
     ],
@@ -113,7 +120,7 @@
     "betType": "parlay",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Deni Avdija TD",
+    "description": "Deni Avdija TD, Cade Cunningham TD, Jalen Johnson TD",
     "odds": 217225,
     "stake": 0.5,
     "payout": 0,
@@ -125,6 +132,21 @@
         ],
         "market": "TD",
         "odds": 1200,
+        "result": "loss"
+      },
+      {
+        "entities": [
+          "Cade Cunningham"
+        ],
+        "market": "TD",
+        "odds": 16617,
+        "result": "loss"
+      },
+      {
+        "entities": [
+          "Jalen Johnson"
+        ],
+        "market": "TD",
         "result": "loss"
       }
     ],
@@ -227,19 +249,23 @@
     "betType": "single",
     "marketCategory": "Props",
     "sport": "NBA",
-    "description": "Ausar Thompson Under Ausar THOMPSON - POINTS Current points: 6",
+    "description": "Ausar Thompson Under 10.5 Points",
     "name": "Ausar Thompson",
     "odds": -120,
     "stake": 1.23,
     "payout": 2.26,
     "result": "win",
     "type": "Pts",
+    "line": "10.5",
+    "ou": "Under",
     "legs": [
       {
         "entities": [
           "Ausar Thompson"
         ],
         "market": "Pts",
+        "target": "10.5",
+        "ou": "Under",
         "odds": -120,
         "result": "win"
       }
@@ -257,19 +283,23 @@
     "betType": "single",
     "marketCategory": "Props",
     "sport": "NBA",
-    "description": "Onyeka Okongwu Over Onyeka OKONGWU - REBOUNDS Current rebounds: 1",
+    "description": "Onyeka Okongwu Over 8.5 Rebounds",
     "name": "Onyeka Okongwu",
     "odds": -128,
     "stake": 2.55,
     "payout": 0,
     "result": "loss",
     "type": "Reb",
+    "line": "8.5",
+    "ou": "Over",
     "legs": [
       {
         "entities": [
           "Onyeka Okongwu"
         ],
         "market": "Reb",
+        "target": "8.5",
+        "ou": "Over",
         "odds": -128,
         "result": "loss"
       }
@@ -325,19 +355,19 @@
     "betType": "single",
     "marketCategory": "Main Markets",
     "sport": "NBA",
-    "description": "Total",
-    "name": "Over Total",
+    "description": "Over 232.5 Total Points",
     "odds": -120,
     "stake": 1.62,
     "payout": 0,
     "result": "loss",
     "type": "Total",
+    "line": "232.5",
+    "ou": "Over",
     "legs": [
       {
-        "entities": [
-          "Over Total"
-        ],
         "market": "Total",
+        "target": "232.5",
+        "ou": "Over",
         "odds": -120,
         "result": "loss"
       }
@@ -356,7 +386,7 @@
     "marketCategory": "Main Markets",
     "sport": "NBA",
     "description": "Franz Wagner Top POINTS SCORER",
-    "name": "Franz Wagner Top",
+    "name": "Franz Wagner",
     "odds": 240,
     "stake": 1.25,
     "payout": 0,
@@ -365,7 +395,7 @@
     "legs": [
       {
         "entities": [
-          "Franz Wagner Top"
+          "Franz Wagner"
         ],
         "market": "Top Pts",
         "odds": 240,
@@ -385,19 +415,19 @@
     "betType": "single",
     "marketCategory": "Main Markets",
     "sport": "NBA",
-    "description": "Total",
-    "name": "Under Total",
+    "description": "Under 224.5 Total Points",
     "odds": -110,
     "stake": 1.5,
     "payout": 0,
     "result": "loss",
     "type": "Total",
+    "line": "224.5",
+    "ou": "Under",
     "legs": [
       {
-        "entities": [
-          "Under Total"
-        ],
         "market": "Total",
+        "target": "224.5",
+        "ou": "Under",
         "odds": -110,
         "result": "loss"
       }
@@ -478,7 +508,7 @@
     "marketCategory": "Main Markets",
     "sport": "NBA",
     "description": "Duncan Robinson First BASKET",
-    "name": "Duncan Robinson First",
+    "name": "Duncan Robinson",
     "odds": 900,
     "stake": 0.75,
     "payout": 0,
@@ -487,7 +517,7 @@
     "legs": [
       {
         "entities": [
-          "Duncan Robinson First"
+          "Duncan Robinson"
         ],
         "market": "FB",
         "odds": 900,
@@ -506,9 +536,9 @@
     "placedAt": "2025-11-16T19:58:00-05:00",
     "betType": "sgp",
     "marketCategory": "Parlays",
-    "sport": "",
-    "description": "Isaiah Collier 8+ Ast, Made 8+ 3pt, Jalen Smith 2+ 3pt, Ace Bailey 2+ 3pt, Patrick Williams 2+ 3pt, Coby White 2+ 3pt",
-    "name": "SGP (6 legs)",
+    "sport": "NBA",
+    "description": "Isaiah Collier 8+ Ast, Jalen Smith 2+ 3pt, Ace Bailey 2+ 3pt, Patrick Williams 2+ 3pt, Coby White 2+ 3pt",
+    "name": "SGP (5 legs)",
     "odds": 4781,
     "stake": 1,
     "payout": 0,
@@ -519,14 +549,6 @@
           "Isaiah Collier"
         ],
         "market": "Ast",
-        "target": "8+",
-        "result": "loss"
-      },
-      {
-        "entities": [
-          "Made"
-        ],
-        "market": "3pt",
         "target": "8+",
         "result": "loss"
       },
@@ -575,22 +597,14 @@
     "placedAt": "2025-11-16T19:57:00-05:00",
     "betType": "sgp",
     "marketCategory": "Parlays",
-    "sport": "",
-    "description": "available Same Game 2+ 3pt, Ace Bailey 2+ 3pt, Patrick Williams 2+ 3pt, Jalen Smith 2+ 3pt",
-    "name": "SGP (4 legs)",
+    "sport": "NBA",
+    "description": "Ace Bailey 2+ 3pt, Patrick Williams 2+ 3pt, Jalen Smith 2+ 3pt",
+    "name": "SGP (3 legs)",
     "odds": 815,
     "stake": 2,
     "payout": 0,
     "result": "loss",
     "legs": [
-      {
-        "entities": [
-          "available Same Game"
-        ],
-        "market": "3pt",
-        "target": "2+",
-        "result": "loss"
-      },
       {
         "entities": [
           "Ace Bailey"
@@ -628,9 +642,9 @@
     "placedAt": "2025-11-16T21:18:00-05:00",
     "betType": "sgp",
     "marketCategory": "Parlays",
-    "sport": "",
-    "description": "Isaiah Collier 4+ Ast, Made 4+ 3pt, Coby White 4+ 3pt, Patrick Williams 2+ 3pt, Ayo Dosunmu 2+ 3pt, Ace Bailey 3+ 3pt",
-    "name": "SGP (6 legs)",
+    "sport": "NBA",
+    "description": "Isaiah Collier 4+ Ast, Coby White 4+ 3pt, Patrick Williams 2+ 3pt, Ayo Dosunmu 2+ 3pt, Ace Bailey 3+ 3pt",
+    "name": "SGP (5 legs)",
     "odds": 18778,
     "stake": 1.5,
     "payout": 0,
@@ -641,14 +655,6 @@
           "Isaiah Collier"
         ],
         "market": "Ast",
-        "target": "4+",
-        "result": "loss"
-      },
-      {
-        "entities": [
-          "Made"
-        ],
-        "market": "3pt",
         "target": "4+",
         "result": "loss"
       },
@@ -698,7 +704,7 @@
     "betType": "parlay",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Deni Avdija TD, Josh Giddey TD, Jalen Johnson TD, Jalen Johnson +1200 TD",
+    "description": "Deni Avdija TD, Josh Giddey TD, Jalen Johnson TD",
     "odds": 36300,
     "stake": 0.5,
     "payout": 0,
@@ -727,14 +733,6 @@
         "market": "TD",
         "odds": 700,
         "result": "loss"
-      },
-      {
-        "entities": [
-          "Jalen Johnson"
-        ],
-        "market": "TD",
-        "target": "+1200",
-        "result": "loss"
       }
     ],
     "tail": "",
@@ -750,7 +748,7 @@
     "betType": "parlay",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Made 10+ 3pt, Made 8+ 3pt, Jalen Smith 3+ 3pt, Royce O'Neale 4+ 3pt",
+    "description": "Isaiah Collier 10+ Ast, Jalen Johnson 8+ Ast, Jalen Smith 3+ 3pt, Royce O'Neale 4+ 3pt",
     "odds": 1803,
     "stake": 3,
     "payout": 0,
@@ -758,17 +756,17 @@
     "legs": [
       {
         "entities": [
-          "Made"
+          "Isaiah Collier"
         ],
-        "market": "3pt",
+        "market": "Ast",
         "target": "10+",
         "result": "loss"
       },
       {
         "entities": [
-          "Made"
+          "Jalen Johnson"
         ],
-        "market": "3pt",
+        "market": "Ast",
         "target": "8+",
         "result": "loss"
       },
@@ -802,21 +800,13 @@
     "betType": "sgp",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "available Same Game 3+ 3pt, Saddiq Bey 3+ 3pt, Will Richard 3+ 3pt",
-    "name": "SGP (3 legs)",
+    "description": "Saddiq Bey 3+ 3pt, Will Richard 3+ 3pt",
+    "name": "SGP (2 legs)",
     "odds": 997,
     "stake": 0.5,
     "payout": 0,
     "result": "loss",
     "legs": [
-      {
-        "entities": [
-          "available Same Game"
-        ],
-        "market": "3pt",
-        "target": "3+",
-        "result": "loss"
-      },
       {
         "entities": [
           "Saddiq Bey"
@@ -911,7 +901,7 @@
     "betType": "parlay",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Royce O'Neale 3+ 3pt, Zion Williamson 30+ Pts, Will Richard 3+ 3pt, Jalen Smith 3+ 3pt, Ace Bailey 3+ 3pt",
+    "description": "Royce O'Neale 3+ 3pt, Ace Bailey 3+ 3pt, Zion Williamson 30+ Pts, Will Richard 3+ 3pt, Jalen Smith 3+ 3pt, Void Will Richard 3+ 3pt",
     "odds": 123369,
     "stake": 0.5,
     "payout": 0,
@@ -924,6 +914,15 @@
         "market": "3pt",
         "target": "3+",
         "odds": -130,
+        "result": "loss"
+      },
+      {
+        "entities": [
+          "Ace Bailey"
+        ],
+        "market": "3pt",
+        "target": "3+",
+        "odds": 1774,
         "result": "loss"
       },
       {
@@ -952,7 +951,7 @@
       },
       {
         "entities": [
-          "Ace Bailey"
+          "Void Will Richard"
         ],
         "market": "3pt",
         "target": "3+",
@@ -972,7 +971,7 @@
     "betType": "parlay",
     "marketCategory": "Parlays",
     "sport": "NFL",
-    "description": "Cleveland Browns Quinshon 80+ Yds, Denver Broncos Rashee 7+ Rec, Quinshon Judkins 80+ Yds, Derrick Henry 80+ Yds, Lamar Jackson 40+ Yds, Rashee Rice 7+ Rec, Evan Engram 4+ Rec",
+    "description": "Quinshon Judkins 80+ Yds, Rashee Rice 7+ Rec, Derrick Henry 80+ Yds, Lamar Jackson 40+ Yds, Evan Engram 4+ Rec",
     "odds": 4963,
     "stake": 1,
     "payout": 0,
@@ -980,26 +979,18 @@
     "legs": [
       {
         "entities": [
-          "Cleveland Browns Quinshon"
-        ],
-        "market": "Yds",
-        "target": "80+",
-        "result": "loss"
-      },
-      {
-        "entities": [
-          "Denver Broncos Rashee"
-        ],
-        "market": "Rec",
-        "target": "7+",
-        "result": "loss"
-      },
-      {
-        "entities": [
           "Quinshon Judkins"
         ],
         "market": "Yds",
         "target": "80+",
+        "result": "loss"
+      },
+      {
+        "entities": [
+          "Rashee Rice"
+        ],
+        "market": "Rec",
+        "target": "7+",
         "result": "loss"
       },
       {
@@ -1016,14 +1007,6 @@
         ],
         "market": "Yds",
         "target": "40+",
-        "result": "loss"
-      },
-      {
-        "entities": [
-          "Rashee Rice"
-        ],
-        "market": "Rec",
-        "target": "7+",
         "result": "loss"
       },
       {
@@ -1047,8 +1030,8 @@
     "placedAt": "2025-11-16T17:39:00-05:00",
     "betType": "single",
     "marketCategory": "Main Markets",
-    "sport": "",
-    "description": "Ricky Pearsall 3+ Receptions Ricky PEARSALL - ALT RECEPTIONS",
+    "sport": "NFL",
+    "description": "Ricky Pearsall 3+ Receptions Pearsall - ALT RECEPTIONS",
     "name": "Ricky Pearsall",
     "odds": 210,
     "stake": 2,
@@ -1079,20 +1062,24 @@
     "placedAt": "2025-11-16T16:04:00-05:00",
     "betType": "single",
     "marketCategory": "Main Markets",
-    "sport": "",
-    "description": "Ricky Pearsall Over Ricky PEARSALL - RECEIVING YDS",
+    "sport": "NFL",
+    "description": "Ricky Pearsall Over 35.5 Yards",
     "name": "Ricky Pearsall",
     "odds": -112,
     "stake": 5,
     "payout": 0,
     "result": "loss",
     "type": "Yds",
+    "line": "35.5",
+    "ou": "Over",
     "legs": [
       {
         "entities": [
           "Ricky Pearsall"
         ],
         "market": "Yds",
+        "target": "35.5",
+        "ou": "Over",
         "odds": -112,
         "result": "loss"
       }
@@ -1109,8 +1096,8 @@
     "placedAt": "2025-11-16T16:05:00-05:00",
     "betType": "single",
     "marketCategory": "Main Markets",
-    "sport": "",
-    "description": "Ricky Pearsall 60+ Yards Ricky PEARSALL - ALT RECEIVING YDS",
+    "sport": "NFL",
+    "description": "Ricky Pearsall 60+ Yards Pearsall - ALT RECEIVING YDS",
     "name": "Ricky Pearsall",
     "odds": 285,
     "stake": 1,
@@ -1141,8 +1128,8 @@
     "placedAt": "2025-11-16T16:04:00-05:00",
     "betType": "single",
     "marketCategory": "Main Markets",
-    "sport": "",
-    "description": "Ricky Pearsall 4+ Receptions Ricky PEARSALL - ALT RECEPTIONS",
+    "sport": "NFL",
+    "description": "Ricky Pearsall 4+ Receptions Pearsall - ALT RECEPTIONS",
     "name": "Ricky Pearsall",
     "odds": 130,
     "stake": 3,
@@ -1173,8 +1160,8 @@
     "placedAt": "2025-11-16T16:05:00-05:00",
     "betType": "single",
     "marketCategory": "Main Markets",
-    "sport": "",
-    "description": "Ricky Pearsall 50+ Yards Ricky PEARSALL - ALT RECEIVING YDS",
+    "sport": "NFL",
+    "description": "Ricky Pearsall 50+ Yards Pearsall - ALT RECEIVING YDS",
     "name": "Ricky Pearsall",
     "odds": 180,
     "stake": 2,
@@ -1205,8 +1192,8 @@
     "placedAt": "2025-11-16T17:54:00-05:00",
     "betType": "parlay",
     "marketCategory": "Parlays",
-    "sport": "NBA",
-    "description": "Ricky Pearsall 50+ Yards 50+ Yds",
+    "sport": "NFL",
+    "description": "Ricky Pearsall 50+ Yds, Davante Adams 50+ Yds, Cooper Kupp 3+ Rec",
     "odds": 37067,
     "stake": 0.25,
     "payout": 0,
@@ -1214,11 +1201,27 @@
     "legs": [
       {
         "entities": [
-          "Ricky Pearsall 50+ Yards"
+          "Ricky Pearsall"
         ],
         "market": "Yds",
         "target": "50+",
         "odds": 1100,
+        "result": "loss"
+      },
+      {
+        "entities": [
+          "Davante Adams"
+        ],
+        "market": "Yds",
+        "target": "50+",
+        "result": "loss"
+      },
+      {
+        "entities": [
+          "Cooper Kupp"
+        ],
+        "market": "Rec",
+        "target": "3+",
         "result": "loss"
       }
     ],
@@ -1234,8 +1237,8 @@
     "placedAt": "2025-11-16T17:53:00-05:00",
     "betType": "parlay",
     "marketCategory": "Parlays",
-    "sport": "NBA",
-    "description": "Ricky Pearsall 50+ Yards 50+ Yds, Davante Adams 50+ Yards 50+ Yds, Yards +1200 Yds, Yards +430 Yds",
+    "sport": "NFL",
+    "description": "Ricky Pearsall 50+ Yds, Davante Adams 50+ Yds",
     "odds": 6790,
     "stake": 0.5,
     "payout": 0,
@@ -1243,7 +1246,7 @@
     "legs": [
       {
         "entities": [
-          "Ricky Pearsall 50+ Yards"
+          "Ricky Pearsall"
         ],
         "market": "Yds",
         "target": "50+",
@@ -1252,27 +1255,11 @@
       },
       {
         "entities": [
-          "Davante Adams 50+ Yards"
+          "Davante Adams"
         ],
         "market": "Yds",
         "target": "50+",
         "odds": 430,
-        "result": "loss"
-      },
-      {
-        "entities": [
-          "Yards"
-        ],
-        "market": "Yds",
-        "target": "+1200",
-        "result": "loss"
-      },
-      {
-        "entities": [
-          "Yards"
-        ],
-        "market": "Yds",
-        "target": "+430",
         "result": "loss"
       }
     ],
@@ -1288,8 +1275,8 @@
     "placedAt": "2025-11-16T17:39:00-05:00",
     "betType": "parlay",
     "marketCategory": "Parlays",
-    "sport": "NBA",
-    "description": "Ricky Pearsall 3+ Receptions 3+ Rec",
+    "sport": "NFL",
+    "description": "Ricky Pearsall 3+ Rec, Cooper Kupp 2+ Rec, Davante Adams 3+ Rec",
     "odds": 812,
     "stake": 2,
     "payout": 0,
@@ -1297,11 +1284,27 @@
     "legs": [
       {
         "entities": [
-          "Ricky Pearsall 3+ Receptions"
+          "Ricky Pearsall"
         ],
         "market": "Rec",
         "target": "3+",
         "odds": 210,
+        "result": "loss"
+      },
+      {
+        "entities": [
+          "Cooper Kupp"
+        ],
+        "market": "Rec",
+        "target": "2+",
+        "result": "loss"
+      },
+      {
+        "entities": [
+          "Davante Adams"
+        ],
+        "market": "Rec",
+        "target": "3+",
         "result": "loss"
       }
     ],
@@ -1317,29 +1320,13 @@
     "placedAt": "2025-11-16T17:51:00-05:00",
     "betType": "parlay",
     "marketCategory": "Parlays",
-    "sport": "NBA",
-    "description": "Los Angeles Rams 5+ Rec, Arizona Cardinals Ricky 3+ Rec, Davante Adams 5+ Rec, Cooper Kupp 3+ Rec, Ricky Pearsall 3+ Rec, Jauan Jennings 6+ Rec",
+    "sport": "NFL",
+    "description": "Davante Adams 5+ Rec, Ricky Pearsall 3+ Rec, Cooper Kupp 3+ Rec, Jauan Jennings 6+ Rec",
     "odds": 17311,
     "stake": 0.25,
     "payout": 0,
     "result": "loss",
     "legs": [
-      {
-        "entities": [
-          "Los Angeles Rams"
-        ],
-        "market": "Rec",
-        "target": "5+",
-        "result": "loss"
-      },
-      {
-        "entities": [
-          "Arizona Cardinals Ricky"
-        ],
-        "market": "Rec",
-        "target": "3+",
-        "result": "loss"
-      },
       {
         "entities": [
           "Davante Adams"
@@ -1350,7 +1337,7 @@
       },
       {
         "entities": [
-          "Cooper Kupp"
+          "Ricky Pearsall"
         ],
         "market": "Rec",
         "target": "3+",
@@ -1358,7 +1345,7 @@
       },
       {
         "entities": [
-          "Ricky Pearsall"
+          "Cooper Kupp"
         ],
         "market": "Rec",
         "target": "3+",
