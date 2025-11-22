@@ -23,7 +23,7 @@
         "market": "3pt",
         "target": "5+",
         "odds": 600,
-        "result": "loss"
+        "result": "LOSS"
       }
     ],
     "tail": "",
@@ -53,7 +53,7 @@
         ],
         "market": "TD",
         "odds": 850,
-        "result": "loss"
+        "result": "LOSS"
       }
     ],
     "tail": "",
@@ -66,10 +66,11 @@
     "book": "FanDuel",
     "betId": "O/0242888/0028015",
     "placedAt": "2025-11-18T19:31:00-05:00",
-    "betType": "parlay",
+    "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NBA",
     "description": "Luka Doncic TD, Deni Avdija TD, Cade Cunningham TD, Jalen Johnson TD",
+    "name": "SGP+",
     "odds": 1108261,
     "stake": 0.5,
     "payout": 0,
@@ -81,7 +82,7 @@
         ],
         "market": "TD",
         "odds": 410,
-        "result": "loss"
+        "result": "LOSS"
       },
       {
         "entities": [
@@ -89,7 +90,7 @@
         ],
         "market": "TD",
         "odds": 1200,
-        "result": "loss"
+        "result": "LOSS"
       },
       {
         "entities": [
@@ -97,14 +98,14 @@
         ],
         "market": "TD",
         "odds": 16617,
-        "result": "loss"
+        "result": "LOSS"
       },
       {
         "entities": [
           "Jalen Johnson"
         ],
         "market": "TD",
-        "result": "loss"
+        "result": "PENDING"
       }
     ],
     "tail": "",
@@ -117,10 +118,11 @@
     "book": "FanDuel",
     "betId": "O/0242888/0028014",
     "placedAt": "2025-11-18T19:30:00-05:00",
-    "betType": "parlay",
+    "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NBA",
     "description": "Deni Avdija TD, Cade Cunningham TD, Jalen Johnson TD",
+    "name": "SGP+",
     "odds": 217225,
     "stake": 0.5,
     "payout": 0,
@@ -132,7 +134,7 @@
         ],
         "market": "TD",
         "odds": 1200,
-        "result": "loss"
+        "result": "LOSS"
       },
       {
         "entities": [
@@ -140,14 +142,14 @@
         ],
         "market": "TD",
         "odds": 16617,
-        "result": "loss"
+        "result": "LOSS"
       },
       {
         "entities": [
           "Jalen Johnson"
         ],
         "market": "TD",
-        "result": "loss"
+        "result": "PENDING"
       }
     ],
     "tail": "",
@@ -179,7 +181,7 @@
         "market": "Pts",
         "target": "30+",
         "odds": 240,
-        "result": "loss"
+        "result": "LOSS"
       }
     ],
     "tail": "",
@@ -192,10 +194,11 @@
     "book": "FanDuel",
     "betId": "O/0242888/0028013",
     "placedAt": "2025-11-18T19:30:00-05:00",
-    "betType": "parlay",
+    "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NBA",
     "description": "Jalen Johnson 10+ Ast, Deni Avdija 10+ Ast, Isaiah Collier 10+ Ast, LeBron James 10+ Ast",
+    "name": "SGP+",
     "odds": 237511,
     "stake": 0.5,
     "payout": 0,
@@ -208,7 +211,7 @@
         "market": "Ast",
         "target": "10+",
         "odds": 540,
-        "result": "loss"
+        "result": "LOSS"
       },
       {
         "entities": [
@@ -217,7 +220,7 @@
         "market": "Ast",
         "target": "10+",
         "odds": 470,
-        "result": "loss"
+        "result": "LOSS"
       },
       {
         "entities": [
@@ -225,7 +228,7 @@
         ],
         "market": "Ast",
         "target": "10+",
-        "result": "loss"
+        "result": "PENDING"
       },
       {
         "entities": [
@@ -233,7 +236,7 @@
         ],
         "market": "Ast",
         "target": "10+",
-        "result": "loss"
+        "result": "PENDING"
       }
     ],
     "tail": "",
@@ -267,7 +270,7 @@
         "target": "10.5",
         "ou": "Under",
         "odds": -120,
-        "result": "win"
+        "result": "WIN"
       }
     ],
     "tail": "",
@@ -301,7 +304,7 @@
         "target": "8.5",
         "ou": "Over",
         "odds": -128,
-        "result": "loss"
+        "result": "LOSS"
       }
     ],
     "tail": "",
@@ -330,7 +333,7 @@
         "market": "Spread",
         "target": "-5.5",
         "odds": -144,
-        "result": "win"
+        "result": "WIN"
       },
       {
         "entities": [
@@ -339,7 +342,7 @@
         "market": "Spread",
         "target": "-5.5",
         "odds": -125,
-        "result": "win"
+        "result": "WIN"
       }
     ],
     "tail": "",
@@ -369,7 +372,7 @@
         "target": "232.5",
         "ou": "Over",
         "odds": -120,
-        "result": "loss"
+        "result": "LOSS"
       }
     ],
     "tail": "",
@@ -399,7 +402,7 @@
         ],
         "market": "Top Pts",
         "odds": 240,
-        "result": "loss"
+        "result": "LOSS"
       }
     ],
     "tail": "",
@@ -429,7 +432,7 @@
         "target": "224.5",
         "ou": "Under",
         "odds": -110,
-        "result": "loss"
+        "result": "LOSS"
       }
     ],
     "tail": "",
@@ -461,7 +464,7 @@
         "market": "Spread",
         "target": "+2.5",
         "odds": -112,
-        "result": "win"
+        "result": "WIN"
       }
     ],
     "tail": "",
@@ -491,7 +494,7 @@
         ],
         "market": "Moneyline",
         "odds": 116,
-        "result": "win"
+        "result": "WIN"
       }
     ],
     "tail": "",
@@ -521,7 +524,7 @@
         ],
         "market": "FB",
         "odds": 900,
-        "result": "loss"
+        "result": "LOSS"
       }
     ],
     "tail": "",
@@ -537,8 +540,8 @@
     "betType": "sgp",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Isaiah Collier 8+ Ast, Jalen Smith 2+ 3pt, Ace Bailey 2+ 3pt, Patrick Williams 2+ 3pt, Coby White 2+ 3pt",
-    "name": "SGP (5 legs)",
+    "description": "Isaiah Collier 8+ Ast, Jalen Smith 2+ 3pt, Ace Bailey 2+ 3pt, Patrick Williams 2+ 3pt, Coby White 2+ 3pt, Jalen Smith 2+ Ast",
+    "name": "SGP (6 legs)",
     "odds": 4781,
     "stake": 1,
     "payout": 0,
@@ -550,7 +553,8 @@
         ],
         "market": "Ast",
         "target": "8+",
-        "result": "loss"
+        "odds": null,
+        "result": "PENDING"
       },
       {
         "entities": [
@@ -558,7 +562,8 @@
         ],
         "market": "3pt",
         "target": "2+",
-        "result": "loss"
+        "odds": null,
+        "result": "PENDING"
       },
       {
         "entities": [
@@ -566,7 +571,8 @@
         ],
         "market": "3pt",
         "target": "2+",
-        "result": "loss"
+        "odds": null,
+        "result": "PENDING"
       },
       {
         "entities": [
@@ -574,7 +580,8 @@
         ],
         "market": "3pt",
         "target": "2+",
-        "result": "loss"
+        "odds": null,
+        "result": "PENDING"
       },
       {
         "entities": [
@@ -582,7 +589,17 @@
         ],
         "market": "3pt",
         "target": "2+",
-        "result": "loss"
+        "odds": null,
+        "result": "PENDING"
+      },
+      {
+        "entities": [
+          "Jalen Smith"
+        ],
+        "market": "Ast",
+        "target": "2+",
+        "odds": null,
+        "result": "PENDING"
       }
     ],
     "tail": "",
@@ -611,7 +628,8 @@
         ],
         "market": "3pt",
         "target": "2+",
-        "result": "loss"
+        "odds": null,
+        "result": "PENDING"
       },
       {
         "entities": [
@@ -619,7 +637,8 @@
         ],
         "market": "3pt",
         "target": "2+",
-        "result": "loss"
+        "odds": null,
+        "result": "PENDING"
       },
       {
         "entities": [
@@ -627,7 +646,8 @@
         ],
         "market": "3pt",
         "target": "2+",
-        "result": "loss"
+        "odds": null,
+        "result": "PENDING"
       }
     ],
     "tail": "",
@@ -643,8 +663,8 @@
     "betType": "sgp",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Isaiah Collier 4+ Ast, Coby White 4+ 3pt, Patrick Williams 2+ 3pt, Ayo Dosunmu 2+ 3pt, Ace Bailey 3+ 3pt",
-    "name": "SGP (5 legs)",
+    "description": "Isaiah Collier 4+ Ast, Coby White 4+ 3pt, Patrick Williams 2+ 3pt, Ayo Dosunmu 2+ 3pt, Ace Bailey 3+ 3pt, Coby White 4+ Ast",
+    "name": "SGP (6 legs)",
     "odds": 18778,
     "stake": 1.5,
     "payout": 0,
@@ -656,7 +676,8 @@
         ],
         "market": "Ast",
         "target": "4+",
-        "result": "loss"
+        "odds": null,
+        "result": "PENDING"
       },
       {
         "entities": [
@@ -664,7 +685,8 @@
         ],
         "market": "3pt",
         "target": "4+",
-        "result": "loss"
+        "odds": null,
+        "result": "PENDING"
       },
       {
         "entities": [
@@ -672,7 +694,8 @@
         ],
         "market": "3pt",
         "target": "2+",
-        "result": "loss"
+        "odds": null,
+        "result": "PENDING"
       },
       {
         "entities": [
@@ -680,7 +703,8 @@
         ],
         "market": "3pt",
         "target": "2+",
-        "result": "loss"
+        "odds": null,
+        "result": "PENDING"
       },
       {
         "entities": [
@@ -688,7 +712,17 @@
         ],
         "market": "3pt",
         "target": "3+",
-        "result": "loss"
+        "odds": null,
+        "result": "PENDING"
+      },
+      {
+        "entities": [
+          "Coby White"
+        ],
+        "market": "Ast",
+        "target": "4+",
+        "odds": null,
+        "result": "PENDING"
       }
     ],
     "tail": "",
@@ -716,7 +750,7 @@
         ],
         "market": "TD",
         "odds": 1200,
-        "result": "loss"
+        "result": "LOSS"
       },
       {
         "entities": [
@@ -724,7 +758,7 @@
         ],
         "market": "TD",
         "odds": 250,
-        "result": "loss"
+        "result": "WIN"
       },
       {
         "entities": [
@@ -732,7 +766,7 @@
         ],
         "market": "TD",
         "odds": 700,
-        "result": "loss"
+        "result": "LOSS"
       }
     ],
     "tail": "",
@@ -745,10 +779,11 @@
     "book": "FanDuel",
     "betId": "O/0242888/0027993",
     "placedAt": "2025-11-16T20:02:00-05:00",
-    "betType": "parlay",
+    "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NBA",
     "description": "Isaiah Collier 10+ Ast, Jalen Johnson 8+ Ast, Jalen Smith 3+ 3pt, Royce O'Neale 4+ 3pt",
+    "name": "SGP+",
     "odds": 1803,
     "stake": 3,
     "payout": 0,
@@ -760,7 +795,7 @@
         ],
         "market": "Ast",
         "target": "10+",
-        "result": "loss"
+        "result": "PENDING"
       },
       {
         "entities": [
@@ -768,7 +803,7 @@
         ],
         "market": "Ast",
         "target": "8+",
-        "result": "loss"
+        "result": "PENDING"
       },
       {
         "entities": [
@@ -776,7 +811,7 @@
         ],
         "market": "3pt",
         "target": "3+",
-        "result": "loss"
+        "result": "PENDING"
       },
       {
         "entities": [
@@ -784,7 +819,7 @@
         ],
         "market": "3pt",
         "target": "4+",
-        "result": "loss"
+        "result": "PENDING"
       }
     ],
     "tail": "",
@@ -813,7 +848,8 @@
         ],
         "market": "3pt",
         "target": "3+",
-        "result": "loss"
+        "odds": null,
+        "result": "PENDING"
       },
       {
         "entities": [
@@ -821,7 +857,8 @@
         ],
         "market": "3pt",
         "target": "3+",
-        "result": "loss"
+        "odds": null,
+        "result": "PENDING"
       }
     ],
     "tail": "",
@@ -853,7 +890,7 @@
         "market": "3pt",
         "target": "3+",
         "odds": 360,
-        "result": "loss"
+        "result": "LOSS"
       }
     ],
     "tail": "",
@@ -885,7 +922,7 @@
         "market": "3pt",
         "target": "2+",
         "odds": 120,
-        "result": "loss"
+        "result": "LOSS"
       }
     ],
     "tail": "",
@@ -898,10 +935,11 @@
     "book": "FanDuel",
     "betId": "O/0242888/0027959",
     "placedAt": "2025-11-16T09:55:00-05:00",
-    "betType": "parlay",
+    "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Royce O'Neale 3+ 3pt, Ace Bailey 3+ 3pt, Zion Williamson 30+ Pts, Will Richard 3+ 3pt, Jalen Smith 3+ 3pt, Void Will Richard 3+ 3pt",
+    "description": "Royce O'Neale 3+ 3pt, Ace Bailey 3+ 3pt, Zion Williamson 30+ Pts, Will Richard 3+ 3pt, Jalen Smith 3+ 3pt",
+    "name": "SGP+",
     "odds": 123369,
     "stake": 0.5,
     "payout": 0,
@@ -914,7 +952,7 @@
         "market": "3pt",
         "target": "3+",
         "odds": -130,
-        "result": "loss"
+        "result": "LOSS"
       },
       {
         "entities": [
@@ -923,7 +961,7 @@
         "market": "3pt",
         "target": "3+",
         "odds": 1774,
-        "result": "loss"
+        "result": "LOSS"
       },
       {
         "entities": [
@@ -931,7 +969,7 @@
         ],
         "market": "Pts",
         "target": "30+",
-        "result": "loss"
+        "result": "PENDING"
       },
       {
         "entities": [
@@ -939,7 +977,7 @@
         ],
         "market": "3pt",
         "target": "3+",
-        "result": "loss"
+        "result": "PENDING"
       },
       {
         "entities": [
@@ -947,15 +985,7 @@
         ],
         "market": "3pt",
         "target": "3+",
-        "result": "loss"
-      },
-      {
-        "entities": [
-          "Void Will Richard"
-        ],
-        "market": "3pt",
-        "target": "3+",
-        "result": "loss"
+        "result": "PENDING"
       }
     ],
     "tail": "",
@@ -968,10 +998,11 @@
     "book": "FanDuel",
     "betId": "O/0242888/0027968",
     "placedAt": "2025-11-16T16:29:00-05:00",
-    "betType": "parlay",
+    "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NFL",
     "description": "Quinshon Judkins 80+ Yds, Rashee Rice 7+ Rec, Derrick Henry 80+ Yds, Lamar Jackson 40+ Yds, Evan Engram 4+ Rec",
+    "name": "SGP+",
     "odds": 4963,
     "stake": 1,
     "payout": 0,
@@ -983,7 +1014,7 @@
         ],
         "market": "Yds",
         "target": "80+",
-        "result": "loss"
+        "result": "PENDING"
       },
       {
         "entities": [
@@ -991,7 +1022,7 @@
         ],
         "market": "Rec",
         "target": "7+",
-        "result": "loss"
+        "result": "PENDING"
       },
       {
         "entities": [
@@ -999,7 +1030,7 @@
         ],
         "market": "Yds",
         "target": "80+",
-        "result": "loss"
+        "result": "PENDING"
       },
       {
         "entities": [
@@ -1007,7 +1038,7 @@
         ],
         "market": "Yds",
         "target": "40+",
-        "result": "loss"
+        "result": "PENDING"
       },
       {
         "entities": [
@@ -1015,7 +1046,7 @@
         ],
         "market": "Rec",
         "target": "4+",
-        "result": "loss"
+        "result": "PENDING"
       }
     ],
     "tail": "",
@@ -1047,7 +1078,7 @@
         "market": "Rec",
         "target": "3+",
         "odds": 210,
-        "result": "loss"
+        "result": "LOSS"
       }
     ],
     "tail": "",
@@ -1081,7 +1112,7 @@
         "target": "35.5",
         "ou": "Over",
         "odds": -112,
-        "result": "loss"
+        "result": "LOSS"
       }
     ],
     "tail": "",
@@ -1113,7 +1144,7 @@
         "market": "Yds",
         "target": "60+",
         "odds": 285,
-        "result": "loss"
+        "result": "LOSS"
       }
     ],
     "tail": "",
@@ -1145,7 +1176,7 @@
         "market": "Rec",
         "target": "4+",
         "odds": 130,
-        "result": "loss"
+        "result": "LOSS"
       }
     ],
     "tail": "",
@@ -1177,7 +1208,7 @@
         "market": "Yds",
         "target": "50+",
         "odds": 180,
-        "result": "loss"
+        "result": "LOSS"
       }
     ],
     "tail": "",
@@ -1190,10 +1221,11 @@
     "book": "FanDuel",
     "betId": "O/0242888/0027981",
     "placedAt": "2025-11-16T17:54:00-05:00",
-    "betType": "parlay",
+    "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NFL",
     "description": "Ricky Pearsall 50+ Yds, Davante Adams 50+ Yds, Cooper Kupp 3+ Rec",
+    "name": "SGP+",
     "odds": 37067,
     "stake": 0.25,
     "payout": 0,
@@ -1206,7 +1238,7 @@
         "market": "Yds",
         "target": "50+",
         "odds": 1100,
-        "result": "loss"
+        "result": "LOSS"
       },
       {
         "entities": [
@@ -1214,7 +1246,7 @@
         ],
         "market": "Yds",
         "target": "50+",
-        "result": "loss"
+        "result": "PENDING"
       },
       {
         "entities": [
@@ -1222,7 +1254,7 @@
         ],
         "market": "Rec",
         "target": "3+",
-        "result": "loss"
+        "result": "PENDING"
       }
     ],
     "tail": "",
@@ -1251,7 +1283,7 @@
         "market": "Yds",
         "target": "50+",
         "odds": 1200,
-        "result": "loss"
+        "result": "LOSS"
       },
       {
         "entities": [
@@ -1260,7 +1292,7 @@
         "market": "Yds",
         "target": "50+",
         "odds": 430,
-        "result": "loss"
+        "result": "LOSS"
       }
     ],
     "tail": "",
@@ -1273,10 +1305,11 @@
     "book": "FanDuel",
     "betId": "O/0242888/0027973",
     "placedAt": "2025-11-16T17:39:00-05:00",
-    "betType": "parlay",
+    "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NFL",
     "description": "Ricky Pearsall 3+ Rec, Cooper Kupp 2+ Rec, Davante Adams 3+ Rec",
+    "name": "SGP+",
     "odds": 812,
     "stake": 2,
     "payout": 0,
@@ -1289,7 +1322,7 @@
         "market": "Rec",
         "target": "3+",
         "odds": 210,
-        "result": "loss"
+        "result": "LOSS"
       },
       {
         "entities": [
@@ -1297,7 +1330,7 @@
         ],
         "market": "Rec",
         "target": "2+",
-        "result": "loss"
+        "result": "PENDING"
       },
       {
         "entities": [
@@ -1305,7 +1338,7 @@
         ],
         "market": "Rec",
         "target": "3+",
-        "result": "loss"
+        "result": "PENDING"
       }
     ],
     "tail": "",
@@ -1318,10 +1351,11 @@
     "book": "FanDuel",
     "betId": "O/0242888/0027979",
     "placedAt": "2025-11-16T17:51:00-05:00",
-    "betType": "parlay",
+    "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NFL",
     "description": "Davante Adams 5+ Rec, Ricky Pearsall 3+ Rec, Cooper Kupp 3+ Rec, Jauan Jennings 6+ Rec",
+    "name": "SGP+",
     "odds": 17311,
     "stake": 0.25,
     "payout": 0,
@@ -1333,7 +1367,7 @@
         ],
         "market": "Rec",
         "target": "5+",
-        "result": "loss"
+        "result": "PENDING"
       },
       {
         "entities": [
@@ -1341,7 +1375,7 @@
         ],
         "market": "Rec",
         "target": "3+",
-        "result": "loss"
+        "result": "PENDING"
       },
       {
         "entities": [
@@ -1349,7 +1383,7 @@
         ],
         "market": "Rec",
         "target": "3+",
-        "result": "loss"
+        "result": "PENDING"
       },
       {
         "entities": [
@@ -1357,7 +1391,7 @@
         ],
         "market": "Rec",
         "target": "6+",
-        "result": "loss"
+        "result": "PENDING"
       }
     ],
     "tail": "",

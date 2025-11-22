@@ -1682,7 +1682,12 @@ const BetTableView: React.FC = () => {
                 
                 // Get bet type for badge
                 const originalBet = bets.find(b => b.id === row.betId);
-                const betTypeLabel = originalBet?.betType === 'sgp' ? 'SGP' : 'PARLAY';
+                const betTypeLabel =
+                  originalBet?.betType === "sgp_plus"
+                    ? "SGP+"
+                    : originalBet?.betType === "sgp"
+                    ? "SGP"
+                    : "PARLAY";
                 
                 return (
                   <tr

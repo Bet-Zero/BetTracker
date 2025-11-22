@@ -6,9 +6,11 @@ interface BetLeg {
   market: string;
   target?: number | string;
   ou?: "Over" | "Under";
-  odds?: number;
+  odds?: number | null;
   actual?: number | string;
-  result: string;
+  result?: string;
+  isGroupLeg?: boolean;
+  children?: BetLeg[];
 }
 
 interface Bet {
@@ -62,7 +64,7 @@ function analyzeBet(bet: Bet, index: number) {
   if (
     bet.legs &&
     bet.legs.length > 0 &&
-    (bet.betType === "parlay" || bet.betType === "sgp")
+    (bet.betType === "parlay" || bet.betType === "sgp" || bet.betType === "sgp_plus")
   ) {
     bet.legs.forEach((leg, legIndex) => {
       if (leg.odds === undefined) {
@@ -233,7 +235,11 @@ function analyzeBet(bet: Bet, index: number) {
 
   // Check 8: Parlay with single leg (should probably be single bet)
   // But this is expected for SGP+ cases where nested SGP wasn't fully expanded
-  if (bet.betType === "parlay" && bet.legs && bet.legs.length === 1) {
+  if (
+    (bet.betType === "parlay" || bet.betType === "sgp_plus") &&
+    bet.legs &&
+    bet.legs.length === 1
+  ) {
     if (isSGPPlusBet) {
       errors.push({
         betId: bet.betId,

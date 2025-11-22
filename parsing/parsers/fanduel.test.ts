@@ -34,9 +34,9 @@ describe("FanDuel parser fixtures", () => {
       readFileSync(join(fixtureDir, "expected_fanduel_bets.json"), "utf-8")
     ) as Bet[];
 
-    const parsed = parse(html);
-    const parsedMap = byId(parsed);
-    const expectedMap = byId(expectedBets);
+  const parsed = parse(html);
+  const parsedMap = byId(parsed);
+  const expectedMap = byId(expectedBets);
 
     expect(parsed.length).toBe(expectedBets.length);
     expect([...parsedMap.keys()].sort()).toEqual(
@@ -69,6 +69,11 @@ describe("FanDuel parser fixtures", () => {
 
       expect(parsedBet.legs?.length ?? 0).toBe(exp.legs?.length ?? 0);
     }
+
+    // Spot check leg-level results pulled from icons on the parlay
+    const parlay = parsedMap.get("O/0242888/0028023");
+    expect(parlay?.betType).toBe("parlay");
+    expect(parlay?.legs?.map((l) => l.result)).toEqual(["WIN", "WIN"]);
   });
 
   it("matches SGP sample fixture", () => {
@@ -108,5 +113,65 @@ describe("FanDuel parser fixtures", () => {
 
       expect(parsedBet.legs?.length ?? 0).toBe(exp.legs?.length ?? 0);
     }
+
+    // Leg odds should be null/absent for SGP inner legs; results come from icons when present
+    const sgp = parsedMap.get("O/0242888/0028078");
+    expect(sgp?.betType).toBe("sgp");
+    expect(sgp?.legs?.every((leg) => leg.odds === null)).toBe(true);
+    expect(new Set(sgp?.legs?.map((leg) => leg.result))).toEqual(
+      new Set(["PENDING"])
+    );
+  });
+
+  it("matches SGP+ sample fixture", () => {
+    const html = readFileSync(join(fixtureDir, "sgp_plus_sample.html"), "utf-8");
+    const expectedBets = JSON.parse(
+      readFileSync(join(fixtureDir, "expected_sgp_plus_sample.json"), "utf-8")
+    ) as Bet[];
+
+    const parsed = parse(html);
+    const parsedMap = byId(parsed);
+    const expectedMap = byId(expectedBets);
+
+    expect(parsed.length).toBe(expectedBets.length);
+    expect([...parsedMap.keys()].sort()).toEqual(
+      [...expectedMap.keys()].sort()
+    );
+
+    const target = expectedBets[0];
+    const parsedBet = parsedMap.get(target.betId);
+    expect(parsedBet).toBeDefined();
+    if (!parsedBet) return;
+
+    const coreFields: (keyof Bet)[] = [
+      "betId",
+      "betType",
+      "odds",
+      "stake",
+      "payout",
+      "result",
+      "description",
+    ];
+    coreFields.forEach((field) => {
+      expect(parsedBet[field]).toEqual(target[field]);
+    });
+
+    expect(parsedBet.betType).toBe("sgp_plus");
+    expect(parsedBet.legs?.length ?? 0).toBe(2);
+
+    const groupLeg = parsedBet.legs?.find((leg) => leg.isGroupLeg);
+    const extraLeg = parsedBet.legs?.find((leg) => !leg.isGroupLeg);
+
+    expect(groupLeg?.odds).toBe(2997);
+    expect(groupLeg?.children?.length).toBe(2);
+    expect(groupLeg?.children?.map((c) => c.odds)).toEqual([null, null]);
+    expect(groupLeg?.children?.map((c) => c.result)).toEqual(["LOSS", "WIN"]);
+
+    expect(extraLeg?.odds).toBe(1100);
+    expect(extraLeg?.result).toBe("LOSS");
+
+    // Ensure the nested SGP is represented as a group leg
+    expect(groupLeg?.isGroupLeg).toBe(true);
+    expect(groupLeg?.children?.length).toBeGreaterThan(0);
   });
 });

@@ -1,0 +1,49 @@
+[
+  {
+    "id": "FanDuel:O/0242888/0027981:2025-11-16T17:54:00-05:00",
+    "book": "FanDuel",
+    "betId": "O/0242888/0027981",
+    "placedAt": "2025-11-16T17:54:00-05:00",
+    "betType": "sgp_plus",
+    "marketCategory": "Parlays",
+    "sport": "NFL",
+    "description": "Same Game Parlay: Davante Adams 50+ Yds; Cooper Kupp 3+ Rec, Ricky Pearsall 50+ Yds",
+    "name": "SGP+",
+    "odds": 37067,
+    "stake": 0.25,
+    "payout": 0,
+    "result": "loss",
+    "legs": [
+      {
+        "market": "Same Game Parlay",
+        "odds": 2997,
+        "result": "LOSS",
+        "isGroupLeg": true,
+        "children": [
+          {
+            "entities": ["Davante Adams"],
+            "market": "Yds",
+            "target": "50+",
+            "result": "LOSS",
+            "odds": null
+          },
+          {
+            "entities": ["Cooper Kupp"],
+            "market": "Rec",
+            "target": "3+",
+            "result": "WIN",
+            "odds": null
+          }
+        ]
+      },
+      {
+        "entities": ["Ricky Pearsall"],
+        "market": "Yds",
+        "target": "50+",
+        "odds": 1100,
+        "result": "LOSS"
+      }
+    ],
+    "isLive": false
+  }
+]

@@ -13,10 +13,42 @@
     "payout": 123.18,
     "result": "win",
     "legs": [
-      { "entities": ["Josh Giddey"], "market": "Ast", "target": "10+", "result": "win" },
-      { "entities": ["Coby White"], "market": "3pt", "target": "4+", "result": "win" },
-      { "entities": ["Deni Avdija"], "market": "Ast", "target": "8+", "result": "win" },
-      { "entities": ["Deni Avdija"], "market": "Reb", "target": "10+", "result": "win" }
+      {
+        "entities": [
+          "Josh Giddey"
+        ],
+        "market": "Ast",
+        "target": "10+",
+        "result": "WIN",
+        "odds": null
+      },
+      {
+        "entities": [
+          "Coby White"
+        ],
+        "market": "3pt",
+        "target": "4+",
+        "result": "WIN",
+        "odds": null
+      },
+      {
+        "entities": [
+          "Deni Avdija"
+        ],
+        "market": "Ast",
+        "target": "8+",
+        "result": "WIN",
+        "odds": null
+      },
+      {
+        "entities": [
+          "Deni Avdija"
+        ],
+        "market": "Reb",
+        "target": "10+",
+        "result": "WIN",
+        "odds": null
+      }
     ],
     "isLive": false
   }

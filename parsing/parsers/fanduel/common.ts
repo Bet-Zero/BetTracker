@@ -4,6 +4,7 @@ import {
   BetType,
   MarketCategory,
   SportsbookName,
+  LegResult,
 } from "../../types";
 
 export const FD_DEBUG = false;
@@ -11,6 +12,81 @@ export const fdDebug = (...args: any[]) => {
   if (!FD_DEBUG) return;
   // eslint-disable-next-line no-console
   console.log("[FD-DEBUG]", ...args);
+};
+
+type LegResultInput = LegResult | BetResult | null | undefined;
+
+export const toLegResult = (value: LegResultInput): LegResult => {
+  if (!value) return "PENDING";
+  const normalized = String(value).toLowerCase();
+  if (normalized === "win") return "WIN";
+  if (normalized === "loss") return "LOSS";
+  if (normalized === "push") return "PUSH";
+  if (normalized === "pending") return "PENDING";
+  if (normalized === "unknown") return "UNKNOWN";
+  return "PENDING";
+};
+
+const iconResultFromNode = (node: Element): LegResult | null => {
+  const id = (node.getAttribute("id") || "").toLowerCase();
+  const fill = (node.getAttribute("fill") || "").toLowerCase();
+
+  if (id.includes("tick-circle") || id.includes("tick_circle")) {
+    return "WIN";
+  }
+  if (id.includes("cross_circle") || id.includes("cross-circle")) {
+    return "LOSS";
+  }
+  if (fill === "#128000") {
+    return "WIN";
+  }
+  if (fill === "#d22839") {
+    return "LOSS";
+  }
+
+  return null;
+};
+
+export const extractLegResultFromRow = (
+  row: HTMLElement,
+  fallback?: LegResultInput
+): LegResult => {
+  const checkNodes = (root: HTMLElement): LegResult | null => {
+    const svgNodes = Array.from(root.querySelectorAll<HTMLElement>("svg, svg *"));
+    for (const node of svgNodes) {
+      const res = iconResultFromNode(node);
+      if (res) return res;
+    }
+    return null;
+  };
+
+  const direct = checkNodes(row);
+  if (direct) return direct;
+
+  // Sometimes the icon lives in a sibling container; walk up a few ancestors to find it
+  let parent: HTMLElement | null = row.parentElement;
+  let depth = 0;
+  while (parent && depth < 10 && parent.tagName !== "LI") {
+    const found = checkNodes(parent);
+    if (found) return found;
+    parent = parent.parentElement;
+    depth += 1;
+  }
+
+  return toLegResult(fallback ?? "PENDING");
+};
+
+export const aggregateChildResults = (
+  children: BetLeg[],
+  fallback?: LegResultInput
+): LegResult => {
+  const childResults = children.map((c) => toLegResult(c.result));
+  if (childResults.some((r) => r === "LOSS")) return "LOSS";
+  if (childResults.some((r) => r === "PENDING")) return "PENDING";
+  if (childResults.some((r) => r === "UNKNOWN")) return "UNKNOWN";
+  if (childResults.some((r) => r === "PUSH")) return "PUSH";
+  if (childResults.length && childResults.every((r) => r === "WIN")) return "WIN";
+  return toLegResult(fallback ?? "PENDING");
 };
 
 export const normalizeSpaces = (text: string): string =>
@@ -679,6 +755,19 @@ export const cleanEntityName = (raw: string): string => {
   let cleaned = normalizeSpaces(raw);
   cleaned = stripDateTimeNoise(cleaned);
 
+  // Handle aria-labels with comma-separated descriptive text
+  // Pattern: "Player Name 50+ Yards, Player Name - Alt Receiving Yds, , +1100, Team @ Team, Date"
+  // Extract only the player name before the first comma (if comma is followed by descriptive text)
+  const commaMatch = cleaned.match(/^([^,]+?)(?:\s+\d+\+\s*(?:Yards|Yds|Receptions|Rec|Points|Pts|Rebounds|Reb|Assists|Ast|Made\s+Threes|3pt|Threes))?\s*,\s*/i);
+  if (commaMatch) {
+    // Check if what comes after the comma looks like descriptive text (not part of the name)
+    const afterComma = cleaned.substring(commaMatch[0].length);
+    // If after comma contains market indicators, odds, team names, or dates, use the part before comma
+    if (/alt\s+(receiving|rushing|yards|receptions)|[+\-]\d{3,}|@|et\b|nov|dec|jan|feb|mar|apr|may|jun|jul|aug|sep|oct/i.test(afterComma)) {
+      cleaned = commaMatch[1].trim();
+    }
+  }
+
   // Filter out generic/invalid entity names
   const genericWords = [
     "made",
@@ -724,6 +813,9 @@ export const cleanEntityName = (raw: string): string => {
     /\s+\d+\+\s*(Yards|Yds|Receptions|Rec|Points|Pts|Rebounds|Reb|Assists|Ast|Made\s+Threes|3pt|Threes)\s*$/i,
     ""
   );
+  
+  // Remove " - Alt Receiving Yds" or similar market descriptions that might remain
+  cleaned = cleaned.replace(/\s*-\s*Alt\s+(Receiving|Rushing)\s+(Yds|Yards|Receptions|Rec)\s*$/i, "");
 
   // Remove team name prefixes (e.g., "Cleveland Browns Quinshon" → "Quinshon")
   // Common team patterns that might be combined with player names
@@ -741,6 +833,18 @@ export const cleanEntityName = (raw: string): string => {
   cleaned = cleaned.replace(/\s*[+\-]\d{2,}.*$/i, "");
   cleaned = cleaned.replace(/\s*[+\-]?\d+(?:\.\d+)?\s*(?:Spread)?$/i, "");
   cleaned = cleaned.replace(/\s*[+\-]\s*$/i, "");
+  
+  // Final cleanup: remove any remaining duplicate player names
+  // Pattern: "Player Name Player Name" → "Player Name"
+  const nameWords = cleaned.split(/\s+/);
+  if (nameWords.length >= 4) {
+    // Check if first two words match last two words (duplicate name)
+    const firstTwo = nameWords.slice(0, 2).join(" ").toLowerCase();
+    const lastTwo = nameWords.slice(-2).join(" ").toLowerCase();
+    if (firstTwo === lastTwo) {
+      cleaned = nameWords.slice(0, 2).join(" ");
+    }
+  }
 
   return cleaned.trim();
 };
@@ -748,11 +852,32 @@ export const cleanEntityName = (raw: string): string => {
 export const parseLegFromText = (
   text: string,
   odds: number | null,
-  result: BetResult,
+  result: LegResultInput,
   skipOdds: boolean = false
 ): BetLeg | null => {
   const cleaned = stripScoreboardText(text);
   if (!cleaned) return null;
+
+  // Check for void status in the text
+  // Pattern: "Player Name ... Void" or "Player Name To Score 30+ Points Void"
+  let isVoid = false;
+  const voidPattern = /\bVoid\b/i;
+  
+  // Check if "Void" appears in the original text (before cleaning)
+  // This catches cases like "Zion Williamson To Score 30+ Points Void"
+  if (voidPattern.test(text)) {
+    // Check if void appears right after the leg description
+    // Remove void from cleaned text for processing, but remember it was there
+    const voidMatch = text.match(/(.+?)\s+Void\b/i);
+    if (voidMatch && voidMatch[1]) {
+      // Check if the text before "Void" looks like a complete leg description
+      const beforeVoid = voidMatch[1].trim();
+      const legEndPattern = /(?:Points|Assists|Yards|Receptions|Made Threes|Triple Double|Rebounds)\s*$/i;
+      if (legEndPattern.test(beforeVoid) || /To Score|To Record/i.test(beforeVoid)) {
+        isVoid = true;
+      }
+    }
+  }
 
   // Extract odds from text if not provided
   let extractedOdds = odds;
@@ -832,7 +957,7 @@ export const parseLegFromText = (
     target,
     ou: derived.ou,
     odds: skipOdds ? undefined : extractedOdds ?? undefined,
-    result,
+    result: isVoid ? "PUSH" : toLegResult(result),
   };
 
   return leg;
@@ -840,7 +965,7 @@ export const parseLegFromText = (
 
 export const parseLegFromNode = (
   node: HTMLElement,
-  result: BetResult,
+  result: LegResultInput,
   skipOdds: boolean = false
 ): BetLeg | null => {
   const aria = normalizeSpaces(node.getAttribute("aria-label") || "");
@@ -854,11 +979,6 @@ export const parseLegFromNode = (
   // 2. Text containing "Void"
   // 3. A span with "Void" text
   let isVoid = false;
-  const voidIndicators = [
-    node.querySelector('svg[fill="#C15400"]'), // Warning icon (orange)
-    node.querySelector('svg[aria-label*="warning" i]'),
-    node.querySelector('span:contains("Void")'),
-  ];
   
   // Check text content for "Void"
   if (/\bVoid\b/i.test(text) || /\bVoid\b/i.test(aria)) {
@@ -976,7 +1096,7 @@ export const parseLegFromNode = (
     target,
     ou: derived.ou,
     odds: odds ?? undefined,
-    result: isVoid ? "push" : result,
+    result: isVoid ? "PUSH" : toLegResult(result),
   };
 
   return leg;
@@ -984,13 +1104,14 @@ export const parseLegFromNode = (
 
 export const buildLegsFromRows = (
   rows: HTMLElement[],
-  result: BetResult,
+  result: LegResultInput = "PENDING",
   skipOdds: boolean = false
 ): BetLeg[] => {
   const legs: BetLeg[] = [];
 
   for (const row of rows) {
-    const leg = parseLegFromNode(row, result, skipOdds);
+    const rowResult = extractLegResultFromRow(row, result);
+    const leg = parseLegFromNode(row, rowResult, skipOdds);
     if (leg) legs.push(leg);
   }
 
@@ -999,7 +1120,7 @@ export const buildLegsFromRows = (
 
 export const buildLegsFromDescription = (
   description: string,
-  result: BetResult,
+  result: LegResultInput,
   skipOdds: boolean = false
 ): BetLeg[] => {
   if (!description) return [];
@@ -1018,7 +1139,7 @@ export const buildLegsFromDescription = (
 
 export const buildLegsFromStatText = (
   rawText: string,
-  result: BetResult
+  result: LegResultInput
 ): BetLeg[] => {
   if (!rawText) return [];
 
@@ -1124,10 +1245,20 @@ export const buildLegsFromStatText = (
       }
       
       // Check if "Void" appears right after this match in the text
+      // Increase the lookahead window to catch void that might be separated by whitespace
       const matchEnd = match.index + match[0].length;
-      const afterMatch = rawText.substring(matchEnd, matchEnd + 10).trim();
+      const afterMatch = rawText.substring(matchEnd, matchEnd + 20).trim();
       if (/^Void\b/i.test(afterMatch)) {
         isVoid = true;
+      }
+      
+      // Also check if void appears within the match itself (e.g., "Player To Score 30+ Points Void")
+      if (/\bVoid\b/i.test(full)) {
+        // Check if void is at the end of the match
+        const voidInMatch = full.match(/(.+?)\s+Void\s*$/i);
+        if (voidInMatch) {
+          isVoid = true;
+        }
       }
       
       // Normalize market names
@@ -1168,12 +1299,12 @@ export const buildLegsFromStatText = (
         entities: [m.player],
         market: m.market,
         target: m.target,
-        result: m.isVoid ? "push" : result,
+        result: m.isVoid ? "PUSH" : toLegResult(result),
       };
     } else {
       // Update result if this leg is void
       if (m.isVoid) {
-        leg.result = "push";
+        leg.result = "PUSH";
       }
       // Also ensure the entity name doesn't have "Void" in it
       if (leg.entities && leg.entities[0]) {
@@ -1189,7 +1320,7 @@ export const buildLegsFromStatText = (
 
 export const buildLegsFromSpans = (
   root: HTMLElement,
-  result: BetResult
+  result: LegResultInput
 ): BetLeg[] => {
   const spans = Array.from(root.querySelectorAll("span"));
   const legs: BetLeg[] = [];
@@ -1248,6 +1379,16 @@ const cleanParlayLegText = (leg: string): string => {
 };
 
 export const formatLegSummary = (leg: BetLeg): string => {
+  if (leg.isGroupLeg && leg.children?.length) {
+    const childSummary = leg.children
+      .map(formatLegSummary)
+      .filter(Boolean)
+      .join("; ");
+    return childSummary
+      ? `Same Game Parlay: ${childSummary}`
+      : "Same Game Parlay";
+  }
+
   const name = cleanEntityName(leg.entities?.[0] ?? "");
   const market = leg.market || "";
   const target = leg.target ?? "";
@@ -1360,6 +1501,11 @@ export const filterMeaningfulLegs = (legs: BetLeg[]): BetLeg[] => {
       return false;
     }
 
+    // Drop legs where the "entity" is clearly just a stat fragment (e.g., "10+ Assists")
+    if (hasEntity && /^\d/.test(entity.trim())) {
+      return false;
+    }
+
     // Filter out promotional text patterns as entities
     if (hasEntity && promoEntityPatterns.some((pattern) => pattern.test(entity))) {
       return false;
@@ -1386,6 +1532,18 @@ export const filterMeaningfulLegs = (legs: BetLeg[]): BetLeg[] => {
       hasEntity &&
       isPropMarket &&
       teamNames.has(entity.toLowerCase().trim())
+    ) {
+      return false;
+    }
+
+    // Drop SGP promo/header rows entirely
+    const entityLower = entity.toLowerCase();
+    const marketLower2 = market.toLowerCase();
+    if (
+      entityLower.includes("same game parlay") ||
+      entityLower.includes("same-game parlay") ||
+      marketLower2.includes("same game parlay") ||
+      marketLower2.includes("same-game parlay")
     ) {
       return false;
     }
@@ -1444,11 +1602,11 @@ export const dropGenericDuplicateLegs = (legs: BetLeg[]): BetLeg[] => {
 
 export const buildPrimaryLegsFromHeader = (
   header: HeaderInfo,
-  result: BetResult,
+  result: LegResultInput,
   betType?: BetType,
   description?: string
 ): BetLeg[] => {
-  if (betType === "parlay" || betType === "sgp") {
+  if (betType === "parlay" || betType === "sgp" || betType === "sgp_plus") {
     return [];
   }
 
@@ -1460,7 +1618,7 @@ export const buildPrimaryLegsFromHeader = (
     ou: header.ou,
     odds: header.odds,
     actual: undefined, // numeric result is embedded in the progress bar; can be parsed later if needed
-    result,
+    result: toLegResult(result),
   };
   return [leg];
 };
@@ -1509,7 +1667,7 @@ export const formatDescription = (
     .trim();
 
   // For parlays, return as-is (already formatted)
-  if (betType === "parlay" || betType === "sgp") {
+  if (betType === "parlay" || betType === "sgp" || betType === "sgp_plus") {
     // Clean up parlay descriptions
     return cleaned
       .replace(/\s*Spread Betting\s*/gi, "")
@@ -1616,7 +1774,7 @@ export const inferMarketCategory = (
   betType: BetType,
   type?: string
 ): MarketCategory => {
-  if (betType === "parlay" || betType === "sgp") {
+  if (betType === "parlay" || betType === "sgp" || betType === "sgp_plus") {
     return "Parlays";
   }
 
@@ -1765,7 +1923,10 @@ export const extractHeaderInfo = (
   // For parlays, the description might be in a different span
   // Check for parlay text first - use betType if provided, otherwise infer
   const isParlayHeader =
-    betType === "parlay" || betType === "sgp" || /leg\s+parlay/i.test(rawText);
+    betType === "parlay" ||
+    betType === "sgp" ||
+    betType === "sgp_plus" ||
+    /leg\s+parlay/i.test(rawText);
   let description = "";
 
   if (isParlayHeader) {
@@ -2237,7 +2398,7 @@ export const findLegRows = (cardLi: HTMLElement): HTMLElement[] => {
   }
 
   const marketPattern =
-    /SPREAD BETTING|MONEYLINE|TOTAL|TO RECORD|TO SCORE|MADE THREES|ASSISTS|REBOUNDS|POINTS|OVER|UNDER/i;
+    /SPREAD BETTING|MONEYLINE|TOTAL|TO RECORD|TO SCORE|MADE THREES|ASSISTS|REBOUNDS|POINTS|OVER|UNDER|YARDS|RECEPTIONS|REC\b|YDS/i;
 
   const filtered = candidates.filter((node) => {
     const aria = normalizeSpaces(node.getAttribute("aria-label") || "");

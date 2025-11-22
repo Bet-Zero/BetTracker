@@ -102,7 +102,7 @@ export const parseFanDuel = (htmlContent: string): Bet[] => {
   
   // Check if a parlay with single leg is actually an SGP+ case
   // SGP+ can have a single SGP leg that contains multiple selections
-  if (betType === "parlay") {
+  if (betType === "parlay" || betType === "sgp_plus") {
     const fullText = (headerLi.textContent ?? "").replace(/\s+/g, " ").trim();
     const isSGPPlus =
       fullText.toLowerCase().includes("same game parlay plus") ||
@@ -114,6 +114,7 @@ export const parseFanDuel = (htmlContent: string): Bet[] => {
     // Keep it as parlay type - the SGP+ structure will be handled in parsing
     if (isSGPPlus && legRows.length === 1) {
       fdDebug("Detected SGP+ with single leg row - may contain nested SGP");
+      betType = "sgp_plus";
     }
   }
 
@@ -155,7 +156,7 @@ export const parseFanDuel = (htmlContent: string): Bet[] => {
 
     // For singles with a single structured leg row, backfill missing fields from that leg
     if (betType === "single" && legRows.length === 1) {
-      const leg = buildLegsFromRows(legRows, result)[0];
+      const leg = buildLegsFromRows(legRows, "PENDING")[0];
       if (leg) {
         headerInfo.name = headerInfo.name || leg.entities?.[0];
         headerInfo.type = headerInfo.type || leg.market;
@@ -501,7 +502,7 @@ const inferBetType = (headerLi: HTMLElement, legCount: number): BetType => {
   
   if (isSGPPlus) {
     fdDebug("Detected SGP+ (Same Game Parlay Plus)");
-    return "parlay"; // Keep as parlay type but will be handled specially in parsing
+    return "sgp_plus"; // SGP+ has nested SGP legs plus extra selections
   }
   const hasSGPText =
     text.includes("same game parlay") || fullText.includes("Same Game Parlay");

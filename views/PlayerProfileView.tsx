@@ -392,7 +392,12 @@ const PlayerProfileView: React.FC<PlayerProfileViewProps> = ({ selectedPlayer, s
         if (betTypeFilter === "singles") {
             filtered = filtered.filter(bet => bet.betType === "single");
         } else if (betTypeFilter === "parlays") {
-            filtered = filtered.filter(bet => bet.betType === "sgp" || bet.betType === "parlay");
+            filtered = filtered.filter(
+              bet =>
+                bet.betType === "sgp" ||
+                bet.betType === "sgp_plus" ||
+                bet.betType === "parlay"
+            );
         }
         // "all" includes everything, no additional filter needed
         

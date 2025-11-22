@@ -11,17 +11,19 @@
     "name": "Cade Cunningham",
     "odds": 240,
     "stake": 1.02,
-    "payout": 0.0,
+    "payout": 0,
     "result": "loss",
     "type": "Pts",
     "line": "30+",
     "legs": [
       {
-        "entities": ["Cade Cunningham"],
+        "entities": [
+          "Cade Cunningham"
+        ],
         "market": "Points",
         "target": "30+",
         "actual": 25,
-        "result": "loss"
+        "result": "LOSS"
       }
     ],
     "tail": "",
@@ -47,12 +49,14 @@
     "ou": "Under",
     "legs": [
       {
-        "entities": ["Ausar Thompson"],
+        "entities": [
+          "Ausar Thompson"
+        ],
         "market": "Points",
         "target": 10.5,
         "ou": "Under",
         "actual": 6,
-        "result": "win"
+        "result": "WIN"
       }
     ],
     "tail": "",
@@ -69,23 +73,27 @@
     "sport": "NBA",
     "description": "Orlando Magic -5.5, Detroit Pistons -5.5",
     "odds": 205,
-    "stake": 2.0,
+    "stake": 2,
     "payout": 6.1,
     "result": "win",
     "legs": [
       {
-        "entities": ["Orlando Magic"],
+        "entities": [
+          "Orlando Magic"
+        ],
         "market": "Spread",
         "target": -5.5,
         "odds": -144,
-        "result": "win"
+        "result": "WIN"
       },
       {
-        "entities": ["Detroit Pistons"],
+        "entities": [
+          "Detroit Pistons"
+        ],
         "market": "Spread",
         "target": -5.5,
         "odds": -125,
-        "result": "win"
+        "result": "WIN"
       }
     ],
     "tail": "",
@@ -103,7 +111,7 @@
     "description": "Under 224.5 Total Points",
     "odds": -110,
     "stake": 1.5,
-    "payout": 0.0,
+    "payout": 0,
     "result": "loss",
     "type": "Total",
     "line": "224.5",
@@ -114,7 +122,7 @@
         "target": 224.5,
         "ou": "Under",
         "actual": 234,
-        "result": "loss"
+        "result": "LOSS"
       }
     ],
     "tail": "",
@@ -132,15 +140,17 @@
     "description": "Orlando Magic Moneyline",
     "name": "Orlando Magic",
     "odds": 116,
-    "stake": 2.0,
+    "stake": 2,
     "payout": 4.32,
     "result": "win",
     "type": "Moneyline",
     "legs": [
       {
-        "entities": ["Orlando Magic"],
+        "entities": [
+          "Orlando Magic"
+        ],
         "market": "Moneyline",
-        "result": "win"
+        "result": "WIN"
       }
     ],
     "tail": "",
@@ -158,17 +168,19 @@
     "description": "Orlando Magic +2.5 Spread",
     "name": "Orlando Magic",
     "odds": -112,
-    "stake": 1.0,
+    "stake": 1,
     "payout": 1.89,
     "result": "win",
     "type": "Spread",
     "line": "+2.5",
     "legs": [
       {
-        "entities": ["Orlando Magic"],
+        "entities": [
+          "Orlando Magic"
+        ],
         "market": "Spread",
         "target": 2.5,
-        "result": "win"
+        "result": "WIN"
       }
     ],
     "tail": "",

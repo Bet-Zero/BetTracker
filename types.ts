@@ -1,5 +1,6 @@
 export type BetResult = 'win' | 'loss' | 'push' | 'pending';
-export type BetType = 'single' | 'parlay' | 'sgp' | 'live' | 'other';
+export type LegResult = "WIN" | "LOSS" | "PUSH" | "PENDING" | "UNKNOWN";
+export type BetType = 'single' | 'parlay' | 'sgp' | 'sgp_plus' | 'live' | 'other';
 export type SportsbookName = string;
 export type MarketCategory = "Props" | "Main Markets" | "Futures" | "SGP/SGP+" | "Parlays";
 
@@ -14,9 +15,21 @@ export interface BetLeg {
   market: string;
   target?: number | string;
   ou?: 'Over' | 'Under';
-  odds?: number;
+  odds?: number | null;
   actual?: number | string;
-  result: BetResult;
+  /**
+   * Leg-level result parsed from inline SVG icons when available.
+   * Keep compatibility with legacy lowercase BetResult values.
+   */
+  result?: LegResult | BetResult;
+  /**
+   * Marks an SGP leg inside an SGP+ bet. Children carry the actual selections.
+   */
+  isGroupLeg?: boolean;
+  /**
+   * Nested legs for grouped selections (e.g., the inner Same Game Parlay within SGP+).
+   */
+  children?: BetLeg[];
 }
 
 export interface Bet {

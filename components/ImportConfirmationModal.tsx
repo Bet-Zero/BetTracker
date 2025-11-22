@@ -304,6 +304,7 @@ export const ImportConfirmationModal: React.FC<
 
   // Get parlay label
   const getParlayLabel = (bet: Bet): string => {
+    if (bet.betType === "sgp_plus") return "SGP+";
     if (bet.betType === "sgp") return "SGP";
     return "Parlay";
   };

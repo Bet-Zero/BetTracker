@@ -110,7 +110,29 @@ export function betToFinalRows(bet: Bet): FinalRow[] {
   
   // Determine if we have legs to process
   const hasLegs = bet.legs && bet.legs.length > 0;
-  const isParlay = hasLegs && bet.legs!.length > 1;
+
+  // Drop placeholder SGP container legs that don't have entities/children,
+  // then flatten group legs (SGP+ inner SGP) so UI shows the actual selections.
+  const normalizedLegs = hasLegs
+    ? bet.legs!.filter((leg) => {
+        const market = (leg.market || "").toLowerCase();
+        const isSgpPlaceholder =
+          market.includes("same game parlay") &&
+          (!leg.entities || !leg.entities.length) &&
+          (!leg.children || !leg.children.length);
+        return !isSgpPlaceholder;
+      })
+    : [];
+
+  const expandedLegs = normalizedLegs.flatMap((leg) => {
+    if (leg.isGroupLeg) {
+      // If we have children, use them; if not, drop the placeholder leg entirely
+      return leg.children && leg.children.length ? leg.children : [];
+    }
+    return leg;
+  });
+
+  const isParlay = hasLegs && expandedLegs.length > 1;
   const parlayGroupId = isParlay ? bet.id : null;
   
   if (!hasLegs) {
@@ -132,13 +154,14 @@ export function betToFinalRows(bet: Bet): FinalRow[] {
     rows.push(row);
   } else {
     // Bet with structured legs - create one row per leg
-    const isMultiLeg = bet.legs!.length > 1;
-    
     // Safety check: Limit legs to prevent parsing errors from creating thousands of rows
-    const legsToProcess = bet.legs!.length > 10 ? bet.legs!.slice(0, 10) : bet.legs!;
-    
-    if (bet.legs!.length > 10) {
-      console.error(`betToFinalRows: Bet ${bet.betId} has ${bet.legs!.length} legs - limiting to 10 to prevent excessive rows`);
+    const legsToProcess =
+      expandedLegs.length > 10 ? expandedLegs.slice(0, 10) : expandedLegs;
+
+    if (expandedLegs.length > 10) {
+      console.error(
+        `betToFinalRows: Bet ${bet.betId} has ${expandedLegs.length} legs - limiting to 10 to prevent excessive rows`
+      );
     }
     
     legsToProcess.forEach((leg, index) => {
@@ -152,7 +175,7 @@ export function betToFinalRows(bet: Bet): FinalRow[] {
       }, {
         parlayGroupId: parlayGroupId,
         legIndex: isParlay ? index + 1 : null,
-        legCount: isParlay && isHeader ? bet.legs!.length : null,
+        legCount: isParlay && isHeader ? legsToProcess.length : null,
         isParlayHeader: isParlay && isHeader,
         isParlayChild: isParlay,
         showMonetaryValues: isHeader || !isParlay,
