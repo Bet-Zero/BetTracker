@@ -156,13 +156,16 @@ export const parseFanDuel = (htmlContent: string): Bet[] => {
 
     // For singles with a single structured leg row, backfill missing fields from that leg
     if (betType === "single" && legRows.length === 1) {
-      const leg = buildLegsFromRows(legRows, "PENDING")[0];
+      const leg = buildLegsFromRows(legRows, {
+        result: "PENDING",
+        fallbackOdds: headerInfo.odds ?? null,
+      })[0];
       if (leg) {
         headerInfo.name = headerInfo.name || leg.entities?.[0];
         headerInfo.type = headerInfo.type || leg.market;
         headerInfo.line = headerInfo.line || (leg.target !== undefined ? String(leg.target) : undefined);
         headerInfo.ou = headerInfo.ou || leg.ou;
-        headerInfo.odds = headerInfo.odds ?? leg.odds ?? undefined;
+        headerInfo.odds = leg.odds ?? headerInfo.odds ?? undefined;
 
         // If description is generic, rebuild from leg
         if (!headerInfo.description || /Spread BETTING|Total Points|Moneyline/i.test(headerInfo.description)) {

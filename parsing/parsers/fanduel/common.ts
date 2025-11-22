@@ -19,6 +19,7 @@ type LegResultInput = LegResult | BetResult | null | undefined;
 export const toLegResult = (value: LegResultInput): LegResult => {
   if (!value) return "PENDING";
   const normalized = String(value).toLowerCase();
+  if (normalized === "void" || normalized === "voided") return "PUSH";
   if (normalized === "win") return "WIN";
   if (normalized === "loss") return "LOSS";
   if (normalized === "push") return "PUSH";
@@ -34,7 +35,7 @@ const iconResultFromNode = (node: Element): LegResult | null => {
   if (id.includes("tick-circle") || id.includes("tick_circle")) {
     return "WIN";
   }
-  if (id.includes("cross_circle") || id.includes("cross-circle")) {
+  if (id.includes("cross-circle") || id.includes("cross_circle")) {
     return "LOSS";
   }
   if (fill === "#128000") {
@@ -49,28 +50,45 @@ const iconResultFromNode = (node: Element): LegResult | null => {
 
 export const extractLegResultFromRow = (
   row: HTMLElement,
+  fallbackParent?: HTMLElement,
   fallback?: LegResultInput
 ): LegResult => {
   const checkNodes = (root: HTMLElement): LegResult | null => {
-    const svgNodes = Array.from(root.querySelectorAll<HTMLElement>("svg, svg *"));
-    for (const node of svgNodes) {
+    const targets: Element[] = [];
+    if (root.matches?.("svg, path")) targets.push(root);
+    targets.push(...Array.from(root.querySelectorAll("svg, path, svg *")));
+
+    for (const node of targets) {
       const res = iconResultFromNode(node);
       if (res) return res;
     }
     return null;
   };
 
-  const direct = checkNodes(row);
-  if (direct) return direct;
+  const searchOrder: HTMLElement[] = [row];
+  if (fallbackParent && fallbackParent !== row) {
+    searchOrder.push(fallbackParent);
+  }
 
-  // Sometimes the icon lives in a sibling container; walk up a few ancestors to find it
   let parent: HTMLElement | null = row.parentElement;
   let depth = 0;
-  while (parent && depth < 10 && parent.tagName !== "LI") {
-    const found = checkNodes(parent);
-    if (found) return found;
+  while (parent && depth < 4) {
+    if (!searchOrder.includes(parent)) searchOrder.push(parent);
     parent = parent.parentElement;
     depth += 1;
+  }
+
+  const visited = new Set<HTMLElement>();
+  for (const element of searchOrder) {
+    if (!element || visited.has(element)) continue;
+    visited.add(element);
+    const found = checkNodes(element);
+    if (found) return found;
+  }
+
+  const text = normalizeSpaces(row.textContent || "");
+  if (/void(ed)?/i.test(text)) {
+    return "VOID" as LegResult;
   }
 
   return toLegResult(fallback ?? "PENDING");
@@ -963,51 +981,79 @@ export const parseLegFromText = (
   return leg;
 };
 
+export interface ParseLegOptions {
+  fallbackOdds?: number | null;
+  fallbackType?: BetType | null;
+  fallbackCategory?: MarketCategory | null;
+  fallbackDescription?: string | null;
+  fallbackResult?: LegResultInput;
+  parentForResultLookup?: HTMLElement | null;
+  skipOdds?: boolean;
+}
+
 export const parseLegFromNode = (
   node: HTMLElement,
-  result: LegResultInput,
-  skipOdds: boolean = false
+  options: ParseLegOptions = {}
 ): BetLeg | null => {
+  const {
+    fallbackOdds,
+    fallbackType,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    fallbackCategory,
+    fallbackDescription,
+    fallbackResult,
+    parentForResultLookup,
+    skipOdds = false,
+  } = options;
+
   const aria = normalizeSpaces(node.getAttribute("aria-label") || "");
   const text = normalizeSpaces(node.textContent ?? "");
-  const source = stripScoreboardText(aria || text);
-  const odds = skipOdds ? null : extractOdds(node);
+  const rawSource = aria || text || fallbackDescription || "";
+  const source = stripScoreboardText(rawSource);
+  const extractedOdds = skipOdds ? null : extractOdds(node);
 
   // Check for void status in HTML structure
-  // Void legs typically have:
-  // 1. A warning icon (svg with warning or fill="#C15400")
-  // 2. Text containing "Void"
-  // 3. A span with "Void" text
   let isVoid = false;
-  
-  // Check text content for "Void"
-  if (/\bVoid\b/i.test(text) || /\bVoid\b/i.test(aria)) {
+  const hasVoidText = /\bVoid(ed)?\b/i.test(text) || /\bVoid(ed)?\b/i.test(aria);
+  const warningIcon =
+    node.querySelector('svg[fill="#C15400"]') ||
+    node.querySelector('svg[fill*="C15400"]') ||
+    node.querySelector('svg[id*="warning" i]');
+  if (warningIcon || hasVoidText) {
     isVoid = true;
   }
-  
-  // Check for warning icon
-  const warningIcon = node.querySelector('svg[fill="#C15400"]') || 
-                       node.querySelector('svg[fill*="C15400"]') ||
-                       node.querySelector('svg[id*="warning" i]');
-  if (warningIcon) {
-    isVoid = true;
-  }
-  
-  // Check for "Void" text in spans
-  const spans = node.querySelectorAll('span');
+
+  const spans = node.querySelectorAll("span");
   for (const span of spans) {
-    if (/\bVoid\b/i.test(span.textContent || "")) {
+    if (/\bVoid(ed)?\b/i.test(span.textContent || "")) {
       isVoid = true;
       break;
     }
   }
 
   // Strip "Void" from source text if present
-  let cleanedSource = source.replace(/\bVoid\b/gi, "").trim();
-  cleanedSource = cleanedSource.replace(/^\s*Void\s+/i, "").trim();
+  let cleanedSource = source.replace(/\bVoid(ed)?\b/gi, "").trim();
+  cleanedSource = cleanedSource.replace(/^\s*Void(ed)?\s+/i, "").trim();
+
+  const legResultRaw = extractLegResultFromRow(
+    node,
+    parentForResultLookup ?? undefined,
+    fallbackResult
+  );
+  if (legResultRaw === "VOID") {
+    isVoid = true;
+  }
+  const normalizedResult =
+    legResultRaw === "VOID"
+      ? ("VOID" as LegResult)
+      : toLegResult(legResultRaw);
 
   const derived = deriveFieldsFromDescription(cleanedSource, cleanedSource);
-  const market = derived.type || guessMarketFromText(cleanedSource) || "Other";
+  const market =
+    derived.type ||
+    fallbackType ||
+    guessMarketFromText(cleanedSource) ||
+    "Other";
   let target =
     derived.line ||
     (market === "Spread" ? extractSpreadTarget(cleanedSource) : undefined);
@@ -1079,10 +1125,10 @@ export const parseLegFromNode = (
   let entityName = derived.name
     ? cleanEntityName(stripTargetFromName(derived.name, target))
     : undefined;
-  
+
   // Strip "Void" from entity name if it somehow got included
   if (entityName) {
-    entityName = entityName.replace(/^Void\s+/i, "").trim();
+    entityName = entityName.replace(/^Void(ed)?\s+/i, "").trim();
   }
 
   // Ensure target is set from line when ou is present
@@ -1090,28 +1136,59 @@ export const parseLegFromNode = (
     target = derived.line;
   }
 
+  let odds = extractedOdds;
+  if (!skipOdds && odds == null && fallbackOdds != null) {
+    odds = fallbackOdds;
+  }
+
   const leg: BetLeg = {
     entities: entityName ? [entityName] : undefined,
     market: finalMarket,
     target,
     ou: derived.ou,
-    odds: odds ?? undefined,
-    result: isVoid ? "PUSH" : toLegResult(result),
+    odds: skipOdds ? null : odds ?? undefined,
+    result: isVoid ? ("VOID" as LegResult) : normalizedResult,
   };
 
   return leg;
 };
 
+export interface BuildLegsFromRowsOptions {
+  result?: LegResultInput;
+  skipOdds?: boolean;
+  fallbackOdds?: number | null;
+  fallbackType?: BetType | null;
+  fallbackCategory?: MarketCategory | null;
+  fallbackDescription?: string | null;
+  parentForResultLookup?: HTMLElement | null;
+}
+
 export const buildLegsFromRows = (
   rows: HTMLElement[],
-  result: LegResultInput = "PENDING",
-  skipOdds: boolean = false
+  options: BuildLegsFromRowsOptions = {}
 ): BetLeg[] => {
+  const {
+    result = "PENDING",
+    skipOdds = false,
+    fallbackOdds,
+    fallbackType = null,
+    fallbackCategory = null,
+    fallbackDescription = null,
+    parentForResultLookup = null,
+  } = options;
+
   const legs: BetLeg[] = [];
 
   for (const row of rows) {
-    const rowResult = extractLegResultFromRow(row, result);
-    const leg = parseLegFromNode(row, rowResult, skipOdds);
+    const leg = parseLegFromNode(row, {
+      fallbackOdds,
+      fallbackType,
+      fallbackCategory,
+      fallbackDescription,
+      fallbackResult: result,
+      parentForResultLookup,
+      skipOdds,
+    });
     if (leg) legs.push(leg);
   }
 
@@ -1384,9 +1461,12 @@ export const formatLegSummary = (leg: BetLeg): string => {
       .map(formatLegSummary)
       .filter(Boolean)
       .join("; ");
-    return childSummary
-      ? `Same Game Parlay: ${childSummary}`
+    const label = leg.target
+      ? `Same Game Parlay - ${leg.target}`
       : "Same Game Parlay";
+    return childSummary
+      ? `${label}: ${childSummary}`
+      : label;
   }
 
   const name = cleanEntityName(leg.entities?.[0] ?? "");

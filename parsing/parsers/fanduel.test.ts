@@ -73,7 +73,14 @@ describe("FanDuel parser fixtures", () => {
     // Spot check leg-level results pulled from icons on the parlay
     const parlay = parsedMap.get("O/0242888/0028023");
     expect(parlay?.betType).toBe("parlay");
+    expect(parlay?.odds).toBe(205);
     expect(parlay?.legs?.map((l) => l.result)).toEqual(["WIN", "WIN"]);
+    expect(parlay?.legs?.every((leg) => leg.odds !== parlay?.odds)).toBe(true);
+
+    const single = parsedMap.get("O/0242888/0028020");
+    expect(single?.betType).toBe("single");
+    expect(single?.legs?.[0]?.odds).toBe(single?.odds);
+    expect(single?.legs?.[0]?.result).toBe("LOSS");
   });
 
   it("matches SGP sample fixture", () => {
@@ -117,8 +124,15 @@ describe("FanDuel parser fixtures", () => {
     // Leg odds should be null/absent for SGP inner legs; results come from icons when present
     const sgp = parsedMap.get("O/0242888/0028078");
     expect(sgp?.betType).toBe("sgp");
-    expect(sgp?.legs?.every((leg) => leg.odds === null)).toBe(true);
-    expect(new Set(sgp?.legs?.map((leg) => leg.result))).toEqual(
+    expect(sgp?.odds).toBe(6058);
+    expect(sgp?.legs?.length).toBe(1);
+
+    const groupLeg = sgp?.legs?.[0];
+    expect(groupLeg?.isGroupLeg).toBe(true);
+    expect(groupLeg?.odds).toBe(6058);
+    expect(groupLeg?.children?.length).toBe(4);
+    expect(groupLeg?.children?.every((child) => child.odds === null)).toBe(true);
+    expect(new Set(groupLeg?.children?.map((child) => child.result))).toEqual(
       new Set(["PENDING"])
     );
   });
