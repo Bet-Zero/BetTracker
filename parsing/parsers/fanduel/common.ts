@@ -99,10 +99,11 @@ export const aggregateChildResults = (
   fallback?: LegResultInput
 ): LegResult => {
   const childResults = children.map((c) => toLegResult(c.result));
+  // If any child is PUSH (voided), the whole group is PUSH
+  if (childResults.some((r) => r === "PUSH")) return "PUSH";
   if (childResults.some((r) => r === "LOSS")) return "LOSS";
   if (childResults.some((r) => r === "PENDING")) return "PENDING";
   if (childResults.some((r) => r === "UNKNOWN")) return "UNKNOWN";
-  if (childResults.some((r) => r === "PUSH")) return "PUSH";
   if (childResults.length && childResults.every((r) => r === "WIN"))
     return "WIN";
   return toLegResult(fallback ?? "PENDING");

@@ -116,7 +116,7 @@
         "market": "TD",
         "odds": 1200,
         "result": "LOSS",
-        "game": "Lakers @ Deni Avdija"
+        "game": "Lakers @ Deni"
       }
     ],
     "tail": "",
@@ -267,7 +267,7 @@
         "market": "Ast",
         "odds": 470,
         "result": "LOSS",
-        "game": "Hawks @ Deni Avdija"
+        "game": "Hawks @ Deni"
       }
     ],
     "tail": "",
@@ -649,7 +649,7 @@
     "betType": "sgp",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Jalen Smith 2+ Made Threes, Ace Bailey 2+ Made Threes, Patrick Williams 2+ Made Threes Threes Chicago Bulls @ Utah Jazz",
+    "description": "Jalen Smith 2+ Made Threes, Ace Bailey 2+ Made Threes, Patrick Williams 2+ Made Threes Chicago Bulls @ Utah Jazz",
     "name": "SGP",
     "odds": 815,
     "stake": 2,
@@ -658,7 +658,7 @@
     "legs": [
       {
         "market": "Same Game Parlay",
-        "target": "Threes Chicago Bulls @ Utah Jazz",
+        "target": "Chicago Bulls @ Utah Jazz",
         "odds": 815,
         "result": "LOSS",
         "isGroupLeg": true,
@@ -813,7 +813,7 @@
         "market": "TD",
         "odds": 700,
         "result": "LOSS",
-        "game": "To Record A Triple Double Atlanta Hawks @ Phoenix Suns"
+        "game": "Double Atlanta Hawks @ Phoenix Suns"
       }
     ],
     "tail": "",
@@ -829,7 +829,7 @@
     "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Same Game Parlay - Chicago Bulls @ Utah Jazz Jalen: Jalen Smith 3+ Made Threes, Isaiah Collier 10+ Ast, Same Game Parlay - Atlanta Hawks @ Phoenix Suns Royce: Royce O'Neale 4+ Made Threes, Jalen Johnson 8+ Ast",
+    "description": "Same Game Parlay - Chicago Bulls @ Utah Jazz: Jalen Smith 3+ Made Threes, Isaiah Collier 10+ Ast, Same Game Parlay - Atlanta Hawks @ Phoenix Suns: Royce O'Neale 4+ Made Threes, Jalen Johnson 8+ Ast",
     "name": "SGP+",
     "odds": 1803,
     "stake": 3,
@@ -838,7 +838,7 @@
     "legs": [
       {
         "market": "Same Game Parlay",
-        "target": "Chicago Bulls @ Utah Jazz Jalen",
+        "target": "Chicago Bulls @ Utah Jazz",
         "odds": 1803,
         "result": "LOSS",
         "isGroupLeg": true,
@@ -865,7 +865,7 @@
       },
       {
         "market": "Same Game Parlay",
-        "target": "Atlanta Hawks @ Phoenix Suns Royce",
+        "target": "Atlanta Hawks @ Phoenix Suns",
         "odds": 530,
         "result": "LOSS",
         "isGroupLeg": true,
@@ -1016,7 +1016,7 @@
     "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Same Game Parlay - Golden State Warriors @ New Orleans Pelicans: Zion Williamson 30+ Pts, Will Richard 3+ Made Threes, Same Game Parlay - Threes Atlanta Hawks @ Phoeni: Jalen Smith 3+ Made Threes, Ace Bailey 3+ Made Threes, Royce O'Neale Made Threes",
+    "description": "Same Game Parlay - Golden State Warriors @ New Orleans Pelicans: Zion Williamson 30+ Pts, Will Richard 3+ Made Threes, Same Game Parlay - Chicago Bulls @ Utah Jazz: Jalen Smith 3+ Made Threes, Ace Bailey 3+ Made Threes, Royce O'Neale Made Threes",
     "name": "SGP+",
     "odds": 123369,
     "stake": 0.5,
@@ -1027,7 +1027,7 @@
         "market": "Same Game Parlay",
         "target": "Golden State Warriors @ New Orleans Pelicans",
         "odds": 3623,
-        "result": "LOSS",
+        "result": "PUSH",
         "isGroupLeg": true,
         "children": [
           {
@@ -1052,7 +1052,7 @@
       },
       {
         "market": "Same Game Parlay",
-        "target": "Threes Atlanta Hawks @ Phoeni",
+        "target": "Chicago Bulls @ Utah Jazz",
         "odds": 1774,
         "result": "LOSS",
         "isGroupLeg": true,
@@ -1084,7 +1084,7 @@
         "market": "3pt",
         "odds": -130,
         "result": "LOSS",
-        "game": "Made Threes Atlanta Hawks @ Phoenix Suns"
+        "game": "Atlanta Hawks @ Phoenix Suns"
       }
     ],
     "tail": "",
@@ -1100,7 +1100,7 @@
     "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NFL",
-    "description": "Same Game Parlay - Baltimore Ravens @ Cleveland Browns Quinshon: Quinshon Judkins 80+ Yds, Derrick Henry 80+ Yds, Lamar Jackson 40+ Yds, Same Game Parlay - Kansas City Chiefs @ Denver Broncos Rashee: Rashee Rice 7+ Rec, Evan Engram 4+ Rec",
+    "description": "Same Game Parlay - Baltimore Ravens @ Cleveland Browns: Quinshon Judkins 80+ Yds, Derrick Henry 80+ Yds, Lamar Jackson 40+ Yds, Same Game Parlay - Kansas City Chiefs @ Denver Broncos: Rashee Rice 7+ Rec, Evan Engram 4+ Rec",
     "name": "SGP+",
     "odds": 4963,
     "stake": 1,
@@ -1109,7 +1109,7 @@
     "legs": [
       {
         "market": "Same Game Parlay",
-        "target": "Baltimore Ravens @ Cleveland Browns Quinshon",
+        "target": "Baltimore Ravens @ Cleveland Browns",
         "odds": 1294,
         "result": "LOSS",
         "isGroupLeg": true,
@@ -1145,7 +1145,7 @@
       },
       {
         "market": "Same Game Parlay",
-        "target": "Kansas City Chiefs @ Denver Broncos Rashee",
+        "target": "Kansas City Chiefs @ Denver Broncos",
         "odds": 263,
         "result": "LOSS",
         "isGroupLeg": true,

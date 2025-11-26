@@ -366,6 +366,8 @@ export const parseParlayBet = ({
       // Clean the matchup if found
       if (gameMatchup) {
         gameMatchup = cleanMatchupTarget(gameMatchup) || gameMatchup;
+        // Remove any market text prefixes that might have gotten into the matchup
+        gameMatchup = gameMatchup.replace(/^(Made Threes|Threes|Points|Rebounds|Assists|Yards|Receptions)\s+/i, "");
         (leg as any).game = gameMatchup;
       }
       
@@ -685,13 +687,20 @@ const findSGPGroupContainers = (root: HTMLElement): HTMLElement[] => {
 
 const findMatchupInText = (text: string): string | null => {
   const cleaned = stripScoreboardText(text.replace(/Finished/gi, " "));
+  
+  // First try to find matchup patterns in the text
   const pattern =
     /([A-Z][A-Za-z']+(?:\s+[A-Z][A-Za-z']+){0,2})\s+@\s+([A-Z][A-Za-z']+(?:\s+[A-Z][A-Za-z']+){0,2})/g;
   let best: string | null = null;
 
   for (const match of cleaned.matchAll(pattern)) {
     const candidate = normalizeSpaces(`${match[1]} @ ${match[2]}`);
-    if (/(Rebounds|Record|Assists|Points|Made)/i.test(candidate)) continue;
+    // Skip if it contains stat/market keywords or looks malformed
+    if (/(Rebounds|Record|Assists|Points|Made|Threes|Yards|Receptions)/i.test(candidate)) continue;
+    // Skip if team names are too short (likely fragments)
+    const teams = candidate.split('@').map(t => t.trim());
+    if (teams.some(t => t.length < 4)) continue;
+    
     if (!best || candidate.length < best.length) {
       best = candidate;
     }
@@ -703,7 +712,10 @@ const findMatchupInText = (text: string): string | null => {
     /([A-Z][A-Za-z']+(?:\s+[A-Z][A-Za-z']+){0,2})\s+vs\.?\s+([A-Z][A-Za-z']+(?:\s+[A-Z][A-Za-z']+){0,2})/gi;
   for (const match of cleaned.matchAll(vsPattern)) {
     const candidate = normalizeSpaces(`${match[1]} vs ${match[2]}`);
-    if (/(Rebounds|Record|Assists|Points|Made)/i.test(candidate)) continue;
+    if (/(Rebounds|Record|Assists|Points|Made|Threes)/i.test(candidate)) continue;
+    const teams = candidate.split(/\s+vs\s+/i).map(t => t.trim());
+    if (teams.some(t => t.length < 4)) continue;
+    
     if (!best || candidate.length < best.length) {
       best = candidate;
     }
@@ -731,8 +743,19 @@ const cleanMatchupTarget = (
   normalized = normalized.replace(/\s*Play-by-play.*$/i, "");
   
   // Remove trailing player names or fragments (e.g., "Lakers @ Deni Avdija" -> "Lakers @")
-  // Look for pattern: "Team @ PlayerName" or "Team @ Fragment"
-  normalized = normalized.replace(/(@\s+[A-Z][a-z]{1,10})(?:\s+[A-Z][a-z]+)?$/, "@");
+  // But DON'T remove team names like "Jazz", "Suns", "Browns", "Broncos"
+  // Pattern: "Team1 @ Team2 PlayerFirstname" where PlayerFirstname is a single capitalized word
+  // that doesn't look like a team name (3-10 letters, not ending in common team suffixes)
+  normalized = normalized.replace(/(@\s+[A-Z][A-Za-z'\s]+?)\s+([A-Z][a-z]{3,10})$/, (match, beforeName, name) => {
+    // If it looks like a team name (ends in s, or is a known fragment), keep it
+    const teamSuffixes = ['s', 'ers', 'ks'];
+    const knownTeamWords = new Set(['jazz', 'heat', 'magic', 'bulls', 'suns', 'hawks', 'nets', '49ers', 'browns', 'broncos', 'chiefs', 'ravens', 'rams']);
+    if (teamSuffixes.some(suffix => name.toLowerCase().endsWith(suffix)) || knownTeamWords.has(name.toLowerCase())) {
+      return match; // Keep the full match
+    }
+    // Otherwise it's likely a player name, remove it
+    return beforeName;
+  });
   
   // Fix partial team names (e.g., "ers @ Arizona Cardinals" -> undefined to force re-extraction)
   // Check if matchup starts with lowercase or looks incomplete
@@ -795,12 +818,25 @@ const buildGroupLegFromContainer = (
   if (!childRows.length) return null;
 
   const defaultChildResult = (betResult || "pending").toUpperCase() as LegResult;
-  const children = buildLegsFromRows(childRows, {
+  let children = buildLegsFromRows(childRows, {
     result: defaultChildResult,
     skipOdds: true,
     fallbackOdds: null,
     parentForResultLookup: container,
   }).map((child) => ({ ...child, odds: null }));
+
+  // If any child is VOID (which maps to PUSH), all children in the same SGP should be PUSH
+  // This is because when one leg of an SGP is voided, the entire SGP is typically voided
+  const hasVoidChild = children.some((child) => {
+    const resultStr = String(child.result || "").toUpperCase();
+    return resultStr === "VOID" || resultStr === "PUSH";
+  });
+  if (hasVoidChild) {
+    children = children.map((child) => ({
+      ...child,
+      result: "PUSH" as LegResult,
+    }));
+  }
 
   const odds = extractOdds(container) ?? headerOdds ?? null;
   let eventText =
