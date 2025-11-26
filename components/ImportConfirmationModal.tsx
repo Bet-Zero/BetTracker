@@ -94,6 +94,29 @@ const getLegCategory = (market: string): string => {
   return "Props"; // Default
 };
 
+type VisibleLeg = {
+  leg: BetLeg;
+  parentIndex: number;
+  childIndex?: number;
+};
+
+const getVisibleLegs = (bet: Bet): VisibleLeg[] => {
+  if (!bet.legs) return [];
+  const visible: VisibleLeg[] = [];
+
+  bet.legs.forEach((leg, parentIndex) => {
+    if (leg.isGroupLeg && leg.children?.length) {
+      leg.children.forEach((child, childIndex) => {
+        visible.push({ leg: child, parentIndex, childIndex });
+      });
+    } else {
+      visible.push({ leg, parentIndex });
+    }
+  });
+
+  return visible;
+};
+
 export const ImportConfirmationModal: React.FC<
   ImportConfirmationModalProps
 > = ({
@@ -139,6 +162,7 @@ export const ImportConfirmationModal: React.FC<
     legIndex?: number
   ): { field: string; message: string }[] => {
     const issues: { field: string; message: string }[] = [];
+    const visibleLegs = getVisibleLegs(bet);
 
     if (!bet.sport || bet.sport.trim() === "") {
       issues.push({ field: "Sport", message: "Sport is missing" });
@@ -149,9 +173,11 @@ export const ImportConfirmationModal: React.FC<
       });
     }
 
-    if (legIndex !== undefined && bet.legs) {
+    if (legIndex !== undefined) {
       // Checking leg-level issues
-      const leg = bet.legs[legIndex];
+      const legMeta = visibleLegs[legIndex];
+      if (!legMeta) return issues;
+      const leg = legMeta.leg;
       const legCategory = getLegCategory(leg.market);
 
       if (!legCategory || legCategory.trim() === "") {
@@ -177,8 +203,16 @@ export const ImportConfirmationModal: React.FC<
       }
     } else {
       // Checking bet-level issues for singles
-      if (bet.betType === "single" || !bet.legs || bet.legs.length === 1) {
-        const betName = bet.name || bet.legs?.[0]?.entities?.[0] || "";
+      if (
+        bet.betType === "single" ||
+        !bet.legs ||
+        visibleLegs.length === 1
+      ) {
+        const betName =
+          bet.name ||
+          visibleLegs[0]?.leg.entities?.[0] ||
+          bet.legs?.[0]?.entities?.[0] ||
+          "";
         if (betName && betName.trim()) {
           const sportPlayers = availablePlayers[bet.sport] || [];
           if (!sportPlayers.includes(betName)) {
@@ -213,13 +247,17 @@ export const ImportConfirmationModal: React.FC<
   // Check if any bets have issues
   const hasAnyIssues = useMemo(() => {
     return bets.some((bet) => {
-      const isParlay = bet.legs && bet.legs.length > 1;
+      const isParlay =
+        bet.betType === "sgp" ||
+        bet.betType === "sgp_plus" ||
+        getVisibleLegs(bet).length > 1;
       if (isParlay) {
         // Check bet-level issues
         const betIssues = getBetIssues(bet);
         if (betIssues.length > 0) return true;
         // Check all leg issues
-        return bet.legs!.some(
+        const visibleLegs = getVisibleLegs(bet);
+        return visibleLegs.some(
           (_, legIndex) => getBetIssues(bet, legIndex).length > 0
         );
       } else {
@@ -238,31 +276,84 @@ export const ImportConfirmationModal: React.FC<
     const bet = bets[betIndex];
     const updates: Partial<Bet> = {};
 
-    if (legIndex !== undefined && bet.legs) {
+    if (legIndex !== undefined) {
       // Editing a leg field
+      const visibleLegs = getVisibleLegs(bet);
+      const target = visibleLegs[legIndex];
+      if (!target || !bet.legs) return;
+
       const newLegs = [...bet.legs];
-      const leg = { ...newLegs[legIndex] };
+      const parentLeg = { ...newLegs[target.parentIndex] };
 
       switch (field) {
         case "Name":
-          leg.entities = [value];
+          if (target.childIndex !== undefined) {
+            const children = parentLeg.children ? [...parentLeg.children] : [];
+            const child = { ...(children[target.childIndex] || {}) };
+            child.entities = [value];
+            children[target.childIndex] = child;
+            parentLeg.children = children;
+          } else {
+            parentLeg.entities = [value];
+          }
           break;
         case "Type":
-          leg.market = value;
+          if (target.childIndex !== undefined) {
+            const children = parentLeg.children ? [...parentLeg.children] : [];
+            const child = { ...(children[target.childIndex] || {}) };
+            child.market = value;
+            children[target.childIndex] = child;
+            parentLeg.children = children;
+          } else {
+            parentLeg.market = value;
+          }
           break;
         case "O/U":
-          leg.ou =
-            value === "Over" ? "Over" : value === "Under" ? "Under" : undefined;
+          if (target.childIndex !== undefined) {
+            const children = parentLeg.children ? [...parentLeg.children] : [];
+            const child = { ...(children[target.childIndex] || {}) };
+            child.ou =
+              value === "Over"
+                ? "Over"
+                : value === "Under"
+                ? "Under"
+                : undefined;
+            children[target.childIndex] = child;
+            parentLeg.children = children;
+          } else {
+            parentLeg.ou =
+              value === "Over"
+                ? "Over"
+                : value === "Under"
+                ? "Under"
+                : undefined;
+          }
           break;
         case "Line":
-          leg.target = value;
+          if (target.childIndex !== undefined) {
+            const children = parentLeg.children ? [...parentLeg.children] : [];
+            const child = { ...(children[target.childIndex] || {}) };
+            child.target = value;
+            children[target.childIndex] = child;
+            parentLeg.children = children;
+          } else {
+            parentLeg.target = value;
+          }
           break;
         case "Result":
-          leg.result = value as any;
+          if (target.childIndex !== undefined) {
+            const children = parentLeg.children ? [...parentLeg.children] : [];
+            const child = { ...(children[target.childIndex] || {}) };
+            child.result = value as any;
+            children[target.childIndex] = child;
+            parentLeg.children = children;
+          } else {
+            parentLeg.result = value as any;
+          }
           break;
       }
 
-      newLegs[legIndex] = leg;
+      newLegs[target.parentIndex] = parentLeg;
       updates.legs = newLegs;
     } else {
       // Editing a bet-level field
@@ -299,7 +390,8 @@ export const ImportConfirmationModal: React.FC<
 
   // Determine if a bet is a parlay/SGP
   const isParlay = (bet: Bet): boolean => {
-    return !!(bet.legs && bet.legs.length > 1);
+    if (bet.betType === "sgp" || bet.betType === "sgp_plus") return true;
+    return getVisibleLegs(bet).length > 1;
   };
 
   // Get parlay label
@@ -358,33 +450,37 @@ export const ImportConfirmationModal: React.FC<
                   <th className="px-2 py-3">Edit</th>
                 </tr>
               </thead>
-              <tbody>
-                {bets.map((bet, betIndex) => {
-                  const isParlayBet = isParlay(bet);
-                  const isExpanded = expandedBets.has(bet.id);
-                  const betIssues = getBetIssues(bet);
-                  const isEditing =
-                    editingIndex === betIndex && editingLegIndex === null;
+                <tbody>
+                  {bets.map((bet, betIndex) => {
+                    const isParlayBet = isParlay(bet);
+                    const isExpanded = expandedBets.has(bet.id);
+                    const betIssues = getBetIssues(bet);
+                    const isEditing =
+                      editingIndex === betIndex && editingLegIndex === null;
+                    const visibleLegs = getVisibleLegs(bet);
 
-                  // Format values for bet row
-                  const date = formatDate(bet.placedAt);
-                  const site = siteShortNameMap[bet.book] || bet.book;
-                  const sport = bet.sport || "";
+                    // Format values for bet row
+                    const date = formatDate(bet.placedAt);
+                    const site = siteShortNameMap[bet.book] || bet.book;
+                    const sport = bet.sport || "";
                   const category = isParlayBet
-                    ? "Parlay"
-                    : bet.marketCategory?.includes("Prop")
-                    ? "Props"
-                    : bet.marketCategory?.includes("Main")
-                    ? "Main"
-                    : bet.marketCategory?.includes("Future")
-                    ? "Futures"
-                    : "Props";
-                  const type = isParlayBet ? "—" : bet.type || "";
-                  const name = isParlayBet
-                    ? `${getParlayLabel(bet)} (${bet.legs!.length}) ${
-                        isExpanded ? "▾" : "▸"
-                      }`
-                    : bet.name || bet.legs?.[0]?.entities?.[0] || "";
+                      ? "Parlay"
+                      : bet.marketCategory?.includes("Prop")
+                      ? "Props"
+                      : bet.marketCategory?.includes("Main")
+                      ? "Main"
+                      : bet.marketCategory?.includes("Future")
+                      ? "Futures"
+                      : "Props";
+                    const type = isParlayBet ? "—" : bet.type || "";
+                    const name = isParlayBet
+                      ? `${getParlayLabel(bet)} (${visibleLegs.length}) ${
+                          isExpanded ? "▾" : "▸"
+                        }`
+                      : bet.name ||
+                        visibleLegs[0]?.leg.entities?.[0] ||
+                        bet.legs?.[0]?.entities?.[0] ||
+                        "";
                   const ou = isParlayBet
                     ? "—"
                     : bet.ou === "Over"
@@ -815,7 +911,7 @@ export const ImportConfirmationModal: React.FC<
                       </tr>
 
                       {/* Expanded legs section for parlays */}
-                      {isParlayBet && isExpanded && bet.legs && (
+                      {isParlayBet && isExpanded && visibleLegs.length > 0 && (
                         <tr>
                           <td
                             colSpan={16}
@@ -859,7 +955,8 @@ export const ImportConfirmationModal: React.FC<
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {bet.legs.map((leg, legIndex) => {
+                                  {visibleLegs.map((visibleLeg, legIndex) => {
+                                    const leg = visibleLeg.leg;
                                     const legIssues = getBetIssues(
                                       bet,
                                       legIndex
@@ -886,7 +983,7 @@ export const ImportConfirmationModal: React.FC<
 
                                     return (
                                       <tr
-                                        key={legIndex}
+                                        key={`${visibleLeg.parentIndex}-${visibleLeg.childIndex ?? "root"}-${legIndex}`}
                                         className={`border-b dark:border-neutral-700 ${
                                           legIssues.length > 0
                                             ? "bg-yellow-50 dark:bg-yellow-900/20"

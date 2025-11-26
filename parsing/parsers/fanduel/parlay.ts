@@ -16,6 +16,7 @@ import {
   extractOdds,
   findLegRows,
   normalizeSpaces,
+  fdDebug,
 } from "./common";
 
 export interface ParlayBetParams {
@@ -148,7 +149,88 @@ export const parseParlayBet = ({
   );
   const filteredExtras = extraLegs.filter((leg) => !childKeys.has(legKey(leg)));
 
-  const legs = [...groupLegs, ...filteredExtras];
+  // For SGP+ bets, ensure we extract all additional selections from raw text
+  // This catches cases where additional selections aren't in the DOM structure
+  let additionalLegsFromText: BetLeg[] = [];
+  if (isSGPPlusStructure) {
+    // Check if description mentions additional selections (e.g., "Includes: 1 Same Game Parlay™ + 1 selection")
+    const descriptionText = headerInfo.description || headerInfo.rawText || "";
+    const hasAdditionalSelections = /includes:\s*\d+\s+same\s+game\s+parlay\s*\+\s*\d+\s+selection/i.test(descriptionText) ||
+                                     /includes:\s*\d+\s+same\s+game\s+parlay.*\+.*selection/i.test(descriptionText);
+    
+    // Extract all legs from raw text if we have few/no extra legs or description indicates additional selections
+    if (filteredExtras.length === 0 || hasAdditionalSelections) {
+      const allLegsFromText = buildLegsFromStatText(headerInfo.rawText, "PENDING");
+      
+      // Filter out legs that are already in group legs' children
+      const allGroupChildKeys = new Set<string>();
+      groupLegs.forEach((group) => {
+        (group.children || []).forEach((child) => {
+          allGroupChildKeys.add(legKey(child));
+        });
+      });
+      
+      // Also check against filteredExtras to avoid duplicates
+      const extraKeys = new Set(filteredExtras.map(legKey));
+      
+      additionalLegsFromText = allLegsFromText.filter((leg) => {
+        const key = legKey(leg);
+        return !allGroupChildKeys.has(key) && !extraKeys.has(key);
+      });
+      
+      // Only keep legs that have odds (additional selections typically have odds)
+      // or are clearly additional selections (not part of SGP groups)
+      additionalLegsFromText = additionalLegsFromText.filter((leg) => {
+        // If it has odds, it's likely an additional selection
+        if (leg.odds !== null && leg.odds !== undefined) return true;
+        // If it doesn't have a target that matches a group leg's target, it's likely additional
+        const legTarget = leg.target || "";
+        const isInGroupTarget = groupLegs.some((group) => {
+          const groupTarget = group.target || "";
+          return groupTarget && legTarget && groupTarget.includes(legTarget);
+        });
+        return !isInGroupTarget;
+      });
+    }
+  }
+
+  const legs = [...groupLegs, ...filteredExtras, ...additionalLegsFromText];
+
+  // Validate result consistency: for SGP bets, if all legs show WIN, the bet should be WIN
+  // (unless there are missing legs, in which case the footer result is the source of truth)
+  if ((betType === "sgp" || betType === "sgp_plus") && legs.length > 0) {
+    const allLegResults: string[] = [];
+    
+    // Collect all leg results (including children of group legs)
+    legs.forEach((leg) => {
+      if (leg.isGroupLeg && leg.children) {
+        leg.children.forEach((child) => {
+          if (child.result) allLegResults.push(child.result);
+        });
+        // Also include the group leg result itself
+        if (leg.result) allLegResults.push(leg.result);
+      } else {
+        if (leg.result) allLegResults.push(leg.result);
+      }
+    });
+    
+    // Check if all non-pending legs are WIN
+    const settledLegs = allLegResults.filter((r) => 
+      r && r !== "PENDING" && r !== "pending" && r !== "UNKNOWN" && r !== "unknown"
+    );
+    const allWins = settledLegs.length > 0 && settledLegs.every((r) => 
+      r === "WIN" || r === "win"
+    );
+    
+    // If all legs won but bet shows loss, this might indicate missing legs
+    // Log a debug message but keep the footer result as source of truth
+    if (allWins && result === "loss" && settledLegs.length > 0) {
+      fdDebug(
+        `Warning: Bet ${betId} shows LOSS but all ${settledLegs.length} parsed legs show WIN. ` +
+        `This may indicate missing legs. Footer result (${result}) is kept as source of truth.`
+      );
+    }
+  }
 
   const description = legs.length
     ? formatParlayDescriptionFromLegs(legs)
