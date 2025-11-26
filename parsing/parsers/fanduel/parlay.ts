@@ -513,25 +513,19 @@ export const parseParlayBet = ({
         // Format SGP group: "SGP (ShortMatchup)" - just the matchup, no children details
         let matchup = leg.target || "";
         if (matchup) {
-          // Simplify matchup to city names only
+          // Simplify matchup: shorten city + team to just city for longer names
+          // Keep both words for short team names (Utah Jazz, etc.)
           matchup = matchup
             .replace(/\bDetroit\s+Pistons\b/gi, "Detroit")
-            .replace(/\bAtlanta\s+Hawks\b/gi, "Atlanta")
-            .replace(/\bUtah\s+Jazz\b/gi, "Utah Jazz")
-            .replace(/\bLos\s+Angeles\s+Lakers\b/gi, "Los Angeles Lakers")
-            .replace(/\bPhoenix\s+Suns\b/gi, "Phoenix Suns")
-            .replace(/\bPortland\s+Trail\s+Blazers\b/gi, "Portland Trail Blazers")
             .replace(/\bGolden\s+State\s+Warriors\b/gi, "Golden State")
             .replace(/\bNew\s+Orleans\s+Pelicans\b/gi, "New Orleans")
-            .replace(/\bChicago\s+Bulls\b/gi, "Chicago Bulls")
-            .replace(/\bBaltimore\s+Ravens\b/gi, "Baltimore Ravens")
-            .replace(/\bCleveland\s+Browns\b/gi, "Cleveland Browns")
-            .replace(/\bKansas\s+City\s+Chiefs\b/gi, "Kansas City Chiefs")
-            .replace(/\bDenver\s+Broncos\b/gi, "Denver Broncos")
+            .replace(/\bPortland\s+Trail\s+Blazers\b/gi, "Portland Trail Blazers")
             .replace(/\bSeattle\s+Seahawks\b/gi, "Seattle Seahawks")
             .replace(/\bLos\s+Angeles\s+Rams\b/gi, "Los Angeles Rams")
+            .replace(/\bLos\s+Angeles\s+Lakers\b/gi, "Los Angeles Lakers")
             .replace(/\bSan\s+Francisco\s+49ers\b/gi, "San Francisco 49ers")
-            .replace(/\bArizona\s+Cardinals\b/gi, "Arizona Cardinals");
+            // Keep these unchanged - they're already short or should stay full
+            // Utah Jazz, Phoenix Suns, Atlanta Hawks, Chicago Bulls, etc.
         }
         parts.push(`SGP (${matchup})`);
       } else {
