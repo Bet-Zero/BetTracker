@@ -543,8 +543,6 @@ export const parseParlayBet = ({
     });
     
     description = `${totalLegs}-leg Same Game Parlay Plus: ${parts.join(" + ")}`;
-    
-    description = `${totalLegs}-leg Same Game Parlay Plus: ${parts.join(" + ")}`;
   } else if (legs.length) {
     description = shouldCondenseGroupDescription
       ? `${formatParlayDescriptionFromLegs(legs[0].children || [])}${
@@ -814,7 +812,7 @@ const cleanMatchupTarget = (
     const afterAt = normalized.replace(/^49ers\s+@\s*/i, "").trim();
     if (afterAt) {
       // Don't strip known team city/name combinations
-      const knownTeamParts = ['Cardinals', 'Cardinals', 'Broncos', 'Browns', 'Rams', 'Chiefs', 'Ravens'];
+      const knownTeamParts = ['Cardinals', 'Broncos', 'Browns', 'Rams', 'Chiefs', 'Ravens', 'Hawks', 'Suns', 'Jazz'];
       let cleanedAfter = afterAt;
       
       // Only strip if it doesn't contain known team parts
