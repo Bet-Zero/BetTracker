@@ -278,11 +278,22 @@ export const parseParlayBet = ({
   const extraLegs = remainingRows.length ? buildCombinedLegs(remainingRows) : [];
 
   // Avoid duplicating inner SGP legs outside the group container
+  // Use both full legKey (entity+market+target) and just entity+target (to catch market mismatches)
   const childKeys = new Set<string>();
+  const childEntityTargetKeys = new Set<string>();
   groupLegs.forEach((group) =>
-    (group.children || []).forEach((child) => childKeys.add(legKey(child)))
+    (group.children || []).forEach((child) => {
+      childKeys.add(legKey(child));
+      // Also track entity+target without market to catch duplicates with wrong market
+      const entityTarget = `${(child.entities?.[0] || "").toLowerCase()}|${String(child.target ?? "")}`;
+      childEntityTargetKeys.add(entityTarget);
+    })
   );
-  const filteredExtras = extraLegs.filter((leg) => !childKeys.has(legKey(leg)));
+  const filteredExtras = extraLegs.filter((leg) => {
+    const key = legKey(leg);
+    const entityTarget = `${(leg.entities?.[0] || "").toLowerCase()}|${String(leg.target ?? "")}`;
+    return !childKeys.has(key) && !childEntityTargetKeys.has(entityTarget);
+  });
 
   // For SGP+ bets, ensure we extract all additional selections from raw text
   // This catches cases where additional selections aren't in the DOM structure
@@ -298,19 +309,32 @@ export const parseParlayBet = ({
       const allLegsFromText = buildLegsFromStatText(headerInfo.rawText, "PENDING");
       
       // Filter out legs that are already in group legs' children
+      // Use both full legKey (entity+market+target) and just entity+target (to catch market mismatches)
       const allGroupChildKeys = new Set<string>();
+      const allGroupChildEntityTargetKeys = new Set<string>();
       groupLegs.forEach((group) => {
         (group.children || []).forEach((child) => {
           allGroupChildKeys.add(legKey(child));
+          // Also track entity+target without market to catch duplicates with wrong market
+          const entityTarget = `${(child.entities?.[0] || "").toLowerCase()}|${String(child.target ?? "")}`;
+          allGroupChildEntityTargetKeys.add(entityTarget);
         });
       });
       
       // Also check against filteredExtras to avoid duplicates
       const extraKeys = new Set(filteredExtras.map(legKey));
+      const extraEntityTargetKeys = new Set(filteredExtras.map((leg) => 
+        `${(leg.entities?.[0] || "").toLowerCase()}|${String(leg.target ?? "")}`
+      ));
       
       additionalLegsFromText = allLegsFromText.filter((leg) => {
         const key = legKey(leg);
-        return !allGroupChildKeys.has(key) && !extraKeys.has(key);
+        const entityTarget = `${(leg.entities?.[0] || "").toLowerCase()}|${String(leg.target ?? "")}`;
+        // Filter out if already in children by either key
+        if (allGroupChildKeys.has(key) || allGroupChildEntityTargetKeys.has(entityTarget)) return false;
+        // Filter out if already in extras by either key
+        if (extraKeys.has(key) || extraEntityTargetKeys.has(entityTarget)) return false;
+        return true;
       });
       
       // Only keep legs that have odds (additional selections typically have odds)
@@ -427,10 +451,16 @@ export const parseParlayBet = ({
               result: "PUSH" as LegResult,
             };
           }
-          return {
-            ...child,
-            result: childResult,
-          };
+          // Only override PENDING/UNKNOWN results with the bet result
+          // Keep WIN/LOSS results that were extracted from icons
+          if (currentResult === "PENDING" || currentResult === "UNKNOWN") {
+            return {
+              ...child,
+              result: childResult,
+            };
+          }
+          // Otherwise keep the existing result (WIN/LOSS from icon)
+          return child;
         });
       }
       if (leg.isGroupLeg && leg.children) {
@@ -675,11 +705,20 @@ const findSGPGroupContainers = (root: HTMLElement): HTMLElement[] => {
   
   const containers = candidates.filter((div) => {
     // Exclude if this div contains another candidate (it's a parent, not the actual SGP container)
-    const containsOtherSGP = candidates.some((other) => {
+    // BUT only if the contained candidate has leg rows. If we contain only candidates
+    // without leg rows, we're still a valid container.
+    const containsOtherSGPWithLegs = candidates.some((other) => {
       if (other === div) return false;
-      return div.contains(other);
+      if (!div.contains(other)) return false;
+      // Check if the contained candidate has leg rows
+      const otherHasLegRows = other.querySelector('.leg-row') !== null ||
+                              Array.from(other.querySelectorAll('[aria-label]')).some((el) => {
+                                const aria = (el.getAttribute("aria-label") || "").toLowerCase();
+                                return /to record|to score|\d+\+\s+(yards|receptions)/i.test(aria);
+                              });
+      return otherHasLegRows;
     });
-    if (containsOtherSGP) return false;
+    if (containsOtherSGPWithLegs) return false;
     
     // Exclude if this div is contained within another candidate that has the same characteristics
     const isContained = candidates.some((other) => {
@@ -699,6 +738,11 @@ const findSGPGroupContainers = (root: HTMLElement): HTMLElement[] => {
   });
 
   if (!containers.length) {
+    // Fallback: prefer candidates with leg rows
+    const candidatesWithLegs = candidates.filter((c) => c.querySelector('.leg-row') !== null);
+    if (candidatesWithLegs.length > 0) {
+      return candidatesWithLegs;
+    }
     return candidates;
   }
 

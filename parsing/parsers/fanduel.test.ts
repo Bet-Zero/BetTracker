@@ -133,7 +133,7 @@ describe("FanDuel parser fixtures", () => {
     expect(groupLeg?.children?.length).toBe(4);
     expect(groupLeg?.children?.every((child) => child.odds === null)).toBe(true);
     expect(new Set(groupLeg?.children?.map((child) => child.result))).toEqual(
-      new Set(["PENDING"])
+      new Set(["WIN"])
     );
   });
 

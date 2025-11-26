@@ -7,7 +7,7 @@
     "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NFL",
-    "description": "Same Game Parlay: Davante Adams 50+ Yds; Cooper Kupp 3+ Rec, Ricky Pearsall 50+ Yds",
+    "description": "3-leg Same Game Parlay Plus: SGP (49ers @ Arizona Cardinals) + Ricky Pearsall 50+ Yds",
     "name": "SGP+",
     "odds": 37067,
     "stake": 0.25,
@@ -16,6 +16,7 @@
     "legs": [
       {
         "market": "Same Game Parlay",
+        "target": "49ers @ Arizona Cardinals",
         "odds": 2997,
         "result": "LOSS",
         "isGroupLeg": true,

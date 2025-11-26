@@ -935,7 +935,7 @@
         "market": "Same Game Parlay",
         "target": "Golden State Warriors @ New Orleans Pelicans",
         "odds": 3623,
-        "result": "PUSH",
+        "result": "LOSS",
         "isGroupLeg": true,
         "children": [
           {
@@ -950,7 +950,7 @@
             "market": "3pt",
             "target": "3+",
             "odds": null,
-            "result": "PUSH"
+            "result": "LOSS"
           }
         ]
       },

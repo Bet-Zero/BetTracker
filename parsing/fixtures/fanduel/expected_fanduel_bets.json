@@ -71,7 +71,8 @@
     "betType": "parlay",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Orlando Magic -5.5, Detroit Pistons -5.5",
+    "description": "Detroit Pistons -5.5, Orlando Magic -5.5",
+    "name": "Parlay (2)",
     "odds": 205,
     "stake": 2,
     "payout": 6.1,
@@ -79,20 +80,20 @@
     "legs": [
       {
         "entities": [
-          "Orlando Magic"
-        ],
-        "market": "Spread",
-        "target": -5.5,
-        "odds": -144,
-        "result": "WIN"
-      },
-      {
-        "entities": [
           "Detroit Pistons"
         ],
         "market": "Spread",
         "target": -5.5,
         "odds": -125,
+        "result": "WIN"
+      },
+      {
+        "entities": [
+          "Orlando Magic"
+        ],
+        "market": "Spread",
+        "target": -5.5,
+        "odds": -144,
         "result": "WIN"
       }
     ],
