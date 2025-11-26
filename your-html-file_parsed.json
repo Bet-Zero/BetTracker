@@ -69,7 +69,7 @@
     "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Same Game Parlay - Utah Jazz @ Los Angeles Lakers: Jalen Johnson TD, Luka Doncic TD, Deni Avdija TD, Cade Cunningham TD",
+    "description": "Same Game Parlay - Detroit Pistons @ Atlanta Hawks: Jalen Johnson TD, Cade Cunningham TD, Luka Doncic Double Utah Jazz @ Los Angeles Lakers TD, Deni Avdija Lakers @ FinishedFinished Deni Avdija TD",
     "name": "SGP+",
     "odds": 1108261,
     "stake": 0.5,
@@ -78,7 +78,7 @@
     "legs": [
       {
         "market": "Same Game Parlay",
-        "target": "Utah Jazz @ Los Angeles Lakers",
+        "target": "Detroit Pistons @ Atlanta Hawks",
         "odds": 16617,
         "result": "LOSS",
         "isGroupLeg": true,
@@ -86,6 +86,14 @@
           {
             "entities": [
               "Jalen Johnson"
+            ],
+            "market": "TD",
+            "odds": null,
+            "result": "LOSS"
+          },
+          {
+            "entities": [
+              "Cade Cunningham"
             ],
             "market": "TD",
             "odds": null,
@@ -98,23 +106,20 @@
           "Luka Doncic"
         ],
         "market": "TD",
+        "target": "Double Utah Jazz @ Los Angeles Lakers",
         "odds": 410,
-        "result": "LOSS"
+        "result": "LOSS",
+        "game": "Double Utah Jazz @ Los Angeles Lakers"
       },
       {
         "entities": [
           "Deni Avdija"
         ],
         "market": "TD",
+        "target": "Lakers @ FinishedFinished Deni Avdija",
         "odds": 1200,
-        "result": "LOSS"
-      },
-      {
-        "entities": [
-          "Cade Cunningham"
-        ],
-        "market": "TD",
-        "result": "PENDING"
+        "result": "LOSS",
+        "game": "Lakers @ FinishedFinished Deni Avdija"
       }
     ],
     "tail": "",
@@ -130,7 +135,7 @@
     "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Same Game Parlay - Phoenix Suns @ Portland Trail Blazers: Jalen Johnson TD, Deni Avdija TD, Cade Cunningham TD",
+    "description": "Same Game Parlay - Detroit Pistons @ Atlanta Hawks: Jalen Johnson TD, Cade Cunningham TD, Deni Avdija Double Phoenix Suns @ Portland Trail Blazers TD",
     "name": "SGP+",
     "odds": 217225,
     "stake": 0.5,
@@ -139,7 +144,7 @@
     "legs": [
       {
         "market": "Same Game Parlay",
-        "target": "Phoenix Suns @ Portland Trail Blazers",
+        "target": "Detroit Pistons @ Atlanta Hawks",
         "odds": 16617,
         "result": "LOSS",
         "isGroupLeg": true,
@@ -147,6 +152,14 @@
           {
             "entities": [
               "Jalen Johnson"
+            ],
+            "market": "TD",
+            "odds": null,
+            "result": "LOSS"
+          },
+          {
+            "entities": [
+              "Cade Cunningham"
             ],
             "market": "TD",
             "odds": null,
@@ -159,15 +172,10 @@
           "Deni Avdija"
         ],
         "market": "TD",
+        "target": "Double Phoenix Suns @ Portland Trail Blazers",
         "odds": 1200,
-        "result": "LOSS"
-      },
-      {
-        "entities": [
-          "Cade Cunningham"
-        ],
-        "market": "TD",
-        "result": "PENDING"
+        "result": "LOSS",
+        "game": "Double Phoenix Suns @ Portland Trail Blazers"
       }
     ],
     "tail": "",
@@ -215,7 +223,7 @@
     "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Same Game Parlay - Detroit Pistons @ Atlanta Hawks: Isaiah Collier 10+ Ast, Jalen Johnson 10+ Ast, Deni Avdija 10+ Ast, LeBron James 10+ Ast",
+    "description": "Same Game Parlay - Utah Jazz @ Los Angeles Lakers: Isaiah Collier 10+ Ast, LeBron James 10+ Ast, Jalen Johnson Assists @ Jalen Johnson Ast, Deni Avdija Hawks @ FinishedFinished Deni Avdija Ast",
     "name": "SGP+",
     "odds": 237511,
     "stake": 0.5,
@@ -224,7 +232,7 @@
     "legs": [
       {
         "market": "Same Game Parlay",
-        "target": "Detroit Pistons @ Atlanta Hawks",
+        "target": "Utah Jazz @ Los Angeles Lakers",
         "odds": 6413,
         "result": "LOSS",
         "isGroupLeg": true,
@@ -237,6 +245,15 @@
             "target": "10+",
             "odds": null,
             "result": "LOSS"
+          },
+          {
+            "entities": [
+              "LeBron James"
+            ],
+            "market": "Ast",
+            "target": "10+",
+            "odds": null,
+            "result": "WIN"
           }
         ]
       },
@@ -245,26 +262,20 @@
           "Jalen Johnson"
         ],
         "market": "Ast",
-        "target": "10+",
+        "target": "Assists @ Jalen Johnson",
         "odds": 540,
-        "result": "LOSS"
+        "result": "LOSS",
+        "game": "Assists @ Jalen Johnson"
       },
       {
         "entities": [
           "Deni Avdija"
         ],
         "market": "Ast",
-        "target": "10+",
+        "target": "Hawks @ FinishedFinished Deni Avdija",
         "odds": 470,
-        "result": "LOSS"
-      },
-      {
-        "entities": [
-          "LeBron James"
-        ],
-        "market": "Ast",
-        "target": "10+",
-        "result": "PENDING"
+        "result": "LOSS",
+        "game": "Hawks @ FinishedFinished Deni Avdija"
       }
     ],
     "tail": "",
@@ -349,6 +360,7 @@
     "marketCategory": "Parlays",
     "sport": "NBA",
     "description": "Orlando Magic -5.5, Detroit Pistons -5.5",
+    "name": "Parlay (2)",
     "odds": 205,
     "stake": 2,
     "payout": 6.1,
@@ -568,8 +580,8 @@
     "betType": "sgp",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Same Game Parlay - Chicago Bulls @ Utah Jazz: Jalen Smith 2+ Ast",
-    "name": "SGP (1 legs)",
+    "description": "Same Game Parlay - Chicago Bulls @ Utah Jazz: Jalen Smith 2+ Made Threes, Ace Bailey 2+ Made Threes, Patrick Williams 2+ Made Threes, Coby White 2+ Made Threes, Isaiah Collier 8+ Ast",
+    "name": "SGP (5 legs)",
     "odds": 4781,
     "stake": 1,
     "payout": 0,
@@ -579,17 +591,53 @@
         "market": "Same Game Parlay",
         "target": "Chicago Bulls @ Utah Jazz",
         "odds": 4781,
-        "result": "WIN",
+        "result": "LOSS",
         "isGroupLeg": true,
         "children": [
           {
             "entities": [
               "Jalen Smith"
             ],
-            "market": "Ast",
+            "market": "3pt",
             "target": "2+",
             "odds": null,
-            "result": "WIN"
+            "result": "LOSS"
+          },
+          {
+            "entities": [
+              "Ace Bailey"
+            ],
+            "market": "3pt",
+            "target": "2+",
+            "odds": null,
+            "result": "LOSS"
+          },
+          {
+            "entities": [
+              "Patrick Williams"
+            ],
+            "market": "3pt",
+            "target": "2+",
+            "odds": null,
+            "result": "LOSS"
+          },
+          {
+            "entities": [
+              "Coby White"
+            ],
+            "market": "3pt",
+            "target": "2+",
+            "odds": null,
+            "result": "LOSS"
+          },
+          {
+            "entities": [
+              "Isaiah Collier"
+            ],
+            "market": "Ast",
+            "target": "8+",
+            "odds": null,
+            "result": "LOSS"
           }
         ]
       }
@@ -607,12 +655,50 @@
     "betType": "sgp",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "+815 Jalen Smith 2+ Made Threes, Ace Bailey 2+ Made Threes, Patrick Williams 2+ Made Threes Chicago Bulls @ Utah Jazz",
+    "description": "Jalen Smith 2+ Made Threes, Ace Bailey 2+ Made Threes, Patrick Williams 2+ Made Threes Chicago Bulls @ Utah Jazz",
     "name": "SGP",
     "odds": 815,
     "stake": 2,
     "payout": 0,
     "result": "loss",
+    "legs": [
+      {
+        "market": "Same Game Parlay",
+        "target": "Chicago Bulls @ Utah Jazz",
+        "odds": 815,
+        "result": "LOSS",
+        "isGroupLeg": true,
+        "children": [
+          {
+            "entities": [
+              "Jalen Smith"
+            ],
+            "market": "3pt",
+            "target": "2+",
+            "odds": null,
+            "result": "LOSS"
+          },
+          {
+            "entities": [
+              "Ace Bailey"
+            ],
+            "market": "3pt",
+            "target": "2+",
+            "odds": null,
+            "result": "LOSS"
+          },
+          {
+            "entities": [
+              "Patrick Williams"
+            ],
+            "market": "3pt",
+            "target": "2+",
+            "odds": null,
+            "result": "LOSS"
+          }
+        ]
+      }
+    ],
     "tail": "",
     "raw": "same game parlay available Same Game Parlay™ +815 Jalen Smith 2+ Made Threes, Ace Bailey 2+ Made Threes, Patrick Williams 2+ Made Threes Chicago Bulls @ Utah JazzFinished Box Score Play-by-play Jalen Smith 2+ Made Threes Ace Bailey 2+ Made Threes Patrick Williams 2+ Made Threes\n----\n$2.00 TOTAL WAGER $0.00 RETURNED BET ID: O/0242888/0027989PLACED: 11/16/2025 7:57PM ET",
     "isLive": false,
@@ -626,8 +712,8 @@
     "betType": "sgp",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Same Game Parlay - Chicago Bulls @ Utah Jazz: Coby White 4+ Ast",
-    "name": "SGP (1 legs)",
+    "description": "Same Game Parlay - Chicago Bulls @ Utah Jazz: Coby White 4+ Made Threes, Patrick Williams 2+ Made Threes, Ayo Dosunmu 2+ Made Threes, Ace Bailey 3+ Made Threes, Isaiah Collier 4+ Ast",
+    "name": "SGP (5 legs)",
     "odds": 18778,
     "stake": 1.5,
     "payout": 0,
@@ -643,6 +729,42 @@
           {
             "entities": [
               "Coby White"
+            ],
+            "market": "3pt",
+            "target": "4+",
+            "odds": null,
+            "result": "LOSS"
+          },
+          {
+            "entities": [
+              "Patrick Williams"
+            ],
+            "market": "3pt",
+            "target": "2+",
+            "odds": null,
+            "result": "LOSS"
+          },
+          {
+            "entities": [
+              "Ayo Dosunmu"
+            ],
+            "market": "3pt",
+            "target": "2+",
+            "odds": null,
+            "result": "LOSS"
+          },
+          {
+            "entities": [
+              "Ace Bailey"
+            ],
+            "market": "3pt",
+            "target": "3+",
+            "odds": null,
+            "result": "LOSS"
+          },
+          {
+            "entities": [
+              "Isaiah Collier"
             ],
             "market": "Ast",
             "target": "4+",
@@ -665,7 +787,8 @@
     "betType": "parlay",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Deni Avdija TD, Josh Giddey TD, Jalen Johnson TD",
+    "description": "Deni Avdija Portland Trail Blazers @ Dallas Mavericks Josh TD, Josh Giddey Double Chicago Bulls @ Utah Jazz Jalen TD, Jalen Johnson Double Atlanta Hawks @ Phoenix Suns TD",
+    "name": "Parlay (3)",
     "odds": 36300,
     "stake": 0.5,
     "payout": 0,
@@ -676,24 +799,30 @@
           "Deni Avdija"
         ],
         "market": "TD",
+        "target": "Portland Trail Blazers @ Dallas Mavericks Josh",
         "odds": 1200,
-        "result": "LOSS"
+        "result": "LOSS",
+        "game": "To Record A Triple Double Portland Trail Blazers @ Dallas Mavericks Josh Giddey"
       },
       {
         "entities": [
           "Josh Giddey"
         ],
         "market": "TD",
+        "target": "Double Chicago Bulls @ Utah Jazz Jalen",
         "odds": 250,
-        "result": "LOSS"
+        "result": "LOSS",
+        "game": "To Record A Triple Double Chicago Bulls @ Utah Jazz Jalen Johnson"
       },
       {
         "entities": [
           "Jalen Johnson"
         ],
         "market": "TD",
+        "target": "Double Atlanta Hawks @ Phoenix Suns",
         "odds": 700,
-        "result": "LOSS"
+        "result": "LOSS",
+        "game": "To Record A Triple Double Atlanta Hawks @ Phoenix Suns"
       }
     ],
     "tail": "",
@@ -709,7 +838,7 @@
     "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Same Game Parlay - Chicago Bulls @ Utah JazzNov: Jalen Smith 3+ Ast; Royce O'Neale 4+ Ast, Same Game Parlay - Chicago Bulls @ Utah JazzNov: Jalen Smith 3+ Ast, Same Game Parlay - Atlanta Hawks @ Phoenix SunsNov: Royce O'Neale 4+ Ast, Jalen Smith 3+ 3pt, Royce O'Neale 4+ 3pt, Isaiah Collier 10+ Ast, Jalen Johnson 8+ Ast, Isaiah Collier 10+ Ast, Jalen Johnson 8+ Ast",
+    "description": "Same Game Parlay - Chicago Bulls @ Utah Jazz Jalen: Jalen Smith 3+ Made Threes, Isaiah Collier 10+ Ast, Same Game Parlay - Atlanta Hawks @ Phoenix Suns Royce: Royce O'Neale 4+ Made Threes, Jalen Johnson 8+ Ast",
     "name": "SGP+",
     "odds": 1803,
     "stake": 3,
@@ -718,7 +847,7 @@
     "legs": [
       {
         "market": "Same Game Parlay",
-        "target": "Chicago Bulls @ Utah JazzNov",
+        "target": "Chicago Bulls @ Utah Jazz Jalen",
         "odds": 1803,
         "result": "LOSS",
         "isGroupLeg": true,
@@ -727,17 +856,17 @@
             "entities": [
               "Jalen Smith"
             ],
-            "market": "Ast",
+            "market": "3pt",
             "target": "3+",
             "odds": null,
             "result": "LOSS"
           },
           {
             "entities": [
-              "Royce O'Neale"
+              "Isaiah Collier"
             ],
             "market": "Ast",
-            "target": "4+",
+            "target": "10+",
             "odds": null,
             "result": "LOSS"
           }
@@ -745,25 +874,7 @@
       },
       {
         "market": "Same Game Parlay",
-        "target": "Chicago Bulls @ Utah JazzNov",
-        "odds": 1803,
-        "result": "LOSS",
-        "isGroupLeg": true,
-        "children": [
-          {
-            "entities": [
-              "Jalen Smith"
-            ],
-            "market": "Ast",
-            "target": "3+",
-            "odds": null,
-            "result": "LOSS"
-          }
-        ]
-      },
-      {
-        "market": "Same Game Parlay",
-        "target": "Atlanta Hawks @ Phoenix SunsNov",
+        "target": "Atlanta Hawks @ Phoenix Suns Royce",
         "odds": 530,
         "result": "LOSS",
         "isGroupLeg": true,
@@ -772,60 +883,21 @@
             "entities": [
               "Royce O'Neale"
             ],
-            "market": "Ast",
+            "market": "3pt",
             "target": "4+",
+            "odds": null,
+            "result": "LOSS"
+          },
+          {
+            "entities": [
+              "Jalen Johnson"
+            ],
+            "market": "Ast",
+            "target": "8+",
             "odds": null,
             "result": "LOSS"
           }
         ]
-      },
-      {
-        "entities": [
-          "Jalen Smith"
-        ],
-        "market": "3pt",
-        "target": "3+",
-        "result": "PENDING"
-      },
-      {
-        "entities": [
-          "Royce O'Neale"
-        ],
-        "market": "3pt",
-        "target": "4+",
-        "result": "PENDING"
-      },
-      {
-        "entities": [
-          "Isaiah Collier"
-        ],
-        "market": "Ast",
-        "target": "10+",
-        "result": "PENDING"
-      },
-      {
-        "entities": [
-          "Jalen Johnson"
-        ],
-        "market": "Ast",
-        "target": "8+",
-        "result": "PENDING"
-      },
-      {
-        "entities": [
-          "Isaiah Collier"
-        ],
-        "market": "Ast",
-        "target": "10+",
-        "result": "PENDING"
-      },
-      {
-        "entities": [
-          "Jalen Johnson"
-        ],
-        "market": "Ast",
-        "target": "8+",
-        "result": "PENDING"
       }
     ],
     "tail": "",
@@ -841,12 +913,41 @@
     "betType": "sgp",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "+997 Will Richard 3+ Made Threes, Saddiq Bey 3+ Made Threes Golden State Warriors @ New Orleans Pelicans",
+    "description": "Will Richard 3+ Made Threes, Saddiq Bey 3+ Made Threes Golden State Warriors @ New Orleans Pelicans",
     "name": "SGP",
     "odds": 997,
     "stake": 0.5,
     "payout": 0,
     "result": "loss",
+    "legs": [
+      {
+        "market": "Same Game Parlay",
+        "target": "Golden State Warriors @ New Orleans Pelicans",
+        "odds": 997,
+        "result": "LOSS",
+        "isGroupLeg": true,
+        "children": [
+          {
+            "entities": [
+              "Will Richard"
+            ],
+            "market": "3pt",
+            "target": "3+",
+            "odds": null,
+            "result": "LOSS"
+          },
+          {
+            "entities": [
+              "Saddiq Bey"
+            ],
+            "market": "3pt",
+            "target": "3+",
+            "odds": null,
+            "result": "LOSS"
+          }
+        ]
+      }
+    ],
     "tail": "",
     "raw": "same game parlay available Same Game Parlay™ +997 Will Richard 3+ Made Threes, Saddiq Bey 3+ Made Threes Golden State Warriors @ New Orleans PelicansFinished Box Score Play-by-play Will Richard 3+ Made Threes Saddiq Bey 3+ Made Threes\n----\n$0.50 TOTAL WAGER $0.00 RETURNED BET ID: O/0242888/0027984PLACED: 11/16/2025 7:09PM ET",
     "isLive": false,
@@ -924,7 +1025,7 @@
     "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Same Game Parlay - Chicago Bulls @ Utah JazzNov: Royce O'Neale 3+ 3pt; Zion Williamson 30+ 3pt, Same Game Parlay - Golden State Warriors @ New Orleans PelicansNov: Zion Williamson 30+ 3pt, Points Void Will Richard 3+ 3pt, Jalen Smith 3+ 3pt, Ace Bailey 3+ 3pt, Zion Williamson 30+ Pts",
+    "description": "Same Game Parlay - Golden State Warriors @ New Orleans Pelicans: Zion Williamson 30+ Pts, Will Richard 3+ Made Threes, Same Game Parlay - Atlanta Hawks @ Phoeni: Jalen Smith 3+ Made Threes, Ace Bailey 3+ Made Threes, Royce O'Neale Atlanta Hawks @ Phoenix Suns Made Threes",
     "name": "SGP+",
     "odds": 123369,
     "stake": 0.5,
@@ -933,14 +1034,41 @@
     "legs": [
       {
         "market": "Same Game Parlay",
-        "target": "Chicago Bulls @ Utah JazzNov",
+        "target": "Golden State Warriors @ New Orleans Pelicans",
         "odds": 3623,
         "result": "LOSS",
         "isGroupLeg": true,
         "children": [
           {
             "entities": [
-              "Royce O'Neale"
+              "Zion Williamson"
+            ],
+            "market": "Pts",
+            "target": "30+",
+            "odds": null,
+            "result": "VOID"
+          },
+          {
+            "entities": [
+              "Will Richard"
+            ],
+            "market": "3pt",
+            "target": "3+",
+            "odds": null,
+            "result": "LOSS"
+          }
+        ]
+      },
+      {
+        "market": "Same Game Parlay",
+        "target": "Atlanta Hawks @ Phoeni",
+        "odds": 1774,
+        "result": "LOSS",
+        "isGroupLeg": true,
+        "children": [
+          {
+            "entities": [
+              "Jalen Smith"
             ],
             "market": "3pt",
             "target": "3+",
@@ -949,64 +1077,24 @@
           },
           {
             "entities": [
-              "Zion Williamson"
+              "Ace Bailey"
             ],
             "market": "3pt",
-            "target": "30+",
+            "target": "3+",
             "odds": null,
-            "result": "VOID"
-          }
-        ]
-      },
-      {
-        "market": "Same Game Parlay",
-        "target": "Golden State Warriors @ New Orleans PelicansNov",
-        "odds": 3623,
-        "result": "PUSH",
-        "isGroupLeg": true,
-        "children": [
-          {
-            "entities": [
-              "Zion Williamson"
-            ],
-            "market": "3pt",
-            "target": "30+",
-            "odds": null,
-            "result": "VOID"
+            "result": "LOSS"
           }
         ]
       },
       {
         "entities": [
-          "Points Void Will Richard"
+          "Royce O'Neale"
         ],
         "market": "3pt",
-        "target": "3+",
-        "result": "PUSH"
-      },
-      {
-        "entities": [
-          "Jalen Smith"
-        ],
-        "market": "3pt",
-        "target": "3+",
-        "result": "PENDING"
-      },
-      {
-        "entities": [
-          "Ace Bailey"
-        ],
-        "market": "3pt",
-        "target": "3+",
-        "result": "PENDING"
-      },
-      {
-        "entities": [
-          "Zion Williamson"
-        ],
-        "market": "Pts",
-        "target": "30+",
-        "result": "PUSH"
+        "target": "Atlanta Hawks @ Phoenix Suns",
+        "odds": -130,
+        "result": "LOSS",
+        "game": "Made Threes Atlanta Hawks @ Phoenix Suns"
       }
     ],
     "tail": "",
@@ -1022,7 +1110,7 @@
     "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NFL",
-    "description": "Quinshon Judkins 80+ Yds, Alt Rushing Yds Derrick Henry 80+ Yds, Alt Rushing Yds Lamar Jackson 40+ Yds, Rashee Rice 7+ Rec, Alt Receptions Evan Engram 4+ Rec",
+    "description": "Same Game Parlay - Baltimore Ravens @ Cleveland Browns Quinshon: Quinshon Judkins 80+ Yds, Derrick Henry 80+ Yds, Lamar Jackson 40+ Yds, Same Game Parlay - Kansas City Chiefs @ Denver Broncos Rashee: Rashee Rice 7+ Rec, Evan Engram 4+ Rec",
     "name": "SGP+",
     "odds": 4963,
     "stake": 1,
@@ -1030,44 +1118,67 @@
     "result": "loss",
     "legs": [
       {
-        "entities": [
-          "Quinshon Judkins"
-        ],
-        "market": "Yds",
-        "target": "80+",
-        "result": "PENDING"
+        "market": "Same Game Parlay",
+        "target": "Baltimore Ravens @ Cleveland Browns Quinshon",
+        "odds": 1294,
+        "result": "LOSS",
+        "isGroupLeg": true,
+        "children": [
+          {
+            "entities": [
+              "Quinshon Judkins"
+            ],
+            "market": "Yds",
+            "target": "80+",
+            "odds": null,
+            "result": "LOSS"
+          },
+          {
+            "entities": [
+              "Derrick Henry"
+            ],
+            "market": "Yds",
+            "target": "80+",
+            "odds": null,
+            "result": "LOSS"
+          },
+          {
+            "entities": [
+              "Lamar Jackson"
+            ],
+            "market": "Yds",
+            "target": "40+",
+            "odds": null,
+            "result": "LOSS"
+          }
+        ]
       },
       {
-        "entities": [
-          "Alt Rushing Yds Derrick Henry"
-        ],
-        "market": "Yds",
-        "target": "80+",
-        "result": "PENDING"
-      },
-      {
-        "entities": [
-          "Alt Rushing Yds Lamar Jackson"
-        ],
-        "market": "Yds",
-        "target": "40+",
-        "result": "PENDING"
-      },
-      {
-        "entities": [
-          "Rashee Rice"
-        ],
-        "market": "Rec",
-        "target": "7+",
-        "result": "PENDING"
-      },
-      {
-        "entities": [
-          "Alt Receptions Evan Engram"
-        ],
-        "market": "Rec",
-        "target": "4+",
-        "result": "PENDING"
+        "market": "Same Game Parlay",
+        "target": "Kansas City Chiefs @ Denver Broncos Rashee",
+        "odds": 263,
+        "result": "LOSS",
+        "isGroupLeg": true,
+        "children": [
+          {
+            "entities": [
+              "Rashee Rice"
+            ],
+            "market": "Rec",
+            "target": "7+",
+            "odds": null,
+            "result": "LOSS"
+          },
+          {
+            "entities": [
+              "Evan Engram"
+            ],
+            "market": "Rec",
+            "target": "4+",
+            "odds": null,
+            "result": "LOSS"
+          }
+        ]
       }
     ],
     "tail": "",
@@ -1245,7 +1356,7 @@
     "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NFL",
-    "description": "Same Game Parlay - Seattle Seahawks @ Los Angeles RamsNov: Ricky Pearsall 50+ Yds, Davante Adams 50+ Yds, Alt Receiving Yds Cooper Kupp 3+ Yds, Alt Receptions Ricky Pearsall 50+ Yds",
+    "description": "Same Game Parlay - Seattle Seahawks @ Los Angeles Rams: Davante Adams 50+ Yds, Cooper Kupp 3+ Rec, Ricky Pearsall ers @ Arizona Cardinals Yds, Cooper Kupp 3+ Yds",
     "name": "SGP+",
     "odds": 37067,
     "stake": 0.25,
@@ -1254,17 +1365,26 @@
     "legs": [
       {
         "market": "Same Game Parlay",
-        "target": "Seattle Seahawks @ Los Angeles RamsNov",
+        "target": "Seattle Seahawks @ Los Angeles Rams",
         "odds": 2997,
         "result": "LOSS",
         "isGroupLeg": true,
         "children": [
           {
             "entities": [
-              "Ricky Pearsall"
+              "Davante Adams"
             ],
             "market": "Yds",
             "target": "50+",
+            "odds": null,
+            "result": "LOSS"
+          },
+          {
+            "entities": [
+              "Cooper Kupp"
+            ],
+            "market": "Rec",
+            "target": "3+",
             "odds": null,
             "result": "LOSS"
           }
@@ -1272,27 +1392,21 @@
       },
       {
         "entities": [
-          "Davante Adams"
+          "Ricky Pearsall"
         ],
         "market": "Yds",
-        "target": "50+",
-        "result": "PENDING"
+        "target": "ers @ Arizona Cardinals",
+        "odds": 1100,
+        "result": "LOSS",
+        "game": "ers @ Arizona Cardinals"
       },
       {
         "entities": [
-          "Alt Receiving Yds Cooper Kupp"
+          "Cooper Kupp"
         ],
         "market": "Yds",
         "target": "3+",
-        "result": "PENDING"
-      },
-      {
-        "entities": [
-          "Alt Receptions Ricky Pearsall"
-        ],
-        "market": "Yds",
-        "target": "50+",
-        "result": "PENDING"
+        "result": "LOSS"
       }
     ],
     "tail": "",
@@ -1308,7 +1422,8 @@
     "betType": "parlay",
     "marketCategory": "Parlays",
     "sport": "NFL",
-    "description": "Ricky Pearsall 50+ Yds, Davante Adams 50+ Yds",
+    "description": "Ricky Pearsall ers @ Arizona Cardinals Davante Adams Yds, Davante Adams 50+ Yds",
+    "name": "Parlay (2)",
     "odds": 6790,
     "stake": 0.5,
     "payout": 0,
@@ -1319,9 +1434,10 @@
           "Ricky Pearsall"
         ],
         "market": "Yds",
-        "target": "50+",
+        "target": "ers @ Arizona Cardinals Davante Adams",
         "odds": 1200,
-        "result": "LOSS"
+        "result": "LOSS",
+        "game": "ers @ Arizona Cardinals Davante Adams"
       },
       {
         "entities": [
@@ -1346,7 +1462,7 @@
     "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NFL",
-    "description": "Same Game Parlay - Seattle Seahawks @ Los Angeles RamsNov: Ricky Pearsall 3+ Rec, Cooper Kupp 2+ Rec, Alt Receptions Davante Adams 3+ Rec, Alt Receptions Ricky Pearsall 3+ Rec",
+    "description": "Same Game Parlay - Seattle Seahawks @ Los Angeles Rams: Cooper Kupp 2+ Rec, Davante Adams 3+ Rec, Ricky Pearsall ers @ Arizona Cardinals Rec",
     "name": "SGP+",
     "odds": 812,
     "stake": 2,
@@ -1355,45 +1471,40 @@
     "legs": [
       {
         "market": "Same Game Parlay",
-        "target": "Seattle Seahawks @ Los Angeles RamsNov",
+        "target": "Seattle Seahawks @ Los Angeles Rams",
         "odds": 194,
-        "result": "WIN",
+        "result": "LOSS",
         "isGroupLeg": true,
         "children": [
           {
             "entities": [
-              "Ricky Pearsall"
+              "Cooper Kupp"
+            ],
+            "market": "Rec",
+            "target": "2+",
+            "odds": null,
+            "result": "LOSS"
+          },
+          {
+            "entities": [
+              "Davante Adams"
             ],
             "market": "Rec",
             "target": "3+",
             "odds": null,
-            "result": "WIN"
+            "result": "LOSS"
           }
         ]
       },
       {
         "entities": [
-          "Cooper Kupp"
+          "Ricky Pearsall"
         ],
         "market": "Rec",
-        "target": "2+",
-        "result": "PENDING"
-      },
-      {
-        "entities": [
-          "Alt Receptions Davante Adams"
-        ],
-        "market": "Rec",
-        "target": "3+",
-        "result": "PENDING"
-      },
-      {
-        "entities": [
-          "Alt Receptions Ricky Pearsall"
-        ],
-        "market": "Rec",
-        "target": "3+",
-        "result": "PENDING"
+        "target": "ers @ Arizona Cardinals",
+        "odds": 210,
+        "result": "LOSS",
+        "game": "ers @ Arizona Cardinals"
       }
     ],
     "tail": "",
@@ -1409,7 +1520,7 @@
     "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NFL",
-    "description": "Davante Adams 5+ Rec, Alt Receptions Cooper Kupp 3+ Rec, Ricky Pearsall 3+ Rec, Alt Receptions Jauan Jennings 6+ Rec",
+    "description": "Same Game Parlay - Seattle Seahawks @ Los Angeles Rams: Davante Adams 5+ Rec, Cooper Kupp 3+ Rec, Same Game Parlay - Seattle Seahawks @ Los Angeles Rams: Ricky Pearsall 3+ Rec, Jauan Jennings 6+ Rec",
     "name": "SGP+",
     "odds": 17311,
     "stake": 0.25,
@@ -1417,36 +1528,58 @@
     "result": "loss",
     "legs": [
       {
-        "entities": [
-          "Davante Adams"
-        ],
-        "market": "Rec",
-        "target": "5+",
-        "result": "PENDING"
+        "market": "Same Game Parlay",
+        "target": "Seattle Seahawks @ Los Angeles Rams",
+        "odds": 3142,
+        "result": "LOSS",
+        "isGroupLeg": true,
+        "children": [
+          {
+            "entities": [
+              "Davante Adams"
+            ],
+            "market": "Rec",
+            "target": "5+",
+            "odds": null,
+            "result": "LOSS"
+          },
+          {
+            "entities": [
+              "Cooper Kupp"
+            ],
+            "market": "Rec",
+            "target": "3+",
+            "odds": null,
+            "result": "LOSS"
+          }
+        ]
       },
       {
-        "entities": [
-          "Alt Receptions Cooper Kupp"
-        ],
-        "market": "Rec",
-        "target": "3+",
-        "result": "PENDING"
-      },
-      {
-        "entities": [
-          "Ricky Pearsall"
-        ],
-        "market": "Rec",
-        "target": "3+",
-        "result": "PENDING"
-      },
-      {
-        "entities": [
-          "Alt Receptions Jauan Jennings"
-        ],
-        "market": "Rec",
-        "target": "6+",
-        "result": "PENDING"
+        "market": "Same Game Parlay",
+        "target": "Seattle Seahawks @ Los Angeles Rams",
+        "odds": 436,
+        "result": "LOSS",
+        "isGroupLeg": true,
+        "children": [
+          {
+            "entities": [
+              "Ricky Pearsall"
+            ],
+            "market": "Rec",
+            "target": "3+",
+            "odds": null,
+            "result": "LOSS"
+          },
+          {
+            "entities": [
+              "Jauan Jennings"
+            ],
+            "market": "Rec",
+            "target": "6+",
+            "odds": null,
+            "result": "LOSS"
+          }
+        ]
       }
     ],
     "tail": "",

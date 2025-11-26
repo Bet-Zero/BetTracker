@@ -32,17 +32,17 @@ const iconResultFromNode = (node: Element): LegResult | null => {
   const id = (node.getAttribute("id") || "").toLowerCase();
   const fill = (node.getAttribute("fill") || "").toLowerCase();
 
-  if (id.includes("tick-circle") || id.includes("tick_circle")) {
-    return "WIN";
-  }
-  if (id.includes("cross-circle") || id.includes("cross_circle")) {
-    return "LOSS";
-  }
   if (fill === "#128000") {
     return "WIN";
   }
   if (fill === "#d22839") {
     return "LOSS";
+  }
+  if (id.includes("cross-circle") || id.includes("cross_circle")) {
+    return "LOSS";
+  }
+  if (id.includes("tick-circle") || id.includes("tick_circle")) {
+    return "WIN";
   }
 
   return null;
@@ -167,6 +167,7 @@ const TEAM_TOKENS = new Set(
     "spurs",
     "grizzlies",
     "hawks",
+    "bulls",
     "magic",
     "pistons",
     "pelicans",
@@ -182,9 +183,25 @@ const TEAM_TOKENS = new Set(
     "broncos",
     "seahawks",
     "rams",
+    "bills",
+    "ravens",
     "cardinals",
     "niners",
     "49ers",
+    "lakers",
+    "celtics",
+    "heat",
+    "suns",
+    "trail blazers",
+    "blazers",
+    "cavaliers",
+    "clippers",
+    "kings",
+    "wizards",
+    "knicks",
+    "nets",
+    "mavericks",
+    "raptors",
   ].map((t) => t.toLowerCase())
 );
 
@@ -193,6 +210,59 @@ export const parseMoney = (raw: string): number | null => {
   if (!cleaned) return null;
   const n = parseFloat(cleaned);
   return Number.isNaN(n) ? null : n;
+};
+
+// Attempt to build a matchup string from known team names in the text.
+export const inferMatchupFromTeams = (text: string): string | null => {
+  if (!text) return null;
+  const TEAM_NAMES = [
+    "Chicago Bulls",
+    "Utah Jazz",
+    "Golden State Warriors",
+    "New Orleans Pelicans",
+    "Atlanta Hawks",
+    "Phoenix Suns",
+    "Portland Trail Blazers",
+    "Detroit Pistons",
+    "Orlando Magic",
+    "Los Angeles Lakers",
+    "Seattle Seahawks",
+    "Los Angeles Rams",
+    "San Francisco 49ers",
+    "Arizona Cardinals",
+    "Kansas City Chiefs",
+    "Denver Broncos",
+    "Baltimore Ravens",
+    "Cleveland Browns",
+    "Dallas Mavericks",
+    "Memphis Grizzlies",
+    "Boston Celtics",
+  ];
+
+  const lower = text.toLowerCase();
+  const hits: Array<{ name: string; idx: number }> = [];
+
+  for (const name of TEAM_NAMES) {
+    const idx = lower.indexOf(name.toLowerCase());
+    if (idx !== -1) {
+      hits.push({ name, idx });
+    }
+  }
+
+  hits.sort((a, b) => a.idx - b.idx);
+  const uniq: string[] = [];
+  for (const h of hits) {
+    if (!uniq.some((n) => n.toLowerCase() === h.name.toLowerCase())) {
+      uniq.push(h.name);
+    }
+    if (uniq.length === 2) break;
+  }
+
+  if (uniq.length === 2) {
+    return `${uniq[0]} @ ${uniq[1]}`;
+  }
+
+  return null;
 };
 
 export const extractOdds = (root: HTMLElement): number | null => {
@@ -870,6 +940,13 @@ export const cleanEntityName = (raw: string): string => {
     /\s*-\s*Alt\s+(Receiving|Rushing)\s+(Yds|Yards|Receptions|Rec)\s*$/i,
     ""
   );
+  cleaned = cleaned.replace(
+    /^Alt\s+(Receiving|Rushing)\s+(Yds|Yards|Receptions|Rec)\s+/i,
+    ""
+  );
+  cleaned = cleaned.replace(/^Alt\s+(Receptions|Receiving|Rushing)\s+/i, "");
+  cleaned = cleaned.replace(/^Points\s+Void\s+/i, "");
+  cleaned = cleaned.replace(/^Void\s+/i, "");
 
   // Remove team name prefixes (e.g., "Cleveland Browns Quinshon" → "Quinshon")
   // Common team patterns that might be combined with player names
@@ -1539,7 +1616,7 @@ export const formatLegSummary = (leg: BetLeg): string => {
     const childSummary = leg.children
       .map(formatLegSummary)
       .filter(Boolean)
-      .join("; ");
+      .join(", ");
     const label = leg.target
       ? `Same Game Parlay - ${leg.target}`
       : "Same Game Parlay";
@@ -1556,6 +1633,11 @@ export const formatLegSummary = (leg: BetLeg): string => {
 
   if (market.toLowerCase() === "moneyline") {
     return name ? `${name} Moneyline` : "Moneyline";
+  }
+
+  if (market.toLowerCase() === "3pt") {
+    const madeText = target ? `${target} Made Threes` : "Made Threes";
+    return name ? `${name} ${madeText}` : madeText;
   }
 
   if (name && target && market) return `${name} ${target} ${market}`;
@@ -2546,6 +2628,13 @@ export const findLegRows = (cardLi: HTMLElement): HTMLElement[] => {
   // Find selection-like blocks: elements with aria-label (not spans) or odds spans that
   // have market text/odds. This skips scoreboard and footer content.
   const candidates: HTMLElement[] = [];
+
+  // FanDuel leg cards without aria-labels/odds often use this class cluster.
+  candidates.push(
+    ...Array.from(
+      cardLi.querySelectorAll<HTMLElement>("div.v.z.x.y.jk.t.ab.h")
+    )
+  );
 
   // Primary: nodes with aria-label
   candidates.push(

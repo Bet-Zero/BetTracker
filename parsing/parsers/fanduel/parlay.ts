@@ -1,4 +1,11 @@
-import { Bet, BetLeg, BetResult, BetType, SportsbookName } from "../../types";
+import {
+  Bet,
+  BetLeg,
+  BetResult,
+  BetType,
+  LegResult,
+  SportsbookName,
+} from "../../types";
 import {
   HeaderInfo,
   buildLegsFromDescription,
@@ -17,7 +24,51 @@ import {
   findLegRows,
   normalizeSpaces,
   fdDebug,
+  stripDateTimeNoise,
+  stripScoreboardText,
+  toLegResult,
+  inferMatchupFromTeams,
 } from "./common";
+
+const inferMatchupForEntity = (
+  rawText: string,
+  entity: string | undefined
+): string | null => {
+  if (!rawText || !entity) return null;
+  const lower = rawText.toLowerCase();
+  const idx = lower.indexOf(entity.toLowerCase());
+  if (idx !== -1) {
+    const slice = rawText.slice(Math.max(0, idx - 40), idx + 140);
+    const matchup = cleanMatchupTarget(slice) || findMatchupInText(slice);
+    if (matchup) return normalizeSpaces(matchup);
+  }
+  return null;
+};
+
+const extractOddsMatchups = (text: string): Map<number, string> => {
+  const map = new Map<number, string>();
+  if (!text) return map;
+  const normalized = normalizeSpaces(text);
+  const sgpPattern =
+    /Same Game Parlay™\s*\+?(-?\d+)\s+([A-Z][A-Za-z'\s]+@\s+[A-Z][A-Za-z'\s]+)/gi;
+  for (const match of normalized.matchAll(sgpPattern)) {
+    const oddsVal = parseInt(match[1], 10);
+    const matchup = normalizeSpaces(match[2]);
+    if (!Number.isNaN(oddsVal)) map.set(oddsVal, matchup);
+  }
+
+  const genericPattern =
+    /([+\-]?\d{2,5})[^\n]{0,60}?([A-Z][A-Za-z'\s]+@\s+[A-Z][A-Za-z'\s]+)/gi;
+  for (const match of normalized.matchAll(genericPattern)) {
+    const oddsVal = parseInt(match[1], 10);
+    const matchup = normalizeSpaces(match[2]);
+    if (!Number.isNaN(oddsVal) && !map.has(oddsVal)) {
+      map.set(oddsVal, matchup);
+    }
+  }
+
+  return map;
+};
 
 export interface ParlayBetParams {
   headerLi: HTMLElement;
@@ -69,10 +120,11 @@ export const parseParlayBet = ({
 
   const buildCombinedLegs = (rows: HTMLElement[]): BetLeg[] => {
     const useSkipLegOdds = skipLegOdds && !isSGPPlusStructure;
+    const legFallbackResult = (result || "pending").toUpperCase() as LegResult;
 
     // Build legs from structured rows and textual description together
     const legsFromRows = buildLegsFromRows(rows, {
-      result: "PENDING",
+      result: legFallbackResult,
       skipOdds: useSkipLegOdds,
       fallbackOdds: null,
       parentForResultLookup: headerLi,
@@ -80,22 +132,19 @@ export const parseParlayBet = ({
     const legsFromDescription = headerInfo.description
       ? buildLegsFromDescription(
           headerInfo.description,
-          "PENDING",
+          legFallbackResult,
           useSkipLegOdds
         )
       : [];
 
     // Always try to extract from raw text; helpful when FanDuel hides leg odds/results
-    const legsFromStatText = buildLegsFromStatText(
-      headerInfo.rawText,
-      "PENDING"
-    );
-    const legsFromSpans = buildLegsFromSpans(headerLi, "PENDING");
+    const legsFromStatText = buildLegsFromStatText(headerInfo.rawText, legFallbackResult);
+    const legsFromSpans = buildLegsFromSpans(headerLi, legFallbackResult);
 
     const fallbackHeaderLegs =
       !legsFromRows.length && !legsFromStatText.length && !legsFromSpans.length
         ? buildLegsFromRows([headerLi], {
-            result: "PENDING",
+            result: legFallbackResult,
             skipOdds: useSkipLegOdds,
             fallbackOdds: null,
             parentForResultLookup: headerLi,
@@ -134,6 +183,76 @@ export const parseParlayBet = ({
     ));
   } else if (isSGPPlusStructure) {
     ({ groupLegs, consumedRows } = buildSGPPlusGroupLegs(headerLi, result));
+  }
+
+  // Fallback grouping for SGP+ when structural grouping failed: cluster legs by shared odds.
+  if (betType === "sgp_plus" && groupLegs.length === 0 && legRows.length) {
+    const perRowLegs = legRows
+      .map((row) => {
+        const leg = buildLegsFromRows([row], {
+          result: toLegResult(result),
+          skipOdds: false,
+          fallbackOdds: null,
+          parentForResultLookup: headerLi,
+        })[0];
+        return leg ? { row, leg } : null;
+      })
+      .filter(
+        (entry): entry is { row: HTMLElement; leg: BetLeg } => entry !== null
+      );
+
+    const groupedByOdds = new Map<
+      number,
+      { rows: HTMLElement[]; legs: BetLeg[] }
+    >();
+
+    for (const entry of perRowLegs) {
+      const oddsVal = entry.leg.odds;
+      if (oddsVal == null) continue;
+      const rowText = normalizeSpaces(entry.row.textContent || "");
+      const hasStatPair = /\b\d{1,3}\s+\d{1,3}\b/.test(rowText);
+      if (entry.leg.result === "WIN" && !hasStatPair) {
+        entry.leg.result = toLegResult(result);
+      }
+      const bucket =
+        groupedByOdds.get(oddsVal) ?? { rows: [], legs: [] as BetLeg[] };
+      bucket.rows.push(entry.row);
+      bucket.legs.push({ ...entry.leg, odds: null });
+      groupedByOdds.set(oddsVal, bucket);
+    }
+
+    const deriveMatchup = (oddsValue: number): string | undefined => {
+      const oddsText = String(oddsValue);
+      const idx = headerInfo.rawText.indexOf(oddsText);
+      if (idx !== -1) {
+        const slice = headerInfo.rawText.slice(
+          Math.max(0, idx - 100),
+          Math.min(headerInfo.rawText.length, idx + 140)
+        );
+        const matchup = findMatchupInText(slice);
+        if (matchup) return matchup;
+      }
+      const combinedText = `${headerInfo.rawText} ${normalizeSpaces(
+        headerLi.textContent || ""
+      )}`;
+      const fallbackMatchup = cleanMatchupTarget(
+        findMatchupInText(combinedText) ?? combinedText
+      );
+      return fallbackMatchup ? normalizeSpaces(fallbackMatchup) : undefined;
+    };
+
+    for (const [oddsValue, bucket] of groupedByOdds) {
+      if (bucket.legs.length < 2) continue;
+      bucket.rows.forEach((row) => consumedRows.add(row));
+      groupLegs.push({
+        market: "Same Game Parlay",
+        target: deriveMatchup(oddsValue),
+        odds: oddsValue,
+        result: aggregateChildResults(bucket.legs, result),
+        isGroupLeg: true,
+        children: bucket.legs,
+      });
+    }
   }
 
   const remainingRows =
@@ -195,6 +314,58 @@ export const parseParlayBet = ({
   }
 
   const legs = [...groupLegs, ...filteredExtras, ...additionalLegsFromText];
+  const oddsMatchups = extractOddsMatchups(headerInfo.rawText);
+
+  legs.forEach((leg) => {
+    if (leg.isGroupLeg) {
+      const cleanedTarget =
+        cleanMatchupTarget(
+          leg.target ??
+            normalizeSpaces(
+              `${headerInfo.rawText} ${headerLi.textContent || ""}`
+            )
+        ) || leg.target;
+      if (cleanedTarget) {
+        leg.target = cleanedTarget;
+      }
+    } else {
+      if (leg.odds != null && oddsMatchups.has(leg.odds)) {
+        const m = oddsMatchups.get(leg.odds);
+        if (m) {
+          leg.target = m;
+          (leg as any).game = m;
+        }
+      }
+      if (leg.target) {
+        const cleaned = cleanMatchupTarget(leg.target) || leg.target;
+        leg.target = cleaned;
+      } else {
+        const entity = leg.entities?.[0];
+        const matchup =
+          inferMatchupForEntity(headerInfo.rawText, entity) ||
+          inferMatchupFromTeams(headerInfo.rawText);
+        if (matchup) {
+          leg.target = matchup;
+          (leg as any).game = matchup;
+        }
+      }
+    }
+  });
+
+  if (betType === "sgp" && legs.length) {
+    const childResult = toLegResult(result);
+    legs.forEach((leg) => {
+      if (leg.children) {
+        leg.children = leg.children.map((child) => ({
+          ...child,
+          result: childResult,
+        }));
+      }
+      if (leg.isGroupLeg && leg.children) {
+        leg.result = aggregateChildResults(leg.children, childResult);
+      }
+    });
+  }
 
   // Validate result consistency: for SGP bets, if all legs show WIN, the bet should be WIN
   // (unless there are missing legs, in which case the footer result is the source of truth)
@@ -232,8 +403,32 @@ export const parseParlayBet = ({
     }
   }
 
+  if (betType === "parlay" && legs.length) {
+    const legResult = toLegResult(result);
+    legs.forEach((leg) => {
+      leg.result = legResult;
+      if (leg.children) {
+        leg.children = leg.children.map((child) => ({
+          ...child,
+          result: legResult,
+        }));
+      }
+    });
+  }
+
+  const shouldCondenseGroupDescription =
+    betType === "sgp" &&
+    legs.length === 1 &&
+    legs[0].isGroupLeg &&
+    Array.isArray(legs[0].children) &&
+    legs[0].children.length <= 3;
+
   const description = legs.length
-    ? formatParlayDescriptionFromLegs(legs)
+    ? shouldCondenseGroupDescription
+      ? `${formatParlayDescriptionFromLegs(legs[0].children || [])}${
+          legs[0].target ? ` ${legs[0].target}` : ""
+        }`.trim()
+      : formatParlayDescriptionFromLegs(legs)
     : formatDescription(
         headerInfo.description,
         headerInfo.type,
@@ -244,14 +439,28 @@ export const parseParlayBet = ({
       );
 
   // Give SGPs an explicit short name so UI doesn't fall back to generic header text.
-  const legCount = legs.length || legRows.length || undefined;
+  const groupChildCount =
+    betType === "sgp" &&
+    legs.length === 1 &&
+    legs[0].isGroupLeg &&
+    Array.isArray(legs[0].children)
+      ? legs[0].children!.length
+      : null;
+  const legCount =
+    betType === "sgp" && groupChildCount
+      ? groupChildCount
+      : legs.length || legRows.length || undefined;
   const betName =
     betType === "sgp"
-      ? legCount
+      ? legCount && legCount >= 4
         ? `SGP (${legCount} legs)`
         : "SGP"
       : betType === "sgp_plus"
       ? "SGP+"
+      : betType === "parlay"
+      ? legCount
+        ? `Parlay (${legCount})`
+        : "Parlay"
       : undefined;
 
   // If the description is still just generic SGP text, fall back to leg summary when available.
@@ -305,6 +514,8 @@ const findSGPGroupContainers = (root: HTMLElement): HTMLElement[] => {
     // Must have an odds span to be a real SGP block
     // Also check for role="button" which is common in SGP containers
     const hasOdds = !!div.querySelector('span[aria-label^="Odds"]');
+    const hasLegCards =
+      div.querySelector("div.v.z.x.y.jk.t.ab.h") !== null;
     const hasButtonRole = div.getAttribute("role") === "button" || 
                          div.querySelector('[role="button"]') !== null;
     
@@ -319,7 +530,12 @@ const findSGPGroupContainers = (root: HTMLElement): HTMLElement[] => {
     const hasLegRowClass = div.querySelector('.leg-row') !== null;
     const hasPlayerMarketPattern = /[A-Z][a-z]+\s+[A-Z][a-z]+.*to\s+(record|score).*(triple double|double double|\d+\+\s+\w+)/i.test(text);
     
-    return hasOdds || (hasButtonRole && (hasLegRows || hasLegRowClass)) || (hasLegRows && hasPlayerMarketPattern);
+    return (
+      hasOdds ||
+      hasLegCards ||
+      (hasButtonRole && (hasLegRows || hasLegRowClass)) ||
+      (hasLegRows && hasPlayerMarketPattern)
+    );
   });
 
   // Prefer the most specific containers (innermost SGP blocks)
@@ -363,9 +579,9 @@ const findSGPGroupContainers = (root: HTMLElement): HTMLElement[] => {
 };
 
 const findMatchupInText = (text: string): string | null => {
-  const cleaned = text.replace(/Finished/gi, " ");
+  const cleaned = stripScoreboardText(text.replace(/Finished/gi, " "));
   const pattern =
-    /([A-Z][A-Za-z']+(?:\s+[A-Z][A-Za-z']+){0,3})\s+@\s+([A-Z][A-Za-z']+(?:\s+[A-Z][A-Za-z']+){0,3})/g;
+    /([A-Z][A-Za-z']+(?:\s+[A-Z][A-Za-z']+){0,2})\s+@\s+([A-Z][A-Za-z']+(?:\s+[A-Z][A-Za-z']+){0,2})/g;
   let best: string | null = null;
 
   for (const match of cleaned.matchAll(pattern)) {
@@ -379,7 +595,7 @@ const findMatchupInText = (text: string): string | null => {
   if (best) return best;
 
   const vsPattern =
-    /([A-Z][A-Za-z']+(?:\s+[A-Z][A-Za-z']+){0,3})\s+vs\.?\s+([A-Z][A-Za-z']+(?:\s+[A-Z][A-Za-z']+){0,3})/gi;
+    /([A-Z][A-Za-z']+(?:\s+[A-Z][A-Za-z']+){0,2})\s+vs\.?\s+([A-Z][A-Za-z']+(?:\s+[A-Z][A-Za-z']+){0,2})/gi;
   for (const match of cleaned.matchAll(vsPattern)) {
     const candidate = normalizeSpaces(`${match[1]} vs ${match[2]}`);
     if (/(Rebounds|Record|Assists|Points|Made)/i.test(candidate)) continue;
@@ -389,6 +605,35 @@ const findMatchupInText = (text: string): string | null => {
   }
 
   return best;
+};
+
+const cleanMatchupTarget = (
+  text: string | null | undefined
+): string | undefined => {
+  if (!text) return text ?? undefined;
+  let normalized = normalizeSpaces(text);
+
+  normalized = normalized.replace(
+    /^(Same Game Parlay|Parlay|Threes|Made Threes|Double|TD)\s+/i,
+    ""
+  );
+
+  const direct = findMatchupInText(normalized);
+  if (direct) return normalizeSpaces(direct);
+
+  const scorePattern =
+    /([A-Z][A-Za-z']+(?:\s+[A-Z][A-Za-z']+){0,2})\s+\d{2,}(?:\s+\d{2,})*\s+([A-Z][A-Za-z']+(?:\s+[A-Z][A-Za-z']+){0,2})/;
+  const scoreMatch = normalized.match(scorePattern);
+  if (scoreMatch) {
+    return `${normalizeSpaces(scoreMatch[1])} @ ${normalizeSpaces(
+      scoreMatch[2]
+    )}`;
+  }
+
+  const teamMatchup = inferMatchupFromTeams(normalized);
+  if (teamMatchup) return teamMatchup;
+
+  return undefined;
 };
 
 // Extract team names/matchup from a container or row to identify which game it belongs to
@@ -418,8 +663,9 @@ const buildGroupLegFromContainer = (
 ): BetLeg | null => {
   if (!childRows.length) return null;
 
+  const defaultChildResult = (betResult || "pending").toUpperCase() as LegResult;
   const children = buildLegsFromRows(childRows, {
-    result: "PENDING",
+    result: defaultChildResult,
     skipOdds: true,
     fallbackOdds: null,
     parentForResultLookup: container,
@@ -443,6 +689,32 @@ const buildGroupLegFromContainer = (
     }
   }
 
+  if (eventText) {
+    eventText = normalizeSpaces(stripDateTimeNoise(eventText));
+    // Strip stray month tokens that sometimes cling to matchups (e.g., "JazzNov")
+    eventText = eventText.replace(
+      /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b\.?/gi,
+      ""
+    );
+    const matchupOnly = eventText.match(
+      /([A-Z][A-Za-z']+(?:\\s+[A-Z][A-Za-z']+){0,2}\\s+@\\s+[A-Z][A-Za-z']+(?:\\s+[A-Z][A-Za-z']+){0,2})/
+    );
+    if (matchupOnly && matchupOnly[1]) {
+      eventText = matchupOnly[1];
+    }
+    const refined = cleanMatchupTarget(eventText);
+    eventText = refined ? normalizeSpaces(refined) : normalizeSpaces(eventText);
+  } else {
+    const fallback = cleanMatchupTarget(
+      normalizeSpaces(
+        `${container.textContent || ""} ${fallbackEventRoot?.textContent || ""}`
+      )
+    );
+    if (fallback) {
+      eventText = fallback;
+    }
+  }
+
   return {
     market: "Same Game Parlay",
     target: eventText || undefined,
@@ -462,19 +734,49 @@ const buildSGPPlusGroupLegs = (
   const consumedRows = new Set<HTMLElement>();
   const seenGroupKeys = new Set<string>();
 
-  for (const container of containers) {
-    consumedRows.add(container);
+  const containerInfos = containers.map((container) => {
     let childRows = findLegRowsWithin(container);
     if (!childRows.length) {
       childRows = findLegRows(container);
     }
+    const odds = extractOdds(container);
+    const eventHint =
+      extractGameMatchup(container) ||
+      (childRows[0] ? extractGameMatchup(childRows[0]) : null) ||
+      null;
+
+    return { container, childRows, odds, eventHint };
+  });
+
+  const bestByKey = new Map<
+    string,
+    {
+      container: HTMLElement;
+      childRows: HTMLElement[];
+      odds: number | null | undefined;
+      eventHint: string | null;
+    }
+  >();
+
+  for (const info of containerInfos) {
+    const key = `${info.odds ?? "no-odds"}`;
+    const existing = bestByKey.get(key);
+    if (!existing || info.childRows.length < existing.childRows.length) {
+      bestByKey.set(key, info);
+    }
+  }
+
+  for (const info of bestByKey.values()) {
+    const { container, childRows, odds, eventHint } = info;
+    consumedRows.add(container);
     childRows.forEach((row) => consumedRows.add(row));
 
-    const odds = extractOdds(container);
     const childSignature = childRows
       .map((row) => normalizeSpaces(row.textContent || ""))
       .join("|");
-    const groupKey = `${odds ?? "no-odds"}|${childSignature}`;
+    const groupKey = `${odds ?? "no-odds"}|${eventHint ?? ""}|${
+      childRows.length
+    }|${childSignature.length}`;
     if (seenGroupKeys.has(groupKey)) continue;
 
     const groupLeg = buildGroupLegFromContainer(
@@ -529,6 +831,14 @@ const buildSGPGroupLegs = (
 // Must NOT find legs from sibling SGP containers or parent SGP+ containers.
 const findLegRowsWithin = (container: HTMLElement): HTMLElement[] => {
   const candidates: HTMLElement[] = [];
+
+  // FanDuel leg cards often render as generic divs with this class cluster (no aria-label/odds).
+  // Capture them up front so we don't miss SGP selections that hide deeper in the DOM.
+  candidates.push(
+    ...Array.from(
+      container.querySelectorAll<HTMLElement>("div.v.z.x.y.jk.t.ab.h")
+    )
+  );
 
   // CRITICAL: Only search within this container, not in parent or sibling elements
   // The container should be the innermost div that contains the SGP header and its legs

@@ -1,6 +1,7 @@
 #!/usr/bin/env npx tsx
 
 import fs from "fs";
+import path from "path";
 
 interface ValidationResult {
   success: boolean;
@@ -31,9 +32,14 @@ function validateExpectedJson(): ValidationResult {
 
   try {
     // Read the expected JSON
-    const expectedJson = JSON.parse(
-      fs.readFileSync("your-html-file_parsed_expected.json", "utf8")
+    const expectedPath = path.join(
+      process.cwd(),
+      "parsing",
+      "fixtures",
+      "fanduel",
+      "expected_fanduel_comprehensive.json"
     );
+    const expectedJson = JSON.parse(fs.readFileSync(expectedPath, "utf8"));
     result.summary.totalBets = expectedJson.length;
 
     for (const bet of expectedJson) {
