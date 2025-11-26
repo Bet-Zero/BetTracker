@@ -499,7 +499,7 @@ export const parseParlayBet = ({
   let description: string;
   
   if (betType === "sgp_plus" && legs.length) {
-    // Format SGP+ description: "X-leg Same Game Parlay Plus: SGP (...) + selection + selection"
+    // Format SGP+ description: "X-leg Same Game Parlay Plus: SGP (...) + selection"
     const totalLegs = legs.reduce((count, leg) => {
       if (leg.isGroupLeg && leg.children) {
         return count + leg.children.length;
@@ -510,11 +510,10 @@ export const parseParlayBet = ({
     const parts: string[] = [];
     legs.forEach((leg) => {
       if (leg.isGroupLeg && leg.children) {
-        // Format SGP group: "SGP (Matchup - leg, leg)"
-        // Simplify matchup by removing full team names, keeping just city or first word
+        // Format SGP group: "SGP (ShortMatchup)" - just the matchup, no children details
         let matchup = leg.target || "";
         if (matchup) {
-          // Remove full team names like "Detroit Pistons", keep just "Detroit"
+          // Simplify matchup to city names only
           matchup = matchup
             .replace(/\bDetroit\s+Pistons\b/gi, "Detroit")
             .replace(/\bAtlanta\s+Hawks\b/gi, "Atlanta")
@@ -534,26 +533,22 @@ export const parseParlayBet = ({
             .replace(/\bSan\s+Francisco\s+49ers\b/gi, "San Francisco 49ers")
             .replace(/\bArizona\s+Cardinals\b/gi, "Arizona Cardinals");
         }
-        const childDescriptions = leg.children.map((child) => {
-          const entity = child.entities?.[0] || "";
-          const firstName = entity.split(" ")[0];
-          return `${firstName} ${child.market}`;
-        }).join(", ");
-        parts.push(`SGP (${matchup}${childDescriptions ? " - " + childDescriptions : ""})`);
+        parts.push(`SGP (${matchup})`);
       } else {
-        // Format regular selection: "Player Market"
+        // Format regular selection: "Player Target Market" with full name
         const entity = leg.entities?.[0] || "";
-        const firstName = entity.split(" ")[0];
         const market = leg.market || "";
         const target = leg.target;
         // Include target for props (like "5+" for "5+ 3pt")
         if (target && /^\d+\+?$/.test(String(target))) {
-          parts.push(`${firstName} ${target} ${market}`);
+          parts.push(`${entity} ${target} ${market}`);
         } else {
-          parts.push(`${firstName} ${market}`);
+          parts.push(`${entity} ${market}`);
         }
       }
     });
+    
+    description = `${totalLegs}-leg Same Game Parlay Plus: ${parts.join(" + ")}`;
     
     description = `${totalLegs}-leg Same Game Parlay Plus: ${parts.join(" + ")}`;
   } else if (legs.length) {
@@ -599,8 +594,11 @@ export const parseParlayBet = ({
       : undefined;
 
   // If the description is still just generic SGP text, fall back to leg summary when available.
+  // But don't override our custom SGP+ format
   const finalDescription =
-    legs.length && /same game parlay/i.test(description)
+    legs.length && 
+    /^same game parlay[^+]/i.test(description) &&  // Only match if NOT "Same Game Parlay Plus"
+    !/\d+-leg Same Game Parlay Plus/i.test(description)  // Don't override our custom format
       ? formatParlayDescriptionFromLegs(legs)
       : description;
 
