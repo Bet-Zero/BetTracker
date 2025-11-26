@@ -49,6 +49,8 @@ const extractOddsMatchups = (text: string): Map<number, string> => {
   const map = new Map<number, string>();
   if (!text) return map;
   const normalized = normalizeSpaces(text);
+  
+  // Pattern 1: SGP odds followed by matchup
   const sgpPattern =
     /Same Game Parlay™\s*\+?(-?\d+)\s+([A-Z][A-Za-z'\s]+@\s+[A-Z][A-Za-z'\s]+)/gi;
   for (const match of normalized.matchAll(sgpPattern)) {
@@ -57,6 +59,20 @@ const extractOddsMatchups = (text: string): Map<number, string> => {
     if (!Number.isNaN(oddsVal)) map.set(oddsVal, matchup);
   }
 
+  // Pattern 2: Odds after player + market, followed by matchup
+  // Example: "Deni Avdija +1200 To Record A Triple Double Phoenix Suns ... Portland Trail Blazers"
+  const playerOddsPattern =
+    /\b([+\-]\d{2,5})\s+(?:To Record|To Score|Made Threes|MADE THREES)[^]+?([A-Z][A-Za-z'\s]+?)\s+\d{8,}\s+\d+\s+([A-Z][A-Za-z'\s]+?)\s+\d{8,}/gi;
+  for (const match of normalized.matchAll(playerOddsPattern)) {
+    const oddsVal = parseInt(match[1], 10);
+    const team1 = normalizeSpaces(match[2]);
+    const team2 = normalizeSpaces(match[3]);
+    if (!Number.isNaN(oddsVal) && !map.has(oddsVal) && team1 && team2) {
+      map.set(oddsVal, `${team1} @ ${team2}`);
+    }
+  }
+
+  // Pattern 3: Generic odds followed by matchup (fallback)
   const genericPattern =
     /([+\-]?\d{2,5})[^\n]{0,60}?([A-Z][A-Za-z'\s]+@\s+[A-Z][A-Za-z'\s]+)/gi;
   for (const match of normalized.matchAll(genericPattern)) {
@@ -329,24 +345,50 @@ export const parseParlayBet = ({
         leg.target = cleanedTarget;
       }
     } else {
+      // For non-group legs, we need to separate the bet-specific target (like "5+")
+      // from the game matchup. The target should be the line/value, and game should
+      // be the matchup.
+      
+      // First, try to extract the game matchup from odds or entity
+      let gameMatchup: string | undefined;
+      
       if (leg.odds != null && oddsMatchups.has(leg.odds)) {
-        const m = oddsMatchups.get(leg.odds);
-        if (m) {
-          leg.target = m;
-          (leg as any).game = m;
-        }
+        gameMatchup = oddsMatchups.get(leg.odds);
       }
-      if (leg.target) {
-        const cleaned = cleanMatchupTarget(leg.target) || leg.target;
-        leg.target = cleaned;
-      } else {
+      
+      if (!gameMatchup) {
         const entity = leg.entities?.[0];
-        const matchup =
+        gameMatchup =
           inferMatchupForEntity(headerInfo.rawText, entity) ||
           inferMatchupFromTeams(headerInfo.rawText);
-        if (matchup) {
-          leg.target = matchup;
-          (leg as any).game = matchup;
+      }
+      
+      // Clean the matchup if found
+      if (gameMatchup) {
+        gameMatchup = cleanMatchupTarget(gameMatchup) || gameMatchup;
+        (leg as any).game = gameMatchup;
+      }
+      
+      // Handle the target field: if it looks like a matchup, clear it and use game instead
+      // Target should only be the bet line (like "5+", "30+", etc.) or undefined for simple bets
+      if (leg.target) {
+        const targetStr = String(leg.target);
+        // If target looks like a matchup (contains @, team names, or noise like "Finished"),
+        // it should be moved to game field and target should be undefined
+        const looksLikeMatchup = /@/.test(targetStr) || 
+                                 /Finished|Box Score|Play-by-play/i.test(targetStr) ||
+                                 /Double|Triple|Lakers|Pistons|Hawks|Suns|Jazz|Warriors|Pelicans/i.test(targetStr);
+        
+        if (looksLikeMatchup) {
+          // Try to extract a clean matchup from this target
+          const cleanedMatchup = cleanMatchupTarget(targetStr);
+          if (cleanedMatchup && !gameMatchup) {
+            (leg as any).game = cleanedMatchup;
+          }
+          // Clear target for TD/DD and other non-line bets
+          if (leg.market === "TD" || leg.market === "DD" || leg.market === "Moneyline") {
+            leg.target = undefined;
+          }
         }
       }
     }
@@ -423,20 +465,83 @@ export const parseParlayBet = ({
     Array.isArray(legs[0].children) &&
     legs[0].children.length <= 3;
 
-  const description = legs.length
-    ? shouldCondenseGroupDescription
+  // Build description based on bet type
+  let description: string;
+  
+  if (betType === "sgp_plus" && legs.length) {
+    // Format SGP+ description: "X-leg Same Game Parlay Plus: SGP (...) + selection + selection"
+    const totalLegs = legs.reduce((count, leg) => {
+      if (leg.isGroupLeg && leg.children) {
+        return count + leg.children.length;
+      }
+      return count + 1;
+    }, 0);
+    
+    const parts: string[] = [];
+    legs.forEach((leg) => {
+      if (leg.isGroupLeg && leg.children) {
+        // Format SGP group: "SGP (Matchup - leg, leg)"
+        // Simplify matchup by removing full team names, keeping just city or first word
+        let matchup = leg.target || "";
+        if (matchup) {
+          // Remove full team names like "Detroit Pistons", keep just "Detroit"
+          matchup = matchup
+            .replace(/\bDetroit\s+Pistons\b/gi, "Detroit")
+            .replace(/\bAtlanta\s+Hawks\b/gi, "Atlanta")
+            .replace(/\bUtah\s+Jazz\b/gi, "Utah Jazz")
+            .replace(/\bLos\s+Angeles\s+Lakers\b/gi, "Los Angeles Lakers")
+            .replace(/\bPhoenix\s+Suns\b/gi, "Phoenix Suns")
+            .replace(/\bPortland\s+Trail\s+Blazers\b/gi, "Portland Trail Blazers")
+            .replace(/\bGolden\s+State\s+Warriors\b/gi, "Golden State")
+            .replace(/\bNew\s+Orleans\s+Pelicans\b/gi, "New Orleans")
+            .replace(/\bChicago\s+Bulls\b/gi, "Chicago Bulls")
+            .replace(/\bBaltimore\s+Ravens\b/gi, "Baltimore Ravens")
+            .replace(/\bCleveland\s+Browns\b/gi, "Cleveland Browns")
+            .replace(/\bKansas\s+City\s+Chiefs\b/gi, "Kansas City Chiefs")
+            .replace(/\bDenver\s+Broncos\b/gi, "Denver Broncos")
+            .replace(/\bSeattle\s+Seahawks\b/gi, "Seattle Seahawks")
+            .replace(/\bLos\s+Angeles\s+Rams\b/gi, "Los Angeles Rams")
+            .replace(/\bSan\s+Francisco\s+49ers\b/gi, "San Francisco 49ers")
+            .replace(/\bArizona\s+Cardinals\b/gi, "Arizona Cardinals");
+        }
+        const childDescriptions = leg.children.map((child) => {
+          const entity = child.entities?.[0] || "";
+          const firstName = entity.split(" ")[0];
+          return `${firstName} ${child.market}`;
+        }).join(", ");
+        parts.push(`SGP (${matchup}${childDescriptions ? " - " + childDescriptions : ""})`);
+      } else {
+        // Format regular selection: "Player Market"
+        const entity = leg.entities?.[0] || "";
+        const firstName = entity.split(" ")[0];
+        const market = leg.market || "";
+        const target = leg.target;
+        // Include target for props (like "5+" for "5+ 3pt")
+        if (target && /^\d+\+?$/.test(String(target))) {
+          parts.push(`${firstName} ${target} ${market}`);
+        } else {
+          parts.push(`${firstName} ${market}`);
+        }
+      }
+    });
+    
+    description = `${totalLegs}-leg Same Game Parlay Plus: ${parts.join(" + ")}`;
+  } else if (legs.length) {
+    description = shouldCondenseGroupDescription
       ? `${formatParlayDescriptionFromLegs(legs[0].children || [])}${
           legs[0].target ? ` ${legs[0].target}` : ""
         }`.trim()
-      : formatParlayDescriptionFromLegs(legs)
-    : formatDescription(
-        headerInfo.description,
-        headerInfo.type,
-        headerInfo.name,
-        headerInfo.line,
-        headerInfo.ou,
-        betType
-      );
+      : formatParlayDescriptionFromLegs(legs);
+  } else {
+    description = formatDescription(
+      headerInfo.description,
+      headerInfo.type,
+      headerInfo.name,
+      headerInfo.line,
+      headerInfo.ou,
+      betType
+    );
+  }
 
   // Give SGPs an explicit short name so UI doesn't fall back to generic header text.
   const groupChildCount =
@@ -613,10 +718,36 @@ const cleanMatchupTarget = (
   if (!text) return text ?? undefined;
   let normalized = normalizeSpaces(text);
 
+  // Remove common prefixes and noise
   normalized = normalized.replace(
-    /^(Same Game Parlay|Parlay|Threes|Made Threes|Double|TD)\s+/i,
+    /^(Same Game Parlay|Parlay|Threes|Made Threes|Double|Triple|TD|DD)\s+/i,
     ""
   );
+  
+  // Remove "Finished" and related noise
+  normalized = normalized.replace(/\s*Finished\s*/gi, " ");
+  normalized = normalized.replace(/\s*FinishedFinished\s*/gi, " ");
+  normalized = normalized.replace(/\s*Box\s+Score.*$/i, "");
+  normalized = normalized.replace(/\s*Play-by-play.*$/i, "");
+  
+  // Remove trailing player names or fragments (e.g., "Lakers @ Deni Avdija" -> "Lakers @")
+  // Look for pattern: "Team @ PlayerName" or "Team @ Fragment"
+  normalized = normalized.replace(/(@\s+[A-Z][a-z]{1,10})(?:\s+[A-Z][a-z]+)?$/, "@");
+  
+  // Fix partial team names (e.g., "ers @ Arizona Cardinals" -> undefined to force re-extraction)
+  // Check if matchup starts with lowercase or looks incomplete
+  if (/^[a-z]/.test(normalized) || /^\w{1,3}\s+@/.test(normalized)) {
+    return undefined;
+  }
+  
+  // If we end with "@ " with no team after, it's malformed - try to extract just the first team
+  if (/@\s*$/.test(normalized)) {
+    const firstTeamMatch = normalized.match(/^([A-Z][A-Za-z'\s]+?)\s+@/);
+    if (firstTeamMatch) {
+      // We have an incomplete matchup, return undefined to let other logic handle it
+      return undefined;
+    }
+  }
 
   const direct = findMatchupInText(normalized);
   if (direct) return normalizeSpaces(direct);
