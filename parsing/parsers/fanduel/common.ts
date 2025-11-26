@@ -1515,6 +1515,7 @@ export const buildLegsFromStatText = (
   const legs: BetLeg[] = [];
   const seen = new Set<string>();
 
+  // First pass: build all legs
   matches.forEach((m) => {
     // Create a unique key to avoid duplicates
     const key = `${m.player}_${m.market}_${m.target || ""}`.toLowerCase();
@@ -1533,12 +1534,12 @@ export const buildLegsFromStatText = (
         entities: [m.player],
         market: m.market,
         target: m.target,
-        result: m.isVoid ? "PUSH" : toLegResult(result),
+        result: m.isVoid ? "VOID" : toLegResult(result),
       };
     } else {
       // Update result if this leg is void
       if (m.isVoid) {
-        leg.result = "PUSH";
+        leg.result = "VOID" as LegResult;
       }
       // Also ensure the entity name doesn't have "Void" in it
       if (leg.entities && leg.entities[0]) {

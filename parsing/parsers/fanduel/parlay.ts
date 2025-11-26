@@ -400,12 +400,32 @@ export const parseParlayBet = ({
     const childResult = toLegResult(result);
     legs.forEach((leg) => {
       if (leg.children) {
+        // First check if ANY child has VOID/PUSH result
+        const hasVoidSibling = leg.children.some((child) => {
+          const r = String(child.result || "").toUpperCase();
+          return r === "VOID" || r === "PUSH";
+        });
+        
         // Don't overwrite VOID/PUSH results - they're already correctly set
+        // Also, if any sibling is VOID, all siblings should be PUSH
         leg.children = leg.children.map((child) => {
+          const currentResultStr = String(child.result || "").toUpperCase();
           const currentResult = toLegResult(child.result);
-          // If child already has PUSH (voided), keep it; don't overwrite with bet result
+          
+          // Keep VOID as is (it will be displayed as VOID in output)
+          if (currentResultStr === "VOID") {
+            return child;
+          }
+          // If child already has PUSH, keep it
           if (currentResult === "PUSH") {
             return child;
+          }
+          // If any sibling is voided, this child should be PUSH too
+          if (hasVoidSibling) {
+            return {
+              ...child,
+              result: "PUSH" as LegResult,
+            };
           }
           return {
             ...child,
@@ -697,6 +717,7 @@ const findMatchupInText = (text: string): string | null => {
   const cleaned = stripScoreboardText(text.replace(/Finished/gi, " "));
   
   // First try to find matchup patterns in the text
+  // Standard pattern for team names starting with capital letters
   const pattern =
     /([A-Z][A-Za-z']+(?:\s+[A-Z][A-Za-z']+){0,2})\s+@\s+([A-Z][A-Za-z']+(?:\s+[A-Z][A-Za-z']+){0,2})/g;
   let best: string | null = null;
@@ -711,6 +732,22 @@ const findMatchupInText = (text: string): string | null => {
     
     if (!best || candidate.length < best.length) {
       best = candidate;
+    }
+  }
+  
+  // Also try pattern for teams starting with digits (like "49ers")
+  if (!best) {
+    const digitTeamPattern =
+      /(\d+[A-Za-z]+(?:\s+[A-Z][A-Za-z']+){0,2})\s+@\s+([A-Z][A-Za-z']+(?:\s+[A-Z][A-Za-z']+){0,2})/g;
+    for (const match of cleaned.matchAll(digitTeamPattern)) {
+      const candidate = normalizeSpaces(`${match[1]} @ ${match[2]}`);
+      if (/(Rebounds|Record|Assists|Points|Made|Threes|Yards|Receptions)/i.test(candidate)) continue;
+      const teams = candidate.split('@').map(t => t.trim());
+      if (teams.some(t => t.length < 4)) continue;
+      
+      if (!best || candidate.length < best.length) {
+        best = candidate;
+      }
     }
   }
 
@@ -767,8 +804,35 @@ const cleanMatchupTarget = (
   
   // Fix partial team names (e.g., "ers @ Arizona Cardinals" -> undefined to force re-extraction)
   // Check if matchup starts with lowercase or looks incomplete
+  // Handle special case: "49ers" might become "ers" if digits are stripped
   if (/^[a-z]/.test(normalized) || /^\w{1,3}\s+@/.test(normalized)) {
+    // Check if this could be a truncated "49ers"
+    if (/^ers\s+@/i.test(normalized)) {
+      // Try to reconstruct "San Francisco 49ers"
+      const afterAt = normalized.replace(/^ers\s+@\s*/i, "").trim();
+      if (afterAt) {
+        return `San Francisco 49ers @ ${afterAt}`;
+      }
+    }
     return undefined;
+  }
+  
+  // Handle "49ers @" without "San Francisco" prefix
+  if (/^49ers\s+@/i.test(normalized)) {
+    const afterAt = normalized.replace(/^49ers\s+@\s*/i, "").trim();
+    if (afterAt) {
+      // Don't strip known team city/name combinations
+      const knownTeamParts = ['Cardinals', 'Cardinals', 'Broncos', 'Browns', 'Rams', 'Chiefs', 'Ravens'];
+      let cleanedAfter = afterAt;
+      
+      // Only strip if it doesn't contain known team parts
+      const containsTeam = knownTeamParts.some(t => afterAt.toLowerCase().includes(t.toLowerCase()));
+      if (!containsTeam) {
+        cleanedAfter = afterAt.replace(/\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?$/, "").trim();
+      }
+      
+      return `San Francisco 49ers @ ${cleanedAfter || afterAt}`;
+    }
   }
   
   // If we end with "@ " with no team after, it's malformed - try to extract just the first team

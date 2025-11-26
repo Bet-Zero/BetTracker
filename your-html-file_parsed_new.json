@@ -1046,7 +1046,7 @@
             "market": "3pt",
             "target": "3+",
             "odds": null,
-            "result": "LOSS"
+            "result": "PUSH"
           }
         ]
       },
@@ -1388,7 +1388,7 @@
         "target": "50+",
         "odds": 1100,
         "result": "LOSS",
-        "game": "ers @ Arizona Cardinals"
+        "game": "San Francisco 49ers @ Arizona Cardinals"
       },
       {
         "entities": [
@@ -1428,7 +1428,7 @@
         "target": "50+",
         "odds": 1200,
         "result": "LOSS",
-        "game": "ers @ Arizona Cardinals Davante Adams"
+        "game": "San Francisco 49ers @ Arizona Cardinals Davante Adams"
       },
       {
         "entities": [
@@ -1438,7 +1438,7 @@
         "target": "50+",
         "odds": 430,
         "result": "LOSS",
-        "game": "San Francisco 49ers @ Arizona Cardinals"
+        "game": "49ers @ Arizona Cardinals"
       }
     ],
     "tail": "",
@@ -1496,7 +1496,7 @@
         "target": "3+",
         "odds": 210,
         "result": "LOSS",
-        "game": "ers @ Arizona Cardinals"
+        "game": "San Francisco 49ers @ Arizona Cardinals"
       }
     ],
     "tail": "",
@@ -1512,7 +1512,7 @@
     "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NFL",
-    "description": "Same Game Parlay - Seattle Seahawks @ Los Angeles Rams: Davante Adams 5+ Rec, Cooper Kupp 3+ Rec, Same Game Parlay - Seattle Seahawks @ Los Angeles Rams: Ricky Pearsall 3+ Rec, Jauan Jennings 6+ Rec",
+    "description": "Same Game Parlay - Seattle Seahawks @ Los Angeles Rams: Davante Adams 5+ Rec, Cooper Kupp 3+ Rec, Same Game Parlay - San Francisco 49ers @ Arizona Cardinals: Ricky Pearsall 3+ Rec, Jauan Jennings 6+ Rec",
     "name": "SGP+",
     "odds": 17311,
     "stake": 0.25,
@@ -1548,7 +1548,7 @@
       },
       {
         "market": "Same Game Parlay",
-        "target": "Seattle Seahawks @ Los Angeles Rams",
+        "target": "San Francisco 49ers @ Arizona Cardinals",
         "odds": 436,
         "result": "LOSS",
         "isGroupLeg": true,
