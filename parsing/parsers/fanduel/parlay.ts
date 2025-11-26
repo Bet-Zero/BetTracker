@@ -396,14 +396,22 @@ export const parseParlayBet = ({
     }
   });
 
-  if (betType === "sgp" && legs.length) {
+  if ((betType === "sgp" || betType === "sgp_plus") && legs.length) {
     const childResult = toLegResult(result);
     legs.forEach((leg) => {
       if (leg.children) {
-        leg.children = leg.children.map((child) => ({
-          ...child,
-          result: childResult,
-        }));
+        // Don't overwrite VOID/PUSH results - they're already correctly set
+        leg.children = leg.children.map((child) => {
+          const currentResult = toLegResult(child.result);
+          // If child already has PUSH (voided), keep it; don't overwrite with bet result
+          if (currentResult === "PUSH") {
+            return child;
+          }
+          return {
+            ...child,
+            result: childResult,
+          };
+        });
       }
       if (leg.isGroupLeg && leg.children) {
         leg.result = aggregateChildResults(leg.children, childResult);
@@ -824,14 +832,21 @@ const buildGroupLegFromContainer = (
     fallbackOdds: null,
     parentForResultLookup: container,
   }).map((child) => ({ ...child, odds: null }));
+  
+  fdDebug(`Built ${children.length} children from rows, results: ${children.map(c => `${c.entities?.[0]}=${c.result}`).join(', ')}`);
 
   // If any child is VOID (which maps to PUSH), all children in the same SGP should be PUSH
   // This is because when one leg of an SGP is voided, the entire SGP is typically voided
   const hasVoidChild = children.some((child) => {
     const resultStr = String(child.result || "").toUpperCase();
-    return resultStr === "VOID" || resultStr === "PUSH";
+    const isVoid = resultStr === "VOID" || resultStr === "PUSH" || resultStr.includes("VOID");
+    if (isVoid) {
+      fdDebug(`Found void child in SGP: ${child.entities?.[0]}, result=${child.result}`);
+    }
+    return isVoid;
   });
   if (hasVoidChild) {
+    fdDebug(`Setting all ${children.length} children to PUSH due to void leg`);
     children = children.map((child) => ({
       ...child,
       result: "PUSH" as LegResult,
