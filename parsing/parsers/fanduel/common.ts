@@ -549,6 +549,19 @@ export const deriveFieldsFromDescription = (
   const commaIdx = desc.indexOf(",");
   if (!name && commaIdx > 0 && !ouLeading) {
     name = desc.slice(0, commaIdx).trim();
+    // Also try to extract line from the rest of the description
+    const afterComma = desc.slice(commaIdx + 1).trim();
+    // Check for "3+ Made Threes" or similar patterns
+    const madeThreesLineMatch = afterComma.match(/^(\d+)\+\s+(MADE THREES|Made Threes|THREES|3PT)/i);
+    if (madeThreesLineMatch) {
+      line = `${madeThreesLineMatch[1]}+`;
+    } else {
+      // Check for other stat line patterns like "50+ Yards" or "3+ Receptions"
+      const statLineMatch = afterComma.match(/^(\d+)\+\s+(Yards|Yds|Receptions|Rec|Points|Pts|Rebounds|Reb|Assists|Ast)/i);
+      if (statLineMatch) {
+        line = `${statLineMatch[1]}+`;
+      }
+    }
   } else if (!name && !ouLeading) {
     // Pattern: "Ausar Thompson Under 10.5" or "Onyeka Okongwu Over 8.5"
     const ouMatch = desc.match(
@@ -565,13 +578,17 @@ export const deriveFieldsFromDescription = (
         name = ouMatchNoLine[1].trim();
         ou = ouMatchNoLine[2] === "Over" ? "Over" : "Under";
       } else {
-        // Pattern: "Orlando Magic +2.5" - extract name and line separately
-        const spreadMatch = desc.match(
-          /^([A-Za-z' .-]+)\s*([+\-]\d+(?:\.\d+)?)\b/i
+        // FIRST: Check for "Made Threes" patterns - these take precedence over spread patterns
+        // because "Royce O'Neale -130 3+ Made Threes" should NOT be treated as a spread bet
+        
+        // Pattern: "Royce O'Neale 5+ MADE THREES" or "Royce O'Neale -130 3+ Made Threes" - extract name before number+
+        // Also handles: "Royce O'Neale, 3+ Made Threes" (with comma) and odds between name and target
+        const madeThreesMatch = desc.match(
+          /^([A-Za-z' .-]+?)[,\s]+(?:[+\-]?\d+\s+)?(\d+)\+\s+(MADE THREES|Made Threes|THREES|3PT)/i
         );
-        if (spreadMatch) {
-          name = spreadMatch[1].trim();
-          line = spreadMatch[2];
+        if (madeThreesMatch) {
+          name = madeThreesMatch[1].trim();
+          line = `${madeThreesMatch[2]}+`;
         } else {
           // Pattern: "Made Threes Isaiah Collier" or "Made Threes 8+" - extract name after prefix
           const madeThreesPrefixMatch = desc.match(
@@ -585,13 +602,17 @@ export const deriveFieldsFromDescription = (
               line = `${lineMatch[1]}+`;
             }
           } else {
-            // Pattern: "Royce O'Neale 5+ MADE THREES" - extract name before number+
-            const madeThreesMatch = desc.match(
-              /^([A-Za-z' .-]+?)\s+(\d+)\+\s+(MADE THREES|THREES|3PT)/i
+            // Pattern: "Orlando Magic +2.5" - extract name and line separately
+            // Only use this for actual spread bets (not prop bets with odds)
+            const spreadMatch = desc.match(
+              /^([A-Za-z' .-]+)\s*([+\-]\d+(?:\.\d+)?)\b/i
             );
-            if (madeThreesMatch) {
-              name = madeThreesMatch[1].trim();
-              line = `${madeThreesMatch[2]}+`;
+            // Only treat as spread if the line looks like a spread value (typically < 60)
+            // and there's no stat line following (like "3+ Made Threes")
+            const hasStatAfter = /\d+\+\s+(Yards|Yds|Receptions|Rec|Points|Pts|Rebounds|Reb|Assists|Ast|Made\s+Threes|3pt|Threes)/i.test(desc);
+            if (spreadMatch && !hasStatAfter) {
+              name = spreadMatch[1].trim();
+              line = spreadMatch[2];
             } else {
               // Pattern: "Player Name X+ POINTS" or "Player Name TO SCORE X+ POINTS"
               const pointsMatch = desc.match(
@@ -602,8 +623,9 @@ export const deriveFieldsFromDescription = (
                 line = `${pointsMatch[2]}+`;
               } else {
                 // Pattern: "Player Name 50+ Yards" or "Player Name 3+ Receptions" - extract name before stat
+                // Also handles "Player Name -130 3+ Receptions" where odds are between name and stat
                 const statLineMatch = desc.match(
-                  /^([A-Za-z' .-]+?)\s+(\d+)\+\s+(Yards|Yds|Receptions|Rec|Points|Pts|Rebounds|Reb|Assists|Ast|Made\s+Threes|3pt|Threes)/i
+                  /^([A-Za-z' .-]+?)\s+(?:[+\-]\d+\s+)?(\d+)\+\s+(Yards|Yds|Receptions|Rec|Points|Pts|Rebounds|Reb|Assists|Ast|Made\s+Threes|3pt|Threes)/i
                 );
                 if (statLineMatch) {
                   name = statLineMatch[1].trim();
@@ -1370,10 +1392,12 @@ export const buildLegsFromStatText = (
   // Enhanced patterns to catch more variations, especially for SGP+ bets
   const patterns = [
     // Pattern for "Made Threes" legs: "Player Name X+ Made Threes" (specific pattern to catch this common case)
-    new RegExp(`(${PLAYER_NAME_PATTERN})\\s+(\\d+\\+)\\s+Made\\s+Threes`, "gi"),
+    // Also handles "Player Name +/-XXX X+ Made Threes" where odds are between name and stat
+    new RegExp(`(${PLAYER_NAME_PATTERN})\\s+(?:[+\\-]\\d+\\s+)?(\\d+\\+)\\s+Made\\s+Threes`, "gi"),
     // Pattern for stat-based legs: "Player Name 50+ Yards" or "Player Name 3+ Receptions"
+    // Also handles "Player Name +/-XXX X+ Stat" where odds are between name and stat
     new RegExp(
-      `(${PLAYER_NAME_PATTERN})\\s+(\\d+\\+)\\s+(Yards|Receptions|Yds|Rec|Points|Assists|Receiving Yds|Alt Receiving Yds|Alt Receptions)`,
+      `(${PLAYER_NAME_PATTERN})\\s+(?:[+\\-]\\d+\\s+)?(\\d+\\+)\\s+(Yards|Receptions|Yds|Rec|Points|Assists|Receiving Yds|Alt Receiving Yds|Alt Receptions)`,
       "gi"
     ),
     // Pattern for "To Record" legs: "Player Name To Record A Triple Double" or "Player Name To Record 10+ Assists"

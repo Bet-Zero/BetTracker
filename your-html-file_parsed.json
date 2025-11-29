@@ -220,7 +220,7 @@
     "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "4-leg Same Game Parlay Plus: SGP (Utah @ Lakers - Isaiah Collier 10+ Ast, LeBron James 10+ Ast) + Jalen Johnson 10+ Ast + Deni Avdija 10+ Ast",
+    "description": "4-leg Same Game Parlay Plus: SGP (Utah Jazz @ Lakers - Isaiah Collier 10+ Ast, LeBron James 10+ Ast) + Jalen Johnson 10+ Ast + Deni Avdija 10+ Ast",
     "name": "SGP+",
     "odds": 237511,
     "stake": 0.5,
@@ -1016,7 +1016,7 @@
     "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "3-leg Same Game Parlay Plus: SGP (Golden State @ New Orleans - Zion Williamson 30+ Pts, Will Richard 3+ Made Threes) + Royce O'Neale 3pt",
+    "description": "5-leg Same Game Parlay Plus: SGP (Golden State @ New Orleans) + SGP (Chicago Bulls @ Utah Jazz) + Royce O'Neale 3+ 3pt",
     "name": "SGP+",
     "odds": 123369,
     "stake": 0.5,
@@ -1082,6 +1082,7 @@
           "Royce O'Neale"
         ],
         "market": "3pt",
+        "target": "3+",
         "odds": -130,
         "result": "LOSS",
         "game": "Atlanta Hawks @ Phoenix Suns"
