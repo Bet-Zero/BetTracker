@@ -347,66 +347,98 @@ export const parseParlayBet = ({
   }
 
   const legs = [...groupLegs, ...filteredExtras, ...additionalLegsFromText];
+  // Map combined SGP odds → matchup text (e.g. "+3623 → Golden State @ New Orleans")
   const oddsMatchups = extractOddsMatchups(headerInfo.rawText);
 
-  legs.forEach((leg) => {
-    if (leg.isGroupLeg) {
-      const rawTarget =
-        leg.target ??
-        normalizeSpaces(`${headerInfo.rawText} ${headerLi.textContent || ""}`);
-      const cleanedTarget =
-        cleanMatchupTarget(stripScoreboardText(rawTarget)) || leg.target;
-      if (cleanedTarget) {
-        leg.target = cleanedTarget;
-      }
-    } else {
-      const hasStatTarget = looksLikeStatTarget(leg.target);
+  /**
+   * IMPORTANT:
+   * - For **straight parlays** we do NOT want per-leg `game` fields in the fixture.
+   * - For **SGP / SGP+** we *do* want to infer matchup context onto:
+   *   - SGP group legs: `target = "Team A @ Team B"`
+   *   - SGP+ extra legs: `game = "Team A @ Team B"` when we can infer it
+   */
+  if (betType === "sgp" || betType === "sgp_plus") {
+    legs.forEach((leg) => {
+      if (leg.isGroupLeg) {
+        // Group leg: normalize its target to a clean matchup string
+        const fromTarget = leg.target || "";
+        const fromOdds =
+          leg.odds != null ? oddsMatchups.get(leg.odds) ?? "" : "";
+        const rawTarget = normalizeSpaces(
+          fromTarget ||
+            fromOdds ||
+            `${headerInfo.rawText} ${headerLi.textContent || ""}`
+        );
 
-      // 1) Try to map odds → matchup text
-      if (leg.odds != null && oddsMatchups.has(leg.odds)) {
-        const rawMatchup = oddsMatchups.get(leg.odds);
-        if (rawMatchup) {
-          const cleanedMatchup =
-            cleanMatchupTarget(stripScoreboardText(rawMatchup)) || rawMatchup;
-          // Always record matchup on `game`
-          (leg as any).game = cleanedMatchup;
+        const cleanedTarget =
+          cleanMatchupTarget(stripScoreboardText(rawTarget)) || leg.target;
 
-          // Only use matchup as `target` if we don't already have
-          // a proper stat threshold (e.g. "50+", "3+").
-          if (!hasStatTarget && !leg.target) {
-            leg.target = cleanedMatchup;
+        if (cleanedTarget && looksLikeMatchupText(cleanedTarget)) {
+          leg.target = cleanedTarget;
+        } else if (cleanedTarget) {
+          // Fallback – still normalize whitespace
+          leg.target = normalizeSpaces(cleanedTarget);
+        }
+      } else {
+        const hasStatTarget = looksLikeStatTarget(leg.target);
+        const currentTarget = leg.target || "";
+
+        // --- 1) Try to infer matchup from odds (header text) ---
+        if (!(leg as any).game && leg.odds != null) {
+          const rawMatchup = oddsMatchups.get(leg.odds);
+          if (rawMatchup && looksLikeMatchupText(rawMatchup)) {
+            const cleanedMatchup =
+              cleanMatchupTarget(stripScoreboardText(rawMatchup)) || rawMatchup;
+            (leg as any).game = normalizeSpaces(cleanedMatchup);
+
+            // Only set `target` from matchup when we *don't* already have a stat threshold.
+            if (!hasStatTarget && !currentTarget) {
+              leg.target = (leg as any).game;
+            }
           }
         }
-      }
 
-      // 2) If we still don't have a game, infer from header text / entity.
-      if (!(leg as any).game) {
-        const entity = leg.entities?.[0];
-        const inferred =
-          inferMatchupForEntity(headerInfo.rawText, entity) ||
-          inferMatchupFromTeams(headerInfo.rawText);
-        if (inferred) {
-          const cleanedMatchup =
-            cleanMatchupTarget(stripScoreboardText(inferred)) || inferred;
-          (leg as any).game = cleanedMatchup;
-          if (!hasStatTarget && !leg.target) {
-            leg.target = cleanedMatchup;
-          }
-        }
-      }
-
-      // 3) If target itself looks like a matchup (and not a stat),
-      // treat it as matchup text and keep it aligned with `game`.
-      if (leg.target && !hasStatTarget && looksLikeMatchupText(leg.target)) {
-        const cleanedMatchup =
-          cleanMatchupTarget(stripScoreboardText(leg.target)) || leg.target;
+        // --- 2) If we still don't have a game, infer from header/entity teams ---
         if (!(leg as any).game) {
-          (leg as any).game = cleanedMatchup;
+          const inferred =
+            inferMatchupForEntity(headerInfo.rawText, leg.entities?.[0]) ||
+            inferMatchupFromTeams(headerInfo.rawText);
+
+          if (inferred && looksLikeMatchupText(inferred)) {
+            const cleanedMatchup =
+              cleanMatchupTarget(stripScoreboardText(inferred)) || inferred;
+            (leg as any).game = normalizeSpaces(cleanedMatchup);
+
+            if (!hasStatTarget && !leg.target) {
+              leg.target = (leg as any).game;
+            }
+          }
         }
-        leg.target = cleanedMatchup;
+
+        // --- 3) If the *target itself* looks like matchup text, keep it aligned with `game` ---
+        const maybeMatchup = leg.target;
+        if (
+          maybeMatchup &&
+          !hasStatTarget &&
+          looksLikeMatchupText(maybeMatchup)
+        ) {
+          const cleanedMatchup =
+            cleanMatchupTarget(stripScoreboardText(maybeMatchup)) ||
+            maybeMatchup;
+          const normalized = normalizeSpaces(cleanedMatchup);
+
+          if (!(leg as any).game) {
+            (leg as any).game = normalized;
+          }
+          leg.target = normalized;
+        }
       }
-    }
-  });
+    });
+  }
+
+  // NOTE: for betType === "parlay" we intentionally DO NOT touch `leg.game` or
+  //      force matchup targets here. Straight parlay legs should remain
+  //      game-agnostic in the final fixture.
 
   // Extra cleanup for SGP+ bets: ensure matchup text lives on `game`
   // and does not overwrite real stat targets (e.g. "50+", "3+").

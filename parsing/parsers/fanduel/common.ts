@@ -1612,34 +1612,64 @@ const cleanParlayLegText = (leg: string): string => {
 };
 
 export const formatLegSummary = (leg: BetLeg): string => {
+  // Group leg → "Same Game Parlay - Bulls @ Jazz: Jalen Smith 2+ Made Threes, ..."
   if (leg.isGroupLeg && leg.children?.length) {
     const childSummary = leg.children
       .map(formatLegSummary)
       .filter(Boolean)
       .join(", ");
+
     const label = leg.target
       ? `Same Game Parlay - ${leg.target}`
       : "Same Game Parlay";
+
     return childSummary ? `${label}: ${childSummary}` : label;
   }
 
   const name = cleanEntityName(leg.entities?.[0] ?? "");
-  const market = leg.market || "";
-  const target = leg.target ?? "";
+  const marketRaw = leg.market || "";
+  const targetRaw = leg.target ?? "";
+  const ouRaw = (leg as any).ou ?? "";
 
-  if (market.toLowerCase() === "spread" && target) {
-    return name ? `${name} ${target}` : String(target);
+  const market = marketRaw.trim();
+  const target = targetRaw.trim();
+  const ou = (ouRaw || "").trim();
+
+  const lowerMarket = market.toLowerCase();
+
+  // Spread: "Magic -5.5"
+  if (lowerMarket === "spread" && target) {
+    return name ? `${name} ${target}` : target;
   }
 
-  if (market.toLowerCase() === "moneyline") {
+  // Moneyline: "Magic Moneyline"
+  if (lowerMarket === "moneyline") {
     return name ? `${name} Moneyline` : "Moneyline";
   }
 
-  if (market.toLowerCase() === "3pt") {
-    const core = target ? `${target} 3pt` : "3pt";
+  // Totals with explicit Over/Under when we have it
+  if (lowerMarket === "total" && target) {
+    if (ou) {
+      // e.g. "Over 210.5 Total Points"
+      return `${ou} ${target} Total Points`;
+    }
+    return `Total ${target}`;
+  }
+
+  // 3pt props:
+  // - For NBA SGP ladders in the fixture we want "2+ Made Threes".
+  // - For cases where there is no parsed threshold, fall back to "3pt".
+  if (lowerMarket === "3pt") {
+    if (target) {
+      // Most of your fixture cases look like "2+", "3+", etc.
+      const madePhrase = `${target} Made Threes`;
+      return name ? `${name} ${madePhrase}` : madePhrase;
+    }
+    const core = "3pt";
     return name ? `${name} ${core}` : core;
   }
 
+  // Generic fallback combinations
   if (name && target && market) return `${name} ${target} ${market}`;
   if (name && market) return `${name} ${market}`;
   if (market && target) return `${target} ${market}`;

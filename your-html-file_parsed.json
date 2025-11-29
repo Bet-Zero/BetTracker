@@ -373,8 +373,7 @@
         "market": "Spread",
         "target": "-5.5",
         "odds": -144,
-        "result": "WIN",
-        "game": "Orlando Magic @ Detroit Pistons"
+        "result": "WIN"
       },
       {
         "entities": [
@@ -383,8 +382,7 @@
         "market": "Spread",
         "target": "-5.5",
         "odds": -125,
-        "result": "WIN",
-        "game": "Golden State Warriors @ Orlando Magic"
+        "result": "WIN"
       }
     ],
     "tail": "",
@@ -582,7 +580,7 @@
     "betType": "sgp",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Same Game Parlay - Chicago Bulls @ Utah Jazz: Jalen Smith 2+ 3pt, Ace Bailey 2+ 3pt, Patrick Williams 2+ 3pt, Coby White 2+ 3pt, Isaiah Collier 8+ Ast",
+    "description": "Same Game Parlay - Chicago Bulls @ Utah Jazz: Jalen Smith 2+ Made Threes, Ace Bailey 2+ Made Threes, Patrick Williams 2+ Made Threes, Coby White 2+ Made Threes, Isaiah Collier 8+ Ast",
     "name": "SGP (5 legs)",
     "odds": 4781,
     "stake": 1,
@@ -657,7 +655,7 @@
     "betType": "sgp",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Jalen Smith 2+ 3pt, Ace Bailey 2+ 3pt, Patrick Williams 2+ 3pt Chicago Bulls @ Utah Jazz",
+    "description": "Jalen Smith 2+ Made Threes, Ace Bailey 2+ Made Threes, Patrick Williams 2+ Made Threes Chicago Bulls @ Utah Jazz",
     "name": "SGP",
     "odds": 815,
     "stake": 2,
@@ -714,7 +712,7 @@
     "betType": "sgp",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Same Game Parlay - Chicago Bulls @ Utah Jazz: Coby White 4+ 3pt, Patrick Williams 2+ 3pt, Ayo Dosunmu 2+ 3pt, Ace Bailey 3+ 3pt, Isaiah Collier 4+ Ast",
+    "description": "Same Game Parlay - Chicago Bulls @ Utah Jazz: Coby White 4+ Made Threes, Patrick Williams 2+ Made Threes, Ayo Dosunmu 2+ Made Threes, Ace Bailey 3+ Made Threes, Isaiah Collier 4+ Ast",
     "name": "SGP (5 legs)",
     "odds": 18778,
     "stake": 1.5,
@@ -789,7 +787,7 @@
     "betType": "parlay",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Deni Avdija Portland Trail Blazers @ Dallas Mavericks Josh TD, Josh Giddey Chicago Bulls @ Utah Jazz Jalen TD, Jalen Johnson Atlanta Hawks @ Phoenix Suns TD",
+    "description": "Deni Avdija TD, Josh Giddey TD, Jalen Johnson TD",
     "name": "Parlay (3)",
     "odds": 36300,
     "stake": 0.5,
@@ -801,30 +799,24 @@
           "Deni Avdija"
         ],
         "market": "TD",
-        "target": "Portland Trail Blazers @ Dallas Mavericks Josh",
         "odds": 1200,
-        "result": "LOSS",
-        "game": "Portland Trail Blazers @ Dallas Mavericks Josh"
+        "result": "LOSS"
       },
       {
         "entities": [
           "Josh Giddey"
         ],
         "market": "TD",
-        "target": "Chicago Bulls @ Utah Jazz Jalen",
         "odds": 250,
-        "result": "LOSS",
-        "game": "Double Chicago Bulls @ Utah Jazz Jalen"
+        "result": "LOSS"
       },
       {
         "entities": [
           "Jalen Johnson"
         ],
         "market": "TD",
-        "target": "Atlanta Hawks @ Phoenix Suns",
         "odds": 700,
-        "result": "LOSS",
-        "game": "Double Atlanta Hawks @ Phoenix Suns"
+        "result": "LOSS"
       }
     ],
     "tail": "",
@@ -840,7 +832,7 @@
     "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Jalen Smith 3+ 3pt, Isaiah Collier 10+ Ast, Royce O'Neale 4+ 3pt, Jalen Johnson 8+ Ast",
+    "description": "Jalen Smith 3+ Made Threes, Isaiah Collier 10+ Ast, Royce O'Neale 4+ Made Threes, Jalen Johnson 8+ Ast",
     "name": "SGP+",
     "odds": 1803,
     "stake": 3,
@@ -915,7 +907,7 @@
     "betType": "sgp",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Will Richard 3+ 3pt, Saddiq Bey 3+ 3pt Golden State Warriors @ New Orleans Pelicans",
+    "description": "Will Richard 3+ Made Threes, Saddiq Bey 3+ Made Threes Golden State Warriors @ New Orleans Pelicans",
     "name": "SGP",
     "odds": 997,
     "stake": 0.5,
@@ -1027,7 +1019,7 @@
     "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "3-leg Same Game Parlay Plus: SGP (Golden State Warriors @ New Orleans Pelicans - Zion Williamson 30+ Pts, Will Richard 3+ 3pt) + Royce O'Neale 3pt",
+    "description": "3-leg Same Game Parlay Plus: SGP (Golden State Warriors @ New Orleans Pelicans - Zion Williamson 30+ Pts, Will Richard 3+ Made Threes) + Royce O'Neale 3pt",
     "name": "SGP+",
     "odds": 123369,
     "stake": 0.5,
@@ -1439,8 +1431,7 @@
         "market": "Yds",
         "target": "50+",
         "odds": 1200,
-        "result": "LOSS",
-        "game": "ers @ Arizona Cardinals Davante Adams"
+        "result": "LOSS"
       },
       {
         "entities": [
@@ -1449,8 +1440,7 @@
         "market": "Yds",
         "target": "50+",
         "odds": 430,
-        "result": "LOSS",
-        "game": "San Francisco 49ers @ Arizona Cardinals"
+        "result": "LOSS"
       }
     ],
     "tail": "",
