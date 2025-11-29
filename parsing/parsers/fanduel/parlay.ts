@@ -620,6 +620,26 @@ export const parseParlayBet = ({
         : "Parlay"
       : undefined;
 
+  /**
+   * Determines if a set of leg children represents a "ladder" bet.
+   * A ladder bet is when all children have the same or similar stat types (e.g., all Yards or all Receptions).
+   * These bets use a flat comma-separated description format rather than the structured SGP+ format.
+   * 
+   * @param children - Array of child legs from SGP groups
+   * @returns true if this is a ladder bet, false for mixed market types
+   */
+  const isLadderBet = (children: BetLeg[]): boolean => {
+    const marketTypes = new Set(
+      children.map((c) => (c.market || "").toLowerCase())
+    );
+    
+    // Ladder bets have same-category markets (max 2 types like Yds/Rec)
+    // Exclude 3pt and Ast as these are typically mixed with other types
+    return marketTypes.size <= 2 && 
+      (marketTypes.has("yds") || marketTypes.has("rec") || 
+       (marketTypes.size === 1 && !marketTypes.has("3pt") && !marketTypes.has("ast")));
+  };
+
   const buildSGPPlusDescription = (legsForDesc: BetLeg[]): string => {
     if (!legsForDesc.length) return description;
 
@@ -639,19 +659,9 @@ export const parseParlayBet = ({
     // Case: multiple SGP group legs with no extra legs
     // Decide format based on whether children have same market type (ladder bet) or mixed types
     if (groupLegs.length > 1 && extraLegs.length === 0) {
-      // Collect all children's market types
       const allChildren = groupLegs.flatMap((g) => g.children || []);
-      const marketTypes = new Set(
-        allChildren.map((c) => (c.market || "").toLowerCase())
-      );
       
-      // If all children have the same market type (or same category like Yds/Rec), use flat format
-      // This handles "ladder" bets where multiple players have the same stat type
-      const isLadderBet = marketTypes.size <= 2 && 
-        (marketTypes.has("yds") || marketTypes.has("rec") || 
-         (marketTypes.size === 1 && !marketTypes.has("3pt") && !marketTypes.has("ast")));
-      
-      if (isLadderBet) {
+      if (isLadderBet(allChildren)) {
         // Flatten all children into comma-separated format
         const allChildSummaries: string[] = [];
         groupLegs.forEach((g) => {
@@ -925,12 +935,13 @@ const stripTrailingPlayerName = (matchup: string): string => {
 };
 
 // Map of full team names to short names for description purposes
-// Only shorten long city+nickname combos; keep short team names as-is
+// Only shorten long city+nickname combos where the city name alone is distinctive enough
 const TEAM_SHORT_NAMES: { [key: string]: string } = {
   'Golden State Warriors': 'Golden State',
   'New Orleans Pelicans': 'New Orleans',
   'Detroit Pistons': 'Detroit',
-  // Note: Keep "Atlanta Hawks", "Phoenix Suns", "Chicago Bulls", "Utah Jazz" as-is (short enough or fixture expects them)
+  // Keep "Atlanta Hawks", "Phoenix Suns", "Chicago Bulls", "Utah Jazz" as full names
+  // because their city names alone are not distinctive enough or test fixtures expect them
   'Los Angeles Lakers': 'Lakers',
   'Los Angeles Clippers': 'Clippers',
   'Portland Trail Blazers': 'Portland',
