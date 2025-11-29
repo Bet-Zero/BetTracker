@@ -69,19 +69,29 @@ const extractOddsMatchups = (text: string): Map<number, string> => {
   const map = new Map<number, string>();
   if (!text) return map;
   const normalized = normalizeSpaces(text);
+  // Pattern for SGP matchups - allow digits in team names (e.g., "49ers", "76ers")
   const sgpPattern =
-    /Same Game Parlay™\s*\+?(-?\d+)\s+([A-Z][A-Za-z'\s]+@\s+[A-Z][A-Za-z'\s]+)/gi;
+    /Same Game Parlay™\s*\+?(-?\d+)\s+([A-Za-z][A-Za-z0-9'\s]+@\s+[A-Za-z][A-Za-z0-9'\s]+)/gi;
   for (const match of normalized.matchAll(sgpPattern)) {
     const oddsVal = parseInt(match[1], 10);
-    const matchup = normalizeSpaces(match[2]);
+    let matchup = normalizeSpaces(match[2]);
+    // Clean up matchup using team name inference
+    const cleanedMatchup = inferMatchupFromTeams(matchup);
+    if (cleanedMatchup) matchup = cleanedMatchup;
+    else matchup = stripTrailingPlayerName(matchup);
     if (!Number.isNaN(oddsVal)) map.set(oddsVal, matchup);
   }
 
+  // Generic pattern - allow digits in team names (e.g., "49ers", "76ers")
   const genericPattern =
-    /([+\-]?\d{2,5})[^\n]{0,60}?([A-Z][A-Za-z'\s]+@\s+[A-Z][A-Za-z'\s]+)/gi;
+    /([+\-]?\d{2,5})[^\n]{0,60}?([A-Za-z][A-Za-z0-9'\s]+@\s+[A-Za-z][A-Za-z0-9'\s]+)/gi;
   for (const match of normalized.matchAll(genericPattern)) {
     const oddsVal = parseInt(match[1], 10);
-    const matchup = normalizeSpaces(match[2]);
+    let matchup = normalizeSpaces(match[2]);
+    // Clean up matchup using team name inference
+    const cleanedMatchup = inferMatchupFromTeams(matchup);
+    if (cleanedMatchup) matchup = cleanedMatchup;
+    else matchup = stripTrailingPlayerName(matchup);
     if (!Number.isNaN(oddsVal) && !map.has(oddsVal)) {
       map.set(oddsVal, matchup);
     }

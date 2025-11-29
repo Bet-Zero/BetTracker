@@ -1,6 +1,6 @@
 {
   "analyzedFile": "your-html-file.html",
-  "analyzedAt": "2025-11-29T09:43:25.295Z",
+  "analyzedAt": "2025-11-29T09:49:20.860Z",
   "totalBets": 34,
   "totalIssues": 18,
   "issuesSummary": {
@@ -1029,7 +1029,7 @@
             "target": "50+",
             "odds": 1100,
             "result": "LOSS",
-            "game": "ers @ Arizona Cardinals"
+            "game": "San Francisco 49ers @ Arizona Cardinals"
           },
           {
             "entities": [
@@ -1151,7 +1151,7 @@
             "target": "3+",
             "odds": 210,
             "result": "LOSS",
-            "game": "ers @ Arizona Cardinals"
+            "game": "San Francisco 49ers @ Arizona Cardinals"
           }
         ],
         "tail": "",
