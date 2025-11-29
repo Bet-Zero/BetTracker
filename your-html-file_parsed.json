@@ -69,7 +69,7 @@
     "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Same Game Parlay - Detroit Pistons @ Atlanta Hawks: Jalen Johnson TD, Cade Cunningham TD, Luka Doncic Double Utah Jazz @ Los Angeles Lakers TD, Deni Avdija Lakers @ FinishedFinished Deni Avdija TD",
+    "description": "4-leg Same Game Parlay Plus: SGP (Detroit Pistons @ Atlanta Hawks - Jalen Johnson TD, Cade Cunningham TD) + Luka Doncic TD + Deni Avdija TD",
     "name": "SGP+",
     "odds": 1108261,
     "stake": 0.5,
@@ -106,20 +106,20 @@
           "Luka Doncic"
         ],
         "market": "TD",
-        "target": "Double Utah Jazz @ Los Angeles Lakers",
+        "target": null,
         "odds": 410,
         "result": "LOSS",
-        "game": "Double Utah Jazz @ Los Angeles Lakers"
+        "game": "Utah Jazz @ Los Angeles Lakers"
       },
       {
         "entities": [
           "Deni Avdija"
         ],
         "market": "TD",
-        "target": "Lakers @ FinishedFinished Deni Avdija",
+        "target": null,
         "odds": 1200,
         "result": "LOSS",
-        "game": "Lakers @ FinishedFinished Deni Avdija"
+        "game": "Lakers @ Deni Avdija"
       }
     ],
     "tail": "",
@@ -135,7 +135,7 @@
     "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Same Game Parlay - Detroit Pistons @ Atlanta Hawks: Jalen Johnson TD, Cade Cunningham TD, Deni Avdija Double Phoenix Suns @ Portland Trail Blazers TD",
+    "description": "3-leg Same Game Parlay Plus: SGP (Detroit Pistons @ Atlanta Hawks - Jalen Johnson TD, Cade Cunningham TD) + Deni Avdija TD",
     "name": "SGP+",
     "odds": 217225,
     "stake": 0.5,
@@ -172,10 +172,10 @@
           "Deni Avdija"
         ],
         "market": "TD",
-        "target": "Double Phoenix Suns @ Portland Trail Blazers",
+        "target": null,
         "odds": 1200,
         "result": "LOSS",
-        "game": "Double Phoenix Suns @ Portland Trail Blazers"
+        "game": "Phoenix Suns @ Portland Trail Blazers"
       }
     ],
     "tail": "",
@@ -223,7 +223,7 @@
     "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Same Game Parlay - Utah Jazz @ Los Angeles Lakers: Isaiah Collier 10+ Ast, LeBron James 10+ Ast, Jalen Johnson Assists @ Jalen Johnson Ast, Deni Avdija Hawks @ FinishedFinished Deni Avdija Ast",
+    "description": "4-leg Same Game Parlay Plus: SGP (Utah Jazz @ Los Angeles Lakers - Isaiah Collier 10+ Ast, LeBron James 10+ Ast) + Jalen Johnson Ast + Deni Avdija Ast",
     "name": "SGP+",
     "odds": 237511,
     "stake": 0.5,
@@ -262,7 +262,7 @@
           "Jalen Johnson"
         ],
         "market": "Ast",
-        "target": "Assists @ Jalen Johnson",
+        "target": null,
         "odds": 540,
         "result": "LOSS",
         "game": "Assists @ Jalen Johnson"
@@ -272,10 +272,10 @@
           "Deni Avdija"
         ],
         "market": "Ast",
-        "target": "Hawks @ FinishedFinished Deni Avdija",
+        "target": null,
         "odds": 470,
         "result": "LOSS",
-        "game": "Hawks @ FinishedFinished Deni Avdija"
+        "game": "Hawks @ Deni Avdija"
       }
     ],
     "tail": "",
@@ -373,7 +373,8 @@
         "market": "Spread",
         "target": "-5.5",
         "odds": -144,
-        "result": "WIN"
+        "result": "WIN",
+        "game": "Orlando Magic @ Detroit Pistons"
       },
       {
         "entities": [
@@ -382,7 +383,8 @@
         "market": "Spread",
         "target": "-5.5",
         "odds": -125,
-        "result": "WIN"
+        "result": "WIN",
+        "game": "Golden State Warriors @ Orlando Magic"
       }
     ],
     "tail": "",
@@ -580,7 +582,7 @@
     "betType": "sgp",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Same Game Parlay - Chicago Bulls @ Utah Jazz: Jalen Smith 2+ Made Threes, Ace Bailey 2+ Made Threes, Patrick Williams 2+ Made Threes, Coby White 2+ Made Threes, Isaiah Collier 8+ Ast",
+    "description": "Same Game Parlay - Chicago Bulls @ Utah Jazz: Jalen Smith 2+ 3pt, Ace Bailey 2+ 3pt, Patrick Williams 2+ 3pt, Coby White 2+ 3pt, Isaiah Collier 8+ Ast",
     "name": "SGP (5 legs)",
     "odds": 4781,
     "stake": 1,
@@ -655,7 +657,7 @@
     "betType": "sgp",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Jalen Smith 2+ Made Threes, Ace Bailey 2+ Made Threes, Patrick Williams 2+ Made Threes Chicago Bulls @ Utah Jazz",
+    "description": "Jalen Smith 2+ 3pt, Ace Bailey 2+ 3pt, Patrick Williams 2+ 3pt Chicago Bulls @ Utah Jazz",
     "name": "SGP",
     "odds": 815,
     "stake": 2,
@@ -712,7 +714,7 @@
     "betType": "sgp",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Same Game Parlay - Chicago Bulls @ Utah Jazz: Coby White 4+ Made Threes, Patrick Williams 2+ Made Threes, Ayo Dosunmu 2+ Made Threes, Ace Bailey 3+ Made Threes, Isaiah Collier 4+ Ast",
+    "description": "Same Game Parlay - Chicago Bulls @ Utah Jazz: Coby White 4+ 3pt, Patrick Williams 2+ 3pt, Ayo Dosunmu 2+ 3pt, Ace Bailey 3+ 3pt, Isaiah Collier 4+ Ast",
     "name": "SGP (5 legs)",
     "odds": 18778,
     "stake": 1.5,
@@ -787,7 +789,7 @@
     "betType": "parlay",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Deni Avdija Portland Trail Blazers @ Dallas Mavericks Josh TD, Josh Giddey Double Chicago Bulls @ Utah Jazz Jalen TD, Jalen Johnson Double Atlanta Hawks @ Phoenix Suns TD",
+    "description": "Deni Avdija Portland Trail Blazers @ Dallas Mavericks Josh TD, Josh Giddey Chicago Bulls @ Utah Jazz Jalen TD, Jalen Johnson Atlanta Hawks @ Phoenix Suns TD",
     "name": "Parlay (3)",
     "odds": 36300,
     "stake": 0.5,
@@ -802,27 +804,27 @@
         "target": "Portland Trail Blazers @ Dallas Mavericks Josh",
         "odds": 1200,
         "result": "LOSS",
-        "game": "To Record A Triple Double Portland Trail Blazers @ Dallas Mavericks Josh Giddey"
+        "game": "Portland Trail Blazers @ Dallas Mavericks Josh"
       },
       {
         "entities": [
           "Josh Giddey"
         ],
         "market": "TD",
-        "target": "Double Chicago Bulls @ Utah Jazz Jalen",
+        "target": "Chicago Bulls @ Utah Jazz Jalen",
         "odds": 250,
         "result": "LOSS",
-        "game": "To Record A Triple Double Chicago Bulls @ Utah Jazz Jalen Johnson"
+        "game": "Double Chicago Bulls @ Utah Jazz Jalen"
       },
       {
         "entities": [
           "Jalen Johnson"
         ],
         "market": "TD",
-        "target": "Double Atlanta Hawks @ Phoenix Suns",
+        "target": "Atlanta Hawks @ Phoenix Suns",
         "odds": 700,
         "result": "LOSS",
-        "game": "To Record A Triple Double Atlanta Hawks @ Phoenix Suns"
+        "game": "Double Atlanta Hawks @ Phoenix Suns"
       }
     ],
     "tail": "",
@@ -838,7 +840,7 @@
     "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Same Game Parlay - Chicago Bulls @ Utah Jazz Jalen: Jalen Smith 3+ Made Threes, Isaiah Collier 10+ Ast, Same Game Parlay - Atlanta Hawks @ Phoenix Suns Royce: Royce O'Neale 4+ Made Threes, Jalen Johnson 8+ Ast",
+    "description": "Jalen Smith 3+ 3pt, Isaiah Collier 10+ Ast, Royce O'Neale 4+ 3pt, Jalen Johnson 8+ Ast",
     "name": "SGP+",
     "odds": 1803,
     "stake": 3,
@@ -913,7 +915,7 @@
     "betType": "sgp",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Will Richard 3+ Made Threes, Saddiq Bey 3+ Made Threes Golden State Warriors @ New Orleans Pelicans",
+    "description": "Will Richard 3+ 3pt, Saddiq Bey 3+ 3pt Golden State Warriors @ New Orleans Pelicans",
     "name": "SGP",
     "odds": 997,
     "stake": 0.5,
@@ -1025,7 +1027,7 @@
     "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Same Game Parlay - Golden State Warriors @ New Orleans Pelicans: Zion Williamson 30+ Pts, Will Richard 3+ Made Threes, Same Game Parlay - Atlanta Hawks @ Phoeni: Jalen Smith 3+ Made Threes, Ace Bailey 3+ Made Threes, Royce O'Neale Atlanta Hawks @ Phoenix Suns Made Threes",
+    "description": "3-leg Same Game Parlay Plus: SGP (Golden State Warriors @ New Orleans Pelicans - Zion Williamson 30+ Pts, Will Richard 3+ 3pt) + Royce O'Neale 3pt",
     "name": "SGP+",
     "odds": 123369,
     "stake": 0.5,
@@ -1091,10 +1093,10 @@
           "Royce O'Neale"
         ],
         "market": "3pt",
-        "target": "Atlanta Hawks @ Phoenix Suns",
+        "target": null,
         "odds": -130,
         "result": "LOSS",
-        "game": "Made Threes Atlanta Hawks @ Phoenix Suns"
+        "game": "Atlanta Hawks @ Phoenix Suns"
       }
     ],
     "tail": "",
@@ -1110,7 +1112,7 @@
     "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NFL",
-    "description": "Same Game Parlay - Baltimore Ravens @ Cleveland Browns Quinshon: Quinshon Judkins 80+ Yds, Derrick Henry 80+ Yds, Lamar Jackson 40+ Yds, Same Game Parlay - Kansas City Chiefs @ Denver Broncos Rashee: Rashee Rice 7+ Rec, Evan Engram 4+ Rec",
+    "description": "Quinshon Judkins 80+ Yds, Derrick Henry 80+ Yds, Lamar Jackson 40+ Yds, Rashee Rice 7+ Rec, Evan Engram 4+ Rec",
     "name": "SGP+",
     "odds": 4963,
     "stake": 1,
@@ -1356,7 +1358,7 @@
     "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NFL",
-    "description": "Same Game Parlay - Seattle Seahawks @ Los Angeles Rams: Davante Adams 50+ Yds, Cooper Kupp 3+ Rec, Ricky Pearsall ers @ Arizona Cardinals Yds, Cooper Kupp 3+ Yds",
+    "description": "4-leg Same Game Parlay Plus: SGP (Seattle Seahawks @ Los Angeles Rams - Davante Adams 50+ Yds, Cooper Kupp 3+ Rec) + Ricky Pearsall 50+ Yds + Cooper Kupp 3+ Yds",
     "name": "SGP+",
     "odds": 37067,
     "stake": 0.25,
@@ -1395,7 +1397,7 @@
           "Ricky Pearsall"
         ],
         "market": "Yds",
-        "target": "ers @ Arizona Cardinals",
+        "target": "50+",
         "odds": 1100,
         "result": "LOSS",
         "game": "ers @ Arizona Cardinals"
@@ -1406,7 +1408,8 @@
         ],
         "market": "Yds",
         "target": "3+",
-        "result": "LOSS"
+        "result": "LOSS",
+        "game": "Seattle Seahawks @ Los Angeles Rams"
       }
     ],
     "tail": "",
@@ -1422,7 +1425,7 @@
     "betType": "parlay",
     "marketCategory": "Parlays",
     "sport": "NFL",
-    "description": "Ricky Pearsall ers @ Arizona Cardinals Davante Adams Yds, Davante Adams 50+ Yds",
+    "description": "Ricky Pearsall 50+ Yds, Davante Adams 50+ Yds",
     "name": "Parlay (2)",
     "odds": 6790,
     "stake": 0.5,
@@ -1434,7 +1437,7 @@
           "Ricky Pearsall"
         ],
         "market": "Yds",
-        "target": "ers @ Arizona Cardinals Davante Adams",
+        "target": "50+",
         "odds": 1200,
         "result": "LOSS",
         "game": "ers @ Arizona Cardinals Davante Adams"
@@ -1446,7 +1449,8 @@
         "market": "Yds",
         "target": "50+",
         "odds": 430,
-        "result": "LOSS"
+        "result": "LOSS",
+        "game": "San Francisco 49ers @ Arizona Cardinals"
       }
     ],
     "tail": "",
@@ -1462,7 +1466,7 @@
     "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NFL",
-    "description": "Same Game Parlay - Seattle Seahawks @ Los Angeles Rams: Cooper Kupp 2+ Rec, Davante Adams 3+ Rec, Ricky Pearsall ers @ Arizona Cardinals Rec",
+    "description": "3-leg Same Game Parlay Plus: SGP (Seattle Seahawks @ Los Angeles Rams) + Ricky Pearsall 3+ Rec",
     "name": "SGP+",
     "odds": 812,
     "stake": 2,
@@ -1501,7 +1505,7 @@
           "Ricky Pearsall"
         ],
         "market": "Rec",
-        "target": "ers @ Arizona Cardinals",
+        "target": "3+",
         "odds": 210,
         "result": "LOSS",
         "game": "ers @ Arizona Cardinals"
@@ -1520,7 +1524,7 @@
     "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NFL",
-    "description": "Same Game Parlay - Seattle Seahawks @ Los Angeles Rams: Davante Adams 5+ Rec, Cooper Kupp 3+ Rec, Same Game Parlay - Seattle Seahawks @ Los Angeles Rams: Ricky Pearsall 3+ Rec, Jauan Jennings 6+ Rec",
+    "description": "Davante Adams 5+ Rec, Cooper Kupp 3+ Rec, Ricky Pearsall 3+ Rec, Jauan Jennings 6+ Rec",
     "name": "SGP+",
     "odds": 17311,
     "stake": 0.25,

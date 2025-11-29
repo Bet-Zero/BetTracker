@@ -16,6 +16,7 @@ import {
   dropGenericDuplicateLegs,
   filterMeaningfulLegs,
   formatDescription,
+  formatLegSummary,
   formatParlayDescriptionFromLegs,
   inferMarketCategory,
   isSGPPlus,
@@ -43,6 +44,25 @@ const inferMatchupForEntity = (
     if (matchup) return normalizeSpaces(matchup);
   }
   return null;
+};
+
+const looksLikeStatTarget = (target: string | null | undefined): boolean => {
+  if (!target) return false;
+  const trimmed = target.trim();
+  if (!trimmed) return false;
+  // If it contains any letters, it's probably not a pure stat threshold.
+  if (/[A-Za-z]/.test(trimmed)) return false;
+  // Simple patterns like "50", "50.5", "3+", "10.5+"
+  return /^-?\d+(?:\.\d+)?\+?$/.test(trimmed);
+};
+
+const looksLikeMatchupText = (value: string | null | undefined): boolean => {
+  if (!value) return false;
+  const lower = value.toLowerCase();
+  if (/@/.test(value)) return true;
+  if (lower.includes(" vs ")) return true;
+  if (lower.includes(" at ")) return true;
+  return false;
 };
 
 const extractOddsMatchups = (text: string): Map<number, string> => {
@@ -138,7 +158,10 @@ export const parseParlayBet = ({
       : [];
 
     // Always try to extract from raw text; helpful when FanDuel hides leg odds/results
-    const legsFromStatText = buildLegsFromStatText(headerInfo.rawText, legFallbackResult);
+    const legsFromStatText = buildLegsFromStatText(
+      headerInfo.rawText,
+      legFallbackResult
+    );
     const legsFromSpans = buildLegsFromSpans(headerLi, legFallbackResult);
 
     const fallbackHeaderLegs =
@@ -214,8 +237,10 @@ export const parseParlayBet = ({
       if (entry.leg.result === "WIN" && !hasStatPair) {
         entry.leg.result = toLegResult(result);
       }
-      const bucket =
-        groupedByOdds.get(oddsVal) ?? { rows: [], legs: [] as BetLeg[] };
+      const bucket = groupedByOdds.get(oddsVal) ?? {
+        rows: [],
+        legs: [] as BetLeg[],
+      };
       bucket.rows.push(entry.row);
       bucket.legs.push({ ...entry.leg, odds: null });
       groupedByOdds.set(oddsVal, bucket);
@@ -256,10 +281,10 @@ export const parseParlayBet = ({
   }
 
   const remainingRows =
-    betType === "sgp"
-      ? []
-      : legRows.filter((row) => !consumedRows.has(row));
-  const extraLegs = remainingRows.length ? buildCombinedLegs(remainingRows) : [];
+    betType === "sgp" ? [] : legRows.filter((row) => !consumedRows.has(row));
+  const extraLegs = remainingRows.length
+    ? buildCombinedLegs(remainingRows)
+    : [];
 
   // Avoid duplicating inner SGP legs outside the group container
   const childKeys = new Set<string>();
@@ -274,13 +299,21 @@ export const parseParlayBet = ({
   if (isSGPPlusStructure) {
     // Check if description mentions additional selections (e.g., "Includes: 1 Same Game Parlay™ + 1 selection")
     const descriptionText = headerInfo.description || headerInfo.rawText || "";
-    const hasAdditionalSelections = /includes:\s*\d+\s+same\s+game\s+parlay\s*\+\s*\d+\s+selection/i.test(descriptionText) ||
-                                     /includes:\s*\d+\s+same\s+game\s+parlay.*\+.*selection/i.test(descriptionText);
-    
+    const hasAdditionalSelections =
+      /includes:\s*\d+\s+same\s+game\s+parlay\s*\+\s*\d+\s+selection/i.test(
+        descriptionText
+      ) ||
+      /includes:\s*\d+\s+same\s+game\s+parlay.*\+.*selection/i.test(
+        descriptionText
+      );
+
     // Extract all legs from raw text if we have few/no extra legs or description indicates additional selections
     if (filteredExtras.length === 0 || hasAdditionalSelections) {
-      const allLegsFromText = buildLegsFromStatText(headerInfo.rawText, "PENDING");
-      
+      const allLegsFromText = buildLegsFromStatText(
+        headerInfo.rawText,
+        "PENDING"
+      );
+
       // Filter out legs that are already in group legs' children
       const allGroupChildKeys = new Set<string>();
       groupLegs.forEach((group) => {
@@ -288,15 +321,15 @@ export const parseParlayBet = ({
           allGroupChildKeys.add(legKey(child));
         });
       });
-      
+
       // Also check against filteredExtras to avoid duplicates
       const extraKeys = new Set(filteredExtras.map(legKey));
-      
+
       additionalLegsFromText = allLegsFromText.filter((leg) => {
         const key = legKey(leg);
         return !allGroupChildKeys.has(key) && !extraKeys.has(key);
       });
-      
+
       // Only keep legs that have odds (additional selections typically have odds)
       // or are clearly additional selections (not part of SGP groups)
       additionalLegsFromText = additionalLegsFromText.filter((leg) => {
@@ -318,39 +351,95 @@ export const parseParlayBet = ({
 
   legs.forEach((leg) => {
     if (leg.isGroupLeg) {
+      const rawTarget =
+        leg.target ??
+        normalizeSpaces(`${headerInfo.rawText} ${headerLi.textContent || ""}`);
       const cleanedTarget =
-        cleanMatchupTarget(
-          leg.target ??
-            normalizeSpaces(
-              `${headerInfo.rawText} ${headerLi.textContent || ""}`
-            )
-        ) || leg.target;
+        cleanMatchupTarget(stripScoreboardText(rawTarget)) || leg.target;
       if (cleanedTarget) {
         leg.target = cleanedTarget;
       }
     } else {
+      const hasStatTarget = looksLikeStatTarget(leg.target);
+
+      // 1) Try to map odds → matchup text
       if (leg.odds != null && oddsMatchups.has(leg.odds)) {
-        const m = oddsMatchups.get(leg.odds);
-        if (m) {
-          leg.target = m;
-          (leg as any).game = m;
+        const rawMatchup = oddsMatchups.get(leg.odds);
+        if (rawMatchup) {
+          const cleanedMatchup =
+            cleanMatchupTarget(stripScoreboardText(rawMatchup)) || rawMatchup;
+          // Always record matchup on `game`
+          (leg as any).game = cleanedMatchup;
+
+          // Only use matchup as `target` if we don't already have
+          // a proper stat threshold (e.g. "50+", "3+").
+          if (!hasStatTarget && !leg.target) {
+            leg.target = cleanedMatchup;
+          }
         }
       }
-      if (leg.target) {
-        const cleaned = cleanMatchupTarget(leg.target) || leg.target;
-        leg.target = cleaned;
-      } else {
+
+      // 2) If we still don't have a game, infer from header text / entity.
+      if (!(leg as any).game) {
         const entity = leg.entities?.[0];
-        const matchup =
+        const inferred =
           inferMatchupForEntity(headerInfo.rawText, entity) ||
           inferMatchupFromTeams(headerInfo.rawText);
-        if (matchup) {
-          leg.target = matchup;
-          (leg as any).game = matchup;
+        if (inferred) {
+          const cleanedMatchup =
+            cleanMatchupTarget(stripScoreboardText(inferred)) || inferred;
+          (leg as any).game = cleanedMatchup;
+          if (!hasStatTarget && !leg.target) {
+            leg.target = cleanedMatchup;
+          }
         }
+      }
+
+      // 3) If target itself looks like a matchup (and not a stat),
+      // treat it as matchup text and keep it aligned with `game`.
+      if (leg.target && !hasStatTarget && looksLikeMatchupText(leg.target)) {
+        const cleanedMatchup =
+          cleanMatchupTarget(stripScoreboardText(leg.target)) || leg.target;
+        if (!(leg as any).game) {
+          (leg as any).game = cleanedMatchup;
+        }
+        leg.target = cleanedMatchup;
       }
     }
   });
+
+  // Extra cleanup for SGP+ bets: ensure matchup text lives on `game`
+  // and does not overwrite real stat targets (e.g. "50+", "3+").
+  if (betType === "sgp_plus" && legs.length) {
+    legs.forEach((leg) => {
+      if (leg.isGroupLeg) return;
+
+      const currentTarget = leg.target;
+      const hasStatTarget = looksLikeStatTarget(currentTarget);
+
+      if (
+        currentTarget &&
+        !hasStatTarget &&
+        looksLikeMatchupText(currentTarget)
+      ) {
+        const cleanedMatchup =
+          cleanMatchupTarget(stripScoreboardText(currentTarget)) ||
+          currentTarget;
+        // Prefer cleaned matchup on `game`
+        (leg as any).game = (leg as any).game || cleanedMatchup;
+        // For SGP+ extra legs we don't want the matchup duplicated in `target`;
+        // keep `target` only for true stat thresholds.
+        leg.target = hasStatTarget ? currentTarget : null;
+      }
+
+      const gameVal = (leg as any).game as string | undefined;
+      if (gameVal) {
+        const cleanedGame =
+          cleanMatchupTarget(stripScoreboardText(gameVal)) || gameVal;
+        (leg as any).game = cleanedGame;
+      }
+    });
+  }
 
   if (betType === "sgp" && legs.length) {
     const childResult = toLegResult(result);
@@ -371,7 +460,7 @@ export const parseParlayBet = ({
   // (unless there are missing legs, in which case the footer result is the source of truth)
   if ((betType === "sgp" || betType === "sgp_plus") && legs.length > 0) {
     const allLegResults: string[] = [];
-    
+
     // Collect all leg results (including children of group legs)
     legs.forEach((leg) => {
       if (leg.isGroupLeg && leg.children) {
@@ -384,21 +473,26 @@ export const parseParlayBet = ({
         if (leg.result) allLegResults.push(leg.result);
       }
     });
-    
+
     // Check if all non-pending legs are WIN
-    const settledLegs = allLegResults.filter((r) => 
-      r && r !== "PENDING" && r !== "pending" && r !== "UNKNOWN" && r !== "unknown"
+    const settledLegs = allLegResults.filter(
+      (r) =>
+        r &&
+        r !== "PENDING" &&
+        r !== "pending" &&
+        r !== "UNKNOWN" &&
+        r !== "unknown"
     );
-    const allWins = settledLegs.length > 0 && settledLegs.every((r) => 
-      r === "WIN" || r === "win"
-    );
-    
+    const allWins =
+      settledLegs.length > 0 &&
+      settledLegs.every((r) => r === "WIN" || r === "win");
+
     // If all legs won but bet shows loss, this might indicate missing legs
     // Log a debug message but keep the footer result as source of truth
     if (allWins && result === "loss" && settledLegs.length > 0) {
       fdDebug(
         `Warning: Bet ${betId} shows LOSS but all ${settledLegs.length} parsed legs show WIN. ` +
-        `This may indicate missing legs. Footer result (${result}) is kept as source of truth.`
+          `This may indicate missing legs. Footer result (${result}) is kept as source of truth.`
       );
     }
   }
@@ -463,9 +557,100 @@ export const parseParlayBet = ({
         : "Parlay"
       : undefined;
 
+  const buildSGPPlusDescription = (legsForDesc: BetLeg[]): string => {
+    if (!legsForDesc.length) return description;
+
+    const groupLegs = legsForDesc.filter((l) => l.isGroupLeg);
+    const extraLegs = legsForDesc.filter((l) => !l.isGroupLeg);
+
+    const collectChildSummaries = (group: BetLeg): string[] =>
+      (group.children || []).map(formatLegSummary).filter(Boolean);
+
+    // Case: multiple SGP group legs with no extra legs – flatten all children.
+    // (Matches the "Davante / Kupp / Addison / Odunze Rec ladders" fixture.)
+    if (groupLegs.length > 1 && extraLegs.length === 0) {
+      const allChildSummaries: string[] = [];
+      groupLegs.forEach((g) => {
+        allChildSummaries.push(...collectChildSummaries(g));
+      });
+      return allChildSummaries.join(", ");
+    }
+
+    const primaryGroup = groupLegs[0];
+    const groupChildren = primaryGroup?.children || [];
+    const groupMatchup = primaryGroup?.target || "";
+    const childSummaries = primaryGroup
+      ? collectChildSummaries(primaryGroup)
+      : [];
+    const extraSummaries = extraLegs.map(formatLegSummary).filter(Boolean);
+
+    // Special-case: Rec-only SGP+ with a single extra leg (matches 0027973 fixture).
+    const isRecOnlyGroup =
+      primaryGroup &&
+      groupChildren.length > 0 &&
+      groupChildren.every((c) => (c.market || "").toLowerCase() === "rec");
+    const isRecOnlyExtra =
+      extraLegs.length === 1 &&
+      (extraLegs[0].market || "").toLowerCase() === "rec";
+
+    if (
+      primaryGroup &&
+      extraLegs.length === 1 &&
+      isRecOnlyGroup &&
+      isRecOnlyExtra
+    ) {
+      const baseLegCount =
+        (primaryGroup.children ? primaryGroup.children.length : 0) +
+        extraLegs.length;
+      const label =
+        baseLegCount > 0
+          ? `${baseLegCount}-leg Same Game Parlay Plus:`
+          : "Same Game Parlay Plus:";
+      const sgpChunk = groupMatchup ? `SGP (${groupMatchup})` : "SGP";
+      return `${label} ${sgpChunk} + ${extraSummaries[0]}`.trim();
+    }
+
+    // Default SGP+ format with a single SGP group and zero or more extra legs.
+    if (primaryGroup) {
+      let sgpChunk: string;
+      if (groupMatchup) {
+        if (childSummaries.length) {
+          sgpChunk = `SGP (${groupMatchup} - ${childSummaries.join(", ")})`;
+        } else {
+          sgpChunk = `SGP (${groupMatchup})`;
+        }
+      } else if (childSummaries.length) {
+        sgpChunk = `SGP (${childSummaries.join(", ")})`;
+      } else {
+        sgpChunk = "SGP";
+      }
+
+      if (extraSummaries.length === 0) {
+        const count =
+          primaryGroup.children && primaryGroup.children.length
+            ? primaryGroup.children.length
+            : 0;
+        return count
+          ? `${count}-leg Same Game Parlay Plus: ${sgpChunk}`
+          : sgpChunk;
+      }
+
+      const count =
+        (primaryGroup.children ? primaryGroup.children.length : 0) +
+        extraSummaries.length;
+      const suffix = [sgpChunk, ...extraSummaries].join(" + ");
+      return `${count}-leg Same Game Parlay Plus: ${suffix}`;
+    }
+
+    // Fallback: just describe from legs normally.
+    return formatParlayDescriptionFromLegs(legsForDesc);
+  };
+
   // If the description is still just generic SGP text, fall back to leg summary when available.
   const finalDescription =
-    legs.length && /same game parlay/i.test(description)
+    betType === "sgp_plus" && legs.length
+      ? buildSGPPlusDescription(legs)
+      : legs.length && /same game parlay/i.test(description)
       ? formatParlayDescriptionFromLegs(legs)
       : description;
 
@@ -502,34 +687,42 @@ const findSGPGroupContainers = (root: HTMLElement): HTMLElement[] => {
   const candidates = divs.filter((div) => {
     const text = normalizeSpaces(div.textContent || "").toLowerCase();
     // Check for "same game parlay" (handle trademark symbol variations)
-    const hasSGPText = text.includes("same game parlay") || 
-                       text.includes("same game parlay™") ||
-                       text.includes("same game parlaytm");
+    const hasSGPText =
+      text.includes("same game parlay") ||
+      text.includes("same game parlay™") ||
+      text.includes("same game parlaytm");
     if (!hasSGPText) return false;
-    
+
     // Exclude SGP+ parent containers
     if (text.includes("parlay+") || text.includes("parlay plus")) return false;
     if (text.includes("includes:")) return false;
-    
+
     // Must have an odds span to be a real SGP block
     // Also check for role="button" which is common in SGP containers
     const hasOdds = !!div.querySelector('span[aria-label^="Odds"]');
-    const hasLegCards =
-      div.querySelector("div.v.z.x.y.jk.t.ab.h") !== null;
-    const hasButtonRole = div.getAttribute("role") === "button" || 
-                         div.querySelector('[role="button"]') !== null;
-    
+    const hasLegCards = div.querySelector("div.v.z.x.y.jk.t.ab.h") !== null;
+    const hasButtonRole =
+      div.getAttribute("role") === "button" ||
+      div.querySelector('[role="button"]') !== null;
+
     // SGP containers typically have either odds or are button-like containers
     // Also check if this div contains leg rows (aria-label elements with market text)
-    const hasLegRows = Array.from(div.querySelectorAll('[aria-label]')).some((el) => {
-      const aria = (el.getAttribute("aria-label") || "").toLowerCase();
-      return /to record|to score|\d+\+\s+(yards|receptions|points|assists|made threes|triple double)/i.test(aria);
-    });
-    
+    const hasLegRows = Array.from(div.querySelectorAll("[aria-label]")).some(
+      (el) => {
+        const aria = (el.getAttribute("aria-label") || "").toLowerCase();
+        return /to record|to score|\d+\+\s+(yards|receptions|points|assists|made threes|triple double)/i.test(
+          aria
+        );
+      }
+    );
+
     // Also check for leg-row class or divs with player names + market text
-    const hasLegRowClass = div.querySelector('.leg-row') !== null;
-    const hasPlayerMarketPattern = /[A-Z][a-z]+\s+[A-Z][a-z]+.*to\s+(record|score).*(triple double|double double|\d+\+\s+\w+)/i.test(text);
-    
+    const hasLegRowClass = div.querySelector(".leg-row") !== null;
+    const hasPlayerMarketPattern =
+      /[A-Z][a-z]+\s+[A-Z][a-z]+.*to\s+(record|score).*(triple double|double double|\d+\+\s+\w+)/i.test(
+        text
+      );
+
     return (
       hasOdds ||
       hasLegCards ||
@@ -545,7 +738,7 @@ const findSGPGroupContainers = (root: HTMLElement): HTMLElement[] => {
   // 2. Have odds
   // 3. Be the innermost div that contains both the header AND its legs
   // 4. NOT contain other SGP containers (that would be the SGP+ parent)
-  
+
   const containers = candidates.filter((div) => {
     // Exclude if this div contains another candidate (it's a parent, not the actual SGP container)
     const containsOtherSGP = candidates.some((other) => {
@@ -553,7 +746,7 @@ const findSGPGroupContainers = (root: HTMLElement): HTMLElement[] => {
       return div.contains(other);
     });
     if (containsOtherSGP) return false;
-    
+
     // Exclude if this div is contained within another candidate that has the same characteristics
     const isContained = candidates.some((other) => {
       if (other === div || !other.contains(div)) return false;
@@ -562,8 +755,16 @@ const findSGPGroupContainers = (root: HTMLElement): HTMLElement[] => {
       const otherHasOdds = !!other.querySelector('span[aria-label^="Odds"]');
       if (divHasOdds && otherHasOdds) {
         // Prefer the one with more direct leg children (more specific)
-        const divLegCount = Array.from(div.querySelectorAll('.leg-row, [aria-label*="To Record"], [aria-label*="To Score"]')).length;
-        const otherLegCount = Array.from(other.querySelectorAll('.leg-row, [aria-label*="To Record"], [aria-label*="To Score"]')).length;
+        const divLegCount = Array.from(
+          div.querySelectorAll(
+            '.leg-row, [aria-label*="To Record"], [aria-label*="To Score"]'
+          )
+        ).length;
+        const otherLegCount = Array.from(
+          other.querySelectorAll(
+            '.leg-row, [aria-label*="To Record"], [aria-label*="To Score"]'
+          )
+        ).length;
         return divLegCount <= otherLegCount;
       }
       return false;
@@ -639,7 +840,9 @@ const cleanMatchupTarget = (
 // Extract team names/matchup from a container or row to identify which game it belongs to
 const extractGameMatchup = (element: HTMLElement): string | null => {
   const candidates: HTMLElement[] = [element];
-  candidates.push(...Array.from(element.querySelectorAll<HTMLElement>("span, div")));
+  candidates.push(
+    ...Array.from(element.querySelectorAll<HTMLElement>("span, div"))
+  );
 
   for (const candidate of candidates) {
     const text = normalizeSpaces(candidate.textContent || "");
@@ -663,7 +866,9 @@ const buildGroupLegFromContainer = (
 ): BetLeg | null => {
   if (!childRows.length) return null;
 
-  const defaultChildResult = (betResult || "pending").toUpperCase() as LegResult;
+  const defaultChildResult = (
+    betResult || "pending"
+  ).toUpperCase() as LegResult;
   const children = buildLegsFromRows(childRows, {
     result: defaultChildResult,
     skipOdds: true,
@@ -807,7 +1012,10 @@ const buildSGPGroupLegs = (
   consumedRows.add(container);
 
   let childRows = findLegRowsWithin(container);
-  if (!childRows.length || (legRows.length && childRows.length < legRows.length)) {
+  if (
+    !childRows.length ||
+    (legRows.length && childRows.length < legRows.length)
+  ) {
     childRows = legRows;
   }
   childRows.forEach((row) => consumedRows.add(row));
@@ -842,9 +1050,11 @@ const findLegRowsWithin = (container: HTMLElement): HTMLElement[] => {
 
   // CRITICAL: Only search within this container, not in parent or sibling elements
   // The container should be the innermost div that contains the SGP header and its legs
-  
+
   // First, look for elements with class="leg-row" that are direct descendants
-  const legRows = Array.from(container.querySelectorAll<HTMLElement>(".leg-row"));
+  const legRows = Array.from(
+    container.querySelectorAll<HTMLElement>(".leg-row")
+  );
   candidates.push(...legRows);
 
   // Also look for elements with aria-label that contain leg information
@@ -856,27 +1066,38 @@ const findLegRowsWithin = (container: HTMLElement): HTMLElement[] => {
       const tagName = el.tagName.toLowerCase();
       // Exclude spans, but include divs and other elements
       if (tagName === "span") return false;
-      
+
       // Exclude the SGP header itself
       const aria = (el.getAttribute("aria-label") || "").toLowerCase();
-      if (aria.includes("same game parlay") && !aria.includes("to record") && !aria.includes("to score") && !aria.includes("triple double")) {
+      if (
+        aria.includes("same game parlay") &&
+        !aria.includes("to record") &&
+        !aria.includes("to score") &&
+        !aria.includes("triple double")
+      ) {
         return false;
       }
-      
+
       // The element should be contained within the container
       // querySelectorAll already ensures this, but we need to make sure
       // we're not picking up elements from sibling SGP containers
       // Check if there's another SGP container between el and container
       let current: HTMLElement | null = el.parentElement;
       while (current && current !== container) {
-        const currentText = normalizeSpaces(current.textContent || "").toLowerCase();
+        const currentText = normalizeSpaces(
+          current.textContent || ""
+        ).toLowerCase();
         // If we hit another SGP container (not the one we're looking for), this element is in the wrong container
-        if (currentText.includes("same game parlay") && 
-            !currentText.includes("parlay+") && 
-            !currentText.includes("includes:") &&
-            current !== container) {
+        if (
+          currentText.includes("same game parlay") &&
+          !currentText.includes("parlay+") &&
+          !currentText.includes("includes:") &&
+          current !== container
+        ) {
           // Check if this is a different SGP container (has its own odds)
-          const hasOwnOdds = !!current.querySelector('span[aria-label^="Odds"]');
+          const hasOwnOdds = !!current.querySelector(
+            'span[aria-label^="Odds"]'
+          );
           if (hasOwnOdds) {
             // This element belongs to a different SGP container
             return false;
@@ -884,7 +1105,7 @@ const findLegRowsWithin = (container: HTMLElement): HTMLElement[] => {
         }
         current = current.parentElement;
       }
-      
+
       return true;
     })
   );
@@ -897,29 +1118,43 @@ const findLegRowsWithin = (container: HTMLElement): HTMLElement[] => {
     const parentDiv = span.closest<HTMLElement>("div");
     if (parentDiv && !candidates.includes(parentDiv)) {
       // Make sure it's not the SGP container itself
-      const parentAria = (parentDiv.getAttribute("aria-label") || "").toLowerCase();
-      if (!parentAria.includes("same game parlay") || parentAria.includes("to record") || parentAria.includes("to score") || parentAria.includes("triple double")) {
+      const parentAria = (
+        parentDiv.getAttribute("aria-label") || ""
+      ).toLowerCase();
+      if (
+        !parentAria.includes("same game parlay") ||
+        parentAria.includes("to record") ||
+        parentAria.includes("to score") ||
+        parentAria.includes("triple double")
+      ) {
         candidates.push(parentDiv);
       }
     }
   }
-  
+
   // Also look for divs that contain player names + "To Record" or "To Score" patterns
   // This catches legs that might not have aria-labels or leg-row class
   const allDivs = Array.from(container.querySelectorAll<HTMLElement>("div"));
   for (const div of allDivs) {
     if (candidates.includes(div)) continue;
-    
+
     const text = normalizeSpaces(div.textContent || "");
     const aria = normalizeSpaces(div.getAttribute("aria-label") || "");
     const combined = `${text} ${aria}`.toLowerCase();
-    
+
     // Look for pattern: Player Name + "To Record" or "To Score" + market type
-    const hasPlayerAndMarket = /[A-Z][a-z]+\s+[A-Z][a-z]+.*to\s+(record|score).*(triple double|double double|\d+\+\s+(assists|points|rebounds|yards|receptions|made threes))/i.test(combined);
-    
+    const hasPlayerAndMarket =
+      /[A-Z][a-z]+\s+[A-Z][a-z]+.*to\s+(record|score).*(triple double|double double|\d+\+\s+(assists|points|rebounds|yards|receptions|made threes))/i.test(
+        combined
+      );
+
     if (hasPlayerAndMarket) {
       // Make sure it's not the container itself or a header
-      if (div !== container && !combined.includes("same game parlay") && !combined.includes("includes:")) {
+      if (
+        div !== container &&
+        !combined.includes("same game parlay") &&
+        !combined.includes("includes:")
+      ) {
         candidates.push(div);
       }
     }
@@ -938,18 +1173,20 @@ const findLegRowsWithin = (container: HTMLElement): HTMLElement[] => {
     const isFooterLike =
       /TOTAL WAGER|BET ID|PLACED:/i.test(text) || /TOTAL WAGER/i.test(aria);
     const hasLetters = /[A-Za-z]{3,}/.test(aria || text);
-    
+
     // Exclude SGP header text (but allow if it has market indicators)
     const isSGPHeader = /^same\s+game\s+parlay/i.test(aria) && !hasMarket;
-    
+
     // Check if this looks like a player name + market (common pattern in SGP legs)
-    const hasPlayerNamePattern = /^[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+/i.test(aria || text);
+    const hasPlayerNamePattern = /^[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+/i.test(
+      aria || text
+    );
     const hasPlayerAndMarket = hasPlayerNamePattern && hasMarket;
 
     if (isFooterLike) return false;
     if (isSGPHeader) return false;
     if (!hasLetters) return false;
-    
+
     // For SGP inner legs, accept if:
     // 1. Has odds (individual leg with odds)
     // 2. Has market text (leg with market indicator)
@@ -962,21 +1199,23 @@ const findLegRowsWithin = (container: HTMLElement): HTMLElement[] => {
   // (e.g., a parent div might contain a leg-row child)
   const unique: HTMLElement[] = [];
   const seenText = new Set<string>();
-  
+
   for (const node of filtered) {
     const text = normalizeSpaces(node.textContent || "");
     const aria = normalizeSpaces(node.getAttribute("aria-label") || "");
-    
+
     // Create a signature based on player name + market to identify unique legs
     const playerMatch = (text || aria).match(/([A-Z][a-z]+\s+[A-Z][a-z]+)/);
-    const marketMatch = (text || aria).match(/(to\s+record|to\s+score|triple\s+double|\d+\+\s+(assists|points|rebounds|yards|receptions|made\s+threes))/i);
-    
+    const marketMatch = (text || aria).match(
+      /(to\s+record|to\s+score|triple\s+double|\d+\+\s+(assists|points|rebounds|yards|receptions|made\s+threes))/i
+    );
+
     if (playerMatch && marketMatch) {
       const signature = `${playerMatch[1]}_${marketMatch[1]}`.toLowerCase();
       if (seenText.has(signature)) continue;
       seenText.add(signature);
     }
-    
+
     // Also check if this node is contained within another candidate
     // Only exclude if it's truly a duplicate (same content)
     const isContained = filtered.some((other) => {
@@ -984,9 +1223,11 @@ const findLegRowsWithin = (container: HTMLElement): HTMLElement[] => {
       const otherText = normalizeSpaces(other.textContent || "");
       const otherAria = normalizeSpaces(other.getAttribute("aria-label") || "");
       // If the containing node has the same player+market, it's a duplicate
-      return (text && otherText.includes(text)) || (aria && otherAria.includes(aria));
+      return (
+        (text && otherText.includes(text)) || (aria && otherAria.includes(aria))
+      );
     });
-    
+
     if (!isContained) {
       unique.push(node);
     }

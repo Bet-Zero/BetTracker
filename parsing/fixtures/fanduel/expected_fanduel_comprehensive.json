@@ -533,7 +533,7 @@
     "betType": "sgp",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Same Game Parlay - Chicago Bulls @ Utah Jazz: Jalen Smith 2+ 3pt, Ace Bailey 2+ 3pt, Patrick Williams 2+ 3pt, Coby White 2+ 3pt, Isaiah Collier 8+ Ast",
+    "description": "Same Game Parlay - Chicago Bulls @ Utah Jazz: Jalen Smith 2+ Made Threes, Patrick Williams 2+ Made Threes, Coby White 2+ Made Threes, Isaiah Collier 8+ Ast",
     "name": "SGP (5 legs)",
     "odds": 4781,
     "stake": 1,
@@ -649,7 +649,7 @@
     "betType": "sgp",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Same Game Parlay - Chicago Bulls @ Utah Jazz: Coby White 4+ Ast, Patrick Williams 2+ 3pt, Ayo Dosunmu 2+ 3pt, Ace Bailey 3+ 3pt, Isaiah Collier 4+ Ast",
+    "description": "Same Game Parlay - Chicago Bulls @ Utah Jazz: Coby White 4+ Made Threes, Patrick Williams 2+ Made Threes, Ayo Dosunmu 2+ Made Threes, Ace Bailey 3+ Made Threes, Isaiah Collier 4+ Ast",
     "name": "SGP (5 legs)",
     "odds": 18778,
     "stake": 1.5,
@@ -665,7 +665,7 @@
         "children": [
           {
             "entities": ["Coby White"],
-            "market": "Ast",
+            "market": "3pt",
             "target": "4+",
             "odds": null,
             "result": "LOSS"
@@ -935,7 +935,7 @@
         "market": "Same Game Parlay",
         "target": "Golden State Warriors @ New Orleans Pelicans",
         "odds": 3623,
-        "result": "PUSH",
+        "result": "LOSS",
         "isGroupLeg": true,
         "children": [
           {
@@ -950,7 +950,7 @@
             "market": "3pt",
             "target": "3+",
             "odds": null,
-            "result": "PUSH"
+            "result": "LOSS"
           }
         ]
       },

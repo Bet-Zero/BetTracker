@@ -1636,8 +1636,8 @@ export const formatLegSummary = (leg: BetLeg): string => {
   }
 
   if (market.toLowerCase() === "3pt") {
-    const madeText = target ? `${target} Made Threes` : "Made Threes";
-    return name ? `${name} ${madeText}` : madeText;
+    const core = target ? `${target} 3pt` : "3pt";
+    return name ? `${name} ${core}` : core;
   }
 
   if (name && target && market) return `${name} ${target} ${market}`;
@@ -2631,9 +2631,7 @@ export const findLegRows = (cardLi: HTMLElement): HTMLElement[] => {
 
   // FanDuel leg cards without aria-labels/odds often use this class cluster.
   candidates.push(
-    ...Array.from(
-      cardLi.querySelectorAll<HTMLElement>("div.v.z.x.y.jk.t.ab.h")
-    )
+    ...Array.from(cardLi.querySelectorAll<HTMLElement>("div.v.z.x.y.jk.t.ab.h"))
   );
 
   // Primary: nodes with aria-label
