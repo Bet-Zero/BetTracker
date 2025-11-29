@@ -636,14 +636,16 @@ export const parseParlayBet = ({
     );
     const totalLegCount = totalChildCount + extraLegs.length;
 
-    // Case: multiple SGP group legs with no extra legs – flatten all children.
-    // (Matches the "Davante / Kupp / Addison / Odunze Rec ladders" fixture.)
+    // Case: multiple SGP group legs with no extra legs
+    // Format: "N-leg Same Game Parlay Plus: SGP (Matchup1) + SGP (Matchup2)"
+    // Note: Use SGP+ format for structured bets; previous "flatten all children" was for specific cases
     if (groupLegs.length > 1 && extraLegs.length === 0) {
-      const allChildSummaries: string[] = [];
-      groupLegs.forEach((g) => {
-        allChildSummaries.push(...collectChildSummaries(g));
+      const sgpChunks = groupLegs.map((g) => {
+        const matchup = g.target ? shortenMatchupForDescription(g.target) : "";
+        return matchup ? `SGP (${matchup})` : "SGP";
       });
-      return allChildSummaries.join(", ");
+      const suffix = sgpChunks.join(" + ");
+      return `${totalLegCount}-leg Same Game Parlay Plus: ${suffix}`;
     }
 
     // Case: multiple SGP groups WITH extra legs
