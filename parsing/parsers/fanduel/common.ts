@@ -515,8 +515,9 @@ export const deriveFieldsFromDescription = (
   }
 
   // Pattern: "Player Name To Record X+ Assists" (check before To Score to avoid misclassification)
+  // Also handles "Player Name +540 To Record 10+ Assists" where odds are between name and "To Record"
   const toRecordAstMatch = desc.match(
-    /^([A-Za-z' .-]+?)\s+To\s+Record\s+(\d+(?:\.\d+)?)\+\s+Assists/i
+    /^([A-Za-z' .-]+?)\s+(?:[+\-]\d+\s+)?To\s+Record\s+(\d+(?:\.\d+)?)\+\s+Assists/i
   );
   if (toRecordAstMatch && !name) {
     name = toRecordAstMatch[1].trim();
@@ -525,8 +526,9 @@ export const deriveFieldsFromDescription = (
   }
 
   // Pattern: "Player Name To Score X+ Points"
+  // Also handles "Player Name +540 To Score 30+ Points" where odds are between name and "To Score"
   const toScorePtsMatch = desc.match(
-    /^([A-Za-z' .-]+?)\s+To\s+Score\s+(\d+(?:\.\d+)?)\+\s+Points/i
+    /^([A-Za-z' .-]+?)\s+(?:[+\-]\d+\s+)?To\s+Score\s+(\d+(?:\.\d+)?)\+\s+Points/i
   );
   if (toScorePtsMatch && !name) {
     name = toScorePtsMatch[1].trim();
@@ -948,11 +950,12 @@ export const cleanEntityName = (raw: string): string => {
   cleaned = cleaned.replace(/^Points\s+Void\s+/i, "");
   cleaned = cleaned.replace(/^Void\s+/i, "");
 
-  // Remove team name prefixes (e.g., "Cleveland Browns Quinshon" → "Quinshon")
-  // Common team patterns that might be combined with player names
+  // Remove team name prefixes ONLY when followed by what looks like a player name
+  // (e.g., "Cleveland Browns Quinshon" → "Quinshon")
+  // Do NOT strip when followed by spreads/odds (e.g., "Kansas City Chiefs -3.5" should stay)
   const teamPrefixes = [
-    /^(Cleveland\s+Browns|Denver\s+Broncos|Los\s+Angeles\s+Rams|Arizona\s+Cardinals|San\s+Francisco\s+49ers|Seattle\s+Seahawks|Baltimore\s+Ravens)\s+/i,
-    /^(Detroit\s+Pistons|Atlanta\s+Hawks|Orlando\s+Magic|Phoenix\s+Suns|Portland\s+Trail\s+Blazers|Utah\s+Jazz|Los\s+Angeles\s+Lakers|Golden\s+State\s+Warriors|New\s+Orleans\s+Pelicans|Chicago\s+Bulls)\s+/i,
+    /^(Cleveland\s+Browns|Denver\s+Broncos|Los\s+Angeles\s+Rams|Arizona\s+Cardinals|San\s+Francisco\s+49ers|Seattle\s+Seahawks|Baltimore\s+Ravens|Kansas\s+City\s+Chiefs)\s+(?=[A-Z])/i,
+    /^(Detroit\s+Pistons|Atlanta\s+Hawks|Orlando\s+Magic|Phoenix\s+Suns|Portland\s+Trail\s+Blazers|Utah\s+Jazz|Los\s+Angeles\s+Lakers|Golden\s+State\s+Warriors|New\s+Orleans\s+Pelicans|Chicago\s+Bulls|Dallas\s+Mavericks|Boston\s+Celtics|Memphis\s+Grizzlies)\s+(?=[A-Z])/i,
   ];
   for (const pattern of teamPrefixes) {
     cleaned = cleaned.replace(pattern, "");
@@ -1374,13 +1377,15 @@ export const buildLegsFromStatText = (
       "gi"
     ),
     // Pattern for "To Record" legs: "Player Name To Record A Triple Double" or "Player Name To Record 10+ Assists"
+    // Also handles "Player Name +540 To Record 10+ Assists" where odds are between name and "To Record"
     new RegExp(
-      `(${PLAYER_NAME_PATTERN})\\s+To\\s+Record\\s+(?:A\\s+)?(Triple Double|\\d+\\+\\s+\\w+)`,
+      `(${PLAYER_NAME_PATTERN})\\s+(?:[+\\-]\\d+\\s+)?To\\s+Record\\s+(?:A\\s+)?(Triple Double|\\d+\\+\\s+\\w+)`,
       "gi"
     ),
     // Pattern for "To Score" legs: "Player Name To Score 30+ Points"
+    // Also handles "Player Name +540 To Score 30+ Points" where odds are between name and "To Score"
     new RegExp(
-      `(${PLAYER_NAME_PATTERN})\\s+To\\s+Score\\s+(\\d+\\+)\\s+Points`,
+      `(${PLAYER_NAME_PATTERN})\\s+(?:[+\\-]\\d+\\s+)?To\\s+Score\\s+(\\d+\\+)\\s+Points`,
       "gi"
     ),
   ];
@@ -1515,8 +1520,13 @@ export const buildLegsFromStatText = (
   const seen = new Set<string>();
 
   matches.forEach((m) => {
+    // Clean the player name before creating the key to avoid duplicates
+    // This handles cases like "Dallas Mavericks Josh Giddey" vs "Josh Giddey"
+    const cleanedPlayer = cleanEntityName(m.player);
+    if (!cleanedPlayer) return; // Skip if player name cleans to empty
+    
     // Create a unique key to avoid duplicates
-    const key = `${m.player}_${m.market}_${m.target || ""}`.toLowerCase();
+    const key = `${cleanedPlayer}_${m.market}_${m.target || ""}`.toLowerCase();
     if (seen.has(key)) return;
     seen.add(key);
 
@@ -1529,7 +1539,7 @@ export const buildLegsFromStatText = (
     // If that doesn't work, try constructing it manually
     if (!leg) {
       leg = {
-        entities: [m.player],
+        entities: [cleanedPlayer],
         market: m.market,
         target: m.target,
         result: m.isVoid ? "PUSH" : toLegResult(result),
@@ -1539,9 +1549,9 @@ export const buildLegsFromStatText = (
       if (m.isVoid) {
         leg.result = "PUSH";
       }
-      // Also ensure the entity name doesn't have "Void" in it
+      // Also ensure the entity name is cleaned
       if (leg.entities && leg.entities[0]) {
-        leg.entities[0] = leg.entities[0].replace(/^Void\s+/i, "").trim();
+        leg.entities[0] = cleanEntityName(leg.entities[0].replace(/^Void\s+/i, "").trim());
       }
     }
 
