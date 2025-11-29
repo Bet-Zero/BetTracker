@@ -950,11 +950,12 @@ export const cleanEntityName = (raw: string): string => {
   cleaned = cleaned.replace(/^Points\s+Void\s+/i, "");
   cleaned = cleaned.replace(/^Void\s+/i, "");
 
-  // Remove team name prefixes (e.g., "Cleveland Browns Quinshon" → "Quinshon")
-  // Common team patterns that might be combined with player names
+  // Remove team name prefixes ONLY when followed by what looks like a player name
+  // (e.g., "Cleveland Browns Quinshon" → "Quinshon")
+  // Do NOT strip when followed by spreads/odds (e.g., "Kansas City Chiefs -3.5" should stay)
   const teamPrefixes = [
-    /^(Cleveland\s+Browns|Denver\s+Broncos|Los\s+Angeles\s+Rams|Arizona\s+Cardinals|San\s+Francisco\s+49ers|Seattle\s+Seahawks|Baltimore\s+Ravens|Kansas\s+City\s+Chiefs)\s+/i,
-    /^(Detroit\s+Pistons|Atlanta\s+Hawks|Orlando\s+Magic|Phoenix\s+Suns|Portland\s+Trail\s+Blazers|Utah\s+Jazz|Los\s+Angeles\s+Lakers|Golden\s+State\s+Warriors|New\s+Orleans\s+Pelicans|Chicago\s+Bulls|Dallas\s+Mavericks|Boston\s+Celtics|Memphis\s+Grizzlies)\s+/i,
+    /^(Cleveland\s+Browns|Denver\s+Broncos|Los\s+Angeles\s+Rams|Arizona\s+Cardinals|San\s+Francisco\s+49ers|Seattle\s+Seahawks|Baltimore\s+Ravens|Kansas\s+City\s+Chiefs)\s+(?=[A-Z])/i,
+    /^(Detroit\s+Pistons|Atlanta\s+Hawks|Orlando\s+Magic|Phoenix\s+Suns|Portland\s+Trail\s+Blazers|Utah\s+Jazz|Los\s+Angeles\s+Lakers|Golden\s+State\s+Warriors|New\s+Orleans\s+Pelicans|Chicago\s+Bulls|Dallas\s+Mavericks|Boston\s+Celtics|Memphis\s+Grizzlies)\s+(?=[A-Z])/i,
   ];
   for (const pattern of teamPrefixes) {
     cleaned = cleaned.replace(pattern, "");
