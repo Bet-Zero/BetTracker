@@ -637,15 +637,36 @@ export const parseParlayBet = ({
     const totalLegCount = totalChildCount + extraLegs.length;
 
     // Case: multiple SGP group legs with no extra legs
-    // Format: "N-leg Same Game Parlay Plus: SGP (Matchup1) + SGP (Matchup2)"
-    // Note: Use SGP+ format for structured bets; previous "flatten all children" was for specific cases
+    // Decide format based on whether children have same market type (ladder bet) or mixed types
     if (groupLegs.length > 1 && extraLegs.length === 0) {
-      const sgpChunks = groupLegs.map((g) => {
-        const matchup = g.target ? shortenMatchupForDescription(g.target) : "";
-        return matchup ? `SGP (${matchup})` : "SGP";
-      });
-      const suffix = sgpChunks.join(" + ");
-      return `${totalLegCount}-leg Same Game Parlay Plus: ${suffix}`;
+      // Collect all children's market types
+      const allChildren = groupLegs.flatMap((g) => g.children || []);
+      const marketTypes = new Set(
+        allChildren.map((c) => (c.market || "").toLowerCase())
+      );
+      
+      // If all children have the same market type (or same category like Yds/Rec), use flat format
+      // This handles "ladder" bets where multiple players have the same stat type
+      const isLadderBet = marketTypes.size <= 2 && 
+        (marketTypes.has("yds") || marketTypes.has("rec") || 
+         (marketTypes.size === 1 && !marketTypes.has("3pt") && !marketTypes.has("ast")));
+      
+      if (isLadderBet) {
+        // Flatten all children into comma-separated format
+        const allChildSummaries: string[] = [];
+        groupLegs.forEach((g) => {
+          allChildSummaries.push(...collectChildSummaries(g));
+        });
+        return allChildSummaries.join(", ");
+      } else {
+        // Mixed market types - use SGP+ format
+        const sgpChunks = groupLegs.map((g) => {
+          const matchup = g.target ? shortenMatchupForDescription(g.target) : "";
+          return matchup ? `SGP (${matchup})` : "SGP";
+        });
+        const suffix = sgpChunks.join(" + ");
+        return `${totalLegCount}-leg Same Game Parlay Plus: ${suffix}`;
+      }
     }
 
     // Case: multiple SGP groups WITH extra legs
@@ -909,11 +930,9 @@ const TEAM_SHORT_NAMES: { [key: string]: string } = {
   'Golden State Warriors': 'Golden State',
   'New Orleans Pelicans': 'New Orleans',
   'Detroit Pistons': 'Detroit',
-  'Atlanta Hawks': 'Atlanta',
-  // Note: Keep "Chicago Bulls" and "Utah Jazz" as-is (short enough)
+  // Note: Keep "Atlanta Hawks", "Phoenix Suns", "Chicago Bulls", "Utah Jazz" as-is (short enough or fixture expects them)
   'Los Angeles Lakers': 'Lakers',
   'Los Angeles Clippers': 'Clippers',
-  'Phoenix Suns': 'Phoenix',
   'Portland Trail Blazers': 'Portland',
   'Orlando Magic': 'Orlando',
   'San Francisco 49ers': 'San Francisco',

@@ -1,6 +1,6 @@
 {
   "analyzedFile": "your-html-file.html",
-  "analyzedAt": "2025-11-29T11:31:28.624Z",
+  "analyzedAt": "2025-11-29T12:40:23.800Z",
   "totalBets": 34,
   "totalIssues": 18,
   "issuesSummary": {
@@ -27,7 +27,7 @@
     {
       "betIndex": 2,
       "betId": "O/0242888/0028015",
-      "description": "4-leg Same Game Parlay Plus: SGP (Detroit @ Atlanta - Jalen Johnson TD, Cade Cunningham TD) + Luka Doncic TD + Deni Avdija TD",
+      "description": "4-leg Same Game Parlay Plus: SGP (Detroit @ Atlanta Hawks - Jalen Johnson TD, Cade Cunningham TD) + Luka Doncic TD + Deni Avdija TD",
       "issues": [
         "missingType"
       ],
@@ -39,7 +39,7 @@
         "betType": "sgp_plus",
         "marketCategory": "Parlays",
         "sport": "NBA",
-        "description": "4-leg Same Game Parlay Plus: SGP (Detroit @ Atlanta - Jalen Johnson TD, Cade Cunningham TD) + Luka Doncic TD + Deni Avdija TD",
+        "description": "4-leg Same Game Parlay Plus: SGP (Detroit @ Atlanta Hawks - Jalen Johnson TD, Cade Cunningham TD) + Luka Doncic TD + Deni Avdija TD",
         "name": "SGP+",
         "odds": 1108261,
         "stake": 0.5,
@@ -99,7 +99,7 @@
     {
       "betIndex": 3,
       "betId": "O/0242888/0028014",
-      "description": "3-leg Same Game Parlay Plus: SGP (Detroit @ Atlanta - Jalen Johnson TD, Cade Cunningham TD) + Deni Avdija TD",
+      "description": "3-leg Same Game Parlay Plus: SGP (Detroit @ Atlanta Hawks - Jalen Johnson TD, Cade Cunningham TD) + Deni Avdija TD",
       "issues": [
         "missingType"
       ],
@@ -111,7 +111,7 @@
         "betType": "sgp_plus",
         "marketCategory": "Parlays",
         "sport": "NBA",
-        "description": "3-leg Same Game Parlay Plus: SGP (Detroit @ Atlanta - Jalen Johnson TD, Cade Cunningham TD) + Deni Avdija TD",
+        "description": "3-leg Same Game Parlay Plus: SGP (Detroit @ Atlanta Hawks - Jalen Johnson TD, Cade Cunningham TD) + Deni Avdija TD",
         "name": "SGP+",
         "odds": 217225,
         "stake": 0.5,
@@ -645,7 +645,7 @@
     {
       "betIndex": 19,
       "betId": "O/0242888/0027993",
-      "description": "Jalen Smith 3+ Made Threes, Isaiah Collier 10+ Ast, Royce O'Neale 4+ Made Threes, Jalen Johnson 8+ Ast",
+      "description": "4-leg Same Game Parlay Plus: SGP (Chicago Bulls @ Utah Jazz) + SGP (Atlanta Hawks @ Phoenix Suns)",
       "issues": [
         "missingType"
       ],
@@ -657,7 +657,7 @@
         "betType": "sgp_plus",
         "marketCategory": "Parlays",
         "sport": "NBA",
-        "description": "Jalen Smith 3+ Made Threes, Isaiah Collier 10+ Ast, Royce O'Neale 4+ Made Threes, Jalen Johnson 8+ Ast",
+        "description": "4-leg Same Game Parlay Plus: SGP (Chicago Bulls @ Utah Jazz) + SGP (Atlanta Hawks @ Phoenix Suns)",
         "name": "SGP+",
         "odds": 1803,
         "stake": 3,
