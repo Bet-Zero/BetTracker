@@ -65,13 +65,18 @@ const looksLikeMatchupText = (value: string | null | undefined): boolean => {
   return false;
 };
 
+// Pattern for matching team names that may contain numbers (e.g., "49ers", "76ers")
+const TEAM_NAME_PATTERN_WITH_DIGITS = "[A-Za-z][A-Za-z0-9'\\s]+";
+
 const extractOddsMatchups = (text: string): Map<number, string> => {
   const map = new Map<number, string>();
   if (!text) return map;
   const normalized = normalizeSpaces(text);
   // Pattern for SGP matchups - allow digits in team names (e.g., "49ers", "76ers")
-  const sgpPattern =
-    /Same Game Parlay™\s*\+?(-?\d+)\s+([A-Za-z][A-Za-z0-9'\s]+@\s+[A-Za-z][A-Za-z0-9'\s]+)/gi;
+  const sgpPattern = new RegExp(
+    `Same Game Parlay™\\s*\\+?(-?\\d+)\\s+(${TEAM_NAME_PATTERN_WITH_DIGITS}@\\s+${TEAM_NAME_PATTERN_WITH_DIGITS})`,
+    "gi"
+  );
   for (const match of normalized.matchAll(sgpPattern)) {
     const oddsVal = parseInt(match[1], 10);
     let matchup = normalizeSpaces(match[2]);
@@ -83,8 +88,10 @@ const extractOddsMatchups = (text: string): Map<number, string> => {
   }
 
   // Generic pattern - allow digits in team names (e.g., "49ers", "76ers")
-  const genericPattern =
-    /([+\-]?\d{2,5})[^\n]{0,60}?([A-Za-z][A-Za-z0-9'\s]+@\s+[A-Za-z][A-Za-z0-9'\s]+)/gi;
+  const genericPattern = new RegExp(
+    `([+\\-]?\\d{2,5})[^\\n]{0,60}?(${TEAM_NAME_PATTERN_WITH_DIGITS}@\\s+${TEAM_NAME_PATTERN_WITH_DIGITS})`,
+    "gi"
+  );
   for (const match of normalized.matchAll(genericPattern)) {
     const oddsVal = parseInt(match[1], 10);
     let matchup = normalizeSpaces(match[2]);
@@ -828,7 +835,7 @@ const TEAM_NICKNAMES = new Set([
   'ravens', 'browns', 'chiefs', 'broncos', 'seahawks', 'rams', 'cardinals', '49ers', 'niners',
   'bills', 'dolphins', 'patriots', 'jets', 'steelers', 'bengals', 'cowboys', 'eagles', 'giants',
   'commanders', 'bears', 'lions', 'packers', 'vikings', 'falcons', 'panthers', 'saints', 'buccaneers',
-  'colts', 'texans', 'jaguars', 'titans', 'raiders', 'chargers', 'broncos',
+  'colts', 'texans', 'jaguars', 'titans', 'raiders', 'chargers',
   // NBA
   'hawks', 'celtics', 'nets', 'hornets', 'bulls', 'cavaliers', 'mavericks', 'nuggets', 'pistons',
   'warriors', 'rockets', 'pacers', 'clippers', 'lakers', 'grizzlies', 'heat', 'bucks', 'timberwolves',
@@ -1037,8 +1044,9 @@ const buildGroupLegFromContainer = (
       /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b\.?/gi,
       ""
     );
+    // Match team names that may contain digits (e.g., "49ers", "76ers")
     const matchupOnly = eventText.match(
-      /([A-Z][A-Za-z']+(?:\s+[A-Z][A-Za-z']+){0,2}\s+@\s+[A-Z][A-Za-z']+(?:\s+[A-Z][A-Za-z']+){0,2})/
+      /([A-Za-z][A-Za-z0-9']+(?:\s+[A-Za-z][A-Za-z0-9']+){0,2}\s+@\s+[A-Za-z][A-Za-z0-9']+(?:\s+[A-Za-z][A-Za-z0-9']+){0,2})/
     );
     if (matchupOnly && matchupOnly[1]) {
       eventText = matchupOnly[1];
