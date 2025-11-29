@@ -7,7 +7,7 @@ You are running the /audit command in Cursor.
 The user selects the TARGET_SCOPE using @-mentions or #codebase.
 
 Load and follow the full audit instructions stored in:
-docs/ApexAuditPrompt.md
+docs/cursor-prompts/ApexAuditPrompt.md
 
 Treat the selected scope as TARGET_SCOPE.
 Perform the complete Apex Audit exactly as described in that file.
@@ -18,7 +18,7 @@ also create or update a Markdown file under the `audits/` directory
 containing the full audit.
 
 Name the audit file based on the selection:
-  - Single file: audits/<filename>-audit.md
-  - Folder: audits/<folder-name>-audit.md
-  - Entire codebase: audits/codebase-audit.md
 
+- Single file: audits/<filename>-audit.md
+- Folder: audits/<folder-name>-audit.md
+- Entire codebase: audits/codebase-audit.md

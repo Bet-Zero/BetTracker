@@ -19,11 +19,11 @@ Treat the tagged items as the TARGET_SCOPE.
 CORE BEHAVIOR
 
 - Load and follow the full instructions stored in:
-  `docs/ExplainPrompt.md`
+  `docs/cursor-prompts/ExplainPrompt.md`
 
 - Treat the selected scope as TARGET_SCOPE and:
   - Build a clear mental model of what it does.
-  - Explain it using the exact workflow in `docs/ExplainPrompt.md`
+  - Explain it using the exact workflow in `docs/cursor-prompts/ExplainPrompt.md`
     (Complexity Snapshot → High-Level Overview → Data Flow → Visual Diagram → Module/File Breakdown → Gotchas → System Fit → Next Commands).
 
 HARD RULES
@@ -47,6 +47,6 @@ You may **note** potential issues or weirdness, but all actual changes belong in
 RESPONSE STYLE
 
 - Answer entirely in **plain English** with bullets and short sections.
-- Follow the structure defined in `docs/ExplainPrompt.md`.
+- Follow the structure defined in `docs/cursor-prompts/ExplainPrompt.md`.
 - Assume the user is smart but not a coder.
 - Do NOT output diffs or edits — this is an explanation-only command.
