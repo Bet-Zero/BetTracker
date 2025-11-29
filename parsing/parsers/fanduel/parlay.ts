@@ -930,17 +930,35 @@ const cleanMatchupTarget = (
   const direct = findMatchupInText(normalized);
   if (direct) return normalizeSpaces(direct);
 
+  // Try inferring from team names first (more reliable than score pattern)
+  const teamMatchup = inferMatchupFromTeams(normalized);
+  if (teamMatchup) return teamMatchup;
+
+  // Score pattern as last resort: "Team1 35 29 36 27 Team2"
+  // But be careful not to match player names or artifact text
   const scorePattern =
     /([A-Z][A-Za-z']+(?:\s+[A-Z][A-Za-z']+){0,2})\s+\d{2,}(?:\s+\d{2,})*\s+([A-Z][A-Za-z']+(?:\s+[A-Z][A-Za-z']+){0,2})/;
   const scoreMatch = normalized.match(scorePattern);
   if (scoreMatch) {
-    return `${normalizeSpaces(scoreMatch[1])} @ ${normalizeSpaces(
-      scoreMatch[2]
-    )}`;
+    const team1 = normalizeSpaces(scoreMatch[1]);
+    const team2 = normalizeSpaces(scoreMatch[2]);
+    // Validate that both look like team names (not player names, not "Finished", etc.)
+    const isValidTeam = (name: string): boolean => {
+      const lower = name.toLowerCase();
+      // Reject if it contains scoreboard artifacts
+      if (/finished|box\s*score|play.by.play/i.test(name)) return false;
+      // Reject if it looks like a player name (first last format without city)
+      if (name.split(/\s+/).length === 2) {
+        // Check if it's a known team nickname
+        const lastWord = name.split(/\s+/).pop()?.toLowerCase() || '';
+        if (!TEAM_NICKNAMES.has(lastWord)) return false;
+      }
+      return true;
+    };
+    if (isValidTeam(team1) && isValidTeam(team2)) {
+      return `${team1} @ ${team2}`;
+    }
   }
-
-  const teamMatchup = inferMatchupFromTeams(normalized);
-  if (teamMatchup) return teamMatchup;
 
   return undefined;
 };

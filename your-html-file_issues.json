@@ -1,6 +1,6 @@
 {
   "analyzedFile": "your-html-file.html",
-  "analyzedAt": "2025-11-29T09:37:37.802Z",
+  "analyzedAt": "2025-11-29T09:43:25.295Z",
   "totalBets": 34,
   "totalIssues": 18,
   "issuesSummary": {
@@ -87,7 +87,7 @@
             "market": "TD",
             "odds": 1200,
             "result": "LOSS",
-            "game": "Lakers @ Deni Avdija"
+            "game": "Phoenix Suns @ Portland Trail Blazers"
           }
         ],
         "tail": "",
@@ -216,7 +216,7 @@
             "target": "10+",
             "odds": 540,
             "result": "LOSS",
-            "game": "Assists @ Jalen Johnson"
+            "game": "Detroit Pistons @ Atlanta Hawks"
           },
           {
             "entities": [
@@ -226,7 +226,7 @@
             "target": "10+",
             "odds": 470,
             "result": "LOSS",
-            "game": "Hawks @ Deni Avdija"
+            "game": "Phoenix Suns @ Portland Trail Blazers"
           }
         ],
         "tail": "",
