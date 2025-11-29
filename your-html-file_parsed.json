@@ -69,7 +69,7 @@
     "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "4-leg Same Game Parlay Plus: SGP (Detroit Pistons @ Atlanta Hawks - Jalen Johnson TD, Cade Cunningham TD) + Luka Doncic TD + Deni Avdija TD",
+    "description": "4-leg Same Game Parlay Plus: SGP (Detroit @ Atlanta - Jalen Johnson TD, Cade Cunningham TD) + Luka Doncic TD + Deni Avdija TD",
     "name": "SGP+",
     "odds": 1108261,
     "stake": 0.5,
@@ -106,7 +106,6 @@
           "Luka Doncic"
         ],
         "market": "TD",
-        "target": null,
         "odds": 410,
         "result": "LOSS",
         "game": "Utah Jazz @ Los Angeles Lakers"
@@ -116,7 +115,6 @@
           "Deni Avdija"
         ],
         "market": "TD",
-        "target": null,
         "odds": 1200,
         "result": "LOSS",
         "game": "Lakers @ Deni Avdija"
@@ -135,7 +133,7 @@
     "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "3-leg Same Game Parlay Plus: SGP (Detroit Pistons @ Atlanta Hawks - Jalen Johnson TD, Cade Cunningham TD) + Deni Avdija TD",
+    "description": "3-leg Same Game Parlay Plus: SGP (Detroit @ Atlanta - Jalen Johnson TD, Cade Cunningham TD) + Deni Avdija TD",
     "name": "SGP+",
     "odds": 217225,
     "stake": 0.5,
@@ -172,7 +170,6 @@
           "Deni Avdija"
         ],
         "market": "TD",
-        "target": null,
         "odds": 1200,
         "result": "LOSS",
         "game": "Phoenix Suns @ Portland Trail Blazers"
@@ -223,7 +220,7 @@
     "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "4-leg Same Game Parlay Plus: SGP (Utah Jazz @ Los Angeles Lakers - Isaiah Collier 10+ Ast, LeBron James 10+ Ast) + Jalen Johnson Ast + Deni Avdija Ast",
+    "description": "4-leg Same Game Parlay Plus: SGP (Utah @ Lakers - Isaiah Collier 10+ Ast, LeBron James 10+ Ast) + Jalen Johnson 10+ Ast + Deni Avdija 10+ Ast",
     "name": "SGP+",
     "odds": 237511,
     "stake": 0.5,
@@ -262,7 +259,7 @@
           "Jalen Johnson"
         ],
         "market": "Ast",
-        "target": null,
+        "target": "10+",
         "odds": 540,
         "result": "LOSS",
         "game": "Assists @ Jalen Johnson"
@@ -272,7 +269,7 @@
           "Deni Avdija"
         ],
         "market": "Ast",
-        "target": null,
+        "target": "10+",
         "odds": 470,
         "result": "LOSS",
         "game": "Hawks @ Deni Avdija"
@@ -787,8 +784,8 @@
     "betType": "parlay",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Deni Avdija TD, Josh Giddey TD, Jalen Johnson TD",
-    "name": "Parlay (3)",
+    "description": "Deni Avdija TD, Josh Giddey TD, Jalen Johnson TD, Dallas Mavericks Josh Giddey TD",
+    "name": "Parlay (4)",
     "odds": 36300,
     "stake": 0.5,
     "payout": 0,
@@ -817,6 +814,13 @@
         "market": "TD",
         "odds": 700,
         "result": "LOSS"
+      },
+      {
+        "entities": [
+          "Dallas Mavericks Josh Giddey"
+        ],
+        "market": "TD",
+        "result": "LOSS"
       }
     ],
     "tail": "",
@@ -841,7 +845,7 @@
     "legs": [
       {
         "market": "Same Game Parlay",
-        "target": "Chicago Bulls @ Utah Jazz Jalen",
+        "target": "Chicago Bulls @ Utah Jazz",
         "odds": 1803,
         "result": "LOSS",
         "isGroupLeg": true,
@@ -868,7 +872,7 @@
       },
       {
         "market": "Same Game Parlay",
-        "target": "Atlanta Hawks @ Phoenix Suns Royce",
+        "target": "Atlanta Hawks @ Phoenix Suns",
         "odds": 530,
         "result": "LOSS",
         "isGroupLeg": true,
@@ -1019,7 +1023,7 @@
     "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "3-leg Same Game Parlay Plus: SGP (Golden State Warriors @ New Orleans Pelicans - Zion Williamson 30+ Pts, Will Richard 3+ Made Threes) + Royce O'Neale 3pt",
+    "description": "3-leg Same Game Parlay Plus: SGP (Golden State @ New Orleans - Zion Williamson 30+ Pts, Will Richard 3+ Made Threes) + Royce O'Neale 3pt",
     "name": "SGP+",
     "odds": 123369,
     "stake": 0.5,
@@ -1055,7 +1059,7 @@
       },
       {
         "market": "Same Game Parlay",
-        "target": "Atlanta Hawks @ Phoeni",
+        "target": "Chicago Bulls @ Utah Jazz",
         "odds": 1774,
         "result": "LOSS",
         "isGroupLeg": true,
@@ -1085,7 +1089,6 @@
           "Royce O'Neale"
         ],
         "market": "3pt",
-        "target": null,
         "odds": -130,
         "result": "LOSS",
         "game": "Atlanta Hawks @ Phoenix Suns"
@@ -1113,7 +1116,7 @@
     "legs": [
       {
         "market": "Same Game Parlay",
-        "target": "Baltimore Ravens @ Cleveland Browns Quinshon",
+        "target": "Baltimore Ravens @ Cleveland Browns",
         "odds": 1294,
         "result": "LOSS",
         "isGroupLeg": true,
@@ -1149,7 +1152,7 @@
       },
       {
         "market": "Same Game Parlay",
-        "target": "Kansas City Chiefs @ Denver Broncos Rashee",
+        "target": "Kansas City Chiefs @ Denver Broncos",
         "odds": 263,
         "result": "LOSS",
         "isGroupLeg": true,

@@ -1,0 +1,1247 @@
+{
+  "analyzedFile": "your-html-file.html",
+  "analyzedAt": "2025-11-29T09:37:37.802Z",
+  "totalBets": 34,
+  "totalIssues": 18,
+  "issuesSummary": {
+    "missingBetId": 0,
+    "missingDescription": 0,
+    "zeroOdds": 0,
+    "zeroStake": 0,
+    "nullPayout": 0,
+    "missingResult": 0,
+    "missingType": 16,
+    "missingName": 2
+  },
+  "issuesPercentages": {
+    "missingBetId": "0.0%",
+    "missingDescription": "0.0%",
+    "zeroOdds": "0.0%",
+    "zeroStake": "0.0%",
+    "nullPayout": "0.0%",
+    "missingResult": "0.0%",
+    "missingType": "47.1%",
+    "missingName": "5.9%"
+  },
+  "problematicBets": [
+    {
+      "betIndex": 2,
+      "betId": "O/0242888/0028015",
+      "description": "4-leg Same Game Parlay Plus: SGP (Detroit @ Atlanta - Jalen Johnson TD, Cade Cunningham TD) + Luka Doncic TD + Deni Avdija TD",
+      "issues": [
+        "missingType"
+      ],
+      "bet": {
+        "id": "FanDuel:O/0242888/0028015:2025-11-18T19:31:00-05:00",
+        "book": "FanDuel",
+        "betId": "O/0242888/0028015",
+        "placedAt": "2025-11-18T19:31:00-05:00",
+        "betType": "sgp_plus",
+        "marketCategory": "Parlays",
+        "sport": "NBA",
+        "description": "4-leg Same Game Parlay Plus: SGP (Detroit @ Atlanta - Jalen Johnson TD, Cade Cunningham TD) + Luka Doncic TD + Deni Avdija TD",
+        "name": "SGP+",
+        "odds": 1108261,
+        "stake": 0.5,
+        "payout": 0,
+        "result": "loss",
+        "legs": [
+          {
+            "market": "Same Game Parlay",
+            "target": "Detroit Pistons @ Atlanta Hawks",
+            "odds": 16617,
+            "result": "LOSS",
+            "isGroupLeg": true,
+            "children": [
+              {
+                "entities": [
+                  "Jalen Johnson"
+                ],
+                "market": "TD",
+                "odds": null,
+                "result": "LOSS"
+              },
+              {
+                "entities": [
+                  "Cade Cunningham"
+                ],
+                "market": "TD",
+                "odds": null,
+                "result": "LOSS"
+              }
+            ]
+          },
+          {
+            "entities": [
+              "Luka Doncic"
+            ],
+            "market": "TD",
+            "odds": 410,
+            "result": "LOSS",
+            "game": "Utah Jazz @ Los Angeles Lakers"
+          },
+          {
+            "entities": [
+              "Deni Avdija"
+            ],
+            "market": "TD",
+            "odds": 1200,
+            "result": "LOSS",
+            "game": "Lakers @ Deni Avdija"
+          }
+        ],
+        "tail": "",
+        "raw": "same game parlay plus available 4 leg Same Game Parlay+ +1108261 Includes: 1 Same Game Parlay™ + 2 selections same game parlay available Same Game Parlay™ +16617 Detroit Pistons 35322726 120112 Atlanta Hawks 30242830 112120 FinishedFinished Jalen Johnson To Record A Triple Double Cade Cunningham To Record A Triple Double Luka Doncic +410 To Record A Triple Double Utah Jazz 36352233 126140 Los Angeles Lakers 27403736 140126 FinishedFinished Deni Avdija +1200 To Record A Triple Double Phoenix Suns 35293627 127110 Portland Trail Blazers 32292128 110127 FinishedFinished\n----\n$0.50 TOTAL WAGER $0.00 RETURNED BET ID: O/0242888/0028015PLACED: 11/18/2025 7:31PM ET",
+        "isLive": false,
+        "isSample": false
+      }
+    },
+    {
+      "betIndex": 3,
+      "betId": "O/0242888/0028014",
+      "description": "3-leg Same Game Parlay Plus: SGP (Detroit @ Atlanta - Jalen Johnson TD, Cade Cunningham TD) + Deni Avdija TD",
+      "issues": [
+        "missingType"
+      ],
+      "bet": {
+        "id": "FanDuel:O/0242888/0028014:2025-11-18T19:30:00-05:00",
+        "book": "FanDuel",
+        "betId": "O/0242888/0028014",
+        "placedAt": "2025-11-18T19:30:00-05:00",
+        "betType": "sgp_plus",
+        "marketCategory": "Parlays",
+        "sport": "NBA",
+        "description": "3-leg Same Game Parlay Plus: SGP (Detroit @ Atlanta - Jalen Johnson TD, Cade Cunningham TD) + Deni Avdija TD",
+        "name": "SGP+",
+        "odds": 217225,
+        "stake": 0.5,
+        "payout": 0,
+        "result": "loss",
+        "legs": [
+          {
+            "market": "Same Game Parlay",
+            "target": "Detroit Pistons @ Atlanta Hawks",
+            "odds": 16617,
+            "result": "LOSS",
+            "isGroupLeg": true,
+            "children": [
+              {
+                "entities": [
+                  "Jalen Johnson"
+                ],
+                "market": "TD",
+                "odds": null,
+                "result": "LOSS"
+              },
+              {
+                "entities": [
+                  "Cade Cunningham"
+                ],
+                "market": "TD",
+                "odds": null,
+                "result": "LOSS"
+              }
+            ]
+          },
+          {
+            "entities": [
+              "Deni Avdija"
+            ],
+            "market": "TD",
+            "odds": 1200,
+            "result": "LOSS",
+            "game": "Phoenix Suns @ Portland Trail Blazers"
+          }
+        ],
+        "tail": "",
+        "raw": "same game parlay plus available 3 leg Same Game Parlay+ +217225 Includes: 1 Same Game Parlay™ + 1 selection same game parlay available Same Game Parlay™ +16617 Detroit Pistons 35322726 120112 Atlanta Hawks 30242830 112120 FinishedFinished Jalen Johnson To Record A Triple Double Cade Cunningham To Record A Triple Double Deni Avdija +1200 To Record A Triple Double Phoenix Suns 35293627 127110 Portland Trail Blazers 32292128 110127 FinishedFinished\n----\n$0.50 TOTAL WAGER $0.00 RETURNED BET ID: O/0242888/0028014PLACED: 11/18/2025 7:30PM ET",
+        "isLive": false,
+        "isSample": false
+      }
+    },
+    {
+      "betIndex": 5,
+      "betId": "O/0242888/0028013",
+      "description": "4-leg Same Game Parlay Plus: SGP (Utah @ Lakers - Isaiah Collier 10+ Ast, LeBron James 10+ Ast) + Jalen Johnson 10+ Ast + Deni Avdija 10+ Ast",
+      "issues": [
+        "missingType"
+      ],
+      "bet": {
+        "id": "FanDuel:O/0242888/0028013:2025-11-18T19:30:00-05:00",
+        "book": "FanDuel",
+        "betId": "O/0242888/0028013",
+        "placedAt": "2025-11-18T19:30:00-05:00",
+        "betType": "sgp_plus",
+        "marketCategory": "Parlays",
+        "sport": "NBA",
+        "description": "4-leg Same Game Parlay Plus: SGP (Utah @ Lakers - Isaiah Collier 10+ Ast, LeBron James 10+ Ast) + Jalen Johnson 10+ Ast + Deni Avdija 10+ Ast",
+        "name": "SGP+",
+        "odds": 237511,
+        "stake": 0.5,
+        "payout": 0,
+        "result": "loss",
+        "legs": [
+          {
+            "market": "Same Game Parlay",
+            "target": "Utah Jazz @ Los Angeles Lakers",
+            "odds": 6413,
+            "result": "LOSS",
+            "isGroupLeg": true,
+            "children": [
+              {
+                "entities": [
+                  "Isaiah Collier"
+                ],
+                "market": "Ast",
+                "target": "10+",
+                "odds": null,
+                "result": "LOSS"
+              },
+              {
+                "entities": [
+                  "LeBron James"
+                ],
+                "market": "Ast",
+                "target": "10+",
+                "odds": null,
+                "result": "WIN"
+              }
+            ]
+          },
+          {
+            "entities": [
+              "Jalen Johnson"
+            ],
+            "market": "Ast",
+            "target": "10+",
+            "odds": 540,
+            "result": "LOSS",
+            "game": "Assists @ Jalen Johnson"
+          },
+          {
+            "entities": [
+              "Deni Avdija"
+            ],
+            "market": "Ast",
+            "target": "10+",
+            "odds": 470,
+            "result": "LOSS",
+            "game": "Hawks @ Deni Avdija"
+          }
+        ],
+        "tail": "",
+        "raw": "same game parlay plus available 4 leg Same Game Parlay+ +237511 Includes: 1 Same Game Parlay™ + 2 selections same game parlay available Same Game Parlay™ +6413 Utah Jazz 36352233 126140 Los Angeles Lakers 27403736 140126 FinishedFinished Isaiah Collier To Record 10+ Assists 6 10 LeBron James To Record 10+ Assists 10 12 Jalen Johnson +540 To Record 10+ Assists 9 10 Detroit Pistons 35322726 120112 Atlanta Hawks 30242830 112120 FinishedFinished Deni Avdija +470 To Record 10+ Assists 5 10 Phoenix Suns 35293627 127110 Portland Trail Blazers 32292128 110127 FinishedFinished\n----\n$0.50 TOTAL WAGER $0.00 RETURNED BET ID: O/0242888/0028013PLACED: 11/18/2025 7:30PM ET",
+        "isLive": false,
+        "isSample": false
+      }
+    },
+    {
+      "betIndex": 8,
+      "betId": "O/0242888/0028023",
+      "description": "Orlando Magic -5.5, Detroit Pistons -5.5",
+      "issues": [
+        "missingType"
+      ],
+      "bet": {
+        "id": "FanDuel:O/0242888/0028023:2025-11-18T19:54:00-05:00",
+        "book": "FanDuel",
+        "betId": "O/0242888/0028023",
+        "placedAt": "2025-11-18T19:54:00-05:00",
+        "betType": "parlay",
+        "marketCategory": "Parlays",
+        "sport": "NBA",
+        "description": "Orlando Magic -5.5, Detroit Pistons -5.5",
+        "name": "Parlay (2)",
+        "odds": 205,
+        "stake": 2,
+        "payout": 6.1,
+        "result": "win",
+        "legs": [
+          {
+            "entities": [
+              "Orlando Magic"
+            ],
+            "market": "Spread",
+            "target": "-5.5",
+            "odds": -144,
+            "result": "WIN"
+          },
+          {
+            "entities": [
+              "Detroit Pistons"
+            ],
+            "market": "Spread",
+            "target": "-5.5",
+            "odds": -125,
+            "result": "WIN"
+          }
+        ],
+        "tail": "",
+        "raw": "2 leg parlay +205 Orlando Magic -5.5 Spread Betting, Detroit Pistons -5.5 Spread Betting Orlando Magic -5.5 -144 Spread Betting Golden State Warriors 32282528 113121 Orlando Magic 36312628 121113 FinishedFinished Detroit Pistons -5.5 -125 Spread Betting Detroit Pistons 35322726 120112 Atlanta Hawks 30242830 112120 FinishedFinished\n----\n$2.00 TOTAL WAGER $6.10 WON ON FANDUEL BET ID: O/0242888/0028023PLACED: 11/18/2025 7:54PM ET",
+        "isLive": false,
+        "isSample": false
+      }
+    },
+    {
+      "betIndex": 9,
+      "betId": "O/0242888/0028022",
+      "description": "Over 232.5 Total Points",
+      "issues": [
+        "missingName"
+      ],
+      "bet": {
+        "id": "FanDuel:O/0242888/0028022:2025-11-18T19:54:00-05:00",
+        "book": "FanDuel",
+        "betId": "O/0242888/0028022",
+        "placedAt": "2025-11-18T19:54:00-05:00",
+        "betType": "single",
+        "marketCategory": "Main Markets",
+        "sport": "NBA",
+        "description": "Over 232.5 Total Points",
+        "odds": -120,
+        "stake": 1.62,
+        "payout": 0,
+        "result": "loss",
+        "type": "Total",
+        "line": "232.5",
+        "ou": "Over",
+        "legs": [
+          {
+            "market": "Total",
+            "target": "232.5",
+            "ou": "Over",
+            "odds": -120,
+            "result": "LOSS"
+          }
+        ],
+        "tail": "",
+        "raw": "Over 232.5 -120 TOTAL POINTS 232 232.5 Detroit Pistons 35322726 120112 Atlanta Hawks 30242830 112120 FinishedFinished Box Score Play-by-play\n----\n$1.62 TOTAL WAGER $0.00 RETURNED BET ID: O/0242888/0028022PLACED: 11/18/2025 7:54PM ET",
+        "isLive": false,
+        "isSample": false
+      }
+    },
+    {
+      "betIndex": 11,
+      "betId": "O/0242888/0028003",
+      "description": "Under 224.5 Total Points",
+      "issues": [
+        "missingName"
+      ],
+      "bet": {
+        "id": "FanDuel:O/0242888/0028003:2025-11-18T18:52:00-05:00",
+        "book": "FanDuel",
+        "betId": "O/0242888/0028003",
+        "placedAt": "2025-11-18T18:52:00-05:00",
+        "betType": "single",
+        "marketCategory": "Main Markets",
+        "sport": "NBA",
+        "description": "Under 224.5 Total Points",
+        "odds": -110,
+        "stake": 1.5,
+        "payout": 0,
+        "result": "loss",
+        "type": "Total",
+        "line": "224.5",
+        "ou": "Under",
+        "legs": [
+          {
+            "market": "Total",
+            "target": "224.5",
+            "ou": "Under",
+            "odds": -110,
+            "result": "LOSS"
+          }
+        ],
+        "tail": "",
+        "raw": "Under 224.5 -110 TOTAL POINTS 224.5 234 Golden State Warriors 32282528 113121 Orlando Magic 36312628 121113 FinishedFinished Box Score Play-by-play\n----\n$1.50 TOTAL WAGER $0.00 RETURNED BET ID: O/0242888/0028003PLACED: 11/18/2025 6:52PM ET",
+        "isLive": false,
+        "isSample": false
+      }
+    },
+    {
+      "betIndex": 15,
+      "betId": "O/0242888/0027990",
+      "description": "Same Game Parlay - Chicago Bulls @ Utah Jazz: Jalen Smith 2+ Made Threes, Ace Bailey 2+ Made Threes, Patrick Williams 2+ Made Threes, Coby White 2+ Made Threes, Isaiah Collier 8+ Ast",
+      "issues": [
+        "missingType"
+      ],
+      "bet": {
+        "id": "FanDuel:O/0242888/0027990:2025-11-16T19:58:00-05:00",
+        "book": "FanDuel",
+        "betId": "O/0242888/0027990",
+        "placedAt": "2025-11-16T19:58:00-05:00",
+        "betType": "sgp",
+        "marketCategory": "Parlays",
+        "sport": "NBA",
+        "description": "Same Game Parlay - Chicago Bulls @ Utah Jazz: Jalen Smith 2+ Made Threes, Ace Bailey 2+ Made Threes, Patrick Williams 2+ Made Threes, Coby White 2+ Made Threes, Isaiah Collier 8+ Ast",
+        "name": "SGP (5 legs)",
+        "odds": 4781,
+        "stake": 1,
+        "payout": 0,
+        "result": "loss",
+        "legs": [
+          {
+            "market": "Same Game Parlay",
+            "target": "Chicago Bulls @ Utah Jazz",
+            "odds": 4781,
+            "result": "LOSS",
+            "isGroupLeg": true,
+            "children": [
+              {
+                "entities": [
+                  "Jalen Smith"
+                ],
+                "market": "3pt",
+                "target": "2+",
+                "odds": null,
+                "result": "LOSS"
+              },
+              {
+                "entities": [
+                  "Ace Bailey"
+                ],
+                "market": "3pt",
+                "target": "2+",
+                "odds": null,
+                "result": "LOSS"
+              },
+              {
+                "entities": [
+                  "Patrick Williams"
+                ],
+                "market": "3pt",
+                "target": "2+",
+                "odds": null,
+                "result": "LOSS"
+              },
+              {
+                "entities": [
+                  "Coby White"
+                ],
+                "market": "3pt",
+                "target": "2+",
+                "odds": null,
+                "result": "LOSS"
+              },
+              {
+                "entities": [
+                  "Isaiah Collier"
+                ],
+                "market": "Ast",
+                "target": "8+",
+                "odds": null,
+                "result": "LOSS"
+              }
+            ]
+          }
+        ],
+        "tail": "",
+        "raw": "same game parlay available Same Game Parlay™ +4781 Jalen Smith 2+ Made Threes, Ace Bailey 2+ Made Threes, Patrick Williams 2+ Made Threes, Coby White 2+ Made Threes, Isaiah Collier To Record 8+ Assists Chicago Bulls @ Utah JazzFinished Box Score Play-by-play Jalen Smith 2+ Made Threes Ace Bailey 2+ Made Threes Patrick Williams 2+ Made Threes Coby White 2+ Made Threes Isaiah Collier To Record 8+ Assists\n----\n$1.00 TOTAL WAGER $0.00 RETURNED BET ID: O/0242888/0027990PLACED: 11/16/2025 7:58PM ET",
+        "isLive": false,
+        "isSample": false
+      }
+    },
+    {
+      "betIndex": 16,
+      "betId": "O/0242888/0027989",
+      "description": "Jalen Smith 2+ Made Threes, Ace Bailey 2+ Made Threes, Patrick Williams 2+ Made Threes Chicago Bulls @ Utah Jazz",
+      "issues": [
+        "missingType"
+      ],
+      "bet": {
+        "id": "FanDuel:O/0242888/0027989:2025-11-16T19:57:00-05:00",
+        "book": "FanDuel",
+        "betId": "O/0242888/0027989",
+        "placedAt": "2025-11-16T19:57:00-05:00",
+        "betType": "sgp",
+        "marketCategory": "Parlays",
+        "sport": "NBA",
+        "description": "Jalen Smith 2+ Made Threes, Ace Bailey 2+ Made Threes, Patrick Williams 2+ Made Threes Chicago Bulls @ Utah Jazz",
+        "name": "SGP",
+        "odds": 815,
+        "stake": 2,
+        "payout": 0,
+        "result": "loss",
+        "legs": [
+          {
+            "market": "Same Game Parlay",
+            "target": "Chicago Bulls @ Utah Jazz",
+            "odds": 815,
+            "result": "LOSS",
+            "isGroupLeg": true,
+            "children": [
+              {
+                "entities": [
+                  "Jalen Smith"
+                ],
+                "market": "3pt",
+                "target": "2+",
+                "odds": null,
+                "result": "LOSS"
+              },
+              {
+                "entities": [
+                  "Ace Bailey"
+                ],
+                "market": "3pt",
+                "target": "2+",
+                "odds": null,
+                "result": "LOSS"
+              },
+              {
+                "entities": [
+                  "Patrick Williams"
+                ],
+                "market": "3pt",
+                "target": "2+",
+                "odds": null,
+                "result": "LOSS"
+              }
+            ]
+          }
+        ],
+        "tail": "",
+        "raw": "same game parlay available Same Game Parlay™ +815 Jalen Smith 2+ Made Threes, Ace Bailey 2+ Made Threes, Patrick Williams 2+ Made Threes Chicago Bulls @ Utah JazzFinished Box Score Play-by-play Jalen Smith 2+ Made Threes Ace Bailey 2+ Made Threes Patrick Williams 2+ Made Threes\n----\n$2.00 TOTAL WAGER $0.00 RETURNED BET ID: O/0242888/0027989PLACED: 11/16/2025 7:57PM ET",
+        "isLive": false,
+        "isSample": false
+      }
+    },
+    {
+      "betIndex": 17,
+      "betId": "O/0242888/0028000",
+      "description": "Same Game Parlay - Chicago Bulls @ Utah Jazz: Coby White 4+ Made Threes, Patrick Williams 2+ Made Threes, Ayo Dosunmu 2+ Made Threes, Ace Bailey 3+ Made Threes, Isaiah Collier 4+ Ast",
+      "issues": [
+        "missingType"
+      ],
+      "bet": {
+        "id": "FanDuel:O/0242888/0028000:2025-11-16T21:18:00-05:00",
+        "book": "FanDuel",
+        "betId": "O/0242888/0028000",
+        "placedAt": "2025-11-16T21:18:00-05:00",
+        "betType": "sgp",
+        "marketCategory": "Parlays",
+        "sport": "NBA",
+        "description": "Same Game Parlay - Chicago Bulls @ Utah Jazz: Coby White 4+ Made Threes, Patrick Williams 2+ Made Threes, Ayo Dosunmu 2+ Made Threes, Ace Bailey 3+ Made Threes, Isaiah Collier 4+ Ast",
+        "name": "SGP (5 legs)",
+        "odds": 18778,
+        "stake": 1.5,
+        "payout": 0,
+        "result": "loss",
+        "legs": [
+          {
+            "market": "Same Game Parlay",
+            "target": "Chicago Bulls @ Utah Jazz",
+            "odds": 18778,
+            "result": "LOSS",
+            "isGroupLeg": true,
+            "children": [
+              {
+                "entities": [
+                  "Coby White"
+                ],
+                "market": "3pt",
+                "target": "4+",
+                "odds": null,
+                "result": "LOSS"
+              },
+              {
+                "entities": [
+                  "Patrick Williams"
+                ],
+                "market": "3pt",
+                "target": "2+",
+                "odds": null,
+                "result": "LOSS"
+              },
+              {
+                "entities": [
+                  "Ayo Dosunmu"
+                ],
+                "market": "3pt",
+                "target": "2+",
+                "odds": null,
+                "result": "LOSS"
+              },
+              {
+                "entities": [
+                  "Ace Bailey"
+                ],
+                "market": "3pt",
+                "target": "3+",
+                "odds": null,
+                "result": "LOSS"
+              },
+              {
+                "entities": [
+                  "Isaiah Collier"
+                ],
+                "market": "Ast",
+                "target": "4+",
+                "odds": null,
+                "result": "LOSS"
+              }
+            ]
+          }
+        ],
+        "tail": "",
+        "raw": "same game parlay available Same Game Parlay™ +18778 Coby White 4+ Made Threes, Patrick Williams 2+ Made Threes, Ayo Dosunmu 2+ Made Threes, Ace Bailey 3+ Made Threes, Isaiah Collier To Record 4+ Assists Chicago Bulls @ Utah JazzFinished Box Score Play-by-play Coby White 4+ Made Threes Patrick Williams 2+ Made Threes Ayo Dosunmu 2+ Made Threes Ace Bailey 3+ Made Threes Isaiah Collier To Record 4+ Assists\n----\n$1.50 TOTAL WAGER $0.00 RETURNED BET ID: O/0242888/0028000PLACED: 11/16/2025 9:18PM ET",
+        "isLive": false,
+        "isSample": false
+      }
+    },
+    {
+      "betIndex": 18,
+      "betId": "O/0242888/0027987",
+      "description": "Deni Avdija TD, Josh Giddey TD, Jalen Johnson TD, Dallas Mavericks Josh Giddey TD",
+      "issues": [
+        "missingType"
+      ],
+      "bet": {
+        "id": "FanDuel:O/0242888/0027987:2025-11-16T19:40:00-05:00",
+        "book": "FanDuel",
+        "betId": "O/0242888/0027987",
+        "placedAt": "2025-11-16T19:40:00-05:00",
+        "betType": "parlay",
+        "marketCategory": "Parlays",
+        "sport": "NBA",
+        "description": "Deni Avdija TD, Josh Giddey TD, Jalen Johnson TD, Dallas Mavericks Josh Giddey TD",
+        "name": "Parlay (4)",
+        "odds": 36300,
+        "stake": 0.5,
+        "payout": 0,
+        "result": "loss",
+        "legs": [
+          {
+            "entities": [
+              "Deni Avdija"
+            ],
+            "market": "TD",
+            "odds": 1200,
+            "result": "LOSS"
+          },
+          {
+            "entities": [
+              "Josh Giddey"
+            ],
+            "market": "TD",
+            "odds": 250,
+            "result": "LOSS"
+          },
+          {
+            "entities": [
+              "Jalen Johnson"
+            ],
+            "market": "TD",
+            "odds": 700,
+            "result": "LOSS"
+          },
+          {
+            "entities": [
+              "Dallas Mavericks Josh Giddey"
+            ],
+            "market": "TD",
+            "result": "LOSS"
+          }
+        ],
+        "tail": "",
+        "raw": "3 leg parlay +36300 Deni Avdija To Record A Triple Double, Josh Giddey To Record A Triple Double, Jalen Johnson To Record A Triple Double Deni Avdija +1200 To Record A Triple Double Portland Trail Blazers @ Dallas Mavericks Josh Giddey +250 To Record A Triple Double Chicago Bulls @ Utah Jazz Jalen Johnson +700 To Record A Triple Double Atlanta Hawks @ Phoenix Suns\n----\n$0.50 TOTAL WAGER $0.00 RETURNED BET ID: O/0242888/0027987PLACED: 11/16/2025 7:40PM ET",
+        "isLive": false,
+        "isSample": false
+      }
+    },
+    {
+      "betIndex": 19,
+      "betId": "O/0242888/0027993",
+      "description": "Jalen Smith 3+ Made Threes, Isaiah Collier 10+ Ast, Royce O'Neale 4+ Made Threes, Jalen Johnson 8+ Ast",
+      "issues": [
+        "missingType"
+      ],
+      "bet": {
+        "id": "FanDuel:O/0242888/0027993:2025-11-16T20:02:00-05:00",
+        "book": "FanDuel",
+        "betId": "O/0242888/0027993",
+        "placedAt": "2025-11-16T20:02:00-05:00",
+        "betType": "sgp_plus",
+        "marketCategory": "Parlays",
+        "sport": "NBA",
+        "description": "Jalen Smith 3+ Made Threes, Isaiah Collier 10+ Ast, Royce O'Neale 4+ Made Threes, Jalen Johnson 8+ Ast",
+        "name": "SGP+",
+        "odds": 1803,
+        "stake": 3,
+        "payout": 0,
+        "result": "loss",
+        "legs": [
+          {
+            "market": "Same Game Parlay",
+            "target": "Chicago Bulls @ Utah Jazz",
+            "odds": 1803,
+            "result": "LOSS",
+            "isGroupLeg": true,
+            "children": [
+              {
+                "entities": [
+                  "Jalen Smith"
+                ],
+                "market": "3pt",
+                "target": "3+",
+                "odds": null,
+                "result": "LOSS"
+              },
+              {
+                "entities": [
+                  "Isaiah Collier"
+                ],
+                "market": "Ast",
+                "target": "10+",
+                "odds": null,
+                "result": "LOSS"
+              }
+            ]
+          },
+          {
+            "market": "Same Game Parlay",
+            "target": "Atlanta Hawks @ Phoenix Suns",
+            "odds": 530,
+            "result": "LOSS",
+            "isGroupLeg": true,
+            "children": [
+              {
+                "entities": [
+                  "Royce O'Neale"
+                ],
+                "market": "3pt",
+                "target": "4+",
+                "odds": null,
+                "result": "LOSS"
+              },
+              {
+                "entities": [
+                  "Jalen Johnson"
+                ],
+                "market": "Ast",
+                "target": "8+",
+                "odds": null,
+                "result": "LOSS"
+              }
+            ]
+          }
+        ],
+        "tail": "",
+        "raw": "same game parlay plus available 4 leg Same Game Parlay+ +11911 +15484 ProfitBoost profit boost 30% Includes: 2 Same Game Parlay™ bets same game parlay available Same Game Parlay™ +1803 Chicago Bulls @ Utah Jazz Jalen Smith 3+ Made Threes Isaiah Collier To Record 10+ Assists same game parlay available Same Game Parlay™ +530 Atlanta Hawks @ Phoenix Suns Royce O'Neale 4+ Made Threes Jalen Johnson To Record 8+ Assists\n----\n$3.00 TOTAL WAGER $0.00 RETURNED BET ID: O/0242888/0027993PLACED: 11/16/2025 8:02PM ET",
+        "isLive": false,
+        "isSample": false
+      }
+    },
+    {
+      "betIndex": 20,
+      "betId": "O/0242888/0027984",
+      "description": "Will Richard 3+ Made Threes, Saddiq Bey 3+ Made Threes Golden State Warriors @ New Orleans Pelicans",
+      "issues": [
+        "missingType"
+      ],
+      "bet": {
+        "id": "FanDuel:O/0242888/0027984:2025-11-16T19:09:00-05:00",
+        "book": "FanDuel",
+        "betId": "O/0242888/0027984",
+        "placedAt": "2025-11-16T19:09:00-05:00",
+        "betType": "sgp",
+        "marketCategory": "Parlays",
+        "sport": "NBA",
+        "description": "Will Richard 3+ Made Threes, Saddiq Bey 3+ Made Threes Golden State Warriors @ New Orleans Pelicans",
+        "name": "SGP",
+        "odds": 997,
+        "stake": 0.5,
+        "payout": 0,
+        "result": "loss",
+        "legs": [
+          {
+            "market": "Same Game Parlay",
+            "target": "Golden State Warriors @ New Orleans Pelicans",
+            "odds": 997,
+            "result": "LOSS",
+            "isGroupLeg": true,
+            "children": [
+              {
+                "entities": [
+                  "Will Richard"
+                ],
+                "market": "3pt",
+                "target": "3+",
+                "odds": null,
+                "result": "LOSS"
+              },
+              {
+                "entities": [
+                  "Saddiq Bey"
+                ],
+                "market": "3pt",
+                "target": "3+",
+                "odds": null,
+                "result": "LOSS"
+              }
+            ]
+          }
+        ],
+        "tail": "",
+        "raw": "same game parlay available Same Game Parlay™ +997 Will Richard 3+ Made Threes, Saddiq Bey 3+ Made Threes Golden State Warriors @ New Orleans PelicansFinished Box Score Play-by-play Will Richard 3+ Made Threes Saddiq Bey 3+ Made Threes\n----\n$0.50 TOTAL WAGER $0.00 RETURNED BET ID: O/0242888/0027984PLACED: 11/16/2025 7:09PM ET",
+        "isLive": false,
+        "isSample": false
+      }
+    },
+    {
+      "betIndex": 23,
+      "betId": "O/0242888/0027959",
+      "description": "3-leg Same Game Parlay Plus: SGP (Golden State @ New Orleans - Zion Williamson 30+ Pts, Will Richard 3+ Made Threes) + Royce O'Neale 3pt",
+      "issues": [
+        "missingType"
+      ],
+      "bet": {
+        "id": "FanDuel:O/0242888/0027959:2025-11-16T09:55:00-05:00",
+        "book": "FanDuel",
+        "betId": "O/0242888/0027959",
+        "placedAt": "2025-11-16T09:55:00-05:00",
+        "betType": "sgp_plus",
+        "marketCategory": "Parlays",
+        "sport": "NBA",
+        "description": "3-leg Same Game Parlay Plus: SGP (Golden State @ New Orleans - Zion Williamson 30+ Pts, Will Richard 3+ Made Threes) + Royce O'Neale 3pt",
+        "name": "SGP+",
+        "odds": 123369,
+        "stake": 0.5,
+        "payout": 0,
+        "result": "loss",
+        "legs": [
+          {
+            "market": "Same Game Parlay",
+            "target": "Golden State Warriors @ New Orleans Pelicans",
+            "odds": 3623,
+            "result": "LOSS",
+            "isGroupLeg": true,
+            "children": [
+              {
+                "entities": [
+                  "Zion Williamson"
+                ],
+                "market": "Pts",
+                "target": "30+",
+                "odds": null,
+                "result": "VOID"
+              },
+              {
+                "entities": [
+                  "Will Richard"
+                ],
+                "market": "3pt",
+                "target": "3+",
+                "odds": null,
+                "result": "LOSS"
+              }
+            ]
+          },
+          {
+            "market": "Same Game Parlay",
+            "target": "Chicago Bulls @ Utah Jazz",
+            "odds": 1774,
+            "result": "LOSS",
+            "isGroupLeg": true,
+            "children": [
+              {
+                "entities": [
+                  "Jalen Smith"
+                ],
+                "market": "3pt",
+                "target": "3+",
+                "odds": null,
+                "result": "LOSS"
+              },
+              {
+                "entities": [
+                  "Ace Bailey"
+                ],
+                "market": "3pt",
+                "target": "3+",
+                "odds": null,
+                "result": "LOSS"
+              }
+            ]
+          },
+          {
+            "entities": [
+              "Royce O'Neale"
+            ],
+            "market": "3pt",
+            "odds": -130,
+            "result": "LOSS",
+            "game": "Atlanta Hawks @ Phoenix Suns"
+          }
+        ],
+        "tail": "",
+        "raw": "same game parlay plus available 5 leg Same Game Parlay+ +123369 Includes: 2 Same Game Parlay™ bets + 1 selection same game parlay available Same Game Parlay™ +3623 Golden State Warriors @ New Orleans Pelicans Zion Williamson To Score 30+ Points Void Will Richard 3+ Made Threes same game parlay available Same Game Parlay™ +1774 Chicago Bulls @ Utah Jazz Jalen Smith 3+ Made Threes Ace Bailey 3+ Made Threes Royce O'Neale -130 3+ Made Threes Atlanta Hawks @ Phoenix Suns\n----\n$0.50 TOTAL WAGER $0.00 RETURNED BET ID: O/0242888/0027959PLACED: 11/16/2025 9:55AM ET",
+        "isLive": false,
+        "isSample": false
+      }
+    },
+    {
+      "betIndex": 24,
+      "betId": "O/0242888/0027968",
+      "description": "Quinshon Judkins 80+ Yds, Derrick Henry 80+ Yds, Lamar Jackson 40+ Yds, Rashee Rice 7+ Rec, Evan Engram 4+ Rec",
+      "issues": [
+        "missingType"
+      ],
+      "bet": {
+        "id": "FanDuel:O/0242888/0027968:2025-11-16T16:29:00-05:00",
+        "book": "FanDuel",
+        "betId": "O/0242888/0027968",
+        "placedAt": "2025-11-16T16:29:00-05:00",
+        "betType": "sgp_plus",
+        "marketCategory": "Parlays",
+        "sport": "NFL",
+        "description": "Quinshon Judkins 80+ Yds, Derrick Henry 80+ Yds, Lamar Jackson 40+ Yds, Rashee Rice 7+ Rec, Evan Engram 4+ Rec",
+        "name": "SGP+",
+        "odds": 4963,
+        "stake": 1,
+        "payout": 0,
+        "result": "loss",
+        "legs": [
+          {
+            "market": "Same Game Parlay",
+            "target": "Baltimore Ravens @ Cleveland Browns",
+            "odds": 1294,
+            "result": "LOSS",
+            "isGroupLeg": true,
+            "children": [
+              {
+                "entities": [
+                  "Quinshon Judkins"
+                ],
+                "market": "Yds",
+                "target": "80+",
+                "odds": null,
+                "result": "LOSS"
+              },
+              {
+                "entities": [
+                  "Derrick Henry"
+                ],
+                "market": "Yds",
+                "target": "80+",
+                "odds": null,
+                "result": "LOSS"
+              },
+              {
+                "entities": [
+                  "Lamar Jackson"
+                ],
+                "market": "Yds",
+                "target": "40+",
+                "odds": null,
+                "result": "LOSS"
+              }
+            ]
+          },
+          {
+            "market": "Same Game Parlay",
+            "target": "Kansas City Chiefs @ Denver Broncos",
+            "odds": 263,
+            "result": "LOSS",
+            "isGroupLeg": true,
+            "children": [
+              {
+                "entities": [
+                  "Rashee Rice"
+                ],
+                "market": "Rec",
+                "target": "7+",
+                "odds": null,
+                "result": "LOSS"
+              },
+              {
+                "entities": [
+                  "Evan Engram"
+                ],
+                "market": "Rec",
+                "target": "4+",
+                "odds": null,
+                "result": "LOSS"
+              }
+            ]
+          }
+        ],
+        "tail": "",
+        "raw": "same game parlay plus available 5 leg Same Game Parlay+ +4963 Includes: 2 Same Game Parlay™ bets same game parlay available Same Game Parlay™ +1294 Baltimore Ravens @ Cleveland Browns Quinshon Judkins 80+ Yards Quinshon Judkins - Alt Rushing Yds Derrick Henry 80+ Yards Derrick Henry - Alt Rushing Yds Lamar Jackson 40+ Yards Lamar Jackson - Alt Rushing Yds same game parlay available Same Game Parlay™ +263 Kansas City Chiefs @ Denver Broncos Rashee Rice 7+ Receptions Rashee Rice - Alt Receptions Evan Engram 4+ Receptions Evan Engram - Alt Receptions\n----\n$1.00 TOTAL WAGER $0.00 RETURNED BET ID: O/0242888/0027968PLACED: 11/16/2025 4:29PM ET",
+        "isLive": false,
+        "isSample": false
+      }
+    },
+    {
+      "betIndex": 30,
+      "betId": "O/0242888/0027981",
+      "description": "4-leg Same Game Parlay Plus: SGP (Seattle Seahawks @ Los Angeles Rams - Davante Adams 50+ Yds, Cooper Kupp 3+ Rec) + Ricky Pearsall 50+ Yds + Cooper Kupp 3+ Yds",
+      "issues": [
+        "missingType"
+      ],
+      "bet": {
+        "id": "FanDuel:O/0242888/0027981:2025-11-16T17:54:00-05:00",
+        "book": "FanDuel",
+        "betId": "O/0242888/0027981",
+        "placedAt": "2025-11-16T17:54:00-05:00",
+        "betType": "sgp_plus",
+        "marketCategory": "Parlays",
+        "sport": "NFL",
+        "description": "4-leg Same Game Parlay Plus: SGP (Seattle Seahawks @ Los Angeles Rams - Davante Adams 50+ Yds, Cooper Kupp 3+ Rec) + Ricky Pearsall 50+ Yds + Cooper Kupp 3+ Yds",
+        "name": "SGP+",
+        "odds": 37067,
+        "stake": 0.25,
+        "payout": 0,
+        "result": "loss",
+        "legs": [
+          {
+            "market": "Same Game Parlay",
+            "target": "Seattle Seahawks @ Los Angeles Rams",
+            "odds": 2997,
+            "result": "LOSS",
+            "isGroupLeg": true,
+            "children": [
+              {
+                "entities": [
+                  "Davante Adams"
+                ],
+                "market": "Yds",
+                "target": "50+",
+                "odds": null,
+                "result": "LOSS"
+              },
+              {
+                "entities": [
+                  "Cooper Kupp"
+                ],
+                "market": "Rec",
+                "target": "3+",
+                "odds": null,
+                "result": "LOSS"
+              }
+            ]
+          },
+          {
+            "entities": [
+              "Ricky Pearsall"
+            ],
+            "market": "Yds",
+            "target": "50+",
+            "odds": 1100,
+            "result": "LOSS",
+            "game": "ers @ Arizona Cardinals"
+          },
+          {
+            "entities": [
+              "Cooper Kupp"
+            ],
+            "market": "Yds",
+            "target": "3+",
+            "result": "LOSS",
+            "game": "Seattle Seahawks @ Los Angeles Rams"
+          }
+        ],
+        "tail": "",
+        "raw": "same game parlay plus available 3 leg Same Game Parlay+ +37067 Includes: 1 Same Game Parlay™ + 1 selection same game parlay available Same Game Parlay™ +2997 Seattle Seahawks @ Los Angeles Rams Davante Adams 50+ Yards Davante Adams - Alt Receiving Yds Cooper Kupp 3+ Receptions Cooper Kupp - Alt Receptions Ricky Pearsall 50+ Yards +1100 Ricky Pearsall - Alt Receiving Yds San Francisco 49ers @ Arizona Cardinals\n----\n$0.25 TOTAL WAGER $0.00 RETURNED BET ID: O/0242888/0027981PLACED: 11/16/2025 5:54PM ET",
+        "isLive": false,
+        "isSample": false
+      }
+    },
+    {
+      "betIndex": 31,
+      "betId": "O/0242888/0027980",
+      "description": "Ricky Pearsall 50+ Yds, Davante Adams 50+ Yds",
+      "issues": [
+        "missingType"
+      ],
+      "bet": {
+        "id": "FanDuel:O/0242888/0027980:2025-11-16T17:53:00-05:00",
+        "book": "FanDuel",
+        "betId": "O/0242888/0027980",
+        "placedAt": "2025-11-16T17:53:00-05:00",
+        "betType": "parlay",
+        "marketCategory": "Parlays",
+        "sport": "NFL",
+        "description": "Ricky Pearsall 50+ Yds, Davante Adams 50+ Yds",
+        "name": "Parlay (2)",
+        "odds": 6790,
+        "stake": 0.5,
+        "payout": 0,
+        "result": "loss",
+        "legs": [
+          {
+            "entities": [
+              "Ricky Pearsall"
+            ],
+            "market": "Yds",
+            "target": "50+",
+            "odds": 1200,
+            "result": "LOSS"
+          },
+          {
+            "entities": [
+              "Davante Adams"
+            ],
+            "market": "Yds",
+            "target": "50+",
+            "odds": 430,
+            "result": "LOSS"
+          }
+        ],
+        "tail": "",
+        "raw": "2 leg parlay +6790 Ricky Pearsall 50+ Yards Ricky Pearsall - Alt Receiving Yds, Davante Adams 50+ Yards Davante Adams - Alt Receiving Yds Ricky Pearsall 50+ Yards +1200 Ricky Pearsall - Alt Receiving Yds San Francisco 49ers @ Arizona Cardinals Davante Adams 50+ Yards +430 Davante Adams - Alt Receiving Yds Seattle Seahawks @ Los Angeles Rams\n----\n$0.50 TOTAL WAGER $0.00 RETURNED BET ID: O/0242888/0027980PLACED: 11/16/2025 5:53PM ET",
+        "isLive": false,
+        "isSample": false
+      }
+    },
+    {
+      "betIndex": 32,
+      "betId": "O/0242888/0027973",
+      "description": "3-leg Same Game Parlay Plus: SGP (Seattle Seahawks @ Los Angeles Rams) + Ricky Pearsall 3+ Rec",
+      "issues": [
+        "missingType"
+      ],
+      "bet": {
+        "id": "FanDuel:O/0242888/0027973:2025-11-16T17:39:00-05:00",
+        "book": "FanDuel",
+        "betId": "O/0242888/0027973",
+        "placedAt": "2025-11-16T17:39:00-05:00",
+        "betType": "sgp_plus",
+        "marketCategory": "Parlays",
+        "sport": "NFL",
+        "description": "3-leg Same Game Parlay Plus: SGP (Seattle Seahawks @ Los Angeles Rams) + Ricky Pearsall 3+ Rec",
+        "name": "SGP+",
+        "odds": 812,
+        "stake": 2,
+        "payout": 0,
+        "result": "loss",
+        "legs": [
+          {
+            "market": "Same Game Parlay",
+            "target": "Seattle Seahawks @ Los Angeles Rams",
+            "odds": 194,
+            "result": "LOSS",
+            "isGroupLeg": true,
+            "children": [
+              {
+                "entities": [
+                  "Cooper Kupp"
+                ],
+                "market": "Rec",
+                "target": "2+",
+                "odds": null,
+                "result": "LOSS"
+              },
+              {
+                "entities": [
+                  "Davante Adams"
+                ],
+                "market": "Rec",
+                "target": "3+",
+                "odds": null,
+                "result": "LOSS"
+              }
+            ]
+          },
+          {
+            "entities": [
+              "Ricky Pearsall"
+            ],
+            "market": "Rec",
+            "target": "3+",
+            "odds": 210,
+            "result": "LOSS",
+            "game": "ers @ Arizona Cardinals"
+          }
+        ],
+        "tail": "",
+        "raw": "same game parlay plus available 3 leg Same Game Parlay+ +812 Includes: 1 Same Game Parlay™ + 1 selection same game parlay available Same Game Parlay™ +194 Seattle Seahawks @ Los Angeles Rams Cooper Kupp 2+ Receptions Cooper Kupp - Alt Receptions Davante Adams 3+ Receptions Davante Adams - Alt Receptions Ricky Pearsall 3+ Receptions +210 Ricky Pearsall - Alt Receptions San Francisco 49ers @ Arizona Cardinals\n----\n$2.00 TOTAL WAGER $0.00 RETURNED BET ID: O/0242888/0027973PLACED: 11/16/2025 5:39PM ET",
+        "isLive": false,
+        "isSample": false
+      }
+    },
+    {
+      "betIndex": 33,
+      "betId": "O/0242888/0027979",
+      "description": "Davante Adams 5+ Rec, Cooper Kupp 3+ Rec, Ricky Pearsall 3+ Rec, Jauan Jennings 6+ Rec",
+      "issues": [
+        "missingType"
+      ],
+      "bet": {
+        "id": "FanDuel:O/0242888/0027979:2025-11-16T17:51:00-05:00",
+        "book": "FanDuel",
+        "betId": "O/0242888/0027979",
+        "placedAt": "2025-11-16T17:51:00-05:00",
+        "betType": "sgp_plus",
+        "marketCategory": "Parlays",
+        "sport": "NFL",
+        "description": "Davante Adams 5+ Rec, Cooper Kupp 3+ Rec, Ricky Pearsall 3+ Rec, Jauan Jennings 6+ Rec",
+        "name": "SGP+",
+        "odds": 17311,
+        "stake": 0.25,
+        "payout": 0,
+        "result": "loss",
+        "legs": [
+          {
+            "market": "Same Game Parlay",
+            "target": "Seattle Seahawks @ Los Angeles Rams",
+            "odds": 3142,
+            "result": "LOSS",
+            "isGroupLeg": true,
+            "children": [
+              {
+                "entities": [
+                  "Davante Adams"
+                ],
+                "market": "Rec",
+                "target": "5+",
+                "odds": null,
+                "result": "LOSS"
+              },
+              {
+                "entities": [
+                  "Cooper Kupp"
+                ],
+                "market": "Rec",
+                "target": "3+",
+                "odds": null,
+                "result": "LOSS"
+              }
+            ]
+          },
+          {
+            "market": "Same Game Parlay",
+            "target": "Seattle Seahawks @ Los Angeles Rams",
+            "odds": 436,
+            "result": "LOSS",
+            "isGroupLeg": true,
+            "children": [
+              {
+                "entities": [
+                  "Ricky Pearsall"
+                ],
+                "market": "Rec",
+                "target": "3+",
+                "odds": null,
+                "result": "LOSS"
+              },
+              {
+                "entities": [
+                  "Jauan Jennings"
+                ],
+                "market": "Rec",
+                "target": "6+",
+                "odds": null,
+                "result": "LOSS"
+              }
+            ]
+          }
+        ],
+        "tail": "",
+        "raw": "same game parlay plus available 4 leg Same Game Parlay+ +17311 Includes: 2 Same Game Parlay™ bets same game parlay available Same Game Parlay™ +3142 Seattle Seahawks @ Los Angeles Rams Davante Adams 5+ Receptions Davante Adams - Alt Receptions Cooper Kupp 3+ Receptions Cooper Kupp - Alt Receptions same game parlay available Same Game Parlay™ +436 San Francisco 49ers @ Arizona Cardinals Ricky Pearsall 3+ Receptions Ricky Pearsall - Alt Receptions Jauan Jennings 6+ Receptions Jauan Jennings - Alt Receptions\n----\n$0.25 TOTAL WAGER $0.00 RETURNED BET ID: O/0242888/0027979PLACED: 11/16/2025 5:51PM ET",
+        "isLive": false,
+        "isSample": false
+      }
+    }
+  ]
+}

@@ -515,8 +515,9 @@ export const deriveFieldsFromDescription = (
   }
 
   // Pattern: "Player Name To Record X+ Assists" (check before To Score to avoid misclassification)
+  // Also handles "Player Name +540 To Record 10+ Assists" where odds are between name and "To Record"
   const toRecordAstMatch = desc.match(
-    /^([A-Za-z' .-]+?)\s+To\s+Record\s+(\d+(?:\.\d+)?)\+\s+Assists/i
+    /^([A-Za-z' .-]+?)\s+(?:[+\-]\d+\s+)?To\s+Record\s+(\d+(?:\.\d+)?)\+\s+Assists/i
   );
   if (toRecordAstMatch && !name) {
     name = toRecordAstMatch[1].trim();
@@ -525,8 +526,9 @@ export const deriveFieldsFromDescription = (
   }
 
   // Pattern: "Player Name To Score X+ Points"
+  // Also handles "Player Name +540 To Score 30+ Points" where odds are between name and "To Score"
   const toScorePtsMatch = desc.match(
-    /^([A-Za-z' .-]+?)\s+To\s+Score\s+(\d+(?:\.\d+)?)\+\s+Points/i
+    /^([A-Za-z' .-]+?)\s+(?:[+\-]\d+\s+)?To\s+Score\s+(\d+(?:\.\d+)?)\+\s+Points/i
   );
   if (toScorePtsMatch && !name) {
     name = toScorePtsMatch[1].trim();
@@ -1374,13 +1376,15 @@ export const buildLegsFromStatText = (
       "gi"
     ),
     // Pattern for "To Record" legs: "Player Name To Record A Triple Double" or "Player Name To Record 10+ Assists"
+    // Also handles "Player Name +540 To Record 10+ Assists" where odds are between name and "To Record"
     new RegExp(
-      `(${PLAYER_NAME_PATTERN})\\s+To\\s+Record\\s+(?:A\\s+)?(Triple Double|\\d+\\+\\s+\\w+)`,
+      `(${PLAYER_NAME_PATTERN})\\s+(?:[+\\-]\\d+\\s+)?To\\s+Record\\s+(?:A\\s+)?(Triple Double|\\d+\\+\\s+\\w+)`,
       "gi"
     ),
     // Pattern for "To Score" legs: "Player Name To Score 30+ Points"
+    // Also handles "Player Name +540 To Score 30+ Points" where odds are between name and "To Score"
     new RegExp(
-      `(${PLAYER_NAME_PATTERN})\\s+To\\s+Score\\s+(\\d+\\+)\\s+Points`,
+      `(${PLAYER_NAME_PATTERN})\\s+(?:[+\\-]\\d+\\s+)?To\\s+Score\\s+(\\d+\\+)\\s+Points`,
       "gi"
     ),
   ];

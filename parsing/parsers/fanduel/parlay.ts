@@ -461,7 +461,7 @@ export const parseParlayBet = ({
         (leg as any).game = (leg as any).game || cleanedMatchup;
         // For SGP+ extra legs we don't want the matchup duplicated in `target`;
         // keep `target` only for true stat thresholds.
-        leg.target = hasStatTarget ? currentTarget : null;
+        leg.target = hasStatTarget ? currentTarget : undefined;
       }
 
       const gameVal = (leg as any).game as string | undefined;
@@ -610,7 +610,9 @@ export const parseParlayBet = ({
 
     const primaryGroup = groupLegs[0];
     const groupChildren = primaryGroup?.children || [];
-    const groupMatchup = primaryGroup?.target || "";
+    const groupMatchup = primaryGroup?.target 
+      ? shortenMatchupForDescription(primaryGroup.target) 
+      : "";
     const childSummaries = primaryGroup
       ? collectChildSummaries(primaryGroup)
       : [];
@@ -811,6 +813,76 @@ const findSGPGroupContainers = (root: HTMLElement): HTMLElement[] => {
   return containers;
 };
 
+// Known team nicknames to validate matchup extraction
+const TEAM_NICKNAMES = new Set([
+  'ravens', 'browns', 'chiefs', 'broncos', 'seahawks', 'rams', 'cardinals', '49ers', 'niners',
+  'bills', 'dolphins', 'patriots', 'jets', 'steelers', 'bengals', 'cowboys', 'eagles', 'giants',
+  'commanders', 'bears', 'lions', 'packers', 'vikings', 'falcons', 'panthers', 'saints', 'buccaneers',
+  'colts', 'texans', 'jaguars', 'titans', 'raiders', 'chargers', 'broncos',
+  // NBA
+  'hawks', 'celtics', 'nets', 'hornets', 'bulls', 'cavaliers', 'mavericks', 'nuggets', 'pistons',
+  'warriors', 'rockets', 'pacers', 'clippers', 'lakers', 'grizzlies', 'heat', 'bucks', 'timberwolves',
+  'pelicans', 'knicks', 'thunder', 'magic', 'sixers', '76ers', 'suns', 'blazers', 'trail blazers',
+  'kings', 'spurs', 'raptors', 'jazz', 'wizards',
+]);
+
+// Strip trailing player names from matchup string
+const stripTrailingPlayerName = (matchup: string): string => {
+  // Split by "@" or "vs"
+  const parts = matchup.split(/\s+@\s+|\s+vs\.?\s+/i);
+  if (parts.length !== 2) return matchup;
+
+  const separator = matchup.includes('@') ? ' @ ' : ' vs ';
+  const team1 = parts[0].trim();
+  let team2 = parts[1].trim();
+
+  // Check if team2 ends with a known team nickname - if so, strip anything after it
+  const team2Words = team2.split(/\s+/);
+  for (let i = team2Words.length - 1; i >= 0; i--) {
+    const word = team2Words[i].toLowerCase();
+    if (TEAM_NICKNAMES.has(word)) {
+      // Found team nickname - keep only words up to and including this one
+      team2 = team2Words.slice(0, i + 1).join(' ');
+      break;
+    }
+  }
+
+  return `${team1}${separator}${team2}`;
+};
+
+// Map of full team names to short names for description purposes
+const TEAM_SHORT_NAMES: { [key: string]: string } = {
+  'Detroit Pistons': 'Detroit',
+  'Atlanta Hawks': 'Atlanta',
+  'Utah Jazz': 'Utah',
+  'Los Angeles Lakers': 'Lakers',
+  'Los Angeles Clippers': 'Clippers',
+  'Golden State Warriors': 'Golden State',
+  'New Orleans Pelicans': 'New Orleans',
+  'Phoenix Suns': 'Phoenix',
+  'Portland Trail Blazers': 'Portland',
+  'Chicago Bulls': 'Chicago',
+  'Orlando Magic': 'Orlando',
+  'San Francisco 49ers': 'San Francisco',
+  // Keep Seattle Seahawks as-is (not shortened)
+  'Kansas City Chiefs': 'Kansas City',
+  'Denver Broncos': 'Denver',
+  'Baltimore Ravens': 'Baltimore',
+  'Cleveland Browns': 'Cleveland',
+  'Arizona Cardinals': 'Arizona',
+  'Dallas Mavericks': 'Dallas',
+};
+
+// Shorten team names in matchup for description purposes
+const shortenMatchupForDescription = (matchup: string): string => {
+  if (!matchup) return matchup;
+  let shortened = matchup;
+  for (const [full, short] of Object.entries(TEAM_SHORT_NAMES)) {
+    shortened = shortened.replace(new RegExp(full, 'gi'), short);
+  }
+  return shortened;
+};
+
 const findMatchupInText = (text: string): string | null => {
   const cleaned = stripScoreboardText(text.replace(/Finished/gi, " "));
   const pattern =
@@ -818,8 +890,10 @@ const findMatchupInText = (text: string): string | null => {
   let best: string | null = null;
 
   for (const match of cleaned.matchAll(pattern)) {
-    const candidate = normalizeSpaces(`${match[1]} @ ${match[2]}`);
+    let candidate = normalizeSpaces(`${match[1]} @ ${match[2]}`);
     if (/(Rebounds|Record|Assists|Points|Made)/i.test(candidate)) continue;
+    // Strip any trailing player name that got captured
+    candidate = stripTrailingPlayerName(candidate);
     if (!best || candidate.length < best.length) {
       best = candidate;
     }
@@ -830,8 +904,10 @@ const findMatchupInText = (text: string): string | null => {
   const vsPattern =
     /([A-Z][A-Za-z']+(?:\s+[A-Z][A-Za-z']+){0,2})\s+vs\.?\s+([A-Z][A-Za-z']+(?:\s+[A-Z][A-Za-z']+){0,2})/gi;
   for (const match of cleaned.matchAll(vsPattern)) {
-    const candidate = normalizeSpaces(`${match[1]} vs ${match[2]}`);
+    let candidate = normalizeSpaces(`${match[1]} vs ${match[2]}`);
     if (/(Rebounds|Record|Assists|Points|Made)/i.test(candidate)) continue;
+    // Strip any trailing player name that got captured
+    candidate = stripTrailingPlayerName(candidate);
     if (!best || candidate.length < best.length) {
       best = candidate;
     }
@@ -934,7 +1010,7 @@ const buildGroupLegFromContainer = (
       ""
     );
     const matchupOnly = eventText.match(
-      /([A-Z][A-Za-z']+(?:\\s+[A-Z][A-Za-z']+){0,2}\\s+@\\s+[A-Z][A-Za-z']+(?:\\s+[A-Z][A-Za-z']+){0,2})/
+      /([A-Z][A-Za-z']+(?:\s+[A-Z][A-Za-z']+){0,2}\s+@\s+[A-Z][A-Za-z']+(?:\s+[A-Z][A-Za-z']+){0,2})/
     );
     if (matchupOnly && matchupOnly[1]) {
       eventText = matchupOnly[1];
