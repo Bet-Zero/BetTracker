@@ -784,8 +784,8 @@
     "betType": "parlay",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Deni Avdija TD, Josh Giddey TD, Jalen Johnson TD, Dallas Mavericks Josh Giddey TD",
-    "name": "Parlay (4)",
+    "description": "Deni Avdija TD, Josh Giddey TD, Jalen Johnson TD",
+    "name": "Parlay (3)",
     "odds": 36300,
     "stake": 0.5,
     "payout": 0,
@@ -813,13 +813,6 @@
         ],
         "market": "TD",
         "odds": 700,
-        "result": "LOSS"
-      },
-      {
-        "entities": [
-          "Dallas Mavericks Josh Giddey"
-        ],
-        "market": "TD",
         "result": "LOSS"
       }
     ],

@@ -1,6 +1,6 @@
 {
   "analyzedFile": "your-html-file.html",
-  "analyzedAt": "2025-11-29T09:49:20.860Z",
+  "analyzedAt": "2025-11-29T09:51:30.882Z",
   "totalBets": 34,
   "totalIssues": 18,
   "issuesSummary": {
@@ -592,7 +592,7 @@
     {
       "betIndex": 18,
       "betId": "O/0242888/0027987",
-      "description": "Deni Avdija TD, Josh Giddey TD, Jalen Johnson TD, Dallas Mavericks Josh Giddey TD",
+      "description": "Deni Avdija TD, Josh Giddey TD, Jalen Johnson TD",
       "issues": [
         "missingType"
       ],
@@ -604,8 +604,8 @@
         "betType": "parlay",
         "marketCategory": "Parlays",
         "sport": "NBA",
-        "description": "Deni Avdija TD, Josh Giddey TD, Jalen Johnson TD, Dallas Mavericks Josh Giddey TD",
-        "name": "Parlay (4)",
+        "description": "Deni Avdija TD, Josh Giddey TD, Jalen Johnson TD",
+        "name": "Parlay (3)",
         "odds": 36300,
         "stake": 0.5,
         "payout": 0,
@@ -633,13 +633,6 @@
             ],
             "market": "TD",
             "odds": 700,
-            "result": "LOSS"
-          },
-          {
-            "entities": [
-              "Dallas Mavericks Josh Giddey"
-            ],
-            "market": "TD",
             "result": "LOSS"
           }
         ],
