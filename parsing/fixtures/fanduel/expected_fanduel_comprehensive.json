@@ -1347,7 +1347,7 @@
     "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NFL",
-    "description": "Same Game Parlay - Seattle Seahawks @ Los Angeles Rams: Ricky Pearsall 50+ Yds, Davante Adams 50+ Yds; Cooper Kupp 3+ Rec, Ricky Pearsall 50+ Yds",
+    "description": "4-leg Same Game Parlay Plus: SGP (Seattle Seahawks @ Los Angeles Rams - Davante Adams 50+ Yds, Cooper Kupp 3+ Rec) + Ricky Pearsall 50+ Yds + Cooper Kupp 3+ Yds",
     "name": "SGP+",
     "odds": 37067,
     "stake": 0.25,
@@ -1363,10 +1363,19 @@
         "children": [
           {
             "entities": [
-              "Ricky Pearsall"
+              "Davante Adams"
             ],
             "market": "Yds",
             "target": "50+",
+            "odds": null,
+            "result": "LOSS"
+          },
+          {
+            "entities": [
+              "Cooper Kupp"
+            ],
+            "market": "Rec",
+            "target": "3+",
             "odds": null,
             "result": "LOSS"
           }
@@ -1374,27 +1383,22 @@
       },
       {
         "entities": [
-          "Davante Adams"
+          "Ricky Pearsall"
         ],
         "market": "Yds",
         "target": "50+",
-        "result": "LOSS"
+        "odds": 1100,
+        "result": "LOSS",
+        "game": "San Francisco 49ers @ Arizona Cardinals"
       },
       {
         "entities": [
           "Cooper Kupp"
         ],
-        "market": "Rec",
-        "target": "3+",
-        "result": "LOSS"
-      },
-      {
-        "entities": [
-          "Ricky Pearsall"
-        ],
         "market": "Yds",
-        "target": "50+",
-        "result": "LOSS"
+        "target": "3+",
+        "result": "LOSS",
+        "game": "Seattle Seahawks @ Los Angeles Rams"
       }
     ],
     "tail": "",
@@ -1490,7 +1494,7 @@
         "market": "Rec",
         "target": "3+",
         "odds": 210,
-        "result": "WIN",
+        "result": "LOSS",
         "game": "San Francisco 49ers @ Arizona Cardinals"
       }
     ],
@@ -1543,7 +1547,7 @@
       },
       {
         "market": "Same Game Parlay",
-        "target": "San Francisco 49ers @ Arizona Cardinals",
+        "target": "Seattle Seahawks @ Los Angeles Rams",
         "odds": 436,
         "result": "LOSS",
         "isGroupLeg": true,
