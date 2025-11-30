@@ -1,0 +1,62 @@
+# CodeRabbit Configuration for Maximum Learning & Suggestions
+# Created for: BetTracker repository
+
+language: en-US
+early_access: true # Get the latest features
+
+reviews:
+  profile: assertive # Already set, but confirming here
+  request_changes_workflow: true # Already enabled
+
+  # Collapse the walkthrough to make reviews cleaner
+  collapse_walkthrough: true
+
+  # General instructions for ALL files
+  path_instructions:
+    - path: "**/*.ts"
+      instructions: |
+        - Review thoroughly for TypeScript best practices and type safety
+        - Suggest improvements for error handling and edge cases
+        - Point out any potential bugs or logic issues
+        - Suggest more descriptive variable and function names if needed
+        - Flag any code that could be simplified or made more readable
+        - Suggest adding comments for complex logic
+        - Point out any performance concerns
+        - Flag any security concerns
+        - Suggest better abstractions or patterns where appropriate
+        - The developer is learning, so please explain WHY each suggestion matters
+
+    - path: "**/*.test.ts"
+      instructions: |
+        - Ensure tests cover edge cases and error scenarios
+        - Suggest additional test cases that might be missing
+        - Point out any test anti-patterns
+        - Suggest improvements to test readability and maintainability
+        - Flag any tests that are too broad or too narrow in scope
+
+    - path: "**/*.json"
+      instructions: |
+        - Check for valid JSON structure
+        - Flag any inconsistencies in data formats
+        - Suggest improvements to data organization
+
+    - path: "**/README.md"
+      instructions: |
+        - Ensure documentation is clear and beginner-friendly
+        - Suggest missing documentation sections
+        - Flag any outdated or incorrect documentation
+
+# Tone: Be thorough but encouraging for a learner
+tone_instructions: "Be thorough and educational. Explain the 'why' behind suggestions since the developer is learning. Be encouraging while being comprehensive."
+
+# Knowledge base settings - learn from your code over time
+knowledge_base:
+  opt_out: false # Keep learning enabled
+  learnings:
+    scope: auto
+  code_guidelines:
+    enabled: true
+
+# Chat settings
+chat:
+  auto_reply: true # Respond automatically in conversations
