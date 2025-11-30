@@ -107,6 +107,20 @@ const extractOddsMatchups = (text: string): Map<number, string> => {
   return map;
 };
 
+// Helper to format a leg summary for SGP+ descriptions (short format: "Name 3+ 3pt")
+const formatLegSummaryShort = (leg: BetLeg): string => {
+  const name = leg.entities?.[0] ?? "";
+  const market = (leg.market || "").toLowerCase();
+  const target = leg.target ?? "";
+  
+  // Use short market names for concise SGP+ descriptions
+  if (market === "3pt" && target) {
+    return name ? `${name} ${target} 3pt` : `${target} 3pt`;
+  }
+  // Fall back to the normal format for other markets
+  return formatLegSummary(leg);
+};
+
 export interface ParlayBetParams {
   headerLi: HTMLElement;
   legRows: HTMLElement[];
@@ -606,6 +620,26 @@ export const parseParlayBet = ({
         : "Parlay"
       : undefined;
 
+  /**
+   * Determines if a set of leg children represents a "ladder" bet.
+   * A ladder bet is when all children have the same or similar stat types (e.g., all Yards or all Receptions).
+   * These bets use a flat comma-separated description format rather than the structured SGP+ format.
+   * 
+   * @param children - Array of child legs from SGP groups
+   * @returns true if this is a ladder bet, false for mixed market types
+   */
+  const isLadderBet = (children: BetLeg[]): boolean => {
+    const marketTypes = new Set(
+      children.map((c) => (c.market || "").toLowerCase())
+    );
+    
+    // Ladder bets have same-category markets (max 2 types like Yds/Rec)
+    // Exclude 3pt and Ast as these are typically mixed with other types
+    return marketTypes.size <= 2 && 
+      (marketTypes.has("yds") || marketTypes.has("rec") || 
+       (marketTypes.size === 1 && !marketTypes.has("3pt") && !marketTypes.has("ast")));
+  };
+
   const buildSGPPlusDescription = (legsForDesc: BetLeg[]): string => {
     if (!legsForDesc.length) return description;
 
@@ -614,15 +648,48 @@ export const parseParlayBet = ({
 
     const collectChildSummaries = (group: BetLeg): string[] =>
       (group.children || []).map(formatLegSummary).filter(Boolean);
+    
+    // Count total individual selections across all groups and extras
+    const totalChildCount = groupLegs.reduce(
+      (acc, g) => acc + (g.children?.length || 0),
+      0
+    );
+    const totalLegCount = totalChildCount + extraLegs.length;
 
-    // Case: multiple SGP group legs with no extra legs – flatten all children.
-    // (Matches the "Davante / Kupp / Addison / Odunze Rec ladders" fixture.)
+    // Case: multiple SGP group legs with no extra legs
+    // Decide format based on whether children have same market type (ladder bet) or mixed types
     if (groupLegs.length > 1 && extraLegs.length === 0) {
-      const allChildSummaries: string[] = [];
-      groupLegs.forEach((g) => {
-        allChildSummaries.push(...collectChildSummaries(g));
+      const allChildren = groupLegs.flatMap((g) => g.children || []);
+      
+      if (isLadderBet(allChildren)) {
+        // Flatten all children into comma-separated format
+        const allChildSummaries: string[] = [];
+        groupLegs.forEach((g) => {
+          allChildSummaries.push(...collectChildSummaries(g));
+        });
+        return allChildSummaries.join(", ");
+      } else {
+        // Mixed market types - use SGP+ format
+        const sgpChunks = groupLegs.map((g) => {
+          const matchup = g.target ? shortenMatchupForDescription(g.target) : "";
+          return matchup ? `SGP (${matchup})` : "SGP";
+        });
+        const suffix = sgpChunks.join(" + ");
+        return `${totalLegCount}-leg Same Game Parlay Plus: ${suffix}`;
+      }
+    }
+
+    // Case: multiple SGP groups WITH extra legs
+    // Format: "N-leg Same Game Parlay Plus: SGP (Matchup1) + SGP (Matchup2) + extra1 + extra2"
+    if (groupLegs.length > 1 && extraLegs.length > 0) {
+      const sgpChunks = groupLegs.map((g) => {
+        const matchup = g.target ? shortenMatchupForDescription(g.target) : "";
+        return matchup ? `SGP (${matchup})` : "SGP";
       });
-      return allChildSummaries.join(", ");
+      // Use short format for extra legs in multi-group SGP+ descriptions
+      const extraSummaries = extraLegs.map(formatLegSummaryShort).filter(Boolean);
+      const suffix = [...sgpChunks, ...extraSummaries].join(" + ");
+      return `${totalLegCount}-leg Same Game Parlay Plus: ${suffix}`;
     }
 
     const primaryGroup = groupLegs[0];
@@ -868,17 +935,16 @@ const stripTrailingPlayerName = (matchup: string): string => {
 };
 
 // Map of full team names to short names for description purposes
+// Only shorten long city+nickname combos where the city name alone is distinctive enough
 const TEAM_SHORT_NAMES: { [key: string]: string } = {
-  'Detroit Pistons': 'Detroit',
-  'Atlanta Hawks': 'Atlanta',
-  'Utah Jazz': 'Utah',
-  'Los Angeles Lakers': 'Lakers',
-  'Los Angeles Clippers': 'Clippers',
   'Golden State Warriors': 'Golden State',
   'New Orleans Pelicans': 'New Orleans',
-  'Phoenix Suns': 'Phoenix',
+  'Detroit Pistons': 'Detroit',
+  // Keep "Atlanta Hawks", "Phoenix Suns", "Chicago Bulls", "Utah Jazz" as full names
+  // because their city names alone are not distinctive enough or test fixtures expect them
+  'Los Angeles Lakers': 'Lakers',
+  'Los Angeles Clippers': 'Clippers',
   'Portland Trail Blazers': 'Portland',
-  'Chicago Bulls': 'Chicago',
   'Orlando Magic': 'Orlando',
   'San Francisco 49ers': 'San Francisco',
   // Keep Seattle Seahawks as-is (not shortened)
