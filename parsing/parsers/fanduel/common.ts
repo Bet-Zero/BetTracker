@@ -1409,7 +1409,7 @@ export const buildLegsFromStatText = (
     // Pattern for "To Score" legs: "Player Name To Score 30+ Points"
     // Also handles "Player Name +540 To Score 30+ Points" where odds are between name and "To Score"
     new RegExp(
-      `(${PLAYER_NAME_PATTERN})\\s+(?:[+\\-]\\d+\\s+)?To\\s+Score\\s+(\\d+\\+)\\s+Points`,
+      `(${PLAYER_NAME_PATTERN})\\s+(?:[+\\-]\\d+\\s+)?To\\s+Score\\s+(\\d+\\+)\\s+(Points|Pts)`,
       "gi"
     ),
   ];
@@ -1477,10 +1477,10 @@ export const buildLegsFromStatText = (
         }
       } else if (i === 3) {
         // Pattern 3: "Player Name To Score 30+ Points"
-        // match[1] = player, match[2] = "30+", match[3] = "Points"
-        if (match[2] && match[3]) {
+        // match[1] = player, match[2] = "30+", match[3] = "Points" | "Pts"
+        if (match[2]) {
           target = match[2];
-          market = match[3];
+          market = match[3] ?? "Points";
         } else {
           continue;
         }
