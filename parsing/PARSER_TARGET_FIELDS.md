@@ -63,6 +63,8 @@ All parsers must output an array of `Bet` objects that conform to the `Bet` inte
 
 **Note on legs field:** All bets MUST populate a non-empty `legs` array. Singles have `legs.length === 1`, parlays/SGPs have `legs.length > 1`. This ensures consistency across all parsers and enables downstream consumers to rely on leg data always being available.
 
+**TypeScript Note:** While the `Bet` interface in `types.ts` marks `legs` as optional (`legs?: BetLeg[]`), this is for backward compatibility with existing data. All new parser implementations MUST populate the legs array to meet current architecture requirements.
+
 ## BetLeg Structure
 
 Each `BetLeg` in the `legs` array must conform to this structure:

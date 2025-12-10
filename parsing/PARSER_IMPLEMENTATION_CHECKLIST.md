@@ -281,7 +281,7 @@ Store important implementation details that will help with future maintenance an
 - [ ] **Unit tests** - Run parser-specific tests: `npm test -- parsing/parsers/{sportsbook}.test.ts`
   - [ ] All test suites pass
   - [ ] Minimum 85% overall code coverage
-  - [ ] Minimum 90% coverage for parser core modules
+  - [ ] Minimum 90% coverage for parser core modules (main parser functions, HTML extraction logic, field normalization, bet type detection)
   
 - [ ] **Integration tests** - Run FanDuel reference compatibility tests
   - [ ] Verify output matches expected JSON fixtures
@@ -326,8 +326,8 @@ Your parser is complete when:
 - ✅ All unit tests pass with required coverage (85% overall, 90% parser core)
 - ✅ All expected JSON fixtures match actual output
 - ✅ Integration tests with real HTML succeed
-- ✅ Target fields validation checklist passes (see `PARSER_TARGET_FIELDS.md`)
-  - [ ] Run validation checklist in `PARSER_TARGET_FIELDS.md` section "Validation Checklist"
+- ✅ Target fields validation passes (see `PARSER_TARGET_FIELDS.md` → "Validation Checklist" section)
+  - [ ] Run through validation checklist in `PARSER_TARGET_FIELDS.md`
   - [ ] Verify all validation rules pass against parsed output
   - [ ] Record and fix any discrepancies until aligned with checklist
 - ✅ Code review passes with no critical issues
