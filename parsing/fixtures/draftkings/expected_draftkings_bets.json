@@ -1,0 +1,163 @@
+[
+  {
+    "id": "DK638991222795551269",
+    "betId": "DK638991222795551269",
+    "book": "DraftKings",
+    "placedAt": "2025-11-18T23:11:19.000Z",
+    "status": "win",
+    "stake": 1,
+    "payout": 1.89,
+    "result": "win",
+    "betType": "single",
+    "marketCategory": "Main Markets",
+    "sport": "basketball",
+    "description": "Spread PHO Suns +2.5",
+    "odds": 189,
+    "legs": [
+      {
+        "market": "Spread",
+        "target": "PHO Suns +2.5",
+        "result": "win",
+        "odds": 0
+      }
+    ]
+  },
+  {
+    "id": "DK638993723619623217",
+    "betId": "DK638993723619623217",
+    "book": "DraftKings",
+    "placedAt": "2025-11-21T20:39:22.000Z",
+    "status": "loss",
+    "stake": 2,
+    "payout": 0,
+    "result": "loss",
+    "betType": "sgp",
+    "marketCategory": "SGP/SGP+",
+    "sport": "basketball",
+    "description": "Jordan Hawkins Points 18+, Zion Williamson Assists 9+",
+    "odds": 37500,
+    "legs": [
+      {
+        "market": "Jordan Hawkins Points",
+        "target": "18+",
+        "odds": 0,
+        "result": "loss"
+      },
+      {
+        "market": "Zion Williamson Assists",
+        "target": "9+",
+        "odds": 0,
+        "result": "loss"
+      }
+    ]
+  },
+  {
+    "id": "DK638992832831962382",
+    "betId": "DK638992832831962382",
+    "book": "DraftKings",
+    "placedAt": "2025-11-20T19:54:42.000Z",
+    "status": "loss",
+    "stake": 1,
+    "payout": 0,
+    "result": "loss",
+    "betType": "sgp_plus",
+    "marketCategory": "SGP/SGP+",
+    "sport": "basketball",
+    "description": "Zach LaVine Points 25+, Paul George Assists 4+, Trendon Watford Assists 4+, Kelly Olynyk Three Pointers Made 2+, Kelly Olynyk Assists 6+",
+    "odds": 39020,
+    "legs": [
+      {
+        "market": "Zach LaVine Points",
+        "target": "25+",
+        "odds": 226,
+        "result": "win"
+      },
+      {
+        "isGroupLeg": true,
+        "market": "2 Pick SGP",
+        "result": "loss",
+        "odds": 900,
+        "children": [
+            {
+                "market": "Paul George Assists",
+                "target": "4+",
+                "result": "loss",
+                "odds": 0
+            },
+            {
+                "market": "Trendon Watford Assists",
+                "target": "4+",
+                "result": "loss",
+                "odds": 0
+            }
+        ]
+      },
+      {
+        "isGroupLeg": true,
+        "market": "2 Pick SGP",
+        "result": "loss",
+        "odds": 1100,
+        "children": [
+             {
+                "market": "Kelly Olynyk Three Pointers Made",
+                "target": "2+",
+                "result": "loss",
+                "odds": 0
+            },
+            {
+                "market": "Kelly Olynyk Assists",
+                "target": "6+",
+                "result": "loss",
+                "odds": 0
+            }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "DK638991222873557181",
+    "betId": "DK638991222873557181",
+    "book": "DraftKings",
+    "placedAt": "2025-11-18T23:11:26.000Z",
+    "status": "win",
+    "stake": 1.2,
+    "payout": 2.29,
+    "result": "win",
+    "betType": "single",
+    "marketCategory": "Total",
+    "sport": "basketball",
+    "description": "Total Over 235.5",
+    "odds": 190,
+    "legs": [
+      {
+        "market": "Total",
+        "target": "Over 235.5",
+        "result": "win",
+        "odds": 0
+      }
+    ]
+  },
+  {
+    "id": "DK638991231027744508",
+    "betId": "DK638991231027744508",
+    "book": "DraftKings",
+    "placedAt": "2025-11-18T23:25:01.000Z",
+    "status": "win",
+    "stake": 0.5,
+    "payout": 0.9,
+    "result": "win",
+    "betType": "single",
+    "marketCategory": "Main Markets",
+    "sport": "basketball",
+    "description": "Live Spread LA Lakers -5.5",
+    "odds": -125,
+    "legs": [
+      {
+        "market": "Spread",
+        "target": "LA Lakers -5.5",
+        "result": "win",
+        "odds": -125
+      }
+    ]
+  }
+]
