@@ -42,8 +42,14 @@ All parsers must output an array of `Bet` objects that conform to the `Bet` inte
 |-------|------|----------|-------------|---------|
 | `odds` | `number` | ✅ Yes | American odds (positive or negative) | `600`, `-150`, `205` |
 | `stake` | `number` | ✅ Yes | Amount wagered in dollars | `1.00`, `10.50` |
-| `payout` | `number` | ✅ Yes | Amount returned (0 for loss, stake for push, winnings for win) | `7.00`, `0.00` |
+| `payout` | `number` | ✅ Yes | Total amount returned by sportsbook (includes original stake for wins) | `7.00`, `0.00`, `2.00` |
 | `result` | `BetResult` | ✅ Yes | Outcome of the bet | `"win"`, `"loss"`, `"push"`, `"pending"` |
+
+**Note on payout field:** The `payout` represents the total amount returned by the sportsbook:
+- **Win**: `payout = stake + winnings` (e.g., $2 stake at +205 odds = $2 + $4.10 = $6.10 total payout)
+- **Loss**: `payout = 0` (nothing returned)
+- **Push**: `payout = stake` (original stake returned)
+- **Pending**: `payout = 0` (not yet settled)
 
 ### Structured Data Fields
 
@@ -146,7 +152,7 @@ Each `BetLeg` in the `legs` array must conform to this structure:
   "description": "Orlando Magic -5.5, Detroit Pistons -5.5",
   "odds": 205,
   "stake": 2,
-  "payout": 6.10,
+  "payout": 6.1,
   "result": "win",
   "legs": [
     {
@@ -179,9 +185,9 @@ Each `BetLeg` in the `legs` array must conform to this structure:
   "sport": "NBA",
   "description": "Same Game Parlay - Chicago Bulls @ Portland Trail Blazers: Josh Giddey 10+ Ast, Coby White 4+ 3pt, Deni Avdija 8+ Ast, Deni Avdija 10+ Reb",
   "odds": 6058,
-  "stake": 1,
-  "payout": 0,
-  "result": "pending",
+  "stake": 2,
+  "payout": 123.18,
+  "result": "win",
   "legs": [{
     "isGroupLeg": true,
     "market": "SGP",
@@ -192,28 +198,28 @@ Each `BetLeg` in the `legs` array must conform to this structure:
         "market": "Ast",
         "target": "10+",
         "odds": null,
-        "result": "PENDING"
+        "result": "WIN"
       },
       {
         "entities": ["Coby White"],
         "market": "3pt",
         "target": "4+",
         "odds": null,
-        "result": "PENDING"
+        "result": "WIN"
       },
       {
         "entities": ["Deni Avdija"],
         "market": "Ast",
         "target": "8+",
         "odds": null,
-        "result": "PENDING"
+        "result": "WIN"
       },
       {
         "entities": ["Deni Avdija"],
         "market": "Reb",
         "target": "10+",
         "odds": null,
-        "result": "PENDING"
+        "result": "WIN"
       }
     ]
   }]

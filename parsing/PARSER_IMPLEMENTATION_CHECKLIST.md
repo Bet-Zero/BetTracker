@@ -261,8 +261,8 @@ Use this checklist when implementing a parser for a new sportsbook. This ensures
 - [ ] **Run all tests** - `npm test`
 - [ ] **Run linter** - `npm run lint` (if available)
 - [ ] **Test in UI** - Paste real HTML and verify import
-- [ ] **Code review** - Use `code_review` tool
-- [ ] **Security scan** - Use `codeql_checker` tool
+- [ ] **Code review** - Use automated code review tools if available
+- [ ] **Security scan** - Use static analysis tools if available
 
 ## Reference Implementation
 
