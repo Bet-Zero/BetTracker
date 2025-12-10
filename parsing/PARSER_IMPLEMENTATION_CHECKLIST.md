@@ -73,17 +73,17 @@ Use this checklist when implementing a parser for a new sportsbook. This ensures
   - [ ] Parse date strings to ISO 8601 format
   - [ ] Handle timezone conversions
   - [ ] Generate `id` field: `"{book}:{betId}:{placedAt}"`
-  
+
 - [ ] **Financial Values**
   - [ ] Parse currency strings (remove $, commas)
   - [ ] Convert to numbers
   - [ ] Handle decimal precision
-  
+
 - [ ] **Odds**
   - [ ] Parse odds to American format (integer)
   - [ ] Handle both positive and negative odds
   - [ ] Convert from fractional/decimal if needed
-  
+
 - [ ] **Results**
   - [ ] Map sportsbook terms to standard values
   - [ ] Bet results: "win", "loss", "push", "pending" (lowercase)
@@ -96,7 +96,7 @@ Use this checklist when implementing a parser for a new sportsbook. This ensures
   - [ ] Parlay: 2+ selections from different games
   - [ ] SGP: 2+ selections from same game
   - [ ] SGP+: SGP + selections from other games
-  
+
 - [ ] **Classification logic**
   - [ ] Check for explicit type indicators in HTML
   - [ ] Count legs/selections
@@ -158,18 +158,20 @@ Use this checklist when implementing a parser for a new sportsbook. This ensures
 
 ### 9. Convenience Fields
 
-- [ ] **Extract from first leg for singles** (for easy filtering)
+- [ ] **Extract from first leg for singles**
   - [ ] `name`: Player/team name
   - [ ] `type`: Stat type code (e.g., "3pt", "Pts", "Ast")
   - [ ] `line`: Threshold value (e.g., "5+", "25.5")
   - [ ] `ou`: Over/Under indicator
+
+**Purpose:** These convenience fields are surfaced at the bet level to enable fast UI filtering and automated validation without traversing the legs array. For example, they allow quick filtering like "show all Assists props" or "filter by line > 25" without iterating through nested leg structures. Extract these values from `legs[0]` for single bets.
 
 ## Testing
 
 ### 10. Unit Tests
 
 - [ ] **Create test file** `parsing/parsers/{sportsbook}.test.ts`
-  
+
 - [ ] **Test basic parsing**
   - [ ] Parser returns array
   - [ ] Correct number of bets parsed
@@ -224,11 +226,14 @@ Use this checklist when implementing a parser for a new sportsbook. This ensures
 
 ### 13. Register Parser
 
+**Context:** The `pageProcessor.ts` file is the main parser entry point. It receives raw HTML content, dispatches to the selected sportsbook parser, normalizes the result, and returns or propagates errors to the caller/UI.
+
 - [ ] **Update pageProcessor.ts**
   - [ ] Import new parser: `import { parse as parse{Sportsbook} } from './parsers/{sportsbook}';`
-  - [ ] Add case to switch statement
-  - [ ] Add appropriate error message
-  
+  - [ ] Add case to switch statement that calls the parser and awaits its normalized output
+  - [ ] Wrap the parser call in try/catch to log clear, descriptive error messages including the sportsbook name and original error details
+  - [ ] Return or rethrow a standardized error/response so the caller/UI can handle it appropriately
+
 - [ ] **Update UI** (if needed)
   - [ ] Add sportsbook to dropdown in ImportView
   - [ ] Update help text/instructions
@@ -251,18 +256,53 @@ Use this checklist when implementing a parser for a new sportsbook. This ensures
 ### 15. Store Memory
 
 - [ ] **Save implementation facts**
-  - [ ] Use `store_memory` tool for important conventions
-  - [ ] Document HTML structure patterns
-  - [ ] Note any special parsing logic
-  - [ ] Record build/test commands
+
+Store important implementation details that will help with future maintenance and debugging. Examples include:
+- HTML element patterns and selector heuristics (e.g., "bet cards use `<li class='bet-card'>` structure")
+- Edge-case parsing rules (e.g., "SGP+ bets have nested group legs with null odds for children")
+- Retry/timeout handling strategies
+- Known flaky pages or anti-patterns that recur
+- Build/test commands (e.g., `npm test -- parsers/{sportsbook}.test.ts`)
+- Reproduction steps for complex edge cases
+
+**When to store:** On first parser rollout, after major fixes, or when an anti-pattern recurs.
+
+**Suggested format:**
+- Key: Short identifier (e.g., "DraftKings SGP structure")
+- Context: What HTML pattern or behavior this addresses
+- Rationale: Why this approach was chosen
+- Reproduction: Steps to reproduce the scenario
+- Commands: Any relevant build/test commands
 
 ## Final Validation
 
-- [ ] **Run all tests** - `npm test`
-- [ ] **Run linter** - `npm run lint` (if available)
-- [ ] **Test in UI** - Paste real HTML and verify import
-- [ ] **Code review** - Use automated code review tools if available
-- [ ] **Security scan** - Use static analysis tools if available
+### Mandatory Testing Requirements
+
+- [ ] **Unit tests** - Run parser-specific tests: `npm test -- parsing/parsers/{sportsbook}.test.ts`
+  - [ ] All test suites pass
+  - [ ] Minimum 85% overall code coverage
+  - [ ] Minimum 90% coverage for parser core modules
+  
+- [ ] **Integration tests** - Run FanDuel reference compatibility tests
+  - [ ] Verify output matches expected JSON fixtures
+  - [ ] Include regression tests for any discrepancies vs FanDuel reference
+  
+- [ ] **End-to-end tests** - Test in UI
+  - [ ] Paste real HTML and verify import works
+  - [ ] Verify all bet types display correctly in table
+  - [ ] Check filtering and sorting work with parsed data
+
+- [ ] **Code quality**
+  - [ ] Run linter: `npm run lint` (if available)
+  - [ ] Code review: Use automated code review tools if available
+  - [ ] Security scan: Use static analysis tools if available
+
+- [ ] **CI gating** (if CI pipeline exists)
+  - [ ] Fail pipeline on test failures
+  - [ ] Fail pipeline if coverage drops below threshold
+  - [ ] Block merge until all tests pass
+
+**Optional tests:** Performance benchmarks, stress tests with large HTML files
 
 ## Reference Implementation
 
@@ -283,11 +323,16 @@ See `parsing/parsers/fanduel/` for a complete reference implementation covering 
 ## Success Criteria
 
 Your parser is complete when:
-- ✅ All unit tests pass
+- ✅ All unit tests pass with required coverage (85% overall, 90% parser core)
 - ✅ All expected JSON fixtures match actual output
 - ✅ Integration tests with real HTML succeed
+- ✅ Target fields validation checklist passes (see `PARSER_TARGET_FIELDS.md`)
+  - [ ] Run validation checklist in `PARSER_TARGET_FIELDS.md` section "Validation Checklist"
+  - [ ] Verify all validation rules pass against parsed output
+  - [ ] Record and fix any discrepancies until aligned with checklist
 - ✅ Code review passes with no critical issues
 - ✅ Security scan shows no vulnerabilities
 - ✅ UI import works end-to-end with real data
 - ✅ All required fields present and correctly formatted
 - ✅ Edge cases handled gracefully
+- ✅ Regression tests added for any FanDuel reference implementation discrepancies

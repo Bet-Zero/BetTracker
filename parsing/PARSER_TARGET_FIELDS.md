@@ -55,13 +55,13 @@ All parsers must output an array of `Bet` objects that conform to the `Bet` inte
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `legs` | `BetLeg[]` | No* | Array of bet legs (all bets should have legs: singles have 1, parlays have 2+) |
-| `tail` | `string` | No | Who the bet was tailed from | 
+| `legs` | `BetLeg[]` | ✅ Yes | Array of bet legs - all bets MUST populate a non-empty legs array |
+| `tail` | `string` | No | Who the bet was tailed from |
 | `raw` | `string` | No | Full raw text block for debugging |
 | `isLive` | `boolean` | No | Whether bet was placed live/in-game |
 | `isSample` | `boolean` | No | Whether this is sample data |
 
-\* *While technically optional, all bets should populate legs for consistency. Singles have `legs.length === 1`, parlays/SGPs have `legs.length > 1`.*
+**Note on legs field:** All bets MUST populate a non-empty `legs` array. Singles have `legs.length === 1`, parlays/SGPs have `legs.length > 1`. This ensures consistency across all parsers and enables downstream consumers to rely on leg data always being available.
 
 ## BetLeg Structure
 
