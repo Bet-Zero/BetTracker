@@ -99,6 +99,7 @@ export interface FinalRow {
   Category: string;
   Type: string;
   Name: string;
+  Name2?: string;     // Second name for totals bets (team 2)
   Over: string;        // "1" or "0" or ""
   Under: string;      // "1" or "0" or ""
   Line: string;

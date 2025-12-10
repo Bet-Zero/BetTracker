@@ -17,7 +17,7 @@ import {
 } from "../types";
 import { Wifi } from "../components/icons";
 import { calculateProfit } from "../utils/betCalculations";
-import { betToFinalRows } from "../parsing/betToFinalRows";
+import { betToFinalRows } from "../parsing/shared/betToFinalRows";
 
 // Cell coordinate type
 type CellCoordinate = {
@@ -40,6 +40,7 @@ interface FlatBet {
   type: string;
   category: MarketCategory;
   name: string;
+  name2?: string; // Second name for totals bets
   ou?: "Over" | "Under";
   line?: string | number;
   odds?: number;
@@ -568,6 +569,7 @@ const BetTableView: React.FC = () => {
           type: finalRow.Type,
           category: finalRow.Category as MarketCategory,
           name: finalRow.Name,
+          name2: finalRow.Name2,
           ou,
           line: finalRow.Line || undefined,
           odds: oddsValue,
@@ -698,6 +700,7 @@ const BetTableView: React.FC = () => {
         (filters.category === "all" || bet.category === filters.category) &&
         (searchTerm === "" ||
           bet.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          bet.name2?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           bet.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
           bet.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
           bet.tail?.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -1851,30 +1854,102 @@ const BetTableView: React.FC = () => {
                           }
                         />
                       )}
-                      <EditableCell
-                        value={row.name}
-                        isFocused={isCellFocused(rowIndex, "name")}
-                        onFocus={() =>
-                          setFocusedCell({ rowIndex, columnKey: "name" })
-                        }
-                        inputRef={getCellRef(rowIndex, "name")}
-                        onSave={(val) => {
-                          if (isLeg) {
-                            autoAddEntity(row.sport, val, row.type);
-                            handleLegUpdate(row.betId, legIndex, {
-                              entities: [val],
-                            });
-                          } else {
-                            // Update bet.name (player/team name), NOT description
-                            autoAddEntity(row.sport, val, row.type);
-                            updateBet(row.betId, { name: val });
+                      {row.category === "Main Markets" && row.type === "Total" ? (
+                        // Two side-by-side inputs for totals bets
+                        <div className="flex gap-1">
+                          <div className="flex-1">
+                            <EditableCell
+                              value={row.name}
+                              isFocused={isCellFocused(rowIndex, "name")}
+                              onFocus={() =>
+                                setFocusedCell({ rowIndex, columnKey: "name" })
+                              }
+                              inputRef={getCellRef(rowIndex, "name")}
+                              onSave={(val) => {
+                                if (isLeg) {
+                                  autoAddEntity(row.sport, val, row.type);
+                                  const name2 = row.name2 || '';
+                                  handleLegUpdate(row.betId, legIndex, {
+                                    entities: name2 ? [val, name2] : [val],
+                                  });
+                                } else {
+                                  autoAddEntity(row.sport, val, row.type);
+                                  const bet = bets.find(b => b.id === row.betId);
+                                  const name2 = bet?.legs?.[0]?.entities?.[1] || row.name2 || '';
+                                  updateBet(row.betId, { 
+                                    name: val,
+                                    legs: bet?.legs ? bet.legs.map((leg, idx) => 
+                                      idx === 0 ? { ...leg, entities: name2 ? [val, name2] : [val] } : leg
+                                    ) : [{ entities: name2 ? [val, name2] : [val], market: bet?.type || '', result: bet?.result || 'pending' }]
+                                  });
+                                }
+                              }}
+                              suggestions={[
+                                ...suggestionLists.players(row.sport),
+                                ...suggestionLists.teams(row.sport),
+                              ]}
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <EditableCell
+                              value={row.name2 || ""}
+                              isFocused={isCellFocused(rowIndex, "name2")}
+                              onFocus={() =>
+                                setFocusedCell({ rowIndex, columnKey: "name2" })
+                              }
+                              inputRef={getCellRef(rowIndex, "name2")}
+                              onSave={(val) => {
+                                if (isLeg) {
+                                  autoAddEntity(row.sport, val, row.type);
+                                  const name1 = row.name || '';
+                                  handleLegUpdate(row.betId, legIndex, {
+                                    entities: name1 ? [name1, val] : [val],
+                                  });
+                                } else {
+                                  autoAddEntity(row.sport, val, row.type);
+                                  const bet = bets.find(b => b.id === row.betId);
+                                  const name1 = bet?.name || row.name || '';
+                                  updateBet(row.betId, { 
+                                    legs: bet?.legs ? bet.legs.map((leg, idx) => 
+                                      idx === 0 ? { ...leg, entities: name1 ? [name1, val] : [val] } : leg
+                                    ) : [{ entities: name1 ? [name1, val] : [val], market: bet?.type || '', result: bet?.result || 'pending' }]
+                                  });
+                                }
+                              }}
+                              suggestions={[
+                                ...suggestionLists.players(row.sport),
+                                ...suggestionLists.teams(row.sport),
+                              ]}
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        // Single input for non-totals bets
+                        <EditableCell
+                          value={row.name}
+                          isFocused={isCellFocused(rowIndex, "name")}
+                          onFocus={() =>
+                            setFocusedCell({ rowIndex, columnKey: "name" })
                           }
-                        }}
-                        suggestions={[
-                          ...suggestionLists.players(row.sport),
-                          ...suggestionLists.teams(row.sport),
-                        ]}
-                      />
+                          inputRef={getCellRef(rowIndex, "name")}
+                          onSave={(val) => {
+                            if (isLeg) {
+                              autoAddEntity(row.sport, val, row.type);
+                              handleLegUpdate(row.betId, legIndex, {
+                                entities: [val],
+                              });
+                            } else {
+                              // Update bet.name (player/team name), NOT description
+                              autoAddEntity(row.sport, val, row.type);
+                              updateBet(row.betId, { name: val });
+                            }
+                          }}
+                          suggestions={[
+                            ...suggestionLists.players(row.sport),
+                            ...suggestionLists.teams(row.sport),
+                          ]}
+                        />
+                      )}
                     </td>
                     <td
                       className={getCellClasses("ou") + " text-center"}

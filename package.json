@@ -4,13 +4,13 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "parse": "tsx analyze-parser-issues.ts your-html-file.html",
-    "test:parse": "vitest run parsing/parsers/compare-fanduel-fixture.test.ts",
+    "parse": "tsx parsing/scripts/analyze-parser-issues.ts your-html-file.html",
+    "test:parse": "vitest run parsing/tests/compare-fanduel-fixture.test.ts",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest",
-    "test:fanduel": "npx tsx test-fanduel-fixture.ts && npx tsx parsing/fixtures/fanduel/fanduelSgpSampleChecker.ts"
+    "test:fanduel": "npx tsx parsing/tests/test-fanduel-fixture.ts && npx tsx parsing/fixtures/fanduel/fanduelSgpSampleChecker.ts"
   },
   "dependencies": {
     "react": "^19.2.0",
