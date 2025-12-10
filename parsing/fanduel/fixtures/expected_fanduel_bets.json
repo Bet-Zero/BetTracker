@@ -23,12 +23,14 @@
         "market": "Points",
         "target": "30+",
         "actual": 25,
-        "result": "LOSS"
+        "result": "LOSS",
+        "ou": "Over"
       }
     ],
     "tail": "",
     "raw": "",
-    "isLive": false
+    "isLive": false,
+    "ou": "Over"
   },
   {
     "id": "fanduel:O/0242888/0028018:2025-11-18T19:38:00-05:00",
@@ -185,6 +187,7 @@
     ],
     "tail": "",
     "raw": "",
-    "isLive": false
+    "isLive": false,
+    "ou": "Over"
   }
 ]

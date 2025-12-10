@@ -21,32 +21,44 @@
         "isGroupLeg": true,
         "children": [
           {
-            "entities": ["Josh Giddey"],
+            "entities": [
+              "Josh Giddey"
+            ],
             "market": "Ast",
             "target": "10+",
             "result": "PENDING",
-            "odds": null
+            "odds": null,
+            "ou": "Over"
           },
           {
-            "entities": ["Coby White"],
+            "entities": [
+              "Coby White"
+            ],
             "market": "3pt",
             "target": "4+",
             "result": "PENDING",
-            "odds": null
+            "odds": null,
+            "ou": "Over"
           },
           {
-            "entities": ["Deni Avdija"],
+            "entities": [
+              "Deni Avdija"
+            ],
             "market": "Ast",
             "target": "8+",
             "result": "PENDING",
-            "odds": null
+            "odds": null,
+            "ou": "Over"
           },
           {
-            "entities": ["Deni Avdija"],
+            "entities": [
+              "Deni Avdija"
+            ],
             "market": "Reb",
             "target": "10+",
             "result": "PENDING",
-            "odds": null
+            "odds": null,
+            "ou": "Over"
           }
         ]
       }

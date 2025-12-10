@@ -21,27 +21,36 @@
         "isGroupLeg": true,
         "children": [
           {
-            "entities": ["Davante Adams"],
+            "entities": [
+              "Davante Adams"
+            ],
             "market": "Yds",
             "target": "50+",
             "result": "LOSS",
-            "odds": null
+            "odds": null,
+            "ou": "Over"
           },
           {
-            "entities": ["Cooper Kupp"],
+            "entities": [
+              "Cooper Kupp"
+            ],
             "market": "Rec",
             "target": "3+",
             "result": "WIN",
-            "odds": null
+            "odds": null,
+            "ou": "Over"
           }
         ]
       },
       {
-        "entities": ["Ricky Pearsall"],
+        "entities": [
+          "Ricky Pearsall"
+        ],
         "market": "Yds",
         "target": "50+",
         "odds": 1100,
-        "result": "LOSS"
+        "result": "LOSS",
+        "ou": "Over"
       }
     ],
     "isLive": false

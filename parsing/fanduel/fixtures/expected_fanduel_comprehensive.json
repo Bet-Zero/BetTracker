@@ -23,13 +23,15 @@
         "market": "3pt",
         "target": "5+",
         "odds": 600,
-        "result": "LOSS"
+        "result": "LOSS",
+        "ou": "Over"
       }
     ],
     "tail": "",
     "raw": "Royce O'Neale +600 5+ MADE THREES 3 5 Phoenix Suns 35293627 127110 Portland Trail Blazers 32292128 110127 FinishedFinished Box Score Play-by-play\n----\n$1.00 TOTAL WAGER $0.00 RETURNED BET ID: O/0242888/0028045PLACED: 11/18/2025 11:09PM ET",
     "isLive": false,
-    "isSample": false
+    "isSample": false,
+    "ou": "Over"
   },
   {
     "id": "FanDuel:O/0242888/0028021:2025-11-18T19:40:00-05:00",
@@ -204,13 +206,15 @@
         "market": "Pts",
         "target": "30+",
         "odds": 240,
-        "result": "LOSS"
+        "result": "LOSS",
+        "ou": "Over"
       }
     ],
     "tail": "",
     "raw": "Cade Cunningham +240 TO SCORE 30+ POINTS 25 30 Detroit Pistons 35322726 120112 Atlanta Hawks 30242830 112120 FinishedFinished Box Score Play-by-play\n----\n$1.02 TOTAL WAGER $0.00 RETURNED BET ID: O/0242888/0028020PLACED: 11/18/2025 7:39PM ET",
     "isLive": false,
-    "isSample": false
+    "isSample": false,
+    "ou": "Over"
   },
   {
     "id": "FanDuel:O/0242888/0028013:2025-11-18T19:30:00-05:00",
@@ -241,7 +245,8 @@
             "market": "Ast",
             "target": "10+",
             "odds": null,
-            "result": "LOSS"
+            "result": "LOSS",
+            "ou": "Over"
           },
           {
             "entities": [
@@ -250,7 +255,8 @@
             "market": "Ast",
             "target": "10+",
             "odds": null,
-            "result": "WIN"
+            "result": "WIN",
+            "ou": "Over"
           }
         ]
       },
@@ -262,7 +268,8 @@
         "target": "10+",
         "odds": 540,
         "result": "LOSS",
-        "game": "Detroit Pistons @ Atlanta Hawks"
+        "game": "Detroit Pistons @ Atlanta Hawks",
+        "ou": "Over"
       },
       {
         "entities": [
@@ -272,7 +279,8 @@
         "target": "10+",
         "odds": 470,
         "result": "LOSS",
-        "game": "Phoenix Suns @ Portland Trail Blazers"
+        "game": "Phoenix Suns @ Portland Trail Blazers",
+        "ou": "Over"
       }
     ],
     "tail": "",
@@ -501,13 +509,15 @@
         "market": "Spread",
         "target": "+2.5",
         "odds": -112,
-        "result": "WIN"
+        "result": "WIN",
+        "ou": "Over"
       }
     ],
     "tail": "",
     "raw": "Orlando Magic +2.5 -112 SPREAD BETTING Golden State Warriors 32282528 113121 Orlando Magic 36312628 121113 FinishedFinished Box Score Play-by-play\n----\n$1.00 TOTAL WAGER $1.89 WON ON FANDUEL BET ID: O/0242888/0028002PLACED: 11/18/2025 6:52PM ET",
     "isLive": false,
-    "isSample": false
+    "isSample": false,
+    "ou": "Over"
   },
   {
     "id": "FanDuel:O/0242888/0028004:2025-11-18T18:52:00-05:00",
@@ -598,7 +608,8 @@
             "market": "3pt",
             "target": "2+",
             "odds": null,
-            "result": "LOSS"
+            "result": "LOSS",
+            "ou": "Over"
           },
           {
             "entities": [
@@ -607,7 +618,8 @@
             "market": "3pt",
             "target": "2+",
             "odds": null,
-            "result": "LOSS"
+            "result": "LOSS",
+            "ou": "Over"
           },
           {
             "entities": [
@@ -616,7 +628,8 @@
             "market": "3pt",
             "target": "2+",
             "odds": null,
-            "result": "LOSS"
+            "result": "LOSS",
+            "ou": "Over"
           },
           {
             "entities": [
@@ -625,7 +638,8 @@
             "market": "3pt",
             "target": "2+",
             "odds": null,
-            "result": "LOSS"
+            "result": "LOSS",
+            "ou": "Over"
           },
           {
             "entities": [
@@ -634,7 +648,8 @@
             "market": "Ast",
             "target": "8+",
             "odds": null,
-            "result": "LOSS"
+            "result": "LOSS",
+            "ou": "Over"
           }
         ]
       }
@@ -673,7 +688,8 @@
             "market": "3pt",
             "target": "2+",
             "odds": null,
-            "result": "LOSS"
+            "result": "LOSS",
+            "ou": "Over"
           },
           {
             "entities": [
@@ -682,7 +698,8 @@
             "market": "3pt",
             "target": "2+",
             "odds": null,
-            "result": "LOSS"
+            "result": "LOSS",
+            "ou": "Over"
           },
           {
             "entities": [
@@ -691,7 +708,8 @@
             "market": "3pt",
             "target": "2+",
             "odds": null,
-            "result": "LOSS"
+            "result": "LOSS",
+            "ou": "Over"
           }
         ]
       }
@@ -730,7 +748,8 @@
             "market": "3pt",
             "target": "4+",
             "odds": null,
-            "result": "LOSS"
+            "result": "LOSS",
+            "ou": "Over"
           },
           {
             "entities": [
@@ -739,7 +758,8 @@
             "market": "3pt",
             "target": "2+",
             "odds": null,
-            "result": "LOSS"
+            "result": "LOSS",
+            "ou": "Over"
           },
           {
             "entities": [
@@ -748,7 +768,8 @@
             "market": "3pt",
             "target": "2+",
             "odds": null,
-            "result": "LOSS"
+            "result": "LOSS",
+            "ou": "Over"
           },
           {
             "entities": [
@@ -757,7 +778,8 @@
             "market": "3pt",
             "target": "3+",
             "odds": null,
-            "result": "LOSS"
+            "result": "LOSS",
+            "ou": "Over"
           },
           {
             "entities": [
@@ -766,7 +788,8 @@
             "market": "Ast",
             "target": "4+",
             "odds": null,
-            "result": "LOSS"
+            "result": "LOSS",
+            "ou": "Over"
           }
         ]
       }
@@ -850,7 +873,8 @@
             "market": "3pt",
             "target": "3+",
             "odds": null,
-            "result": "LOSS"
+            "result": "LOSS",
+            "ou": "Over"
           },
           {
             "entities": [
@@ -859,7 +883,8 @@
             "market": "Ast",
             "target": "10+",
             "odds": null,
-            "result": "LOSS"
+            "result": "LOSS",
+            "ou": "Over"
           }
         ]
       },
@@ -877,7 +902,8 @@
             "market": "3pt",
             "target": "4+",
             "odds": null,
-            "result": "LOSS"
+            "result": "LOSS",
+            "ou": "Over"
           },
           {
             "entities": [
@@ -886,7 +912,8 @@
             "market": "Ast",
             "target": "8+",
             "odds": null,
-            "result": "LOSS"
+            "result": "LOSS",
+            "ou": "Over"
           }
         ]
       }
@@ -925,7 +952,8 @@
             "market": "3pt",
             "target": "3+",
             "odds": null,
-            "result": "LOSS"
+            "result": "LOSS",
+            "ou": "Over"
           },
           {
             "entities": [
@@ -934,7 +962,8 @@
             "market": "3pt",
             "target": "3+",
             "odds": null,
-            "result": "LOSS"
+            "result": "LOSS",
+            "ou": "Over"
           }
         ]
       }
@@ -968,13 +997,15 @@
         "market": "3pt",
         "target": "3+",
         "odds": 360,
-        "result": "LOSS"
+        "result": "LOSS",
+        "ou": "Over"
       }
     ],
     "tail": "",
     "raw": "Will Richard +360 3+ MADE THREES Golden State Warriors @ New Orleans Pelicans Box Score Play-by-play\n----\n$1.00 TOTAL WAGER $0.00 RETURNED BET ID: O/0242888/0027982PLACED: 11/16/2025 7:09PM ET",
     "isLive": false,
-    "isSample": false
+    "isSample": false,
+    "ou": "Over"
   },
   {
     "id": "FanDuel:O/0242888/0027983:2025-11-16T19:09:00-05:00",
@@ -1000,13 +1031,15 @@
         "market": "3pt",
         "target": "2+",
         "odds": 120,
-        "result": "LOSS"
+        "result": "LOSS",
+        "ou": "Over"
       }
     ],
     "tail": "",
     "raw": "Will Richard +120 2+ MADE THREES Golden State Warriors @ New Orleans Pelicans Box Score Play-by-play\n----\n$3.00 TOTAL WAGER $0.00 RETURNED BET ID: O/0242888/0027983PLACED: 11/16/2025 7:09PM ET",
     "isLive": false,
-    "isSample": false
+    "isSample": false,
+    "ou": "Over"
   },
   {
     "id": "FanDuel:O/0242888/0027959:2025-11-16T09:55:00-05:00",
@@ -1037,7 +1070,8 @@
             "market": "Pts",
             "target": "30+",
             "odds": null,
-            "result": "VOID"
+            "result": "VOID",
+            "ou": "Over"
           },
           {
             "entities": [
@@ -1046,7 +1080,8 @@
             "market": "3pt",
             "target": "3+",
             "odds": null,
-            "result": "LOSS"
+            "result": "LOSS",
+            "ou": "Over"
           }
         ]
       },
@@ -1064,7 +1099,8 @@
             "market": "3pt",
             "target": "3+",
             "odds": null,
-            "result": "LOSS"
+            "result": "LOSS",
+            "ou": "Over"
           },
           {
             "entities": [
@@ -1073,7 +1109,8 @@
             "market": "3pt",
             "target": "3+",
             "odds": null,
-            "result": "LOSS"
+            "result": "LOSS",
+            "ou": "Over"
           }
         ]
       },
@@ -1085,7 +1122,8 @@
         "target": "3+",
         "odds": -130,
         "result": "LOSS",
-        "game": "Atlanta Hawks @ Phoenix Suns"
+        "game": "Atlanta Hawks @ Phoenix Suns",
+        "ou": "Over"
       }
     ],
     "tail": "",
@@ -1122,7 +1160,8 @@
             "market": "Yds",
             "target": "80+",
             "odds": null,
-            "result": "LOSS"
+            "result": "LOSS",
+            "ou": "Over"
           },
           {
             "entities": [
@@ -1131,7 +1170,8 @@
             "market": "Yds",
             "target": "80+",
             "odds": null,
-            "result": "LOSS"
+            "result": "LOSS",
+            "ou": "Over"
           },
           {
             "entities": [
@@ -1140,7 +1180,8 @@
             "market": "Yds",
             "target": "40+",
             "odds": null,
-            "result": "LOSS"
+            "result": "LOSS",
+            "ou": "Over"
           }
         ]
       },
@@ -1158,7 +1199,8 @@
             "market": "Rec",
             "target": "7+",
             "odds": null,
-            "result": "LOSS"
+            "result": "LOSS",
+            "ou": "Over"
           },
           {
             "entities": [
@@ -1167,7 +1209,8 @@
             "market": "Rec",
             "target": "4+",
             "odds": null,
-            "result": "LOSS"
+            "result": "LOSS",
+            "ou": "Over"
           }
         ]
       }
@@ -1201,13 +1244,15 @@
         "market": "Rec",
         "target": "3+",
         "odds": 210,
-        "result": "LOSS"
+        "result": "LOSS",
+        "ou": "Over"
       }
     ],
     "tail": "",
     "raw": "Ricky Pearsall 3+ Receptions +210 RICKY PEARSALL - ALT RECEPTIONS San Francisco 49ers @ Arizona Cardinals Box Score Play-by-play\n----\n$2.00 TOTAL WAGER $0.00 RETURNED BET ID: O/0242888/0027974PLACED: 11/16/2025 5:39PM ET",
     "isLive": false,
-    "isSample": false
+    "isSample": false,
+    "ou": "Over"
   },
   {
     "id": "FanDuel:O/0242888/0027963:2025-11-16T16:04:00-05:00",
@@ -1267,13 +1312,15 @@
         "market": "Yds",
         "target": "60+",
         "odds": 285,
-        "result": "LOSS"
+        "result": "LOSS",
+        "ou": "Over"
       }
     ],
     "tail": "",
     "raw": "Ricky Pearsall 60+ Yards +285 RICKY PEARSALL - ALT RECEIVING YDS San Francisco 49ers @ Arizona Cardinals Box Score Play-by-play\n----\n$1.00 TOTAL WAGER $0.00 RETURNED BET ID: O/0242888/0027966PLACED: 11/16/2025 4:05PM ET",
     "isLive": false,
-    "isSample": false
+    "isSample": false,
+    "ou": "Over"
   },
   {
     "id": "FanDuel:O/0242888/0027964:2025-11-16T16:04:00-05:00",
@@ -1299,13 +1346,15 @@
         "market": "Rec",
         "target": "4+",
         "odds": 130,
-        "result": "LOSS"
+        "result": "LOSS",
+        "ou": "Over"
       }
     ],
     "tail": "",
     "raw": "Ricky Pearsall 4+ Receptions +130 RICKY PEARSALL - ALT RECEPTIONS San Francisco 49ers @ Arizona Cardinals Box Score Play-by-play\n----\n$3.00 TOTAL WAGER $0.00 RETURNED BET ID: O/0242888/0027964PLACED: 11/16/2025 4:04PM ET",
     "isLive": false,
-    "isSample": false
+    "isSample": false,
+    "ou": "Over"
   },
   {
     "id": "FanDuel:O/0242888/0027965:2025-11-16T16:05:00-05:00",
@@ -1331,13 +1380,15 @@
         "market": "Yds",
         "target": "50+",
         "odds": 180,
-        "result": "LOSS"
+        "result": "LOSS",
+        "ou": "Over"
       }
     ],
     "tail": "",
     "raw": "Ricky Pearsall 50+ Yards +180 RICKY PEARSALL - ALT RECEIVING YDS San Francisco 49ers @ Arizona Cardinals Box Score Play-by-play\n----\n$2.00 TOTAL WAGER $0.00 RETURNED BET ID: O/0242888/0027965PLACED: 11/16/2025 4:05PM ET",
     "isLive": false,
-    "isSample": false
+    "isSample": false,
+    "ou": "Over"
   },
   {
     "id": "FanDuel:O/0242888/0027981:2025-11-16T17:54:00-05:00",
@@ -1368,7 +1419,8 @@
             "market": "Yds",
             "target": "50+",
             "odds": null,
-            "result": "LOSS"
+            "result": "LOSS",
+            "ou": "Over"
           },
           {
             "entities": [
@@ -1377,7 +1429,8 @@
             "market": "Rec",
             "target": "3+",
             "odds": null,
-            "result": "LOSS"
+            "result": "LOSS",
+            "ou": "Over"
           }
         ]
       },
@@ -1389,7 +1442,8 @@
         "target": "50+",
         "odds": 1100,
         "result": "LOSS",
-        "game": "San Francisco 49ers @ Arizona Cardinals"
+        "game": "San Francisco 49ers @ Arizona Cardinals",
+        "ou": "Over"
       },
       {
         "entities": [
@@ -1398,7 +1452,8 @@
         "market": "Yds",
         "target": "3+",
         "result": "LOSS",
-        "game": "Seattle Seahawks @ Los Angeles Rams"
+        "game": "Seattle Seahawks @ Los Angeles Rams",
+        "ou": "Over"
       }
     ],
     "tail": "",
@@ -1428,7 +1483,8 @@
         "market": "Yds",
         "target": "50+",
         "odds": 1200,
-        "result": "LOSS"
+        "result": "LOSS",
+        "ou": "Over"
       },
       {
         "entities": [
@@ -1437,7 +1493,8 @@
         "market": "Yds",
         "target": "50+",
         "odds": 430,
-        "result": "LOSS"
+        "result": "LOSS",
+        "ou": "Over"
       }
     ],
     "tail": "",
@@ -1474,7 +1531,8 @@
             "market": "Rec",
             "target": "2+",
             "odds": null,
-            "result": "LOSS"
+            "result": "LOSS",
+            "ou": "Over"
           },
           {
             "entities": [
@@ -1483,7 +1541,8 @@
             "market": "Rec",
             "target": "3+",
             "odds": null,
-            "result": "LOSS"
+            "result": "LOSS",
+            "ou": "Over"
           }
         ]
       },
@@ -1495,7 +1554,8 @@
         "target": "3+",
         "odds": 210,
         "result": "LOSS",
-        "game": "San Francisco 49ers @ Arizona Cardinals"
+        "game": "San Francisco 49ers @ Arizona Cardinals",
+        "ou": "Over"
       }
     ],
     "tail": "",
@@ -1532,7 +1592,8 @@
             "market": "Rec",
             "target": "5+",
             "odds": null,
-            "result": "LOSS"
+            "result": "LOSS",
+            "ou": "Over"
           },
           {
             "entities": [
@@ -1541,7 +1602,8 @@
             "market": "Rec",
             "target": "3+",
             "odds": null,
-            "result": "LOSS"
+            "result": "LOSS",
+            "ou": "Over"
           }
         ]
       },
@@ -1559,7 +1621,8 @@
             "market": "Rec",
             "target": "3+",
             "odds": null,
-            "result": "LOSS"
+            "result": "LOSS",
+            "ou": "Over"
           },
           {
             "entities": [
@@ -1568,7 +1631,8 @@
             "market": "Rec",
             "target": "6+",
             "odds": null,
-            "result": "LOSS"
+            "result": "LOSS",
+            "ou": "Over"
           }
         ]
       }

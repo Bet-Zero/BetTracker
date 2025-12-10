@@ -7,7 +7,7 @@
     "betType": "single",
     "marketCategory": "Props",
     "sport": "NBA",
-    "description": "Royce O'Neale 5+ MADE THREES",
+    "description": "Royce O'Neale Over 5+ Made Threes",
     "name": "Royce O'Neale",
     "odds": 600,
     "stake": 1,
@@ -15,6 +15,7 @@
     "result": "loss",
     "type": "3pt",
     "line": "5+",
+    "ou": "Over",
     "legs": [
       {
         "entities": [
@@ -22,6 +23,7 @@
         ],
         "market": "3pt",
         "target": "5+",
+        "ou": "Over",
         "odds": 600,
         "result": "LOSS"
       }
@@ -69,7 +71,7 @@
     "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "4-leg Same Game Parlay Plus: SGP (Detroit @ Atlanta Hawks - Jalen Johnson TD, Cade Cunningham TD) + Luka Doncic TD + Deni Avdija TD",
+    "description": "6-leg Same Game Parlay Plus: SGP (Detroit @ Atlanta Hawks - Jalen Johnson TD, Cade Cunningham TD) + Luka Doncic +410 TD + Deni Avdija +1200 TD + Luka Doncic TD + Deni Avdija TD",
     "name": "SGP+",
     "odds": 1108261,
     "stake": 0.5,
@@ -106,6 +108,8 @@
           "Luka Doncic"
         ],
         "market": "TD",
+        "target": "+410",
+        "ou": "Over",
         "odds": 410,
         "result": "LOSS",
         "game": "Utah Jazz @ Los Angeles Lakers"
@@ -115,7 +119,27 @@
           "Deni Avdija"
         ],
         "market": "TD",
+        "target": "+1200",
+        "ou": "Over",
         "odds": 1200,
+        "result": "LOSS",
+        "game": "Phoenix Suns @ Portland Trail Blazers"
+      },
+      {
+        "entities": [
+          "Luka Doncic"
+        ],
+        "market": "TD",
+        "ou": "Over",
+        "result": "LOSS",
+        "game": "Utah Jazz @ Los Angeles Lakers"
+      },
+      {
+        "entities": [
+          "Deni Avdija"
+        ],
+        "market": "TD",
+        "ou": "Over",
         "result": "LOSS",
         "game": "Phoenix Suns @ Portland Trail Blazers"
       }
@@ -133,7 +157,7 @@
     "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "3-leg Same Game Parlay Plus: SGP (Detroit @ Atlanta Hawks - Jalen Johnson TD, Cade Cunningham TD) + Deni Avdija TD",
+    "description": "4-leg Same Game Parlay Plus: SGP (Detroit @ Atlanta Hawks - Jalen Johnson TD, Cade Cunningham TD) + Deni Avdija +1200 TD + Deni Avdija TD",
     "name": "SGP+",
     "odds": 217225,
     "stake": 0.5,
@@ -170,7 +194,18 @@
           "Deni Avdija"
         ],
         "market": "TD",
+        "target": "+1200",
+        "ou": "Over",
         "odds": 1200,
+        "result": "LOSS",
+        "game": "Phoenix Suns @ Portland Trail Blazers"
+      },
+      {
+        "entities": [
+          "Deni Avdija"
+        ],
+        "market": "TD",
+        "ou": "Over",
         "result": "LOSS",
         "game": "Phoenix Suns @ Portland Trail Blazers"
       }
@@ -188,7 +223,7 @@
     "betType": "single",
     "marketCategory": "Props",
     "sport": "NBA",
-    "description": "Cade Cunningham To Score 30+ Points",
+    "description": "Cade Cunningham Over 30+ Points",
     "name": "Cade Cunningham",
     "odds": 240,
     "stake": 1.02,
@@ -196,6 +231,7 @@
     "result": "loss",
     "type": "Pts",
     "line": "30+",
+    "ou": "Over",
     "legs": [
       {
         "entities": [
@@ -203,6 +239,7 @@
         ],
         "market": "Pts",
         "target": "30+",
+        "ou": "Over",
         "odds": 240,
         "result": "LOSS"
       }
@@ -240,6 +277,7 @@
             ],
             "market": "Ast",
             "target": "10+",
+            "ou": "Over",
             "odds": null,
             "result": "LOSS"
           },
@@ -249,6 +287,7 @@
             ],
             "market": "Ast",
             "target": "10+",
+            "ou": "Over",
             "odds": null,
             "result": "WIN"
           }
@@ -260,6 +299,7 @@
         ],
         "market": "Ast",
         "target": "10+",
+        "ou": "Over",
         "odds": 540,
         "result": "LOSS",
         "game": "Detroit Pistons @ Atlanta Hawks"
@@ -270,6 +310,7 @@
         ],
         "market": "Ast",
         "target": "10+",
+        "ou": "Over",
         "odds": 470,
         "result": "LOSS",
         "game": "Phoenix Suns @ Portland Trail Blazers"
@@ -597,6 +638,7 @@
             ],
             "market": "3pt",
             "target": "2+",
+            "ou": "Over",
             "odds": null,
             "result": "LOSS"
           },
@@ -606,6 +648,7 @@
             ],
             "market": "3pt",
             "target": "2+",
+            "ou": "Over",
             "odds": null,
             "result": "LOSS"
           },
@@ -615,6 +658,7 @@
             ],
             "market": "3pt",
             "target": "2+",
+            "ou": "Over",
             "odds": null,
             "result": "LOSS"
           },
@@ -624,6 +668,7 @@
             ],
             "market": "3pt",
             "target": "2+",
+            "ou": "Over",
             "odds": null,
             "result": "LOSS"
           },
@@ -633,6 +678,7 @@
             ],
             "market": "Ast",
             "target": "8+",
+            "ou": "Over",
             "odds": null,
             "result": "LOSS"
           }
@@ -672,6 +718,7 @@
             ],
             "market": "3pt",
             "target": "2+",
+            "ou": "Over",
             "odds": null,
             "result": "LOSS"
           },
@@ -681,6 +728,7 @@
             ],
             "market": "3pt",
             "target": "2+",
+            "ou": "Over",
             "odds": null,
             "result": "LOSS"
           },
@@ -690,6 +738,7 @@
             ],
             "market": "3pt",
             "target": "2+",
+            "ou": "Over",
             "odds": null,
             "result": "LOSS"
           }
@@ -729,6 +778,7 @@
             ],
             "market": "3pt",
             "target": "4+",
+            "ou": "Over",
             "odds": null,
             "result": "LOSS"
           },
@@ -738,6 +788,7 @@
             ],
             "market": "3pt",
             "target": "2+",
+            "ou": "Over",
             "odds": null,
             "result": "LOSS"
           },
@@ -747,6 +798,7 @@
             ],
             "market": "3pt",
             "target": "2+",
+            "ou": "Over",
             "odds": null,
             "result": "LOSS"
           },
@@ -756,6 +808,7 @@
             ],
             "market": "3pt",
             "target": "3+",
+            "ou": "Over",
             "odds": null,
             "result": "LOSS"
           },
@@ -765,6 +818,7 @@
             ],
             "market": "Ast",
             "target": "4+",
+            "ou": "Over",
             "odds": null,
             "result": "LOSS"
           }
@@ -784,8 +838,8 @@
     "betType": "parlay",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Deni Avdija TD, Josh Giddey TD, Jalen Johnson TD",
-    "name": "Parlay (3)",
+    "description": "Deni Avdija +1200 TD, Josh Giddey +250 TD, Jalen Johnson +700 TD, Josh Giddey TD, Jalen Johnson TD, Deni Avdija TD",
+    "name": "Parlay (6)",
     "odds": 36300,
     "stake": 0.5,
     "payout": 0,
@@ -796,6 +850,8 @@
           "Deni Avdija"
         ],
         "market": "TD",
+        "target": "+1200",
+        "ou": "Over",
         "odds": 1200,
         "result": "LOSS"
       },
@@ -804,6 +860,8 @@
           "Josh Giddey"
         ],
         "market": "TD",
+        "target": "+250",
+        "ou": "Over",
         "odds": 250,
         "result": "LOSS"
       },
@@ -812,7 +870,30 @@
           "Jalen Johnson"
         ],
         "market": "TD",
+        "target": "+700",
+        "ou": "Over",
         "odds": 700,
+        "result": "LOSS"
+      },
+      {
+        "entities": [
+          "Josh Giddey"
+        ],
+        "market": "TD",
+        "result": "LOSS"
+      },
+      {
+        "entities": [
+          "Jalen Johnson"
+        ],
+        "market": "TD",
+        "result": "LOSS"
+      },
+      {
+        "entities": [
+          "Deni Avdija"
+        ],
+        "market": "TD",
         "result": "LOSS"
       }
     ],
@@ -849,6 +930,7 @@
             ],
             "market": "3pt",
             "target": "3+",
+            "ou": "Over",
             "odds": null,
             "result": "LOSS"
           },
@@ -858,6 +940,7 @@
             ],
             "market": "Ast",
             "target": "10+",
+            "ou": "Over",
             "odds": null,
             "result": "LOSS"
           }
@@ -876,6 +959,7 @@
             ],
             "market": "3pt",
             "target": "4+",
+            "ou": "Over",
             "odds": null,
             "result": "LOSS"
           },
@@ -885,6 +969,7 @@
             ],
             "market": "Ast",
             "target": "8+",
+            "ou": "Over",
             "odds": null,
             "result": "LOSS"
           }
@@ -924,6 +1009,7 @@
             ],
             "market": "3pt",
             "target": "3+",
+            "ou": "Over",
             "odds": null,
             "result": "LOSS"
           },
@@ -933,6 +1019,7 @@
             ],
             "market": "3pt",
             "target": "3+",
+            "ou": "Over",
             "odds": null,
             "result": "LOSS"
           }
@@ -952,7 +1039,7 @@
     "betType": "single",
     "marketCategory": "Props",
     "sport": "NBA",
-    "description": "Will Richard 3+ MADE THREES",
+    "description": "Will Richard Over 3+ Made Threes",
     "name": "Will Richard",
     "odds": 360,
     "stake": 1,
@@ -960,6 +1047,7 @@
     "result": "loss",
     "type": "3pt",
     "line": "3+",
+    "ou": "Over",
     "legs": [
       {
         "entities": [
@@ -967,6 +1055,7 @@
         ],
         "market": "3pt",
         "target": "3+",
+        "ou": "Over",
         "odds": 360,
         "result": "LOSS"
       }
@@ -984,7 +1073,7 @@
     "betType": "single",
     "marketCategory": "Props",
     "sport": "NBA",
-    "description": "Will Richard 2+ MADE THREES",
+    "description": "Will Richard Over 2+ Made Threes",
     "name": "Will Richard",
     "odds": 120,
     "stake": 3,
@@ -992,6 +1081,7 @@
     "result": "loss",
     "type": "3pt",
     "line": "2+",
+    "ou": "Over",
     "legs": [
       {
         "entities": [
@@ -999,6 +1089,7 @@
         ],
         "market": "3pt",
         "target": "2+",
+        "ou": "Over",
         "odds": 120,
         "result": "LOSS"
       }
@@ -1036,6 +1127,7 @@
             ],
             "market": "Pts",
             "target": "30+",
+            "ou": "Over",
             "odds": null,
             "result": "VOID"
           },
@@ -1045,6 +1137,7 @@
             ],
             "market": "3pt",
             "target": "3+",
+            "ou": "Over",
             "odds": null,
             "result": "LOSS"
           }
@@ -1063,6 +1156,7 @@
             ],
             "market": "3pt",
             "target": "3+",
+            "ou": "Over",
             "odds": null,
             "result": "LOSS"
           },
@@ -1072,6 +1166,7 @@
             ],
             "market": "3pt",
             "target": "3+",
+            "ou": "Over",
             "odds": null,
             "result": "LOSS"
           }
@@ -1083,6 +1178,7 @@
         ],
         "market": "3pt",
         "target": "3+",
+        "ou": "Over",
         "odds": -130,
         "result": "LOSS",
         "game": "Atlanta Hawks @ Phoenix Suns"
@@ -1121,6 +1217,7 @@
             ],
             "market": "Yds",
             "target": "80+",
+            "ou": "Over",
             "odds": null,
             "result": "LOSS"
           },
@@ -1130,6 +1227,7 @@
             ],
             "market": "Yds",
             "target": "80+",
+            "ou": "Over",
             "odds": null,
             "result": "LOSS"
           },
@@ -1139,6 +1237,7 @@
             ],
             "market": "Yds",
             "target": "40+",
+            "ou": "Over",
             "odds": null,
             "result": "LOSS"
           }
@@ -1157,6 +1256,7 @@
             ],
             "market": "Rec",
             "target": "7+",
+            "ou": "Over",
             "odds": null,
             "result": "LOSS"
           },
@@ -1166,6 +1266,7 @@
             ],
             "market": "Rec",
             "target": "4+",
+            "ou": "Over",
             "odds": null,
             "result": "LOSS"
           }
@@ -1185,7 +1286,7 @@
     "betType": "single",
     "marketCategory": "Main Markets",
     "sport": "NFL",
-    "description": "Ricky Pearsall 3+ Receptions Pearsall - ALT RECEPTIONS",
+    "description": "Ricky Pearsall Over 3+ Receptions",
     "name": "Ricky Pearsall",
     "odds": 210,
     "stake": 2,
@@ -1193,6 +1294,7 @@
     "result": "loss",
     "type": "Rec",
     "line": "3+",
+    "ou": "Over",
     "legs": [
       {
         "entities": [
@@ -1200,6 +1302,7 @@
         ],
         "market": "Rec",
         "target": "3+",
+        "ou": "Over",
         "odds": 210,
         "result": "LOSS"
       }
@@ -1251,7 +1354,7 @@
     "betType": "single",
     "marketCategory": "Main Markets",
     "sport": "NFL",
-    "description": "Ricky Pearsall 60+ Yards Pearsall - ALT RECEIVING YDS",
+    "description": "Ricky Pearsall Over 60+ Yards",
     "name": "Ricky Pearsall",
     "odds": 285,
     "stake": 1,
@@ -1259,6 +1362,7 @@
     "result": "loss",
     "type": "Yds",
     "line": "60+",
+    "ou": "Over",
     "legs": [
       {
         "entities": [
@@ -1266,6 +1370,7 @@
         ],
         "market": "Yds",
         "target": "60+",
+        "ou": "Over",
         "odds": 285,
         "result": "LOSS"
       }
@@ -1283,7 +1388,7 @@
     "betType": "single",
     "marketCategory": "Main Markets",
     "sport": "NFL",
-    "description": "Ricky Pearsall 4+ Receptions Pearsall - ALT RECEPTIONS",
+    "description": "Ricky Pearsall Over 4+ Receptions",
     "name": "Ricky Pearsall",
     "odds": 130,
     "stake": 3,
@@ -1291,6 +1396,7 @@
     "result": "loss",
     "type": "Rec",
     "line": "4+",
+    "ou": "Over",
     "legs": [
       {
         "entities": [
@@ -1298,6 +1404,7 @@
         ],
         "market": "Rec",
         "target": "4+",
+        "ou": "Over",
         "odds": 130,
         "result": "LOSS"
       }
@@ -1315,7 +1422,7 @@
     "betType": "single",
     "marketCategory": "Main Markets",
     "sport": "NFL",
-    "description": "Ricky Pearsall 50+ Yards Pearsall - ALT RECEIVING YDS",
+    "description": "Ricky Pearsall Over 50+ Yards",
     "name": "Ricky Pearsall",
     "odds": 180,
     "stake": 2,
@@ -1323,6 +1430,7 @@
     "result": "loss",
     "type": "Yds",
     "line": "50+",
+    "ou": "Over",
     "legs": [
       {
         "entities": [
@@ -1330,6 +1438,7 @@
         ],
         "market": "Yds",
         "target": "50+",
+        "ou": "Over",
         "odds": 180,
         "result": "LOSS"
       }
@@ -1367,6 +1476,7 @@
             ],
             "market": "Yds",
             "target": "50+",
+            "ou": "Over",
             "odds": null,
             "result": "LOSS"
           },
@@ -1376,6 +1486,7 @@
             ],
             "market": "Rec",
             "target": "3+",
+            "ou": "Over",
             "odds": null,
             "result": "LOSS"
           }
@@ -1387,6 +1498,7 @@
         ],
         "market": "Yds",
         "target": "50+",
+        "ou": "Over",
         "odds": 1100,
         "result": "LOSS",
         "game": "San Francisco 49ers @ Arizona Cardinals"
@@ -1397,6 +1509,7 @@
         ],
         "market": "Yds",
         "target": "3+",
+        "ou": "Over",
         "result": "LOSS",
         "game": "Seattle Seahawks @ Los Angeles Rams"
       }
@@ -1427,6 +1540,7 @@
         ],
         "market": "Yds",
         "target": "50+",
+        "ou": "Over",
         "odds": 1200,
         "result": "LOSS"
       },
@@ -1436,6 +1550,7 @@
         ],
         "market": "Yds",
         "target": "50+",
+        "ou": "Over",
         "odds": 430,
         "result": "LOSS"
       }
@@ -1473,6 +1588,7 @@
             ],
             "market": "Rec",
             "target": "2+",
+            "ou": "Over",
             "odds": null,
             "result": "LOSS"
           },
@@ -1482,6 +1598,7 @@
             ],
             "market": "Rec",
             "target": "3+",
+            "ou": "Over",
             "odds": null,
             "result": "LOSS"
           }
@@ -1493,6 +1610,7 @@
         ],
         "market": "Rec",
         "target": "3+",
+        "ou": "Over",
         "odds": 210,
         "result": "LOSS",
         "game": "San Francisco 49ers @ Arizona Cardinals"
@@ -1531,6 +1649,7 @@
             ],
             "market": "Rec",
             "target": "5+",
+            "ou": "Over",
             "odds": null,
             "result": "LOSS"
           },
@@ -1540,6 +1659,7 @@
             ],
             "market": "Rec",
             "target": "3+",
+            "ou": "Over",
             "odds": null,
             "result": "LOSS"
           }
@@ -1558,6 +1678,7 @@
             ],
             "market": "Rec",
             "target": "3+",
+            "ou": "Over",
             "odds": null,
             "result": "LOSS"
           },
@@ -1567,6 +1688,7 @@
             ],
             "market": "Rec",
             "target": "6+",
+            "ou": "Over",
             "odds": null,
             "result": "LOSS"
           }
