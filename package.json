@@ -10,7 +10,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest",
-    "test:fanduel": "npx tsx parsing/fanduel/tests/test-fanduel-fixture.ts && npx tsx parsing/fanduel/fixtures/fanduelSgpSampleChecker.ts"
+    "test:fanduel": "npx tsx parsing/fanduel/tests/test-fanduel-fixture.ts && npx tsx parsing/fanduel/fixtures/fanduelSgpSampleChecker.ts",
+    "test:draftkings": "npx tsx parsing/draftkings/tests/test-draftkings-fixture.ts"
   },
   "dependencies": {
     "react": "^19.2.0",

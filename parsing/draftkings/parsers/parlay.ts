@@ -1,5 +1,5 @@
 import { Bet, BetLeg, BetResult } from '../../../types';
-import { FooterMeta, HeaderInfo, normalizeSpaces, parseMoney } from './common';
+import { FooterMeta, HeaderInfo, normalizeSpaces, parseMoney, extractLeagueFromEventCard, extractNameAndType, extractLineAndOu } from './common';
 
 export interface ParlayBetContext {
   element: Element;
@@ -59,7 +59,19 @@ function extractLegFromElement(legEl: Element, defaultResult: BetResult): BetLeg
         }
     }
     
-    leg.market = selectionText || 'Unknown Market';
+    // For non-group legs, extract player name and stat type from the selection
+    if (!leg.isGroupLeg && selectionText) {
+        const { name, type } = extractNameAndType(selectionText, targetText);
+        if (name) {
+            leg.entities = [name];
+        }
+        // Use the parsed type as market (e.g., "Pts" instead of "Jordan Hawkins Points")
+        // Fall back to original text if type extraction fails
+        leg.market = type || selectionText;
+    } else {
+        leg.market = selectionText || 'Unknown Market';
+    }
+    
     if (targetText && !leg.isGroupLeg) leg.target = targetText;
 
     // 3. Extract Odds (often present on Group Header or single legs)
@@ -87,6 +99,7 @@ function extractLegFromElement(legEl: Element, defaultResult: BetResult): BetLeg
 
     return leg;
 }
+
 
 
 export const parseParlayBet = (ctx: ParlayBetContext): Bet => {
@@ -149,6 +162,10 @@ export const parseParlayBet = (ctx: ParlayBetContext): Bet => {
   let computedBetType = betType;
   if (element.textContent?.includes('SGPx')) computedBetType = 'sgp_plus';
 
+  // Extract league from the first event card
+  const eventCard = element.querySelector('div[data-test-id="event-card"]');
+  const sport = eventCard ? extractLeagueFromEventCard(eventCard) : 'Unknown';
+
   return {
     id: header.betId,
     betId: header.betId,
@@ -159,7 +176,7 @@ export const parseParlayBet = (ctx: ParlayBetContext): Bet => {
     result: footer.result || 'pending',
     betType: computedBetType || 'parlay',
     marketCategory: 'SGP/SGP+',
-    sport: 'mixed', // TODO: Infer from first leg's event card if possible
+    sport,
     description,
     odds,
     legs: topLevelLegs,

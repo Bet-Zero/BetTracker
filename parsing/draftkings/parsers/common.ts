@@ -89,3 +89,200 @@ export const parseMoney = (raw: string): number | null => {
 
 export const normalizeSpaces = (text: string): string =>
   (text || "").replace(/\s+/g, " ").trim();
+
+/* -------------------------------------------------------------------------- */
+/*                          LEAGUE/SPORT DETECTION                            */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Infer league from DraftKings team logo URL.
+ * URL pattern: https://sportsbook.draftkings.com/static/logos/teams/{league}/{team}.png
+ * 
+ * Examples:
+ *   /teams/nba/PHX.png → "NBA"
+ *   /teams/nfl/NYG.png → "NFL"
+ *   /teams/mlb/NYY.png → "MLB"
+ */
+export const inferLeagueFromLogoUrl = (url: string): string | null => {
+  const match = url.match(/\/teams\/([a-z]+)\//i);
+  if (match) {
+    return match[1].toUpperCase(); // "nba" → "NBA"
+  }
+  return null;
+};
+
+/**
+ * Extract league from event card by checking team logo URLs.
+ * Returns the first detected league or 'Unknown'.
+ */
+export const extractLeagueFromEventCard = (element: Element): string => {
+  const logos = element.querySelectorAll('img[src*="/teams/"]');
+  for (const logo of Array.from(logos)) {
+    const src = logo.getAttribute('src') || '';
+    const league = inferLeagueFromLogoUrl(src);
+    if (league) return league;
+  }
+  return 'Unknown';
+};
+
+/* -------------------------------------------------------------------------- */
+/*                          NAME & TYPE EXTRACTION                            */
+/* -------------------------------------------------------------------------- */
+
+// Stat type patterns - order matters (check combined before individual)
+const STAT_PATTERNS: Array<{ pattern: RegExp; type: string }> = [
+  // Combined stats first
+  { pattern: /points.*rebounds.*assists|pts.*reb.*ast|pra/i, type: 'PRA' },
+  { pattern: /points.*rebounds|pts.*reb/i, type: 'PR' },
+  { pattern: /points.*assists|pts.*ast/i, type: 'PA' },
+  { pattern: /rebounds.*assists|reb.*ast/i, type: 'RA' },
+  { pattern: /steals.*blocks|stl.*blk|stocks/i, type: 'Stocks' },
+  
+  // Individual stats
+  { pattern: /three\s*pointers?\s*made|made\s*threes|3[\s-]*pointers?|threes/i, type: '3pt' },
+  { pattern: /points|pts/i, type: 'Pts' },
+  { pattern: /assists|ast/i, type: 'Ast' },
+  { pattern: /rebounds|reb/i, type: 'Reb' },
+  { pattern: /steals|stl/i, type: 'Stl' },
+  { pattern: /blocks|blk/i, type: 'Blk' },
+  { pattern: /turnovers/i, type: 'TO' },
+  { pattern: /first\s*(basket|field\s*goal|fg)/i, type: 'FB' },
+  { pattern: /double\s*double/i, type: 'DD' },
+  { pattern: /triple\s*double/i, type: 'TD' },
+  
+  // Main market types
+  { pattern: /spread/i, type: 'Spread' },
+  { pattern: /total/i, type: 'Total' },
+  { pattern: /moneyline|money\s*line|ml/i, type: 'Moneyline' },
+];
+
+/**
+ * Detect stat/bet type from market text.
+ * Returns the stat code (e.g., "Pts", "Ast", "3pt", "Spread").
+ */
+export const detectStatType = (market: string): string => {
+  for (const { pattern, type } of STAT_PATTERNS) {
+    if (pattern.test(market)) {
+      return type;
+    }
+  }
+  return ''; // Unknown type
+};
+
+/**
+ * Extract player name from a player prop market description.
+ * 
+ * Examples:
+ *   "Jordan Hawkins Points" → "Jordan Hawkins"
+ *   "Zach LaVine Three Pointers Made" → "Zach LaVine"
+ *   "Paul George Assists" → "Paul George"
+ */
+export const extractPlayerName = (market: string): string => {
+  if (!market) return '';
+  
+  // Remove common suffixes that indicate stat types
+  const statSuffixes = [
+    /\s+(points|pts|assists|ast|rebounds|reb|steals|stl|blocks|blk|threes?|three\s*pointers?\s*made|turnovers|double\s*double|triple\s*double|first\s*basket|fb)$/i,
+    /\s+\d+\+?$/, // Remove trailing numbers like "25+" 
+  ];
+  
+  let name = market.trim();
+  for (const suffix of statSuffixes) {
+    name = name.replace(suffix, '').trim();
+  }
+  
+  // If what remains looks like a name (has at least 2 parts, all capitalized words)
+  const words = name.split(/\s+/);
+  if (words.length >= 2 && words.every(w => /^[A-Z]/.test(w))) {
+    return name;
+  }
+  
+  return '';
+};
+
+/**
+ * Extract team name from main market descriptions.
+ * 
+ * Examples:
+ *   "PHO Suns +2.5" → "PHO Suns"
+ *   "LA Lakers -5.5" → "LA Lakers"
+ *   "Over 235.5" → "" (no team name for totals)
+ */
+export const extractTeamName = (target: string): string => {
+  if (!target) return '';
+  
+  // Remove spread/line numbers
+  const cleaned = target.replace(/[+\-]?\d+\.?\d*/g, '').trim();
+  
+  // Skip if it's an over/under total
+  if (/^(over|under)$/i.test(cleaned)) return '';
+  
+  return cleaned;
+};
+
+/**
+ * Extract name and type from market description.
+ * Works for both player props and main market bets.
+ */
+export const extractNameAndType = (market: string, target?: string): { name: string; type: string } => {
+  const type = detectStatType(market);
+  
+  // For player props, extract player name from market
+  let name = extractPlayerName(market);
+  
+  // If no player name, try to extract team name from target (for spreads/moneylines)
+  if (!name && target) {
+    name = extractTeamName(target);
+  }
+  
+  return { name, type };
+};
+
+/**
+ * Extract line (numeric threshold) and over/under from target text.
+ * 
+ * Examples:
+ *   "PHO Suns +2.5" → { line: "+2.5", ou: undefined }
+ *   "LA Lakers -5.5" → { line: "-5.5", ou: undefined }
+ *   "Over 235.5" → { line: "235.5", ou: "Over" }
+ *   "Under 220.5" → { line: "220.5", ou: "Under" }
+ *   "18+" → { line: "18+", ou: "Over" }  (props with + are Over bets)
+ */
+export const extractLineAndOu = (target: string): { line: string; ou?: 'Over' | 'Under' } => {
+  if (!target) return { line: '' };
+  
+  let ou: 'Over' | 'Under' | undefined = undefined;
+  let line = '';
+  
+  // Check for Over/Under prefix
+  const overMatch = target.match(/^Over\s*([+-]?\d+\.?\d*)/i);
+  const underMatch = target.match(/^Under\s*([+-]?\d+\.?\d*)/i);
+  
+  if (overMatch) {
+    ou = 'Over';
+    line = overMatch[1];
+  } else if (underMatch) {
+    ou = 'Under';
+    line = underMatch[1];
+  } else {
+    // Look for spread lines like "+2.5" or "-5.5"
+    const spreadMatch = target.match(/([+-]?\d+\.?\d*)(?:\s*)$/);
+    if (spreadMatch) {
+      line = spreadMatch[1];
+      // If it has a + in the NUMBER (not just prefix), it might be a prop threshold
+      if (target.includes('+') && !target.match(/^[A-Z]/)) {
+        // It's like "18+" - this is a player prop Over
+        ou = 'Over';
+      }
+    }
+    
+    // Look for prop format like "18+"
+    const propMatch = target.match(/(\d+)\+/);
+    if (propMatch) {
+      line = propMatch[1] + '+';
+      ou = 'Over';
+    }
+  }
+  
+  return { line, ou };
+};

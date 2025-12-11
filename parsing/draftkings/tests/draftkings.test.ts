@@ -19,10 +19,10 @@ describe("DraftKings Parser", () => {
   });
 
   it("parses a single bet correctly", () => {
-    const htmlPath = path.join(__dirname, "./fixtures/rendered_bet_stub.html");
+    const htmlPath = path.join(__dirname, "../fixtures/rendered_bet_stub.html");
     const jsonPath = path.join(
       __dirname,
-      "./fixtures/expected_draftkings_bets.json"
+      "../fixtures/expected_draftkings_bets.json"
     );
 
     if (!fs.existsSync(htmlPath) || !fs.existsSync(jsonPath)) {
@@ -46,11 +46,11 @@ describe("DraftKings Parser", () => {
   it("parses a parlay/SGP bet correctly", () => {
     const htmlPath = path.join(
       __dirname,
-      "./fixtures/rendered_parlay_stub.html"
+      "../fixtures/rendered_parlay_stub.html"
     );
     const jsonPath = path.join(
       __dirname,
-      "./fixtures/expected_draftkings_bets.json"
+      "../fixtures/expected_draftkings_bets.json"
     );
 
     if (!fs.existsSync(htmlPath) || !fs.existsSync(jsonPath)) {
@@ -69,10 +69,10 @@ describe("DraftKings Parser", () => {
   });
 
   it("parses an SGPx (SGP+) bet correctly", () => {
-    const htmlPath = path.join(__dirname, "./fixtures/rendered_sgpx_stub.html");
+    const htmlPath = path.join(__dirname, "../fixtures/rendered_sgpx_stub.html");
     const jsonPath = path.join(
       __dirname,
-      "./fixtures/expected_draftkings_bets.json"
+      "../fixtures/expected_draftkings_bets.json"
     );
 
     if (!fs.existsSync(htmlPath) || !fs.existsSync(jsonPath)) {

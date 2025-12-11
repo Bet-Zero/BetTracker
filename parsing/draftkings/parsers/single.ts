@@ -1,5 +1,5 @@
 import { Bet, BetLeg } from '../../../types';
-import { FooterMeta, HeaderInfo, normalizeSpaces } from './common';
+import { FooterMeta, HeaderInfo, normalizeSpaces, extractLeagueFromEventCard, extractNameAndType, extractLineAndOu } from './common';
 
 export interface SingleBetContext {
   element: Element;
@@ -68,20 +68,19 @@ export const parseSingleBet = (ctx: SingleBetContext): Bet => {
   // Description
   const description = (isLive ? 'Live ' : '') + leg.market + (leg.target ? ` ${leg.target}` : '');
 
-  // Event Info
+  // Event Info - Extract league from logo URLs
   const eventCard = element.querySelector('div[data-test-id="event-card"]');
-  let sport = 'unknown';
+  let sport = 'Unknown';
   
   if (eventCard) {
-    // Teams - logic to extract them if needed for description
-    const team1El = eventCard.querySelector('span[data-test-id^="event-team-name-1-"]');
-    const team1 = team1El ? normalizeSpaces(team1El.textContent || '') : '';
-    
-    // Infer Sport/League (Placeholder logic)
-    if (team1.includes('Suns') || team1.includes('Trail Blazers')) {
-      sport = 'basketball';
-    }
+    sport = extractLeagueFromEventCard(eventCard);
   }
+
+  // Extract name and type from market/target
+  const { name, type } = extractNameAndType(leg.market, leg.target as string);
+  
+  // Extract line and over/under from target
+  const { line, ou } = extractLineAndOu(leg.target as string);
 
   return {
     id: header.betId,
@@ -93,10 +92,15 @@ export const parseSingleBet = (ctx: SingleBetContext): Bet => {
     payout: footer.payout || 0,
     result: footer.result || 'pending',
     betType: 'single',
-    marketCategory: 'Main Markets',
+    betType: 'single',
+    marketCategory: ['Spread', 'Total', 'Moneyline', 'Money Line'].includes(type) ? 'Main Markets' : 'Props',
     isLive: isLive,
     sport: sport,
     description: leg.market,
+    name: name || undefined,
+    type: type || undefined,
+    line: line || undefined,
+    ou: ou,
     odds: leg.odds || 0,
     legs: [leg],
   };
