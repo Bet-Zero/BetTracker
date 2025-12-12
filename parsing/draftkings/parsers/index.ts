@@ -1,5 +1,5 @@
 import { Bet } from "../../../types";
-import { extractFooterMeta, extractHeaderInfo } from "./common";
+import { extractFooterMeta, extractHeaderInfo, normalizeBetType } from "./common";
 import { parseSingleBet } from "./single";
 import { parseParlayBet } from "./parlay";
 
@@ -21,32 +21,32 @@ export const parseDraftKingsHTML = (html: string): Bet[] => {
       );
       let typeText = "";
       if (betTypeSubtitles.length > 0) {
-        typeText = betTypeSubtitles[0].textContent?.toLowerCase() || "";
+        typeText = betTypeSubtitles[0].textContent || "";
       }
 
       // Check card text content for SGPx or parlay indicators
-      const cardText = (card.textContent || "").toLowerCase();
-      
-      // Detect bet type: single, parlay, sgp, or sgp_plus (SGPx)
-      let betType: 'single' | 'parlay' | 'sgp' | 'sgp_plus' | null = null;
+      const cardText = card.textContent || "";
       
       // Check for SGP indicator in data-test-id (most reliable)
       const hasSGPTestId = card.querySelector('[data-test-id^="sgp-"]') !== null;
       
-      // Check for SGPx (DraftKings' term for SGP+)
-      if (cardText.includes('sgpx')) {
+      // Use normalizeBetType to reuse terminology logic
+      let betType: 'parlay' | 'sgp' | 'sgp_plus' | null = null;
+      
+      // Priority 1: Check for SGPx explicitly
+      if (cardText.toLowerCase().includes('sgpx')) {
         betType = 'sgp_plus';
       }
-      // Check for regular SGP (from test-id or text)
-      else if (hasSGPTestId || typeText.includes('sgp') || cardText.includes('same game parlay')) {
+      // Priority 2: Check for SGP test-id
+      else if (hasSGPTestId) {
         betType = 'sgp';
       }
-      // Check for regular parlay
-      else if (typeText.includes('parlay') || cardText.includes('parlay')) {
-        betType = 'parlay';
+      // Priority 3: Use normalizeBetType for subtitle and card text
+      else {
+        betType = normalizeBetType(typeText) ?? normalizeBetType(cardText);
       }
 
-      const isParlay = betType !== null && betType !== 'single';
+      const isParlay = betType !== null;
 
       const context = { element: card, header, footer, betType: betType || undefined };
 

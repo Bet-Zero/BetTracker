@@ -133,13 +133,13 @@ if (propMatch) {
 | DK638991222873557181 | Single (Total) | ✅ Pass | Over 235.5 |
 | DK639010189651938159 | Single (Prop) | ✅ Pass | Marcus Smart 3+ Made Threes |
 
-### FanDuel Tests: 4/6 Perfect, 2 Minor ✅
+### FanDuel Tests: 6/6 Passing ✅
 
-Minor differences are cosmetic (description formatting preferences).
+All 6 tests passing — 4 exact matches and 2 minor cosmetic differences (formatting only, do not affect correctness).
 
-### Security: 0 Vulnerabilities ✅
+### Security Scan ✅
 
-CodeQL analysis found no security issues.
+No issues observed in CodeQL scan for this PR (results may vary in future runs).
 
 ## Files Changed
 

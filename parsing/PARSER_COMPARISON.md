@@ -44,9 +44,20 @@ This intentional divergence exists because DraftKings and FanDuel have different
 This difference is preserved in the parsers because:
 1. It reflects how each book actually represents these bets in their HTML
 2. The marketCategory field still allows proper filtering and classification
-3. Only multi-game SGPs (SGPx/SGP+) are universally classified as `sgp_plus`
+3. Only nested/multi-group SGPs (SGPx/SGP+) are universally classified as `sgp_plus`
 
 When consuming the parsed data, always check BOTH `betType` and `marketCategory` to properly identify same-game parlays across books.
+
+**Truth Table for Bet Type Mapping:**
+
+| Book | Scenario | betType | marketCategory | Normalized |
+|------|----------|---------|----------------|------------|
+| DraftKings | Simple SGP | parlay | SGP/SGP+ | sgp |
+| DraftKings | Nested/Multi-group SGP (SGPx) | sgp_plus | SGP/SGP+ | sgp_plus |
+| DraftKings | Regular Parlay | parlay | Parlays | parlay |
+| FanDuel | Simple SGP | sgp | SGP/SGP+ | sgp |
+| FanDuel | Nested/Multi-group SGP (SGP+) | sgp_plus | SGP/SGP+ | sgp_plus |
+| FanDuel | Regular Parlay | parlay | Parlays | parlay |
 
 ### Bet Type Detection
 

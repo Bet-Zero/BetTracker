@@ -88,11 +88,13 @@ function extractLegFromElement(legEl: Element, defaultResult: BetResult): BetLeg
         }
     }
 
-    // For group legs in SGP+, set odds to null for children (they share the group's combined odds)
-    if (leg.isGroupLeg && leg.children) {
+    // For group legs in SGP+, set odds to null for leaf children (they share the group's combined odds)
+    // Only null odds for children that are leaf legs (not group legs themselves)
+    // and only when the parent has a combined odds value
+    if (leg.isGroupLeg && leg.children && leg.odds !== null && leg.odds !== undefined) {
         leg.children = leg.children.map(child => ({
             ...child,
-            odds: null
+            odds: child.isGroupLeg ? child.odds : null
         }));
     }
 
@@ -116,15 +118,25 @@ function extractLegFromElement(legEl: Element, defaultResult: BetResult): BetLeg
         leg.result = defaultResult || 'pending';
     }
 
-    // For group legs, aggregate result from children
+    // For group legs, aggregate result from children with proper handling of push and mixed outcomes
     if (leg.isGroupLeg && leg.children && leg.children.length > 0) {
         const childResults = leg.children.map(c => c.result);
+        
+        // (1) Return 'loss' if any child is 'loss'
         if (childResults.some(r => r === 'loss')) {
             leg.result = 'loss';
-        } else if (childResults.every(r => r === 'win')) {
-            leg.result = 'win';
-        } else if (childResults.some(r => r === 'pending')) {
+        }
+        // (2) Return 'pending' if any child is 'pending'
+        else if (childResults.some(r => r === 'pending')) {
             leg.result = 'pending';
+        }
+        // (3) Return 'push' if all children are 'push'
+        else if (childResults.every(r => r === 'push')) {
+            leg.result = 'push';
+        }
+        // (4) Return 'win' if all children are either 'win' or 'push' and at least one is 'win'
+        else if (childResults.every(r => r === 'win' || r === 'push') && childResults.some(r => r === 'win')) {
+            leg.result = 'win';
         }
     }
 
@@ -171,16 +183,25 @@ export const parseParlayBet = (ctx: ParlayBetContext): Bet => {
         // Parse each leg part
         legParts.forEach(legText => {
           // Try to extract market type and target
-          // Patterns: "18+", "Pts 18+", "Ast 9+"
-          const match = legText.match(/^(?:([A-Za-z]+)\s+)?(\d+\+?)$/);
+          // Patterns: "18+", "Pts 18+", "Ast 9+", "47.5", "-1.5", "O 47.5", "U 47.5"
+          // Accept decimals, optional signs, optional +, and O/U prefixes
+          const match = legText.match(/^(?:([A-Za-z]+)\s+)?([+-]?\d+(?:\.\d+)?\+?)$/);
           if (match) {
             const marketPrefix = match[1];
             const target = match[2];
             
-            // Infer market type from prefix or default to unknown
+            // Infer market type from prefix
             let market = 'Unknown';
             if (marketPrefix) {
-              market = marketPrefix; // "Pts", "Ast", etc.
+              const prefix = marketPrefix.toUpperCase();
+              // Normalize O/U to a standard market name
+              if (prefix === 'O' || prefix === 'OVER') {
+                market = 'O/U';
+              } else if (prefix === 'U' || prefix === 'UNDER') {
+                market = 'O/U';
+              } else {
+                market = marketPrefix; // "Pts", "Ast", etc.
+              }
             }
             
             topLevelLegs.push({
@@ -220,10 +241,11 @@ export const parseParlayBet = (ctx: ParlayBetContext): Bet => {
   }
 
   // Determine bet type: SGPx (sgp_plus), SGP, or regular parlay
-  let computedBetType = betType;
+  // Use centralized normalization logic
+  const cardText = element.textContent || '';
+  let computedBetType: 'parlay' | 'sgp_plus';
   
   // Check for SGPx (DraftKings' name for SGP+)
-  const cardText = element.textContent || '';
   if (cardText.includes('SGPx') || cardText.toLowerCase().includes('sgpx')) {
     computedBetType = 'sgp_plus';
   }
@@ -233,12 +255,7 @@ export const parseParlayBet = (ctx: ParlayBetContext): Bet => {
   }
   // For DraftKings, simple SGPs (without nested structure) are treated as regular parlays
   // Only multi-group SGPs (SGPx) get the sgp_plus designation
-  else if (!computedBetType || computedBetType === 'sgp') {
-    computedBetType = 'parlay';
-  }
-
-  // Default to parlay if still not determined
-  if (!computedBetType) {
+  else {
     computedBetType = 'parlay';
   }
 

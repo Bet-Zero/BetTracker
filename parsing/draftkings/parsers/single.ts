@@ -57,12 +57,12 @@ export const parseSingleBet = (ctx: SingleBetContext): Bet => {
       const statusText = normalizeSpaces(statusEl.textContent || '').toLowerCase();
       if (statusText === 'won') leg.result = 'win';
       else if (statusText === 'lost') leg.result = 'loss';
-      else if (statusText === 'void') leg.result = 'push';
+      else if (statusText === 'void' || statusText === 'push') leg.result = 'push';
   } else {
      // Fallback to footer result if individual leg status not found (unlikely for single)
      if (footer.result === 'win') leg.result = 'win';
      else if (footer.result === 'loss') leg.result = 'loss';
-     else if (footer.result === 'push') leg.result = 'push';
+     else if (footer.result === 'push' || footer.result === 'void') leg.result = 'push';
   }
 
   // Event Info - Extract league from logo URLs
@@ -74,18 +74,25 @@ export const parseSingleBet = (ctx: SingleBetContext): Bet => {
   }
 
   // Extract name and type from market/target
-  const { name, type } = extractNameAndType(leg.market, leg.target as string);
+  const { name, type: rawType } = extractNameAndType(leg.market, leg.target as string);
+  
+  // Normalize type variants: "Money Line" → "Moneyline"
+  const MAIN_MARKET_TYPES = ['Spread', 'Total', 'Moneyline'];
+  let type = rawType;
+  if (rawType === 'Money Line') {
+    type = 'Moneyline';
+  }
   
   // Extract line and over/under from target
   const { line, ou } = extractLineAndOu(leg.target as string);
 
   // Build a more descriptive description
-  // For spreads/totals: just the market type
+  // For spreads/totals/moneylines: just the market type
   // For props: use the market description
   let description = type || leg.market;
   
-  // For better descriptions, use the market name when available
-  if (type && ['Spread', 'Total', 'Moneyline'].includes(type)) {
+  // For better descriptions, use the canonical market name
+  if (type && MAIN_MARKET_TYPES.includes(type)) {
     description = type;
   } else if (leg.market && leg.market !== type) {
     // For props, use the full market description if different from type
@@ -101,14 +108,14 @@ export const parseSingleBet = (ctx: SingleBetContext): Bet => {
     payout: footer.payout || 0,
     result: footer.result || 'pending',
     betType: 'single',
-    marketCategory: ['Spread', 'Total', 'Moneyline', 'Money Line'].includes(type) ? 'Main Markets' : 'Props',
+    marketCategory: MAIN_MARKET_TYPES.includes(type) ? 'Main Markets' : 'Props',
     isLive: isLive,
     sport: sport,
     description: description,
     name: name || undefined,
     type: type || undefined,
     line: line || undefined,
-    ou: ou,
+    ou: ou || undefined,
     odds: leg.odds || 0,
     legs: [leg],
   };
