@@ -274,14 +274,9 @@ export const extractLineAndOu = (target: string): { line: string; ou?: 'Over' | 
       ou = 'Over';
     } else {
       // Look for spread lines like "+2.5" or "-5.5" (main markets)
-      const spreadMatch = target.match(/([+-]?\d+\.?\d*)(?:\s*)$/);
+      const spreadMatch = target.match(/([+-]?\d+(?:\.\d+)?)\s*$/);
       if (spreadMatch) {
         line = spreadMatch[1];
-        // If it has a + in the NUMBER (not just prefix), it might be a prop threshold
-        if (target.includes('+') && !target.match(/^[A-Z]/)) {
-          // It's like "18+" - this is a player prop Over
-          ou = 'Over';
-        }
       }
     }
   }
