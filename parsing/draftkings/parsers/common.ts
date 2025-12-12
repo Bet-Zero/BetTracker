@@ -289,7 +289,7 @@ export const extractLineAndOu = (target: string): { line: string; ou?: 'Over' | 
  * DraftKings uses "SGPx" where FanDuel uses "SGP+".
  */
 export const normalizeBetType = (text: string): 'single' | 'parlay' | 'sgp' | 'sgp_plus' | null => {
-  const lower = text.toLowerCase();
+  const lower = (text || '').trim().toLowerCase();
   
   // SGPx (DraftKings) → sgp_plus
   if (lower.includes('sgpx')) return 'sgp_plus';
