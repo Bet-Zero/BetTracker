@@ -15,13 +15,11 @@ function extractLegFromElement(legEl: Element, defaultResult: BetResult): BetLeg
     const leg: BetLeg = {
         market: '',
         result: 'pending',
-        odds: 0,
-        // sport, league, team1, team2 omitted from object (not in interface), kept local if needed
+        odds: undefined,
     };
 
-    // 1. Check for Nested Items (Group Leg)
+    // 1. Check for Nested Items (Group Leg for SGPx/SGP+)
     // Structure: div class="dkcss-bq9exg" or just checking for nested selection-list-items
-    // But importantly, they are usually SIBLINGS in the same container or nested in a wrapper.
     // In Sample:
     // <div data-test-id="selection-list-item"> -> "2 Pick SGP"
     //    <div class="dkcss-bq9exg"> -> Contains nested items
@@ -72,30 +70,60 @@ function extractLegFromElement(legEl: Element, defaultResult: BetResult): BetLeg
         leg.market = selectionText || 'Unknown Market';
     }
     
-    if (targetText && !leg.isGroupLeg) leg.target = targetText;
+    // Set target for non-group legs
+    if (targetText && !leg.isGroupLeg) {
+        leg.target = targetText;
+    }
 
     // 3. Extract Odds (often present on Group Header or single legs)
     const oddsEl = legEl.querySelector('div[data-test-id^="bet-selection-displayOdds-"]');
     if (oddsEl) {
-        const o = normalizeSpaces(oddsEl.textContent || '').replace('+', '');
-        leg.odds = parseInt(o, 10) || 0;
+        const oddsText = normalizeSpaces(oddsEl.textContent || '').replace(/[+−]/g, (match) => match === '−' ? '-' : '');
+        const oddsValue = parseInt(oddsText, 10);
+        if (!isNaN(oddsValue)) {
+            leg.odds = oddsValue;
+        }
+    }
+
+    // For group legs in SGP+, set odds to null for children (they share the group's combined odds)
+    if (leg.isGroupLeg && leg.children) {
+        leg.children = leg.children.map(child => ({
+            ...child,
+            odds: null
+        }));
     }
 
     // 4. Extract Result (Icon)
     const icon = legEl.querySelector('svg title');
     const iconCircle = legEl.querySelector('svg circle');
-    const iconPath = legEl.querySelector('svg path'); // sometimes stroke is on path
 
-    // Success: green circle or checkmark
+    // Success: green circle or checkmark (#53D337)
     const isWin = iconCircle?.getAttribute('stroke') === '#53D337' || iconCircle?.getAttribute('fill') === '#53D337';
-    // Failure: red circle or X
+    // Failure: red circle or X (#E9344A)
     const isLoss = icon?.textContent?.includes('X sign') || 
                    iconCircle?.getAttribute('stroke') === '#E9344A' || 
                    iconCircle?.getAttribute('fill') === '#E9344A';
 
-    if (isLoss) leg.result = 'loss';
-    else if (isWin) leg.result = 'win';
-    else if (defaultResult === 'win') leg.result = 'win'; // fallback inheritance
+    if (isLoss) {
+        leg.result = 'loss';
+    } else if (isWin) {
+        leg.result = 'win';
+    } else {
+        // Inherit from parent/default
+        leg.result = defaultResult || 'pending';
+    }
+
+    // For group legs, aggregate result from children
+    if (leg.isGroupLeg && leg.children && leg.children.length > 0) {
+        const childResults = leg.children.map(c => c.result);
+        if (childResults.some(r => r === 'loss')) {
+            leg.result = 'loss';
+        } else if (childResults.every(r => r === 'win')) {
+            leg.result = 'win';
+        } else if (childResults.some(r => r === 'pending')) {
+            leg.result = 'pending';
+        }
+    }
 
     return leg;
 }
@@ -111,27 +139,57 @@ export const parseParlayBet = (ctx: ParlayBetContext): Bet => {
   const body = element.querySelector('div[id$="-body"]');
   const allLegs = body ? Array.from(body.querySelectorAll('div[data-test-id="selection-list-item"]')) : [];
   
-  // Filter for top-level only. valid top-level items are direct children of the body wrapper (ignoring separator)
-  // Or check if they are contained in a "dkcss-bq9exg" (nested container)
-  // If parent has class "dkcss-kn5exb" (body class in sample) -> Top Level
-  // If parent has class "dkcss-bq9exg" -> Nested
-  // We can just iterate all and skip those that are inside another selection-list-item? 
-  // Easier: recursive function that consumes the DOM. But DOM operations like this are simpler with specific selectors.
-  
   const topLevelLegs: BetLeg[] = [];
   
-  // Workaround: Iterate all, check parent.
+  // Filter for top-level legs only (direct children of body)
   allLegs.forEach(el => {
       const parent = el.parentElement;
-      // In SGPx sample, top-level items are direct children of div#618-body (class dkcss-kn5exb)
-      // Nested items are children of div (class dkcss-bq9exg)
-      // Since class names are hashed/unreliable, checking "data-test-id" of grandparent might be safer, but simpler:
-      // If parent is the Body, it's top level.
+      // Top-level items are direct children of the body div
       if (parent && parent.id && parent.id.endsWith('-body')) {
           topLevelLegs.push(extractLegFromElement(el, footer.result || 'pending'));
       }
   });
 
+  // Handle SGP bets that don't have expanded legs in the HTML
+  // These show a summary like "2 Picks" with a subtitle like "18+, 9+"
+  if (topLevelLegs.length === 0) {
+    const subtitleEl = element.querySelector('span[data-test-id^="bet-details-subtitle-"]');
+    if (subtitleEl) {
+      const subtitle = normalizeSpaces(subtitleEl.textContent || '');
+      // Parse legs from subtitle like "18+, 9+" or "Pts 25+, Ast 4+"
+      const legParts = subtitle.split(',').map(s => s.trim()).filter(s => s);
+      
+      if (legParts.length > 0) {
+        // Try to extract more info from the title
+        const titleEl = element.querySelector('span[data-test-id^="bet-details-title-"]');
+        const title = titleEl ? normalizeSpaces(titleEl.textContent || '') : '';
+        
+        // Parse each leg part
+        legParts.forEach(legText => {
+          // Try to extract market type and target
+          // Patterns: "18+", "Pts 18+", "Ast 9+"
+          const match = legText.match(/^(?:([A-Za-z]+)\s+)?(\d+\+?)$/);
+          if (match) {
+            const marketPrefix = match[1];
+            const target = match[2];
+            
+            // Infer market type from prefix or default to unknown
+            let market = 'Unknown';
+            if (marketPrefix) {
+              market = marketPrefix; // "Pts", "Ast", etc.
+            }
+            
+            topLevelLegs.push({
+              market,
+              target,
+              result: footer.result || 'pending',
+              odds: undefined, // SGP legs don't show individual odds
+            });
+          }
+        });
+      }
+    }
+  }
 
   // Collect all leaf legs for description (flatten structure)
   const collectLeafs = (l: BetLeg): BetLeg[] => {
@@ -142,29 +200,53 @@ export const parseParlayBet = (ctx: ParlayBetContext): Bet => {
   };
   const flatLegs = topLevelLegs.flatMap(collectLeafs);
 
-  // Construct description
+  // Construct description from leaf legs
   const description = flatLegs.map(l => {
       let desc = l.market;
       if (l.target) desc += ` ${l.target}`;
       return desc;
   }).join(', ');
 
-  // Get total odds from header
+  // Get total odds from header (bet-level odds)
   const oddsEl = element.querySelector('span[data-test-id^="bet-details-displayOdds-"]');
   let odds = 0;
   if (oddsEl) {
-      const oddsText = normalizeSpaces(oddsEl.textContent || '').replace('−', '-').replace('+', '');
+      const oddsText = normalizeSpaces(oddsEl.textContent || '').replace(/[+−]/g, (match) => match === '−' ? '-' : '');
       odds = parseInt(oddsText, 10) || 0;
   }
 
-  // Determine SGPx vs SGP
-  // header info might say "SGPx"
+  // Determine bet type: SGPx (sgp_plus), SGP, or regular parlay
   let computedBetType = betType;
-  if (element.textContent?.includes('SGPx')) computedBetType = 'sgp_plus';
+  
+  // Check for SGPx (DraftKings' name for SGP+)
+  const cardText = element.textContent || '';
+  if (cardText.includes('SGPx') || cardText.toLowerCase().includes('sgpx')) {
+    computedBetType = 'sgp_plus';
+  }
+  // Check if it has group legs (indicates SGP+ structure with nested SGPs)
+  else if (topLevelLegs.some(leg => leg.isGroupLeg)) {
+    computedBetType = 'sgp_plus';
+  }
+  // For DraftKings, simple SGPs (without nested structure) are treated as regular parlays
+  // Only multi-group SGPs (SGPx) get the sgp_plus designation
+  else if (!computedBetType || computedBetType === 'sgp') {
+    computedBetType = 'parlay';
+  }
+
+  // Default to parlay if still not determined
+  if (!computedBetType) {
+    computedBetType = 'parlay';
+  }
 
   // Extract league from the first event card
   const eventCard = element.querySelector('div[data-test-id="event-card"]');
   const sport = eventCard ? extractLeagueFromEventCard(eventCard) : 'Unknown';
+
+  // Determine market category
+  // For DraftKings, check if it's a same-game parlay (from SGP test-id or betType hint)
+  const hasSGPIndicator = element.querySelector('[data-test-id^="sgp-"]') !== null;
+  const isSameGameParlay = hasSGPIndicator || computedBetType === 'sgp' || computedBetType === 'sgp_plus' || betType === 'sgp' || betType === 'sgp_plus';
+  const marketCategory = isSameGameParlay ? 'SGP/SGP+' : 'Parlays';
 
   return {
     id: header.betId,
@@ -174,8 +256,8 @@ export const parseParlayBet = (ctx: ParlayBetContext): Bet => {
     stake: footer.stake || 0,
     payout: footer.payout || 0,
     result: footer.result || 'pending',
-    betType: computedBetType || 'parlay',
-    marketCategory: 'SGP/SGP+',
+    betType: computedBetType,
+    marketCategory,
     sport,
     description,
     odds,

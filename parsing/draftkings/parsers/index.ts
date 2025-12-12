@@ -15,7 +15,7 @@ export const parseDraftKingsHTML = (html: string): Bet[] => {
       const header = extractHeaderInfo(card);
       const footer = extractFooterMeta(card);
 
-      // Simple heuristic for now:
+      // Determine bet type more accurately
       const betTypeSubtitles = card.querySelectorAll(
         'span[data-test-id^="bet-details-subtitle-"]'
       );
@@ -24,12 +24,31 @@ export const parseDraftKingsHTML = (html: string): Bet[] => {
         typeText = betTypeSubtitles[0].textContent?.toLowerCase() || "";
       }
 
-      let isParlay =
-        typeText.includes("parlay") ||
-        typeText.includes("sgp") ||
-        typeText.includes("+");
+      // Check card text content for SGPx or parlay indicators
+      const cardText = (card.textContent || "").toLowerCase();
+      
+      // Detect bet type: single, parlay, sgp, or sgp_plus (SGPx)
+      let betType: 'single' | 'parlay' | 'sgp' | 'sgp_plus' | null = null;
+      
+      // Check for SGP indicator in data-test-id (most reliable)
+      const hasSGPTestId = card.querySelector('[data-test-id^="sgp-"]') !== null;
+      
+      // Check for SGPx (DraftKings' term for SGP+)
+      if (cardText.includes('sgpx')) {
+        betType = 'sgp_plus';
+      }
+      // Check for regular SGP (from test-id or text)
+      else if (hasSGPTestId || typeText.includes('sgp') || cardText.includes('same game parlay')) {
+        betType = 'sgp';
+      }
+      // Check for regular parlay
+      else if (typeText.includes('parlay') || cardText.includes('parlay')) {
+        betType = 'parlay';
+      }
 
-      const context = { element: card, header, footer };
+      const isParlay = betType !== null && betType !== 'single';
+
+      const context = { element: card, header, footer, betType: betType || undefined };
 
       const bet = isParlay ? parseParlayBet(context) : parseSingleBet(context);
 

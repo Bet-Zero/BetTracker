@@ -15,8 +15,6 @@ export const parseSingleBet = (ctx: SingleBetContext): Bet => {
     odds: 0,
     result: footer.result || 'pending',
     target: '',
-    // sport/league/team1/team2 are NOT in BetLeg, removing them to fix object literal errors if strict
-    // If we need them for description building, we keep them in local vars, not in leg object
   };
 
   // Selection: span[data-test-id^="bet-details-title-"] -> "PHO Suns +2.5"
@@ -59,14 +57,13 @@ export const parseSingleBet = (ctx: SingleBetContext): Bet => {
       const statusText = normalizeSpaces(statusEl.textContent || '').toLowerCase();
       if (statusText === 'won') leg.result = 'win';
       else if (statusText === 'lost') leg.result = 'loss';
+      else if (statusText === 'void') leg.result = 'push';
   } else {
      // Fallback to footer result if individual leg status not found (unlikely for single)
      if (footer.result === 'win') leg.result = 'win';
      else if (footer.result === 'loss') leg.result = 'loss';
+     else if (footer.result === 'push') leg.result = 'push';
   }
-  
-  // Description
-  const description = (isLive ? 'Live ' : '') + leg.market + (leg.target ? ` ${leg.target}` : '');
 
   // Event Info - Extract league from logo URLs
   const eventCard = element.querySelector('div[data-test-id="event-card"]');
@@ -82,21 +79,32 @@ export const parseSingleBet = (ctx: SingleBetContext): Bet => {
   // Extract line and over/under from target
   const { line, ou } = extractLineAndOu(leg.target as string);
 
+  // Build a more descriptive description
+  // For spreads/totals: just the market type
+  // For props: use the market description
+  let description = type || leg.market;
+  
+  // For better descriptions, use the market name when available
+  if (type && ['Spread', 'Total', 'Moneyline'].includes(type)) {
+    description = type;
+  } else if (leg.market && leg.market !== type) {
+    // For props, use the full market description if different from type
+    description = leg.market;
+  }
+
   return {
     id: header.betId,
     betId: header.betId,
     book: 'DraftKings',
     placedAt: header.placedAt,
-    // status: footer.result, // Not in Bet
     stake: footer.stake || 0,
     payout: footer.payout || 0,
     result: footer.result || 'pending',
     betType: 'single',
-    betType: 'single',
     marketCategory: ['Spread', 'Total', 'Moneyline', 'Money Line'].includes(type) ? 'Main Markets' : 'Props',
     isLive: isLive,
     sport: sport,
-    description: leg.market,
+    description: description,
     name: name || undefined,
     type: type || undefined,
     line: line || undefined,

@@ -265,24 +265,46 @@ export const extractLineAndOu = (target: string): { line: string; ou?: 'Over' | 
     ou = 'Under';
     line = underMatch[1];
   } else {
-    // Look for spread lines like "+2.5" or "-5.5"
-    const spreadMatch = target.match(/([+-]?\d+\.?\d*)(?:\s*)$/);
-    if (spreadMatch) {
-      line = spreadMatch[1];
-      // If it has a + in the NUMBER (not just prefix), it might be a prop threshold
-      if (target.includes('+') && !target.match(/^[A-Z]/)) {
-        // It's like "18+" - this is a player prop Over
-        ou = 'Over';
-      }
-    }
-    
-    // Look for prop format like "18+"
+    // Look for prop format like "18+" first (more specific)
     const propMatch = target.match(/(\d+)\+/);
     if (propMatch) {
       line = propMatch[1] + '+';
       ou = 'Over';
+    } else {
+      // Look for spread lines like "+2.5" or "-5.5"
+      const spreadMatch = target.match(/([+-]?\d+\.?\d*)(?:\s*)$/);
+      if (spreadMatch) {
+        line = spreadMatch[1];
+        // If it has a + in the NUMBER (not just prefix), it might be a prop threshold
+        if (target.includes('+') && !target.match(/^[A-Z]/)) {
+          // It's like "18+" - this is a player prop Over
+          ou = 'Over';
+        }
+      }
     }
   }
   
   return { line, ou };
+};
+
+/**
+ * Normalize bet type names across books.
+ * DraftKings uses "SGPx" where FanDuel uses "SGP+".
+ */
+export const normalizeBetType = (text: string): 'single' | 'parlay' | 'sgp' | 'sgp_plus' | null => {
+  const lower = text.toLowerCase();
+  
+  // SGPx (DraftKings) → sgp_plus
+  if (lower.includes('sgpx')) return 'sgp_plus';
+  
+  // SGP+ (FanDuel style) → sgp_plus
+  if (lower.includes('sgp+') || lower.includes('sgp plus')) return 'sgp_plus';
+  
+  // Same Game Parlay (basic SGP)
+  if (lower.includes('sgp') || lower.includes('same game parlay')) return 'sgp';
+  
+  // Standard parlay
+  if (lower.includes('parlay')) return 'parlay';
+  
+  return null;
 };
