@@ -1,7 +1,8 @@
 import { BetResult, LegResult } from "../../../types";
 
-// DEBUG toggle
-export const DK_DEBUG = true;
+// DEBUG toggle - for local debugging only
+// Check environment flag to prevent console logs from leaking in production
+export const DK_DEBUG = typeof globalThis !== 'undefined' && (globalThis as any).__DK_DEBUG__ === true;
 export const dkDebug = (...args: any[]) => {
   if (!DK_DEBUG) return;
   // eslint-disable-next-line no-console
@@ -37,15 +38,8 @@ export const extractHeaderInfo = (element: Element): HeaderInfo => {
   const idEl = element.querySelector('span[data-test-id^="bet-reference-"][data-test-id$="-1"]');
   let betId = idEl?.textContent ? normalizeSpaces(idEl.textContent) : '';
   
-  let placedAt = dateStr;
-  try {
-      const d = new Date(dateStr);
-      if (!isNaN(d.getTime())) {
-          placedAt = d.toISOString();
-      }
-  } catch (e) {
-      dkDebug('Failed to parse date', dateStr);
-  }
+  // Parse date using explicit format parser
+  const placedAt = parseDraftKingsPlacedAtToISO(dateStr) || dateStr;
 
   return { betId, placedAt };
 };
@@ -89,6 +83,51 @@ export const parseMoney = (raw: string): number | null => {
 
 export const normalizeSpaces = (text: string): string =>
   (text || "").replace(/\s+/g, " ").trim();
+
+/**
+ * Parse DraftKings date format to ISO string.
+ * Format: "Nov 18, 2025, 11:11:19 PM"
+ * Returns ISO string or null on failure.
+ */
+export const parseDraftKingsPlacedAtToISO = (raw: string): string | null => {
+  if (!raw) return null;
+  
+  // Match pattern: "MMM DD, YYYY, HH:MM:SS AM/PM"
+  const match = raw.match(/^([A-Za-z]+)\s+(\d{1,2}),\s+(\d{4}),\s+(\d{1,2}):(\d{2}):(\d{2})\s+(AM|PM)$/i);
+  if (!match) return null;
+  
+  const [, monthStr, dayStr, yearStr, hourStr, minuteStr, secondStr, meridiem] = match;
+  
+  // Map month names to indices (0-11)
+  const monthMap: { [key: string]: number } = {
+    jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+    jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11
+  };
+  
+  const month = monthMap[monthStr.toLowerCase().substring(0, 3)];
+  if (month === undefined) return null;
+  
+  const day = parseInt(dayStr, 10);
+  const year = parseInt(yearStr, 10);
+  let hour = parseInt(hourStr, 10);
+  const minute = parseInt(minuteStr, 10);
+  const second = parseInt(secondStr, 10);
+  
+  // Convert 12-hour to 24-hour format
+  if (meridiem.toUpperCase() === 'PM' && hour !== 12) {
+    hour += 12;
+  } else if (meridiem.toUpperCase() === 'AM' && hour === 12) {
+    hour = 0;
+  }
+  
+  try {
+    const date = new Date(year, month, day, hour, minute, second);
+    if (isNaN(date.getTime())) return null;
+    return date.toISOString();
+  } catch (e) {
+    return null;
+  }
+};
 
 /* -------------------------------------------------------------------------- */
 /*                          LEAGUE/SPORT DETECTION                            */
@@ -211,8 +250,9 @@ export const extractPlayerName = (market: string): string => {
 export const extractTeamName = (target: string): string => {
   if (!target) return '';
   
-  // Remove spread/line numbers
-  const cleaned = target.replace(/[+\-]?\d+\.?\d*/g, '').trim();
+  // Remove only trailing spread/line numbers (e.g., "+2.5", "-5.5")
+  // This preserves team names containing digits like "76ers"
+  const cleaned = target.replace(/\s+[+\-]?\d+(?:\.\d+)?\s*$/g, '').trim();
   
   // Skip if it's an over/under total
   if (/^(over|under)$/i.test(cleaned)) return '';
@@ -265,24 +305,49 @@ export const extractLineAndOu = (target: string): { line: string; ou?: 'Over' | 
     ou = 'Under';
     line = underMatch[1];
   } else {
-    // Look for spread lines like "+2.5" or "-5.5"
-    const spreadMatch = target.match(/([+-]?\d+\.?\d*)(?:\s*)$/);
-    if (spreadMatch) {
-      line = spreadMatch[1];
-      // If it has a + in the NUMBER (not just prefix), it might be a prop threshold
-      if (target.includes('+') && !target.match(/^[A-Z]/)) {
-        // It's like "18+" - this is a player prop Over
-        ou = 'Over';
-      }
-    }
-    
-    // Look for prop format like "18+"
+    // Check prop format first (e.g., "18+", "25+") before spread format
+    // This is more specific and should take precedence to avoid misidentifying
+    // prop thresholds as spread lines (e.g., "18+" is a prop, not a spread)
     const propMatch = target.match(/(\d+)\+/);
     if (propMatch) {
       line = propMatch[1] + '+';
       ou = 'Over';
+    } else {
+      // Look for spread lines like "+2.5" or "-5.5" (main markets)
+      // Only match if we have at least one digit with optional sign and decimal
+      const spreadMatch = target.match(/([+-]?\d+(?:\.\d+)?)\s*$/);
+      if (spreadMatch && spreadMatch[1]) {
+        line = spreadMatch[1];
+      }
     }
   }
   
   return { line, ou };
+};
+
+/**
+ * Normalize bet type names across books.
+ * DraftKings uses "SGPx" where FanDuel uses "SGP+".
+ */
+export const normalizeBetType = (text: string | null | undefined): 'single' | 'parlay' | 'sgp' | 'sgp_plus' | null => {
+  // Defensively handle empty or whitespace-only inputs
+  if (!text) return null;
+  const trimmed = String(text).trim();
+  if (!trimmed) return null;
+  
+  const lower = trimmed.toLowerCase();
+  
+  // SGPx (DraftKings) → sgp_plus
+  if (lower.includes('sgpx')) return 'sgp_plus';
+  
+  // SGP+ (FanDuel style) → sgp_plus
+  if (lower.includes('sgp+') || lower.includes('sgp plus')) return 'sgp_plus';
+  
+  // Same Game Parlay (basic SGP)
+  if (lower.includes('sgp') || lower.includes('same game parlay')) return 'sgp';
+  
+  // Standard parlay
+  if (lower.includes('parlay')) return 'parlay';
+  
+  return null;
 };

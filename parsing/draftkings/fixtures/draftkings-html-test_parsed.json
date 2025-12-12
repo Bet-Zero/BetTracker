@@ -3,7 +3,7 @@
     "id": "DK638991222795551269",
     "betId": "DK638991222795551269",
     "book": "DraftKings",
-    "placedAt": "2025-11-19T04:11:19.000Z",
+    "placedAt": "2025-11-18T23:11:19.000Z",
     "stake": 1,
     "payout": 1.89,
     "result": "win",
@@ -29,7 +29,7 @@
     "id": "DK638991231027744508",
     "betId": "DK638991231027744508",
     "book": "DraftKings",
-    "placedAt": "2025-11-19T04:25:01.000Z",
+    "placedAt": "2025-11-18T23:25:01.000Z",
     "stake": 0.5,
     "payout": 0.9,
     "result": "win",
@@ -55,7 +55,7 @@
     "id": "DK638993723619623217",
     "betId": "DK638993723619623217",
     "book": "DraftKings",
-    "placedAt": "2025-11-22T01:39:22.000Z",
+    "placedAt": "2025-11-21T20:39:22.000Z",
     "stake": 2,
     "payout": 0,
     "result": "loss",
@@ -68,7 +68,6 @@
       {
         "market": "Pts",
         "result": "loss",
-        "odds": 0,
         "entities": [
           "Jordan Hawkins"
         ],
@@ -77,7 +76,6 @@
       {
         "market": "Ast",
         "result": "loss",
-        "odds": 0,
         "entities": [
           "Zion Williamson"
         ],
@@ -89,7 +87,7 @@
     "id": "DK638992832831962382",
     "betId": "DK638992832831962382",
     "book": "DraftKings",
-    "placedAt": "2025-11-21T00:54:42.000Z",
+    "placedAt": "2025-11-20T19:54:42.000Z",
     "stake": 1,
     "payout": 0,
     "result": "loss",
@@ -117,7 +115,7 @@
           {
             "market": "Ast",
             "result": "loss",
-            "odds": 0,
+            "odds": null,
             "entities": [
               "Paul George"
             ],
@@ -126,7 +124,7 @@
           {
             "market": "Ast",
             "result": "loss",
-            "odds": 0,
+            "odds": null,
             "entities": [
               "Trendon Watford"
             ],
@@ -143,7 +141,7 @@
           {
             "market": "3pt",
             "result": "loss",
-            "odds": 0,
+            "odds": null,
             "entities": [
               "Kelly Olynyk"
             ],
@@ -152,7 +150,7 @@
           {
             "market": "Ast",
             "result": "loss",
-            "odds": 0,
+            "odds": null,
             "entities": [
               "Kelly Olynyk"
             ],
@@ -166,7 +164,7 @@
     "id": "DK638991222873557181",
     "betId": "DK638991222873557181",
     "book": "DraftKings",
-    "placedAt": "2025-11-19T04:11:26.000Z",
+    "placedAt": "2025-11-18T23:11:26.000Z",
     "stake": 1.2,
     "payout": 2.29,
     "result": "win",
@@ -192,7 +190,7 @@
     "id": "DK639010189651938159",
     "betId": "DK639010189651938159",
     "book": "DraftKings",
-    "placedAt": "2025-12-11T03:02:46.000Z",
+    "placedAt": "2025-12-10T22:02:46.000Z",
     "stake": 3,
     "payout": 24,
     "result": "win",

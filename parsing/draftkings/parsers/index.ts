@@ -1,5 +1,5 @@
 import { Bet } from "../../../types";
-import { extractFooterMeta, extractHeaderInfo } from "./common";
+import { extractFooterMeta, extractHeaderInfo, normalizeBetType } from "./common";
 import { parseSingleBet } from "./single";
 import { parseParlayBet } from "./parlay";
 
@@ -15,21 +15,40 @@ export const parseDraftKingsHTML = (html: string): Bet[] => {
       const header = extractHeaderInfo(card);
       const footer = extractFooterMeta(card);
 
-      // Simple heuristic for now:
+      // Determine bet type more accurately
       const betTypeSubtitles = card.querySelectorAll(
         'span[data-test-id^="bet-details-subtitle-"]'
       );
       let typeText = "";
       if (betTypeSubtitles.length > 0) {
-        typeText = betTypeSubtitles[0].textContent?.toLowerCase() || "";
+        typeText = betTypeSubtitles[0].textContent || "";
       }
 
-      let isParlay =
-        typeText.includes("parlay") ||
-        typeText.includes("sgp") ||
-        typeText.includes("+");
+      // Check card text content for SGPx or parlay indicators
+      const cardText = card.textContent || "";
+      
+      // Check for SGP indicator in data-test-id (most reliable)
+      const hasSGPTestId = card.querySelector('[data-test-id^="sgp-"]') !== null;
+      
+      // Use normalizeBetType to reuse terminology logic
+      let betType: 'parlay' | 'sgp' | 'sgp_plus' | null = null;
+      
+      // Priority 1: Check for SGPx explicitly
+      if (cardText.toLowerCase().includes('sgpx')) {
+        betType = 'sgp_plus';
+      }
+      // Priority 2: Check for SGP test-id
+      else if (hasSGPTestId) {
+        betType = 'sgp';
+      }
+      // Priority 3: Use normalizeBetType for subtitle and card text
+      else {
+        betType = normalizeBetType(typeText) ?? normalizeBetType(cardText);
+      }
 
-      const context = { element: card, header, footer };
+      const isParlay = betType !== null;
+
+      const context = { element: card, header, footer, betType: betType || undefined };
 
       const bet = isParlay ? parseParlayBet(context) : parseSingleBet(context);
 
