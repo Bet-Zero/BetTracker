@@ -34,7 +34,19 @@ This document compares the DraftKings and FanDuel parsers, highlighting key diff
 | Simple Same Game Parlay | SGP | SGP | parlay (for DK), sgp (for FD) |
 | Regular Parlay | Parlay | Parlay | parlay |
 
-**Note**: DraftKings treats simple same-game parlays as regular "parlays" in betType but maintains "SGP/SGP+" marketCategory. Only nested SGP structures (SGPx) get the sgp_plus betType designation.
+**Important Note on betType Classification:**
+
+This intentional divergence exists because DraftKings and FanDuel have different internal representations:
+
+- **FanDuel**: Distinguishes simple SGPs from regular parlays at the betType level (`sgp` vs `parlay`)
+- **DraftKings**: Uses betType `parlay` for both simple SGPs and regular parlays, differentiating them via the `marketCategory` field (`SGP/SGP+` vs `Parlays`)
+
+This difference is preserved in the parsers because:
+1. It reflects how each book actually represents these bets in their HTML
+2. The marketCategory field still allows proper filtering and classification
+3. Only multi-game SGPs (SGPx/SGP+) are universally classified as `sgp_plus`
+
+When consuming the parsed data, always check BOTH `betType` and `marketCategory` to properly identify same-game parlays across books.
 
 ### Bet Type Detection
 

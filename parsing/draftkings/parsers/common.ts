@@ -265,13 +265,15 @@ export const extractLineAndOu = (target: string): { line: string; ou?: 'Over' | 
     ou = 'Under';
     line = underMatch[1];
   } else {
-    // Look for prop format like "18+" first (more specific)
+    // Check prop format first (e.g., "18+", "25+") before spread format
+    // This is more specific and should take precedence to avoid misidentifying
+    // prop thresholds as spread lines (e.g., "18+" is a prop, not a spread)
     const propMatch = target.match(/(\d+)\+/);
     if (propMatch) {
       line = propMatch[1] + '+';
       ou = 'Over';
     } else {
-      // Look for spread lines like "+2.5" or "-5.5"
+      // Look for spread lines like "+2.5" or "-5.5" (main markets)
       const spreadMatch = target.match(/([+-]?\d+\.?\d*)(?:\s*)$/);
       if (spreadMatch) {
         line = spreadMatch[1];

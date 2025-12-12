@@ -78,7 +78,10 @@ function extractLegFromElement(legEl: Element, defaultResult: BetResult): BetLeg
     // 3. Extract Odds (often present on Group Header or single legs)
     const oddsEl = legEl.querySelector('div[data-test-id^="bet-selection-displayOdds-"]');
     if (oddsEl) {
-        const oddsText = normalizeSpaces(oddsEl.textContent || '').replace(/[+−]/g, (match) => match === '−' ? '-' : '');
+        // Replace unicode minus (−) with ASCII minus (-) for consistent parsing
+        const oddsText = normalizeSpaces(oddsEl.textContent || '')
+            .replace('−', '-')  // Unicode minus to ASCII minus
+            .replace('+', '');   // Remove plus sign prefix
         const oddsValue = parseInt(oddsText, 10);
         if (!isNaN(oddsValue)) {
             leg.odds = oddsValue;
@@ -150,8 +153,9 @@ export const parseParlayBet = (ctx: ParlayBetContext): Bet => {
       }
   });
 
-  // Handle SGP bets that don't have expanded legs in the HTML
-  // These show a summary like "2 Picks" with a subtitle like "18+, 9+"
+  // Fallback: Handle SGP bets with collapsed/unexpanded leg views
+  // When the bet card is collapsed, legs aren't in selection-list-items but in the subtitle
+  // Example: subtitle shows "18+, 9+" instead of full player names and markets
   if (topLevelLegs.length === 0) {
     const subtitleEl = element.querySelector('span[data-test-id^="bet-details-subtitle-"]');
     if (subtitleEl) {
