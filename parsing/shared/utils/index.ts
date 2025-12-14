@@ -84,14 +84,14 @@ export function inferSport(
         for (const entity of leg.entities) {
           // Try normalization service to detect sport from team name
           const sport = inferSportFromContext({ team: entity });
-          if (sport && sport !== 'Other') {
+          if (sport) {
             return sport;
           }
           
           // Try to detect sport from stat type in market
           if (leg.market) {
             const sportFromStat = inferSportFromContext({ statType: leg.market });
-            if (sportFromStat && sportFromStat !== 'Other') {
+            if (sportFromStat) {
               return sportFromStat;
             }
           }

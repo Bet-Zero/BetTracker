@@ -113,7 +113,7 @@ export const TEAMS: TeamInfo[] = [
   {
     canonical: 'LA Clippers',
     sport: 'NBA',
-    abbreviations: ['LAC', 'LAL'],
+    abbreviations: ['LAC'],
     aliases: ['LAC Clippers', 'Clippers', 'LAC', 'LA Clippers', 'Los Angeles Clippers', 'L.A. Clippers']
   },
   {
