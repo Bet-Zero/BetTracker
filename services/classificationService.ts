@@ -1,4 +1,5 @@
 import { Bet, MarketCategory } from '../types';
+import { normalizeStatType, normalizeTeamName } from './normalizationService';
 
 // Omit fields that are not available during classification of a new bet object.
 type ClassifiableBet = Omit<Bet, 'id' | 'marketCategory' | 'raw' | 'tail'>;
