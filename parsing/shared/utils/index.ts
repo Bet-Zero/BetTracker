@@ -8,6 +8,7 @@ import {
   normalizeStatType, 
   inferSportFromContext 
 } from "../../../services/normalizationService";
+import { SPORTS, Sport } from "../../../data/referenceData";
 
 /**
  * Normalizes whitespace in text content.
@@ -314,13 +315,19 @@ export function normalizeEntities(entities: string[]): string[] {
 }
 
 /**
+ * Type guard to check if a string is a valid Sport
+ */
+function isSport(value: string): value is Sport {
+  return SPORTS.includes(value as Sport);
+}
+
+/**
  * Normalizes a stat type using the normalization service.
  * Wrapper function for use in parsing contexts.
  */
 export function normalizeType(type: string, sport?: string): string {
   // Only pass sport if it's a valid Sport type value
-  const validSports = ['NBA', 'NFL', 'MLB', 'NHL', 'NCAAB', 'NCAAF', 'UFC', 'PGA', 'Soccer', 'Tennis', 'Other'];
-  const sportParam = sport && validSports.includes(sport) ? sport as any : undefined;
+  const sportParam = sport && isSport(sport) ? sport : undefined;
   return normalizeStatType(type, sportParam);
 }
 

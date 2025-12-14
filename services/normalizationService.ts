@@ -50,6 +50,31 @@ for (const stat of STAT_TYPES) {
   }
 }
 
+// Build sport-specific future type lookup maps for O(1) lookups
+const futureTypeLookupMap = new Map<string, typeof FUTURE_TYPES[0]>();
+const sportSpecificFutureLookupMaps = new Map<Sport, Map<string, typeof FUTURE_TYPES[0]>>();
+
+// Initialize future type lookup maps
+for (const future of FUTURE_TYPES) {
+  // Add to general map
+  futureTypeLookupMap.set(future.canonical.toLowerCase(), future);
+  for (const alias of future.aliases) {
+    futureTypeLookupMap.set(alias.toLowerCase(), future);
+  }
+  
+  // Add to sport-specific maps
+  if (future.sport) {
+    if (!sportSpecificFutureLookupMaps.has(future.sport)) {
+      sportSpecificFutureLookupMaps.set(future.sport, new Map());
+    }
+    const sportMap = sportSpecificFutureLookupMaps.get(future.sport)!;
+    sportMap.set(future.canonical.toLowerCase(), future);
+    for (const alias of future.aliases) {
+      sportMap.set(alias.toLowerCase(), future);
+    }
+  }
+}
+
 // ============================================================================
 // TEAM NORMALIZATION
 // ============================================================================
@@ -290,36 +315,34 @@ export function normalizeFutureType(futureType: string, sport?: Sport): string {
   const normalized = futureType.trim();
   const lowerSearch = normalized.toLowerCase();
   
-  // Filter by sport if provided
-  const relevantFutures = sport 
-    ? FUTURE_TYPES.filter(f => !f.sport || f.sport === sport)
-    : FUTURE_TYPES;
-  
-  for (const future of relevantFutures) {
-    if (future.canonical.toLowerCase() === lowerSearch) {
-      return future.canonical;
-    }
-    
-    for (const alias of future.aliases) {
-      if (alias.toLowerCase() === lowerSearch) {
-        return future.canonical;
+  // If sport provided, check sport-specific map first
+  if (sport) {
+    const sportMap = sportSpecificFutureLookupMaps.get(sport);
+    if (sportMap) {
+      const futureInfo = sportMap.get(lowerSearch);
+      if (futureInfo) {
+        return futureInfo.canonical;
       }
     }
   }
   
-  // If sport not provided or not found, check all futures
-  if (sport) {
-    for (const future of FUTURE_TYPES) {
-      if (future.canonical.toLowerCase() === lowerSearch) {
-        return future.canonical;
-      }
-      
-      for (const alias of future.aliases) {
-        if (alias.toLowerCase() === lowerSearch) {
-          return future.canonical;
+  // Check general future type map
+  const futureInfo = futureTypeLookupMap.get(lowerSearch);
+  if (futureInfo) {
+    // If sport context provided, prefer sport-specific futures
+    if (sport && futureInfo.sport && futureInfo.sport !== sport) {
+      // Look for a better match in the sport-specific map
+      const sportMap = sportSpecificFutureLookupMaps.get(sport);
+      if (sportMap) {
+        // Check if there's a more specific match
+        for (const [key, value] of sportMap.entries()) {
+          if (key === lowerSearch) {
+            return value.canonical;
+          }
         }
       }
     }
+    return futureInfo.canonical;
   }
   
   return normalized;
@@ -360,22 +383,22 @@ export function inferSportFromContext(context: {
   if (context.description) {
     const lower = context.description.toLowerCase();
     
-    // Sport-specific keywords
-    const sportKeywords: { [key in Sport]?: string[] } = {
-      NBA: ['nba', 'basketball'],
-      NFL: ['nfl', 'football'],
-      MLB: ['mlb', 'baseball'],
-      NHL: ['nhl', 'hockey'],
-      NCAAB: ['ncaab', 'college basketball', 'march madness'],
-      NCAAF: ['ncaaf', 'college football'],
-      UFC: ['ufc', 'mma', 'mixed martial arts'],
-      Soccer: ['soccer', 'football', 'premier league', 'champions league', 'mls'],
-      Tennis: ['tennis', 'wimbledon', 'us open', 'french open', 'australian open'],
-    };
+    // Sport-specific keywords - using Map for type safety
+    const sportKeywords = new Map<Sport, string[]>([
+      ['NBA', ['nba', 'basketball']],
+      ['NFL', ['nfl', 'football']],
+      ['MLB', ['mlb', 'baseball']],
+      ['NHL', ['nhl', 'hockey']],
+      ['NCAAB', ['ncaab', 'college basketball', 'march madness']],
+      ['NCAAF', ['ncaaf', 'college football']],
+      ['UFC', ['ufc', 'mma', 'mixed martial arts']],
+      ['Soccer', ['soccer', 'football', 'premier league', 'champions league', 'mls']],
+      ['Tennis', ['tennis', 'wimbledon', 'us open', 'french open', 'australian open']],
+    ]);
     
-    for (const [sport, keywords] of Object.entries(sportKeywords)) {
-      if (keywords && keywords.some(kw => lower.includes(kw))) {
-        return sport as Sport;
+    for (const [sport, keywords] of sportKeywords.entries()) {
+      if (keywords.some(kw => lower.includes(kw))) {
+        return sport;
       }
     }
   }
