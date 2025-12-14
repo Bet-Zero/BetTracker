@@ -3,6 +3,13 @@
  */
 
 import { Bet, StrictBetRow } from "../../types";
+import { 
+  normalizeTeamName, 
+  normalizeStatType, 
+  inferSportFromContext,
+  initializeLookupMaps
+} from "../../../services/normalizationServiceDynamic";
+import { SPORTS, Sport } from "../../../data/referenceData";
 
 /**
  * Normalizes whitespace in text content.
@@ -66,38 +73,45 @@ export function inferBetType(
 
 /**
  * Extracts sport from description or other context.
+ * Uses the normalization service to detect sport from teams and stat types.
  */
 export function inferSport(
   description: string,
   legs?: Array<{ market?: string; entities?: string[] }>
 ): string {
-  const lower = description.toLowerCase();
-
-  // Check description for sport keywords
-  const sportKeywords: { [key: string]: string[] } = {
-    NBA: ["nba", "basketball", "points", "rebounds", "assists", "threes"],
-    NFL: [
-      "nfl",
-      "football",
-      "touchdown",
-      "yards",
-      "passing",
-      "rushing",
-      "receiving",
-    ],
-    MLB: ["mlb", "baseball", "hits", "strikeouts", "home runs", "runs"],
-    NHL: ["nhl", "hockey", "goals", "assists", "shots"],
-    Soccer: ["soccer", "football", "goals", "premier league", "mls"],
-    Tennis: ["tennis", "wimbledon", "us open"],
-  };
-
-  for (const [sport, keywords] of Object.entries(sportKeywords)) {
-    if (keywords.some((kw) => lower.includes(kw))) {
-      return sport;
+  // Ensure normalization data is loaded
+  initializeLookupMaps();
+  
+  // Try to infer from entities (team names or player names)
+  if (legs && legs.length > 0) {
+    for (const leg of legs) {
+      if (leg.entities && leg.entities.length > 0) {
+        for (const entity of leg.entities) {
+          // Try normalization service to detect sport from team name
+          const sport = inferSportFromContext({ team: entity });
+          if (sport) {
+            return sport;
+          }
+          
+          // Try to detect sport from stat type in market
+          if (leg.market) {
+            const sportFromStat = inferSportFromContext({ statType: leg.market });
+            if (sportFromStat) {
+              return sportFromStat;
+            }
+          }
+        }
+      }
     }
   }
 
-  // Default fallback
+  // Fallback to description-based detection using normalization service
+  const sportFromDescription = inferSportFromContext({ description });
+  if (sportFromDescription) {
+    return sportFromDescription;
+  }
+
+  // Final fallback
   return "Other";
 }
 
@@ -294,5 +308,30 @@ export function formatDateToYYYYMMDD(isoString: string): string {
 export function formatAmericanOdds(odds: number): string {
   if (odds === 0) return "";
   return odds > 0 ? `+${odds}` : `${odds}`;
+}
+
+/**
+ * Normalizes team names in bet entities.
+ * Applies team name normalization to handle various sportsbook formats.
+ */
+export function normalizeEntities(entities: string[]): string[] {
+  return entities.map(entity => normalizeTeamName(entity));
+}
+
+/**
+ * Type guard to check if a string is a valid Sport
+ */
+function isSport(value: string): value is Sport {
+  return SPORTS.includes(value as Sport);
+}
+
+/**
+ * Normalizes a stat type using the normalization service.
+ * Wrapper function for use in parsing contexts.
+ */
+export function normalizeType(type: string, sport?: string): string {
+  // Only pass sport if it's a valid Sport type value
+  const sportParam = sport && isSport(sport) ? sport : undefined;
+  return normalizeStatType(type, sportParam);
 }
 
