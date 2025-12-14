@@ -19,6 +19,14 @@
 import { Bet, FinalRow } from "../../types";
 
 /**
+ * Category and type information for bet classification.
+ */
+interface CategoryAndType {
+  category: string;
+  type: string;
+}
+
+/**
  * Sport-specific stat type mappings for Props category.
  * Maps market text patterns to stat type codes.
  */
@@ -63,7 +71,7 @@ const STAT_TYPE_MAPPINGS: Record<string, Record<string, string>> = {
     blocks: "Blk",
     blk: "Blk",
     turnovers: "TO",
-    to: "TO",
+    // Removed "to" - too broad, "turnovers" is sufficient
   },
   // Add other sports as needed
 };
@@ -97,6 +105,127 @@ const FUTURES_TYPES: Record<string, string> = {
   roy: "ROY",
   champion: "Champion",
 };
+
+/**
+ * Classifies a leg's market category based on market text.
+ * Determines if a leg is Props, Main Markets, or Futures.
+ *
+ * @param market - The market text from the leg
+ * @param sport - The sport (e.g., "NBA")
+ * @returns "Props", "Main", or "Futures"
+ */
+function classifyLegCategory(market: string, sport: string): string {
+  if (!market) return "Props"; // Default to Props if no market text
+
+  const lowerMarket = market.toLowerCase();
+
+  // Check for futures keywords first
+  const futureKeywords = [
+    "to win",
+    "award",
+    "mvp",
+    "champion",
+    "outright",
+    "win total",
+    "make playoffs",
+    "miss playoffs",
+    "nba finals",
+    "super bowl",
+  ];
+  if (futureKeywords.some((keyword) => lowerMarket.includes(keyword))) {
+    return "Futures";
+  }
+
+  // Check for main market keywords
+  const mainMarketKeywords = [
+    "moneyline",
+    "ml",
+    "spread",
+    "total",
+    "over",
+    "under",
+  ];
+  if (mainMarketKeywords.some((keyword) => lowerMarket.includes(keyword))) {
+    // But exclude if it's clearly a prop (e.g., "player points total")
+    if (!lowerMarket.includes("player") && !lowerMarket.includes("prop")) {
+      return "Main";
+    }
+  }
+
+  // Sport-specific: "td" means triple-double in basketball, touchdown in football
+  // Check this BEFORE the general propKeywords to avoid false positives
+  const basketballSports = ["NBA", "WNBA", "CBB", "NCAAB"];
+  if (basketballSports.includes(sport)) {
+    // Use word boundaries or check for standalone "td" to reduce false positives
+    if (
+      lowerMarket === "td" ||
+      lowerMarket.includes(" td ") ||
+      lowerMarket.startsWith("td ") ||
+      lowerMarket.endsWith(" td")
+    ) {
+      return "Props";
+    }
+  }
+
+  // Check for prop keywords (TD, Top Pts, FB, and other stat types)
+  const propKeywords = [
+    // Special props (longer forms checked first for specificity)
+    "triple double",
+    "triple-double",
+    // "td" checked separately above with sport awareness
+    "double double",
+    "double-double",
+    "dd", // "dd" is safer since "double double" is already checked first
+    "first basket",
+    "first field goal",
+    "first fg",
+    "fb",
+    "top scorer",
+    "top points",
+    "top pts",
+    // Stat types
+    "points",
+    "pts",
+    "rebounds",
+    "reb",
+    "assists",
+    "ast",
+    "threes",
+    "3pt",
+    "3-pointers",
+    "made threes",
+    "steals",
+    "stl",
+    "blocks",
+    "blk",
+    "turnovers",
+    // Removed "to" - too broad, "turnovers" is sufficient
+    "pra",
+    "pr",
+    "ra",
+    "pa",
+    "stocks",
+    // General prop indicators
+    "player",
+    "prop",
+    "to record",
+    "to score",
+  ];
+  if (propKeywords.some((keyword) => lowerMarket.includes(keyword))) {
+    return "Props";
+  }
+
+  // Check sport-specific stat mappings
+  const sportMappings = STAT_TYPE_MAPPINGS[sport] || STAT_TYPE_MAPPINGS.NBA;
+  for (const pattern of Object.keys(sportMappings)) {
+    if (lowerMarket.includes(pattern)) {
+      return "Props";
+    }
+  }
+
+  // Default to Props if unclear (safer than Main for player/team bets)
+  return "Props";
+}
 
 /**
  * Gets the parlay label based on bet type.
@@ -162,7 +291,8 @@ export function betToFinalRows(bet: Bet): FinalRow[] {
         isParlayHeader: false,
         isParlayChild: false,
         showMonetaryValues: true,
-      }
+      },
+      undefined // No pre-determined category/type for single bets
     );
     rows.push(row);
   } else {
@@ -180,9 +310,26 @@ export function betToFinalRows(bet: Bet): FinalRow[] {
     legsToProcess.forEach((leg, index) => {
       const isHeader = index === 0;
       const isParlayHeader = isParlay && isHeader;
+
+      // For parlay headers, use "Parlays" category and empty type
+      // For leg rows, classify each leg individually based on its market text
+      let category: string;
+      let type: string;
+
+      if (isParlayHeader) {
+        category = "Parlays";
+        type = "";
+      } else {
+        // Classify each leg individually based on its market text
+        const legCategory = classifyLegCategory(
+          leg.market || "",
+          bet.sport || ""
+        );
+        category = normalizeCategory(legCategory);
+        type = determineType(leg.market || "", category, bet.sport || "");
+      }
+
       // Check if this is a totals bet (Category: "Main", Type: "Total")
-      const category = normalizeCategory(bet.marketCategory);
-      const type = determineType(leg.market, category, bet.sport);
       const isTotalsBet = category === "Main" && type === "Total";
 
       // Extract names: for parlay headers, use parlay label; for totals, use both entities if available
@@ -211,6 +358,10 @@ export function betToFinalRows(bet: Bet): FinalRow[] {
           isParlayHeader: isParlay && isHeader,
           isParlayChild: isParlay,
           showMonetaryValues: isHeader || !isParlay,
+        },
+        {
+          category: category,
+          type: type,
         }
       );
       rows.push(row);
@@ -223,6 +374,7 @@ export function betToFinalRows(bet: Bet): FinalRow[] {
 /**
  * Creates a single FinalRow from a Bet and leg data.
  * @param metadata - Parlay metadata and display flags
+ * @param categoryAndType - Optional pre-determined category and type (used for parlay legs)
  */
 function createFinalRow(
   bet: Bet,
@@ -241,7 +393,8 @@ function createFinalRow(
     isParlayHeader: boolean;
     isParlayChild: boolean;
     showMonetaryValues: boolean;
-  }
+  },
+  categoryAndType?: CategoryAndType
 ): FinalRow {
   // Format date to MM/DD/YY
   const date = formatDate(bet.placedAt);
@@ -252,11 +405,19 @@ function createFinalRow(
   // Sport
   const sport = bet.sport || "";
 
-  // Normalize category
-  const category = normalizeCategory(bet.marketCategory);
+  // Determine category and type
+  let category: string;
+  let type: string;
 
-  // Determine Type based on Category
-  const type = determineType(legData.market, category, bet.sport);
+  if (categoryAndType) {
+    // Use caller-provided category and type (caller is single source of truth)
+    category = categoryAndType.category;
+    type = categoryAndType.type;
+  } else {
+    // Compute from bet-level data when categoryAndType not provided
+    category = normalizeCategory(bet.marketCategory);
+    type = determineType(legData.market, category, bet.sport || "");
+  }
 
   // Name: SUBJECT ONLY (player/team from entities)
   const name = legData.name;
@@ -359,10 +520,24 @@ function determineType(
       dd: "DD",
       "double double": "DD",
       "double-double": "DD",
-      td: "TD",
+      // "td" is handled separately with sport awareness below
       "triple double": "TD",
       "triple-double": "TD",
     };
+
+    // Sport-specific: "td" means triple-double in basketball, touchdown in football
+    const basketballSports = ["NBA", "WNBA", "CBB", "NCAAB"];
+    if (basketballSports.includes(sport)) {
+      if (
+        normalizedMarket === "td" ||
+        lowerMarket.includes(" td ") ||
+        lowerMarket.startsWith("td ") ||
+        lowerMarket.endsWith(" td")
+      ) {
+        return "TD";
+      }
+    }
+
     if (directMap[normalizedMarket]) {
       return directMap[normalizedMarket];
     }
