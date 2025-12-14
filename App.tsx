@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BetsProvider } from './hooks/useBets';
 import { InputsProvider } from './hooks/useInputs';
+import { NormalizationDataProvider } from './hooks/useNormalizationData';
 import ImportView from './views/ImportView';
 import BetTableView from './views/BetTableView';
 import DashboardView from './views/DashboardView';
@@ -74,9 +75,10 @@ const App: React.FC = () => {
   );
 
   return (
-    <InputsProvider>
-      <BetsProvider>
-        <div className="flex h-screen bg-neutral-100 dark:bg-neutral-950 font-sans">
+    <NormalizationDataProvider>
+      <InputsProvider>
+        <BetsProvider>
+          <div className="flex h-screen bg-neutral-100 dark:bg-neutral-950 font-sans">
           <aside className="w-64 flex-shrink-0 bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800 flex flex-col p-4">
             <div className="flex items-center space-x-2 px-4 pb-4 border-b border-neutral-200 dark:border-neutral-800">
               <BarChart2 className="w-8 h-8 text-primary-500" />
@@ -106,9 +108,10 @@ const App: React.FC = () => {
               {renderTab()}
             </ErrorBoundary>
           </main>
-        </div>
-      </BetsProvider>
-    </InputsProvider>
+          </div>
+        </BetsProvider>
+      </InputsProvider>
+    </NormalizationDataProvider>
   );
 };
 

@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from "react";
 import { useInputs, ItemsBySport } from "../hooks/useInputs";
 import { Trash2, ChevronDown } from "../components/icons";
+import TeamAliasManager from "./TeamAliasManager";
+import StatTypeAliasManager from "./StatTypeAliasManager";
 
 const Accordion: React.FC<{
   title: string;
@@ -436,6 +438,18 @@ const InputManagementSection: React.FC = () => {
         onRemove={inputs.removeCategory}
         placeholder="e.g., Props"
       />
+      <Accordion
+        title="Teams with Aliases"
+        description="Manage teams and their alias mappings for cross-sportsbook normalization."
+      >
+        <TeamAliasManager />
+      </Accordion>
+      <Accordion
+        title="Stat Types with Aliases"
+        description="Manage stat types and their alias mappings for cross-sportsbook normalization."
+      >
+        <StatTypeAliasManager />
+      </Accordion>
       <BetTypesManager />
       <SportFilteredListManager
         title="Players"
@@ -445,8 +459,8 @@ const InputManagementSection: React.FC = () => {
         onRemove={inputs.removePlayer}
       />
       <SportFilteredListManager
-        title="Teams"
-        description="Automatically populated on import, can be managed here."
+        title="Teams (Legacy)"
+        description="Automatically populated on import. Use 'Teams with Aliases' above for normalization."
         itemsBySport={inputs.teams}
         sports={inputs.sports}
         onRemove={inputs.removeTeam}

@@ -1,5 +1,5 @@
 import { Bet, MarketCategory } from '../types';
-import { normalizeStatType, normalizeTeamName } from './normalizationService';
+import { normalizeStatType, normalizeTeamName, initializeLookupMaps } from './normalizationServiceDynamic';
 
 // Omit fields that are not available during classification of a new bet object.
 type ClassifiableBet = Omit<Bet, 'id' | 'marketCategory' | 'raw' | 'tail'>;
@@ -59,6 +59,9 @@ const isFuture = (bet: ClassifiableBet): boolean => {
 };
 
 export const classifyBet = (bet: ClassifiableBet): MarketCategory => {
+    // Ensure normalization data is loaded
+    initializeLookupMaps();
+    
     if (bet.betType === 'sgp') {
         return 'SGP/SGP+';
     }

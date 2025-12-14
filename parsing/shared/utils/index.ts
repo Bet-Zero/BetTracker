@@ -6,8 +6,9 @@ import { Bet, StrictBetRow } from "../../types";
 import { 
   normalizeTeamName, 
   normalizeStatType, 
-  inferSportFromContext 
-} from "../../../services/normalizationService";
+  inferSportFromContext,
+  initializeLookupMaps
+} from "../../../services/normalizationServiceDynamic";
 import { SPORTS, Sport } from "../../../data/referenceData";
 
 /**
@@ -78,6 +79,9 @@ export function inferSport(
   description: string,
   legs?: Array<{ market?: string; entities?: string[] }>
 ): string {
+  // Ensure normalization data is loaded
+  initializeLookupMaps();
+  
   // Try to infer from entities (team names or player names)
   if (legs && legs.length > 0) {
     for (const leg of legs) {
