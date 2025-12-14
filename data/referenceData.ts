@@ -3,6 +3,10 @@
  * 
  * This provides canonical names and alias mappings to handle variations in formatting
  * across different sportsbooks (e.g., "PHO Suns" vs "Phoenix Suns" vs "Suns").
+ * 
+ * Note: Some abbreviations may be shared across sports (e.g., "LAC" for LA Clippers and LA Chargers).
+ * When sport context is not available, the normalization service will return the first match found.
+ * This is acceptable as the sport can usually be inferred from other context (stat types, description, etc.).
  */
 
 // ============================================================================

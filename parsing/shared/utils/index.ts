@@ -318,6 +318,9 @@ export function normalizeEntities(entities: string[]): string[] {
  * Wrapper function for use in parsing contexts.
  */
 export function normalizeType(type: string, sport?: string): string {
-  return normalizeStatType(type, sport as any);
+  // Only pass sport if it's a valid Sport type value
+  const validSports = ['NBA', 'NFL', 'MLB', 'NHL', 'NCAAB', 'NCAAF', 'UFC', 'PGA', 'Soccer', 'Tennis', 'Other'];
+  const sportParam = sport && validSports.includes(sport) ? sport as any : undefined;
+  return normalizeStatType(type, sportParam);
 }
 

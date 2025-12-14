@@ -16,6 +16,41 @@ import {
 } from '../data/referenceData';
 
 // ============================================================================
+// LOOKUP MAPS (Performance Optimization)
+// ============================================================================
+
+// Build lookup maps on initialization for O(1) lookups
+const teamLookupMap = new Map<string, TeamInfo>();
+const statTypeLookupMap = new Map<string, StatTypeInfo>();
+
+// Initialize team lookup map
+for (const team of TEAMS) {
+  // Add canonical name
+  teamLookupMap.set(team.canonical.toLowerCase(), team);
+  
+  // Add all aliases
+  for (const alias of team.aliases) {
+    teamLookupMap.set(alias.toLowerCase(), team);
+  }
+  
+  // Add all abbreviations
+  for (const abbr of team.abbreviations) {
+    teamLookupMap.set(abbr.toLowerCase(), team);
+  }
+}
+
+// Initialize stat type lookup map
+for (const stat of STAT_TYPES) {
+  // Add canonical name
+  statTypeLookupMap.set(stat.canonical.toLowerCase(), stat);
+  
+  // Add all aliases
+  for (const alias of stat.aliases) {
+    statTypeLookupMap.set(alias.toLowerCase(), stat);
+  }
+}
+
+// ============================================================================
 // TEAM NORMALIZATION
 // ============================================================================
 
@@ -32,25 +67,10 @@ export function normalizeTeamName(teamName: string): string {
   const normalized = teamName.trim();
   const lowerSearch = normalized.toLowerCase();
   
-  // Try exact match first (case-insensitive)
-  for (const team of TEAMS) {
-    if (team.canonical.toLowerCase() === lowerSearch) {
-      return team.canonical;
-    }
-    
-    // Check all aliases
-    for (const alias of team.aliases) {
-      if (alias.toLowerCase() === lowerSearch) {
-        return team.canonical;
-      }
-    }
-    
-    // Check abbreviations
-    for (const abbr of team.abbreviations) {
-      if (abbr.toLowerCase() === lowerSearch) {
-        return team.canonical;
-      }
-    }
+  // Try exact match using lookup map (O(1) performance)
+  const teamInfo = teamLookupMap.get(lowerSearch);
+  if (teamInfo) {
+    return teamInfo.canonical;
   }
   
   // If no exact match, try partial matching for compound names
@@ -92,15 +112,18 @@ export function normalizeTeamName(teamName: string): string {
 export function getSportForTeam(teamName: string): Sport | undefined {
   if (!teamName) return undefined;
   
-  const canonical = normalizeTeamName(teamName);
+  const lowerSearch = teamName.trim().toLowerCase();
+  const teamInfo = teamLookupMap.get(lowerSearch);
   
-  for (const team of TEAMS) {
-    if (team.canonical === canonical) {
-      return team.sport;
-    }
+  if (teamInfo) {
+    return teamInfo.sport;
   }
   
-  return undefined;
+  // Fallback to full normalization if not found in lookup
+  const canonical = normalizeTeamName(teamName);
+  const canonicalInfo = teamLookupMap.get(canonical.toLowerCase());
+  
+  return canonicalInfo?.sport;
 }
 
 /**
@@ -112,15 +135,16 @@ export function getSportForTeam(teamName: string): Sport | undefined {
 export function getTeamInfo(teamName: string): TeamInfo | undefined {
   if (!teamName) return undefined;
   
-  const canonical = normalizeTeamName(teamName);
+  const lowerSearch = teamName.trim().toLowerCase();
+  const teamInfo = teamLookupMap.get(lowerSearch);
   
-  for (const team of TEAMS) {
-    if (team.canonical === canonical) {
-      return team;
-    }
+  if (teamInfo) {
+    return teamInfo;
   }
   
-  return undefined;
+  // Fallback to full normalization if not found in lookup
+  const canonical = normalizeTeamName(teamName);
+  return teamLookupMap.get(canonical.toLowerCase());
 }
 
 // ============================================================================
@@ -141,38 +165,23 @@ export function normalizeStatType(statType: string, sport?: Sport): string {
   const normalized = statType.trim();
   const lowerSearch = normalized.toLowerCase();
   
-  // Filter by sport if provided
-  const relevantStats = sport 
-    ? STAT_TYPES.filter(s => s.sport === sport)
-    : STAT_TYPES;
+  // Try exact match using lookup map (O(1) performance)
+  const statInfo = statTypeLookupMap.get(lowerSearch);
   
-  // Try exact match first (case-insensitive)
-  for (const stat of relevantStats) {
-    if (stat.canonical.toLowerCase() === lowerSearch) {
-      return stat.canonical;
-    }
-    
-    // Check all aliases
-    for (const alias of stat.aliases) {
-      if (alias.toLowerCase() === lowerSearch) {
-        return stat.canonical;
-      }
-    }
-  }
-  
-  // If sport not provided or not found, check all sports
-  if (sport) {
-    for (const stat of STAT_TYPES) {
-      if (stat.canonical.toLowerCase() === lowerSearch) {
-        return stat.canonical;
-      }
-      
-      for (const alias of stat.aliases) {
-        if (alias.toLowerCase() === lowerSearch) {
-          return stat.canonical;
+  // If sport context provided, verify the stat matches the sport
+  if (statInfo) {
+    if (sport && statInfo.sport !== sport) {
+      // Look for a sport-specific match
+      for (const stat of STAT_TYPES) {
+        if (stat.sport === sport) {
+          if (stat.canonical.toLowerCase() === lowerSearch || 
+              stat.aliases.some(a => a.toLowerCase() === lowerSearch)) {
+            return stat.canonical;
+          }
         }
       }
     }
+    return statInfo.canonical;
   }
   
   // Return original if no match found
@@ -189,28 +198,25 @@ export function normalizeStatType(statType: string, sport?: Sport): string {
 export function getStatTypeInfo(statType: string, sport?: Sport): StatTypeInfo | undefined {
   if (!statType) return undefined;
   
-  const canonical = normalizeStatType(statType, sport);
+  const lowerSearch = statType.trim().toLowerCase();
+  const statInfo = statTypeLookupMap.get(lowerSearch);
   
-  const relevantStats = sport 
-    ? STAT_TYPES.filter(s => s.sport === sport)
-    : STAT_TYPES;
-  
-  for (const stat of relevantStats) {
-    if (stat.canonical === canonical) {
-      return stat;
-    }
-  }
-  
-  // Check all sports if not found
-  if (sport) {
-    for (const stat of STAT_TYPES) {
-      if (stat.canonical === canonical) {
-        return stat;
+  // If sport context provided, verify the stat matches the sport
+  if (statInfo) {
+    if (sport && statInfo.sport !== sport) {
+      // Look for a sport-specific match
+      for (const stat of STAT_TYPES) {
+        if (stat.sport === sport && stat.canonical.toLowerCase() === lowerSearch) {
+          return stat;
+        }
       }
     }
+    return statInfo;
   }
   
-  return undefined;
+  // Fallback to normalization
+  const canonical = normalizeStatType(statType, sport);
+  return statTypeLookupMap.get(canonical.toLowerCase());
 }
 
 /**
