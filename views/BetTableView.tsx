@@ -19,6 +19,95 @@ import { Wifi } from "../components/icons";
 import { calculateProfit } from "../utils/betCalculations";
 import { betToFinalRows } from "../parsing/shared/betToFinalRows";
 
+// --- Column sizing (prevents overlap/collapsed columns) ---
+// NOTE: These are in px. The table is allowed to overflow horizontally (scroll)
+// rather than compressing columns into unreadable/overlapping content.
+const COLUMN_WIDTHS_VERSION_KEY = "bettracker-column-widths-version";
+// Bump this when defaults/mins change and we want to migrate old saved widths.
+const COLUMN_WIDTHS_VERSION = 5;
+
+const DEFAULT_COLUMN_WIDTHS: Record<string, number> = {
+  date: 68,
+  site: 28,
+  sport: 36,
+  category: 52,
+  type: 48,
+  name: 120,
+  ou: 24,
+  line: 36,
+  odds: 48,
+  bet: 44,
+  toWin: 56,
+  result: 52,
+  net: 48,
+  isLive: 32,
+  tail: 64,
+};
+
+const MIN_COLUMN_WIDTHS: Record<string, number> = {
+  date: 60,
+  site: 24,
+  sport: 30,
+  category: 40,
+  type: 36,
+  name: 80,
+  ou: 20,
+  line: 30,
+  odds: 40,
+  bet: 36,
+  toWin: 48,
+  result: 44,
+  net: 40,
+  isLive: 28,
+  tail: 52,
+};
+
+function clampColumnWidth(columnKey: string, width: unknown): number | null {
+  if (typeof width !== "number" || !Number.isFinite(width)) return null;
+  const min = MIN_COLUMN_WIDTHS[columnKey] ?? 50;
+  return Math.max(min, Math.round(width));
+}
+
+function sanitizeSavedColumnWidths(saved: unknown): Record<string, number> {
+  if (!saved || typeof saved !== "object") return {};
+  const next: Record<string, number> = {};
+  for (const [k, v] of Object.entries(saved as Record<string, unknown>)) {
+    const clamped = clampColumnWidth(k, typeof v === "string" ? Number(v) : v);
+    if (clamped !== null) next[k] = clamped;
+  }
+  return next;
+}
+
+function migrateSavedColumnWidthsIfNeeded(
+  widths: Record<string, number>,
+  savedVersion: number
+): Record<string, number> {
+  if (savedVersion === COLUMN_WIDTHS_VERSION) return widths;
+
+  // We intentionally shrink these "short abbreviation" columns on migration,
+  // because older saved widths tend to waste space and make the table feel cramped.
+  const compactKeys: Array<keyof typeof DEFAULT_COLUMN_WIDTHS> = [
+    "site",
+    "sport",
+    "category",
+    "name",
+  ];
+
+  const next = { ...widths };
+  for (const key of compactKeys) {
+    const def = DEFAULT_COLUMN_WIDTHS[key];
+    const current = next[key];
+    if (typeof def === "number") {
+      const migrated =
+        typeof current === "number" ? Math.min(current, def) : def;
+      const clamped = clampColumnWidth(String(key), migrated);
+      if (clamped !== null) next[key] = clamped;
+    }
+  }
+
+  return next;
+}
+
 // Cell coordinate type
 type CellCoordinate = {
   rowIndex: number;
@@ -499,7 +588,15 @@ const BetTableView: React.FC = () => {
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>(
     () => {
       const saved = localStorage.getItem("bettracker-column-widths");
-      return saved ? JSON.parse(saved) : {};
+      if (!saved) return {};
+      try {
+        const savedVersionRaw = localStorage.getItem(COLUMN_WIDTHS_VERSION_KEY);
+        const savedVersion = savedVersionRaw ? Number(savedVersionRaw) : 0;
+        const sanitized = sanitizeSavedColumnWidths(JSON.parse(saved));
+        return migrateSavedColumnWidthsIfNeeded(sanitized, savedVersion);
+      } catch {
+        return {};
+      }
     }
   );
   const [isResizing, setIsResizing] = useState<string | null>(null);
@@ -509,6 +606,11 @@ const BetTableView: React.FC = () => {
     start: CellCoordinate;
     end: CellCoordinate;
   } | null>(null);
+  const [expandedParlays, setExpandedParlays] = useState<Set<string>>(() => {
+    // Load from localStorage or default to all expanded
+    const saved = localStorage.getItem("bettracker-expanded-parlays");
+    return saved ? new Set(JSON.parse(saved)) : new Set();
+  });
   const tableRef = useRef<HTMLTableElement>(null);
   const cellRefs = useRef<Map<string, React.RefObject<HTMLInputElement>>>(
     new Map()
@@ -520,7 +622,33 @@ const BetTableView: React.FC = () => {
       "bettracker-column-widths",
       JSON.stringify(columnWidths)
     );
+    localStorage.setItem(
+      COLUMN_WIDTHS_VERSION_KEY,
+      String(COLUMN_WIDTHS_VERSION)
+    );
   }, [columnWidths]);
+
+  // Save expanded parlays to localStorage
+  useEffect(() => {
+    localStorage.setItem(
+      "bettracker-expanded-parlays",
+      JSON.stringify(Array.from(expandedParlays))
+    );
+  }, [expandedParlays]);
+
+  // Toggle parlay expansion
+  const toggleParlayExpansion = useCallback((parlayGroupId: string | null) => {
+    if (!parlayGroupId) return;
+    setExpandedParlays((prev) => {
+      const next = new Set(prev);
+      if (next.has(parlayGroupId)) {
+        next.delete(parlayGroupId);
+      } else {
+        next.add(parlayGroupId);
+      }
+      return next;
+    });
+  }, []);
 
   const siteShortNameMap = useMemo(() => {
     return sportsbooks.reduce((acc, book) => {
@@ -534,28 +662,38 @@ const BetTableView: React.FC = () => {
     bets.forEach((bet) => {
       // Use betToFinalRows to get properly formatted rows with parlay metadata
       const finalRows = betToFinalRows(bet);
-      
+
       finalRows.forEach((finalRow, index) => {
         // Convert FinalRow to FlatBet format
         const isLive = bet.isLive || false;
-        
+
         // Parse monetary values (empty string means child row, should be 0)
         const betAmount = finalRow.Bet ? parseFloat(finalRow.Bet) : 0;
-        const toWinAmount = finalRow['To Win'] ? parseFloat(finalRow['To Win']) : 0;
+        const toWinAmount = finalRow["To Win"]
+          ? parseFloat(finalRow["To Win"])
+          : 0;
         const netAmount = finalRow.Net ? parseFloat(finalRow.Net) : 0;
-        const oddsValue = finalRow.Odds ? parseFloat(finalRow.Odds.replace('+', '')) : undefined;
-        
+        const oddsValue = finalRow.Odds
+          ? parseFloat(finalRow.Odds.replace("+", ""))
+          : undefined;
+
         // Parse Over/Under
-        const ou = finalRow.Over === '1' ? 'Over' as const : finalRow.Under === '1' ? 'Under' as const : undefined;
-        
+        const ou =
+          finalRow.Over === "1"
+            ? ("Over" as const)
+            : finalRow.Under === "1"
+            ? ("Under" as const)
+            : undefined;
+
         // Parse Result
         const result = finalRow.Result.toLowerCase() as BetResult;
-        
+
         // Generate unique ID
-        const id = finalRow._isParlayChild && finalRow._legIndex 
-          ? `${bet.id}-leg-${finalRow._legIndex - 1}` 
-          : bet.id;
-        
+        const id =
+          finalRow._isParlayChild && finalRow._legIndex
+            ? `${bet.id}-leg-${finalRow._legIndex - 1}`
+            : bet.id;
+
         flatBets.push({
           id,
           betId: bet.id,
@@ -575,7 +713,7 @@ const BetTableView: React.FC = () => {
           odds: oddsValue,
           result,
           isLive,
-          tail: finalRow.Tail === '1' ? bet.tail : undefined,
+          tail: finalRow.Tail === "1" ? bet.tail : undefined,
           _parlayGroupId: finalRow._parlayGroupId,
           _legIndex: finalRow._legIndex,
           _legCount: finalRow._legCount,
@@ -733,13 +871,27 @@ const BetTableView: React.FC = () => {
     return sortableBets;
   }, [filteredBets, sortConfig]);
 
+  // Filter out collapsed parlay children
+  const visibleBets = useMemo(() => {
+    return sortedBets.filter((bet) => {
+      // Always show header rows
+      if (bet._isParlayHeader) return true;
+      // Show child rows only if their parent parlay is expanded
+      if (bet._isParlayChild && bet._parlayGroupId) {
+        return expandedParlays.has(bet._parlayGroupId);
+      }
+      // Show all non-parlay bets
+      return true;
+    });
+  }, [sortedBets, expandedParlays]);
+
   // Calculate stripe index for each row based on parlay groups
   const rowStripeIndex = useMemo(() => {
     const stripeMap = new Map<number, number>();
     let currentGroupId: string | null = null;
     let stripeIndex = 0;
 
-    sortedBets.forEach((row, index) => {
+    visibleBets.forEach((row, index) => {
       const groupId = row._parlayGroupId;
       if (groupId !== currentGroupId) {
         currentGroupId = groupId;
@@ -749,7 +901,7 @@ const BetTableView: React.FC = () => {
     });
 
     return stripeMap;
-  }, [sortedBets]);
+  }, [visibleBets]);
 
   const requestSort = (key: keyof FlatBet) => {
     let direction: "asc" | "desc" = "asc";
@@ -793,26 +945,42 @@ const BetTableView: React.FC = () => {
     label: string;
     style: React.CSSProperties;
   }[] = [
-    { key: "date", label: "Date", style: { width: "5%" } },
-    { key: "site", label: "Site", style: { width: "4%" } },
-    { key: "sport", label: "Sport", style: { width: "4%" } },
-    { key: "category", label: "Category", style: { width: "8%" } },
-    { key: "type", label: "Type", style: { width: "8%" } },
-    { key: "name", label: "Name", style: {} }, // Flexible width
-    { key: "ou", label: "O/U", style: { width: "4%", textAlign: "center" } },
-    { key: "line", label: "Line", style: { width: "4%", textAlign: "center" } },
-    { key: "odds", label: "Odds", style: { width: "5%" } },
-    { key: "bet", label: "Bet", style: { width: "6%" } },
-    { key: "toWin", label: "To Win", style: { width: "5%" } },
-    { key: "result", label: "Result", style: { width: "7%" } },
-    { key: "net", label: "Net", style: { width: "6%" } },
+    { key: "date", label: "Date", style: { width: 68 } },
+    { key: "site", label: "Site", style: { width: 28 } },
+    { key: "sport", label: "Sport", style: { width: 36 } },
+    { key: "category", label: "Category", style: { width: 52 } },
+    { key: "type", label: "Type", style: { width: 48 } },
+    { key: "name", label: "Name", style: {} }, // Flexible width - fills remaining space
+    { key: "ou", label: "O/U", style: { width: 24, textAlign: "center" } },
+    { key: "line", label: "Line", style: { width: 36, textAlign: "center" } },
+    { key: "odds", label: "Odds", style: { width: 48 } },
+    { key: "bet", label: "Bet", style: { width: 44 } },
+    { key: "toWin", label: "To Win", style: { width: 56 } },
+    { key: "result", label: "Result", style: { width: 52 } },
+    { key: "net", label: "Net", style: { width: 48 } },
     {
       key: "isLive",
       label: "Live",
-      style: { width: "3%", textAlign: "center" },
+      style: { width: 32, textAlign: "center" },
     },
-    { key: "tail", label: "Tail", style: { width: "8%" } },
+    { key: "tail", label: "Tail", style: { width: 64 } },
   ];
+
+  const getColumnWidthPx = useCallback(
+    (columnKey: string, fallback?: React.CSSProperties["width"]): string => {
+      const fromState = clampColumnWidth(columnKey, columnWidths[columnKey]);
+      if (fromState !== null) return `${fromState}px`;
+
+      const fromDefault = DEFAULT_COLUMN_WIDTHS[columnKey];
+      if (typeof fromDefault === "number") return `${fromDefault}px`;
+
+      if (typeof fallback === "number") return `${fallback}px`;
+      if (typeof fallback === "string" && fallback.trim().length > 0)
+        return fallback;
+      return "auto";
+    },
+    [columnWidths]
+  );
 
   const formatOdds = (odds: number | undefined): string => {
     if (odds === undefined || odds === null) return "";
@@ -884,14 +1052,14 @@ const BetTableView: React.FC = () => {
         }
       } else if (direction === "up" || direction === "down") {
         const newRowIndex = direction === "up" ? rowIndex - 1 : rowIndex + 1;
-        if (newRowIndex >= 0 && newRowIndex < sortedBets.length) {
+        if (newRowIndex >= 0 && newRowIndex < visibleBets.length) {
           setFocusedCell({ rowIndex: newRowIndex, columnKey });
           setSelectionRange(null);
           return;
         }
       }
     },
-    [editableColumns, sortedBets.length]
+    [editableColumns, visibleBets.length]
   );
 
   // Helper: Check if cell is in selection range
@@ -1033,7 +1201,7 @@ const BetTableView: React.FC = () => {
           e.preventDefault();
           if (e.ctrlKey || e.metaKey) {
             // Go to last row
-            setFocusedCell({ rowIndex: sortedBets.length - 1, columnKey });
+            setFocusedCell({ rowIndex: visibleBets.length - 1, columnKey });
           } else {
             // Go to last column
             setFocusedCell({
@@ -1044,7 +1212,7 @@ const BetTableView: React.FC = () => {
           break;
       }
     },
-    [focusedCell, navigateToCell, editableColumns, sortedBets.length]
+    [focusedCell, navigateToCell, editableColumns, visibleBets.length]
   );
 
   // Helper: Get cell value as string
@@ -1091,7 +1259,7 @@ const BetTableView: React.FC = () => {
 
       for (let r = minRow; r <= maxRow; r++) {
         for (let c = minCol; c <= maxCol; c++) {
-          const row = sortedBets[r];
+          const row = visibleBets[r];
           const colKey = editableColumns[c];
           if (row && colKey) {
             const value = getCellValue(row, colKey);
@@ -1100,7 +1268,7 @@ const BetTableView: React.FC = () => {
         }
       }
     } else if (focusedCell) {
-      const row = sortedBets[focusedCell.rowIndex];
+      const row = visibleBets[focusedCell.rowIndex];
       if (row) {
         const value = getCellValue(row, focusedCell.columnKey);
         cellsToCopy.push({
@@ -1157,10 +1325,10 @@ const BetTableView: React.FC = () => {
           const targetColIndex = startCol + colOffset;
 
           if (
-            targetRowIndex < sortedBets.length &&
+            targetRowIndex < visibleBets.length &&
             targetColIndex < editableColumns.length
           ) {
-            const targetRow = sortedBets[targetRowIndex];
+            const targetRow = visibleBets[targetRowIndex];
             const targetColumnKey = editableColumns[targetColIndex];
 
             if (targetRow && isCellEditable(targetColumnKey)) {
@@ -1176,7 +1344,7 @@ const BetTableView: React.FC = () => {
     focusedCell,
     selectionRange,
     editableColumns,
-    sortedBets,
+    visibleBets,
     isCellEditable,
   ]);
 
@@ -1271,8 +1439,9 @@ const BetTableView: React.FC = () => {
       setIsResizing(columnKey);
       setResizeStartX(e.clientX);
       const currentWidth =
-        columnWidths[columnKey] ||
-        headers.find((h) => h.key === columnKey)?.style.width;
+        columnWidths[columnKey] ??
+        DEFAULT_COLUMN_WIDTHS[columnKey] ??
+        headers.find((h) => h.key === (columnKey as any))?.style.width;
       if (typeof currentWidth === "string" && currentWidth.endsWith("%")) {
         const table = tableRef.current;
         if (table) {
@@ -1296,7 +1465,8 @@ const BetTableView: React.FC = () => {
       if (!isResizing) return;
 
       const deltaX = e.clientX - resizeStartX;
-      const newWidth = Math.max(50, resizeStartWidth + deltaX);
+      const min = MIN_COLUMN_WIDTHS[isResizing] ?? 50;
+      const newWidth = Math.max(min, resizeStartWidth + deltaX);
       setColumnWidths((prev) => ({ ...prev, [isResizing!]: newWidth }));
     },
     [isResizing, resizeStartX, resizeStartWidth]
@@ -1497,25 +1667,22 @@ const BetTableView: React.FC = () => {
   }, [dragFillData, handleDragFillMove, handleDragFillEnd]);
 
   return (
-    <div className="p-6 h-full flex flex-col space-y-4 bg-neutral-100 dark:bg-neutral-950">
+    <div className="p-4 h-full flex flex-col space-y-2 bg-neutral-100 dark:bg-neutral-950">
       <header>
-        <h1 className="text-3xl font-bold text-neutral-900 dark:text-white">
+        <h1 className="text-xl font-bold text-neutral-900 dark:text-white">
           Bet Table
         </h1>
-        <p className="text-neutral-500 dark:text-neutral-400 mt-1">
-          View, sort, and filter all your imported bets.
-        </p>
       </header>
 
-      <div className="p-4 bg-white dark:bg-neutral-900 rounded-lg shadow-md flex items-center justify-between space-x-4">
+      <div className="p-2 bg-white dark:bg-neutral-900 rounded-lg shadow-md flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <input
           type="text"
           placeholder="Search..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="flex-grow p-2 border border-neutral-300 dark:border-neutral-600 rounded-md bg-white dark:bg-neutral-800 placeholder-neutral-400 dark:placeholder-neutral-500"
+          className="w-full lg:grow lg:min-w-[280px] p-2 border border-neutral-300 dark:border-neutral-600 rounded-md bg-white dark:bg-neutral-800 placeholder-neutral-400 dark:placeholder-neutral-500"
         />
-        <div className="flex items-center space-x-4">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <FilterControl
             label="Sport"
             value={filters.sport}
@@ -1555,32 +1722,34 @@ const BetTableView: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex-grow bg-white dark:bg-neutral-900 rounded-lg shadow-md overflow-auto">
+      <div className="grow bg-white dark:bg-neutral-900 rounded-lg shadow-md overflow-x-auto overflow-y-auto">
         <table
           ref={tableRef}
           className="w-full text-sm text-left text-neutral-500 dark:text-neutral-400"
           style={{ tableLayout: "fixed" }}
         >
+          <colgroup>
+            {headers.map((h) => (
+              <col
+                key={h.key}
+                style={{
+                  width: getColumnWidthPx(String(h.key), h.style.width),
+                }}
+              />
+            ))}
+          </colgroup>
           <thead className="text-xs text-neutral-700 uppercase bg-neutral-50 dark:bg-neutral-800 dark:text-neutral-400 sticky top-0 z-10">
-            <tr className="whitespace-nowrap">
+            <tr className="leading-tight">
               {headers.map((header) => {
-                const width =
-                  columnWidths[header.key] ||
-                  (typeof header.style.width === "string" &&
-                  header.style.width.endsWith("%")
-                    ? header.style.width
-                    : header.style.width || "auto");
-                const widthStyle =
-                  typeof width === "number" ? `${width}px` : width;
+                const headerPaddingX = "px-1";
                 return (
                   <th
                     key={header.key}
                     scope="col"
-                    className="px-2 py-3 relative"
+                    className={`${headerPaddingX} py-3 relative whitespace-normal wrap-break-word`}
                     style={{
                       ...header.style,
-                      width: widthStyle,
-                      minWidth: "50px",
+                      // Width is controlled via <colgroup> to keep header/body aligned
                     }}
                   >
                     {header.label}
@@ -1601,14 +1770,14 @@ const BetTableView: React.FC = () => {
                   Loading bets...
                 </td>
               </tr>
-            ) : sortedBets.length === 0 ? (
+            ) : visibleBets.length === 0 ? (
               <tr>
                 <td colSpan={headers.length} className="text-center p-8">
                   No bets found matching your criteria.
                 </td>
               </tr>
             ) : (
-              sortedBets.map((row, rowIndex) => {
+              visibleBets.map((row, rowIndex) => {
                 const isLeg = row.id.includes("-leg-");
                 const legIndex = isLeg
                   ? parseInt(row.id.split("-leg-").pop()!, 10)
@@ -1658,7 +1827,8 @@ const BetTableView: React.FC = () => {
 
                 // Helper to get cell classes
                 const getCellClasses = (columnKey: keyof FlatBet) => {
-                  const baseClasses = "px-2 py-2 relative";
+                  const paddingX = "px-1";
+                  const baseClasses = `${paddingX} py-1 relative`;
                   const isSelected = isCellSelected(rowIndex, columnKey);
                   const isFocused = isCellFocused(rowIndex, columnKey);
                   const isEditable = isCellEditable(columnKey);
@@ -1679,41 +1849,33 @@ const BetTableView: React.FC = () => {
                 // Get stripe index for this row
                 const stripeIdx = rowStripeIndex.get(rowIndex) || 0;
                 const isEvenStripe = stripeIdx % 2 === 0;
-                const bgClass = isEvenStripe 
-                  ? "bg-white dark:bg-neutral-900" 
+                const bgClass = isEvenStripe
+                  ? "bg-white dark:bg-neutral-900"
                   : "bg-neutral-50 dark:bg-neutral-800/50";
-                
-                // Get bet type for badge
-                const originalBet = bets.find(b => b.id === row.betId);
-                const betTypeLabel =
-                  originalBet?.betType === "sgp_plus"
-                    ? "SGP+"
-                    : originalBet?.betType === "sgp"
-                    ? "SGP"
-                    : "PARLAY";
-                
+
                 return (
                   <tr
                     key={row.id}
-                    className={`border-b dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-800/50 ${bgClass} whitespace-nowrap ${
-                      row._isParlayHeader ? 'font-semibold' : ''
+                    className={`border-b dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-800/50 ${bgClass} ${
+                      row._isParlayHeader ? "font-semibold" : ""
                     }`}
                   >
-                    <td className={getCellClasses("date")}>
+                    <td
+                      className={getCellClasses("date") + " whitespace-nowrap"}
+                    >
                       <div className="flex items-center gap-2">
-                        {row._isParlayHeader && row._legCount && (
-                          <span className="text-xs px-1.5 py-0.5 bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded font-semibold">
-                            {betTypeLabel} ({row._legCount})
-                          </span>
-                        )}
                         {row._isParlayChild && !row._isParlayHeader && (
-                          <span className="text-neutral-400 dark:text-neutral-500">↳</span>
+                          <span className="text-neutral-400 dark:text-neutral-500">
+                            ↳
+                          </span>
                         )}
                         <span>{formatDate(row.date)}</span>
                       </div>
                     </td>
                     <td
-                      className={getCellClasses("site") + " font-bold"}
+                      className={
+                        getCellClasses("site") + " font-bold whitespace-nowrap"
+                      }
                       onClick={(e) => handleCellClick(rowIndex, "site", e)}
                     >
                       {isCellFocused(rowIndex, "site") && (
@@ -1745,7 +1907,7 @@ const BetTableView: React.FC = () => {
                       />
                     </td>
                     <td
-                      className={getCellClasses("sport")}
+                      className={getCellClasses("sport") + " whitespace-nowrap"}
                       onClick={(e) => handleCellClick(rowIndex, "sport", e)}
                     >
                       {isCellFocused(rowIndex, "sport") && (
@@ -1772,7 +1934,9 @@ const BetTableView: React.FC = () => {
                       />
                     </td>
                     <td
-                      className={getCellClasses("category")}
+                      className={
+                        getCellClasses("category") + " whitespace-nowrap"
+                      }
                       onClick={(e) => handleCellClick(rowIndex, "category", e)}
                     >
                       {isCellFocused(rowIndex, "category") && (
@@ -1801,7 +1965,9 @@ const BetTableView: React.FC = () => {
                       />
                     </td>
                     <td
-                      className={getCellClasses("type") + " capitalize"}
+                      className={
+                        getCellClasses("type") + " capitalize whitespace-nowrap"
+                      }
                       onClick={(e) => handleCellClick(rowIndex, "type", e)}
                     >
                       {isCellFocused(rowIndex, "type") && (
@@ -1842,9 +2008,13 @@ const BetTableView: React.FC = () => {
                     <td
                       className={
                         getCellClasses("name") +
-                        " font-medium text-neutral-900 dark:text-white truncate"
+                        " font-medium text-neutral-900 dark:text-white"
                       }
-                      onClick={(e) => handleCellClick(rowIndex, "name", e)}
+                      onClick={(e) => {
+                        // Parlay header rows toggle expand/collapse (no inline editing)
+                        if (row._isParlayHeader && row._parlayGroupId) return;
+                        handleCellClick(rowIndex, "name", e);
+                      }}
                     >
                       {isCellFocused(rowIndex, "name") && (
                         <div
@@ -1854,7 +2024,31 @@ const BetTableView: React.FC = () => {
                           }
                         />
                       )}
-                      {row.category === "Main Markets" && row.type === "Total" ? (
+                      {row._isParlayHeader && row._parlayGroupId ? (
+                        <button
+                          type="button"
+                          className="flex items-center gap-1 text-left w-full"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleParlayExpansion(row._parlayGroupId!);
+                          }}
+                          title={
+                            expandedParlays.has(row._parlayGroupId)
+                              ? "Collapse"
+                              : "Expand"
+                          }
+                        >
+                          <span className="whitespace-normal wrap-break-word">
+                            {row.name}
+                          </span>
+                          <span className="text-neutral-500 dark:text-neutral-400 select-none">
+                            {expandedParlays.has(row._parlayGroupId)
+                              ? "▾"
+                              : "▸"}
+                          </span>
+                        </button>
+                      ) : row.category === "Main Markets" &&
+                        row.type === "Total" ? (
                         // Two side-by-side inputs for totals bets
                         <div className="flex gap-1">
                           <div className="flex-1">
@@ -1868,19 +2062,41 @@ const BetTableView: React.FC = () => {
                               onSave={(val) => {
                                 if (isLeg) {
                                   autoAddEntity(row.sport, val, row.type);
-                                  const name2 = row.name2 || '';
+                                  const name2 = row.name2 || "";
                                   handleLegUpdate(row.betId, legIndex, {
                                     entities: name2 ? [val, name2] : [val],
                                   });
                                 } else {
                                   autoAddEntity(row.sport, val, row.type);
-                                  const bet = bets.find(b => b.id === row.betId);
-                                  const name2 = bet?.legs?.[0]?.entities?.[1] || row.name2 || '';
-                                  updateBet(row.betId, { 
+                                  const bet = bets.find(
+                                    (b) => b.id === row.betId
+                                  );
+                                  const name2 =
+                                    bet?.legs?.[0]?.entities?.[1] ||
+                                    row.name2 ||
+                                    "";
+                                  updateBet(row.betId, {
                                     name: val,
-                                    legs: bet?.legs ? bet.legs.map((leg, idx) => 
-                                      idx === 0 ? { ...leg, entities: name2 ? [val, name2] : [val] } : leg
-                                    ) : [{ entities: name2 ? [val, name2] : [val], market: bet?.type || '', result: bet?.result || 'pending' }]
+                                    legs: bet?.legs
+                                      ? bet.legs.map((leg, idx) =>
+                                          idx === 0
+                                            ? {
+                                                ...leg,
+                                                entities: name2
+                                                  ? [val, name2]
+                                                  : [val],
+                                              }
+                                            : leg
+                                        )
+                                      : [
+                                          {
+                                            entities: name2
+                                              ? [val, name2]
+                                              : [val],
+                                            market: bet?.type || "",
+                                            result: bet?.result || "pending",
+                                          },
+                                        ],
                                   });
                                 }
                               }}
@@ -1901,18 +2117,37 @@ const BetTableView: React.FC = () => {
                               onSave={(val) => {
                                 if (isLeg) {
                                   autoAddEntity(row.sport, val, row.type);
-                                  const name1 = row.name || '';
+                                  const name1 = row.name || "";
                                   handleLegUpdate(row.betId, legIndex, {
                                     entities: name1 ? [name1, val] : [val],
                                   });
                                 } else {
                                   autoAddEntity(row.sport, val, row.type);
-                                  const bet = bets.find(b => b.id === row.betId);
-                                  const name1 = bet?.name || row.name || '';
-                                  updateBet(row.betId, { 
-                                    legs: bet?.legs ? bet.legs.map((leg, idx) => 
-                                      idx === 0 ? { ...leg, entities: name1 ? [name1, val] : [val] } : leg
-                                    ) : [{ entities: name1 ? [name1, val] : [val], market: bet?.type || '', result: bet?.result || 'pending' }]
+                                  const bet = bets.find(
+                                    (b) => b.id === row.betId
+                                  );
+                                  const name1 = bet?.name || row.name || "";
+                                  updateBet(row.betId, {
+                                    legs: bet?.legs
+                                      ? bet.legs.map((leg, idx) =>
+                                          idx === 0
+                                            ? {
+                                                ...leg,
+                                                entities: name1
+                                                  ? [name1, val]
+                                                  : [val],
+                                              }
+                                            : leg
+                                        )
+                                      : [
+                                          {
+                                            entities: name1
+                                              ? [name1, val]
+                                              : [val],
+                                            market: bet?.type || "",
+                                            result: bet?.result || "pending",
+                                          },
+                                        ],
                                   });
                                 }
                               }}
@@ -1952,7 +2187,9 @@ const BetTableView: React.FC = () => {
                       )}
                     </td>
                     <td
-                      className={getCellClasses("ou") + " text-center"}
+                      className={
+                        getCellClasses("ou") + " text-center whitespace-nowrap"
+                      }
                       onClick={(e) => handleCellClick(rowIndex, "ou", e)}
                     >
                       {isCellFocused(rowIndex, "ou") && (
@@ -1964,10 +2201,25 @@ const BetTableView: React.FC = () => {
                         />
                       )}
                       <TypableDropdown
-                        value={row.ou || ""}
+                        value={
+                          row.ou === "Over"
+                            ? "O"
+                            : row.ou === "Under"
+                            ? "U"
+                            : ""
+                        }
                         onSave={(val) => {
-                          const ouValue =
-                            val === "Over" || val === "Under" ? val : undefined;
+                          let ouValue: "Over" | "Under" | undefined;
+                          if (val === "O" || val.toLowerCase() === "over") {
+                            ouValue = "Over";
+                          } else if (
+                            val === "U" ||
+                            val.toLowerCase() === "under"
+                          ) {
+                            ouValue = "Under";
+                          } else {
+                            ouValue = undefined;
+                          }
                           if (isLeg) {
                             handleLegUpdate(row.betId, legIndex, {
                               ou: ouValue,
@@ -1976,18 +2228,21 @@ const BetTableView: React.FC = () => {
                             updateBet(row.betId, { ou: ouValue });
                           }
                         }}
-                        options={["Over", "Under"]}
+                        options={["O", "U"]}
                         isFocused={isCellFocused(rowIndex, "ou")}
                         onFocus={() =>
                           setFocusedCell({ rowIndex, columnKey: "ou" })
                         }
                         inputRef={getCellRef(rowIndex, "ou")}
                         allowCustom={false}
-                        className="text-center capitalize"
+                        className="text-center font-semibold"
                       />
                     </td>
                     <td
-                      className={getCellClasses("line") + " text-center"}
+                      className={
+                        getCellClasses("line") +
+                        " text-center whitespace-nowrap"
+                      }
                       onClick={(e) => handleCellClick(rowIndex, "line", e)}
                     >
                       {isCellFocused(rowIndex, "line") && (
@@ -2016,7 +2271,7 @@ const BetTableView: React.FC = () => {
                       />
                     </td>
                     <td
-                      className={getCellClasses("odds")}
+                      className={getCellClasses("odds") + " whitespace-nowrap"}
                       onClick={(e) => handleCellClick(rowIndex, "odds", e)}
                     >
                       {isCellFocused(rowIndex, "odds") && (
@@ -2028,7 +2283,9 @@ const BetTableView: React.FC = () => {
                         />
                       )}
                       {row._isParlayChild && !row._isParlayHeader ? (
-                        <span className="text-neutral-300 dark:text-neutral-600">↳</span>
+                        <span className="text-neutral-300 dark:text-neutral-600">
+                          ↳
+                        </span>
                       ) : (
                         <EditableCell
                           value={formatOdds(row.odds)}
@@ -2050,7 +2307,7 @@ const BetTableView: React.FC = () => {
                       )}
                     </td>
                     <td
-                      className={getCellClasses("bet")}
+                      className={getCellClasses("bet") + " whitespace-nowrap"}
                       onClick={(e) => handleCellClick(rowIndex, "bet", e)}
                     >
                       {isCellFocused(rowIndex, "bet") && (
@@ -2062,7 +2319,9 @@ const BetTableView: React.FC = () => {
                         />
                       )}
                       {row._isParlayChild && !row._isParlayHeader ? (
-                        <span className="text-neutral-300 dark:text-neutral-600">↳</span>
+                        <span className="text-neutral-300 dark:text-neutral-600">
+                          ↳
+                        </span>
                       ) : (
                         <div className="relative">
                           <span className="absolute left-2 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none">
@@ -2086,9 +2345,13 @@ const BetTableView: React.FC = () => {
                         </div>
                       )}
                     </td>
-                    <td className={getCellClasses("toWin")}>
+                    <td
+                      className={getCellClasses("toWin") + " whitespace-nowrap"}
+                    >
                       {row._isParlayChild && !row._isParlayHeader ? (
-                        <span className="text-neutral-300 dark:text-neutral-600">↳</span>
+                        <span className="text-neutral-300 dark:text-neutral-600">
+                          ↳
+                        </span>
                       ) : (
                         `$${row.toWin.toFixed(2)}`
                       )}
@@ -2096,7 +2359,7 @@ const BetTableView: React.FC = () => {
                     <td
                       className={
                         getCellClasses("result") +
-                        " capitalize " +
+                        " capitalize whitespace-nowrap " +
                         resultColorClass
                       }
                       onClick={(e) => handleCellClick(rowIndex, "result", e)}
@@ -2127,11 +2390,13 @@ const BetTableView: React.FC = () => {
                     <td
                       className={
                         getCellClasses("net") +
-                        ` font-bold ${resultColorClass} ${netColorClass}`
+                        ` font-bold whitespace-nowrap ${resultColorClass} ${netColorClass}`
                       }
                     >
                       {row._isParlayChild && !row._isParlayHeader ? (
-                        <span className="text-neutral-300 dark:text-neutral-600">↳</span>
+                        <span className="text-neutral-300 dark:text-neutral-600">
+                          ↳
+                        </span>
                       ) : (
                         `${net < 0 ? "-" : ""}$${Math.abs(net).toFixed(2)}`
                       )}
@@ -2145,7 +2410,7 @@ const BetTableView: React.FC = () => {
                       )}
                     </td>
                     <td
-                      className={getCellClasses("tail")}
+                      className={getCellClasses("tail") + " whitespace-nowrap"}
                       onClick={(e) => handleCellClick(rowIndex, "tail", e)}
                     >
                       {isCellFocused(rowIndex, "tail") && (

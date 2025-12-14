@@ -1,9 +1,9 @@
 /**
  * Bet to FinalRow Converter
- * 
+ *
  * This module converts Bet objects (from parsers) into FinalRow format
  * for display and editing in the spreadsheet-like UI.
- * 
+ *
  * KEY PRINCIPLES:
  * - Name: SUBJECT ONLY (player/team name from entities/leg.name)
  * - Type: Depends on Category:
@@ -16,7 +16,7 @@
  * - Live: "1" or "" flag (uses bet.isLive boolean, not bet.betType)
  */
 
-import { Bet, FinalRow } from '../../types';
+import { Bet, FinalRow } from "../../types";
 
 /**
  * Sport-specific stat type mappings for Props category.
@@ -25,45 +25,45 @@ import { Bet, FinalRow } from '../../types';
 const STAT_TYPE_MAPPINGS: Record<string, Record<string, string>> = {
   NBA: {
     // Combined stats (check before individual)
-    'points rebounds assists': 'PRA',
-    'pts reb ast': 'PRA',
-    'points rebounds': 'PR',
-    'pts reb': 'PR',
-    'rebounds assists': 'RA',
-    'reb ast': 'RA',
-    'points assists': 'PA',
-    'pts ast': 'PA',
-    'steals blocks': 'Stocks',
-    'stl blk': 'Stocks',
+    "points rebounds assists": "PRA",
+    "pts reb ast": "PRA",
+    "points rebounds": "PR",
+    "pts reb": "PR",
+    "rebounds assists": "RA",
+    "reb ast": "RA",
+    "points assists": "PA",
+    "pts ast": "PA",
+    "steals blocks": "Stocks",
+    "stl blk": "Stocks",
     // Special props
-    'first basket': 'FB',
-    'first field goal': 'FB',
-    'first fg': 'FB',
-    'top scorer': 'Top Pts',
-    'top points': 'Top Pts',
-    'top pts': 'Top Pts',
-    'double double': 'DD',
-    'double-double': 'DD',
-    'triple double': 'TD',
-    'triple-double': 'TD',
-    
+    "first basket": "FB",
+    "first field goal": "FB",
+    "first fg": "FB",
+    "top scorer": "Top Pts",
+    "top points": "Top Pts",
+    "top pts": "Top Pts",
+    "double double": "DD",
+    "double-double": "DD",
+    "triple double": "TD",
+    "triple-double": "TD",
+
     // Individual stats
-    'made threes': '3pt',
-    '3-pointers': '3pt',
-    'threes': '3pt',
-    '3pt': '3pt',
-    'points': 'Pts',
-    'pts': 'Pts',
-    'rebounds': 'Reb',
-    'reb': 'Reb',
-    'assists': 'Ast',
-    'ast': 'Ast',
-    'steals': 'Stl',
-    'stl': 'Stl',
-    'blocks': 'Blk',
-    'blk': 'Blk',
-    'turnovers': 'TO',
-    'to': 'TO',
+    "made threes": "3pt",
+    "3-pointers": "3pt",
+    threes: "3pt",
+    "3pt": "3pt",
+    points: "Pts",
+    pts: "Pts",
+    rebounds: "Reb",
+    reb: "Reb",
+    assists: "Ast",
+    ast: "Ast",
+    steals: "Stl",
+    stl: "Stl",
+    blocks: "Blk",
+    blk: "Blk",
+    turnovers: "TO",
+    to: "TO",
   },
   // Add other sports as needed
 };
@@ -72,42 +72,51 @@ const STAT_TYPE_MAPPINGS: Record<string, Record<string, string>> = {
  * Main Markets type mappings.
  */
 const MAIN_MARKET_TYPES: Record<string, string> = {
-  'spread': 'Spread',
-  'total': 'Total',
-  'over': 'Total',
-  'under': 'Total',
-  'moneyline': 'Moneyline',
-  'ml': 'Moneyline',
+  spread: "Spread",
+  total: "Total",
+  over: "Total",
+  under: "Total",
+  moneyline: "Moneyline",
+  ml: "Moneyline",
 };
 
 /**
  * Futures type mappings.
  */
 const FUTURES_TYPES: Record<string, string> = {
-  'nba finals': 'NBA Finals',
-  'super bowl': 'Super Bowl',
-  'wcc': 'WCC',
-  'ecc': 'ECC',
-  'win total': 'Win Total',
-  'win totals': 'Win Total',
-  'make playoffs': 'Make Playoffs',
-  'miss playoffs': 'Miss Playoffs',
-  'mvp': 'MVP',
-  'dpoy': 'DPOY',
-  'roy': 'ROY',
-  'champion': 'Champion',
+  "nba finals": "NBA Finals",
+  "super bowl": "Super Bowl",
+  wcc: "WCC",
+  ecc: "ECC",
+  "win total": "Win Total",
+  "win totals": "Win Total",
+  "make playoffs": "Make Playoffs",
+  "miss playoffs": "Miss Playoffs",
+  mvp: "MVP",
+  dpoy: "DPOY",
+  roy: "ROY",
+  champion: "Champion",
 };
+
+/**
+ * Gets the parlay label based on bet type.
+ */
+function getParlayLabel(bet: Bet): string {
+  if (bet.betType === "sgp_plus") return "SGP+";
+  if (bet.betType === "sgp") return "SGP";
+  return "Parlay";
+}
 
 /**
  * Converts a Bet to one or more FinalRow objects.
  * Multi-leg bets produce one FinalRow per leg.
- * 
+ *
  * @param bet - The Bet object from the parser
  * @returns Array of FinalRow objects (one per leg, or one for single bets)
  */
 export function betToFinalRows(bet: Bet): FinalRow[] {
   const rows: FinalRow[] = [];
-  
+
   // Determine if we have legs to process
   const hasLegs = bet.legs && bet.legs.length > 0;
 
@@ -134,23 +143,27 @@ export function betToFinalRows(bet: Bet): FinalRow[] {
 
   const isParlay = hasLegs && expandedLegs.length > 1;
   const parlayGroupId = isParlay ? bet.id : null;
-  
+
   if (!hasLegs) {
     // Single bet without structured legs - use bet-level fields
-    const row = createFinalRow(bet, {
-      name: bet.name || '',
-      market: bet.type || '',
-      target: bet.line,
-      ou: bet.ou,
-      result: bet.result,
-    }, {
-      parlayGroupId: null,
-      legIndex: null,
-      legCount: null,
-      isParlayHeader: false,
-      isParlayChild: false,
-      showMonetaryValues: true,
-    });
+    const row = createFinalRow(
+      bet,
+      {
+        name: bet.name || "",
+        market: bet.type || "",
+        target: bet.line,
+        ou: bet.ou,
+        result: bet.result,
+      },
+      {
+        parlayGroupId: null,
+        legIndex: null,
+        legCount: null,
+        isParlayHeader: false,
+        isParlayChild: false,
+        showMonetaryValues: true,
+      }
+    );
     rows.push(row);
   } else {
     // Bet with structured legs - create one row per leg
@@ -163,39 +176,47 @@ export function betToFinalRows(bet: Bet): FinalRow[] {
         `betToFinalRows: Bet ${bet.betId} has ${expandedLegs.length} legs - limiting to 10 to prevent excessive rows`
       );
     }
-    
+
     legsToProcess.forEach((leg, index) => {
       const isHeader = index === 0;
+      const isParlayHeader = isParlay && isHeader;
       // Check if this is a totals bet (Category: "Main", Type: "Total")
       const category = normalizeCategory(bet.marketCategory);
       const type = determineType(leg.market, category, bet.sport);
-      const isTotalsBet = category === 'Main' && type === 'Total';
-      
-      // Extract names: for totals, use both entities if available
-      const name = leg.entities?.[0] || '';
-      const name2 = isTotalsBet && leg.entities && leg.entities.length >= 2 
-        ? leg.entities[1] 
-        : undefined;
-      
-      const row = createFinalRow(bet, {
-        name: name,
-        name2: name2,
-        market: leg.market,
-        target: leg.target,
-        ou: leg.ou,
-        result: leg.result,
-      }, {
-        parlayGroupId: parlayGroupId,
-        legIndex: isParlay ? index + 1 : null,
-        legCount: isParlay && isHeader ? legsToProcess.length : null,
-        isParlayHeader: isParlay && isHeader,
-        isParlayChild: isParlay,
-        showMonetaryValues: isHeader || !isParlay,
-      });
+      const isTotalsBet = category === "Main" && type === "Total";
+
+      // Extract names: for parlay headers, use parlay label; for totals, use both entities if available
+      const name = isParlayHeader
+        ? `${getParlayLabel(bet)} (${legsToProcess.length})`
+        : leg.entities?.[0] || "";
+      const name2 =
+        isTotalsBet && leg.entities && leg.entities.length >= 2
+          ? leg.entities[1]
+          : undefined;
+
+      const row = createFinalRow(
+        bet,
+        {
+          name: name,
+          name2: name2,
+          market: leg.market,
+          target: leg.target,
+          ou: leg.ou,
+          result: leg.result,
+        },
+        {
+          parlayGroupId: parlayGroupId,
+          legIndex: isParlay ? index + 1 : null,
+          legCount: isParlay && isHeader ? legsToProcess.length : null,
+          isParlayHeader: isParlay && isHeader,
+          isParlayChild: isParlay,
+          showMonetaryValues: isHeader || !isParlay,
+        }
+      );
       rows.push(row);
     });
   }
-  
+
   return rows;
 }
 
@@ -210,7 +231,7 @@ function createFinalRow(
     name2?: string;
     market: string;
     target?: string | number;
-    ou?: 'Over' | 'Under';
+    ou?: "Over" | "Under";
     result: string;
   },
   metadata: {
@@ -224,51 +245,53 @@ function createFinalRow(
 ): FinalRow {
   // Format date to MM/DD/YY
   const date = formatDate(bet.placedAt);
-  
+
   // Site abbreviation or full name
   const site = bet.book;
-  
+
   // Sport
-  const sport = bet.sport || '';
-  
+  const sport = bet.sport || "";
+
   // Normalize category
   const category = normalizeCategory(bet.marketCategory);
-  
+
   // Determine Type based on Category
   const type = determineType(legData.market, category, bet.sport);
-  
+
   // Name: SUBJECT ONLY (player/team from entities)
   const name = legData.name;
   const name2 = legData.name2;
-  
+
   // Over/Under flags
   const { over, under } = determineOverUnder(legData.ou, legData.target);
-  
+
   // Line
   const line = formatLine(legData.target);
-  
+
   // Monetary values - only show on header rows for parlays
-  const odds = metadata.showMonetaryValues ? formatOdds(bet.odds) : '';
-  const betAmount = metadata.showMonetaryValues ? bet.stake.toFixed(2) : '';
-  const toWin = metadata.showMonetaryValues ? calculateToWin(bet.stake, bet.odds) : '';
-  
+  const odds = metadata.showMonetaryValues ? formatOdds(bet.odds) : "";
+  const betAmount = metadata.showMonetaryValues ? bet.stake.toFixed(2) : "";
+  const toWin = metadata.showMonetaryValues
+    ? calculateToWin(bet.stake, bet.odds)
+    : "";
+
   // Result - header shows bet.result, children show leg.result
   const resultValue = metadata.isParlayHeader ? bet.result : legData.result;
   const result = capitalizeFirstLetter(resultValue);
-  
+
   // Net (profit/loss) - only on header rows, use bet result for parlays
-  let net = '';
+  let net = "";
   if (metadata.showMonetaryValues) {
     const netResult = metadata.isParlayChild ? bet.result : legData.result;
     net = calculateNet(netResult, bet.stake, bet.odds, bet.payout);
   }
-  
+
   // Live flag (uses isLive boolean field on Bet, not betType which is 'single'|'parlay'|'sgp'|'live'|'other')
-  const live = bet.isLive ? '1' : '';
-  
+  const live = bet.isLive ? "1" : "";
+
   // Tail
-  const tail = bet.tail ? '1' : '';
-  
+  const tail = bet.tail ? "1" : "";
+
   return {
     Date: date,
     Site: site,
@@ -282,7 +305,7 @@ function createFinalRow(
     Line: line,
     Odds: odds,
     Bet: betAmount,
-    'To Win': toWin,
+    "To Win": toWin,
     Result: result,
     Net: net,
     Live: live,
@@ -301,40 +324,44 @@ function createFinalRow(
  */
 function normalizeCategory(marketCategory: string): string {
   const lower = marketCategory.toLowerCase();
-  
-  if (lower.includes('prop')) return 'Props';
-  if (lower.includes('main')) return 'Main';
-  if (lower.includes('future')) return 'Futures';
-  if (lower.includes('parlay') || lower.includes('sgp')) return 'Props'; // SGP/SGP+ and Parlays default to Props in spreadsheet
-  
+
+  if (lower.includes("prop")) return "Props";
+  if (lower.includes("main")) return "Main";
+  if (lower.includes("future")) return "Futures";
+  if (lower.includes("parlay") || lower.includes("sgp")) return "Props"; // SGP/SGP+ and Parlays default to Props in spreadsheet
+
   // Default to Props if unclear
-  return 'Props';
+  return "Props";
 }
 
 /**
  * Determines the Type field based on Category and market text.
  */
-function determineType(market: string, category: string, sport: string): string {
+function determineType(
+  market: string,
+  category: string,
+  sport: string
+): string {
   const lowerMarket = market.toLowerCase();
   const normalizedMarket = lowerMarket.trim();
-  
-  if (category === 'Props') {
+
+  if (category === "Props") {
     // Direct code/alias mappings for special props
     const directMap: Record<string, string> = {
-      fb: 'FB',
-      'first basket': 'FB',
-      'first field goal': 'FB',
-      'first fg': 'FB',
-      'top pts': 'Top Pts',
-      'top scorer': 'Top Pts',
-      'top points': 'Top Pts',
-      'top points scorer': 'Top Pts',
-      dd: 'DD',
-      'double double': 'DD',
-      'double-double': 'DD',
-      td: 'TD',
-      'triple double': 'TD',
-      'triple-double': 'TD',
+      fb: "FB",
+      "first basket": "FB",
+      "first field goal": "FB",
+      "first fg": "FB",
+      "top pts": "Top Pts",
+      "top scorer": "Top Pts",
+      "top points": "Top Pts",
+      "top points scorer": "Top Pts",
+      dd: "DD",
+      "double double": "DD",
+      "double-double": "DD",
+      td: "TD",
+      "triple double": "TD",
+      "triple-double": "TD",
     };
     if (directMap[normalizedMarket]) {
       return directMap[normalizedMarket];
@@ -342,69 +369,69 @@ function determineType(market: string, category: string, sport: string): string 
 
     // Look up stat type from sport-specific mappings
     const sportMappings = STAT_TYPE_MAPPINGS[sport] || STAT_TYPE_MAPPINGS.NBA;
-    
+
     // Check each mapping pattern
     for (const [pattern, statType] of Object.entries(sportMappings)) {
       if (lowerMarket.includes(pattern)) {
         return statType;
       }
     }
-    
+
     // If no match, return empty string for manual review
-    return '';
+    return "";
   }
-  
-  if (category === 'Main') {
+
+  if (category === "Main") {
     // Check main market types
     for (const [pattern, type] of Object.entries(MAIN_MARKET_TYPES)) {
       if (lowerMarket.includes(pattern)) {
         return type;
       }
     }
-    return 'Spread'; // Default
+    return "Spread"; // Default
   }
-  
-  if (category === 'Futures') {
+
+  if (category === "Futures") {
     // Check futures types
     for (const [pattern, type] of Object.entries(FUTURES_TYPES)) {
       if (lowerMarket.includes(pattern)) {
         return type;
       }
     }
-    return 'Future'; // Generic fallback
+    return "Future"; // Generic fallback
   }
-  
-  return '';
+
+  return "";
 }
 
 /**
  * Determines Over/Under flags based on leg data.
  */
 function determineOverUnder(
-  ou?: 'Over' | 'Under',
+  ou?: "Over" | "Under",
   target?: string | number
 ): { over: string; under: string } {
-  if (ou === 'Over') {
-    return { over: '1', under: '0' };
+  if (ou === "Over") {
+    return { over: "1", under: "0" };
   }
-  if (ou === 'Under') {
-    return { over: '0', under: '1' };
+  if (ou === "Under") {
+    return { over: "0", under: "1" };
   }
-  
+
   // Check if target has "+" (milestone bet)
-  if (target && target.toString().includes('+')) {
-    return { over: '1', under: '0' };
+  if (target && target.toString().includes("+")) {
+    return { over: "1", under: "0" };
   }
-  
+
   // Default: both blank for non-O/U bets
-  return { over: '', under: '' };
+  return { over: "", under: "" };
 }
 
 /**
  * Formats line value.
  */
 function formatLine(target?: string | number): string {
-  if (!target) return '';
+  if (!target) return "";
   return target.toString();
 }
 
@@ -421,13 +448,13 @@ function formatOdds(odds: number): string {
  */
 function calculateToWin(stake: number, odds: number): string {
   let profit = 0;
-  
+
   if (odds > 0) {
     profit = stake * (odds / 100);
   } else if (odds < 0) {
     profit = stake / (Math.abs(odds) / 100);
   }
-  
+
   const toWin = stake + profit;
   return toWin.toFixed(2);
 }
@@ -442,14 +469,14 @@ function calculateNet(
   payout?: number
 ): string {
   const resultLower = result.toLowerCase();
-  
-  if (resultLower === 'win') {
+
+  if (resultLower === "win") {
     // Use payout if available, otherwise calculate from odds
     if (payout !== undefined && payout > 0) {
       const net = payout - stake;
       return net.toFixed(2);
     }
-    
+
     // Calculate from odds
     let profit = 0;
     if (odds > 0) {
@@ -459,36 +486,36 @@ function calculateNet(
     }
     return profit.toFixed(2);
   }
-  
-  if (resultLower === 'loss') {
+
+  if (resultLower === "loss") {
     return `-${stake.toFixed(2)}`;
   }
-  
-  if (resultLower === 'push') {
-    return '0.00';
+
+  if (resultLower === "push") {
+    return "0.00";
   }
-  
+
   // Pending - return empty or 0
-  return '';
+  return "";
 }
 
 /**
  * Formats date to MM/DD/YY.
  */
 function formatDate(isoString: string): string {
-  if (!isoString) return '';
-  
+  if (!isoString) return "";
+
   try {
     const date = new Date(isoString);
-    if (isNaN(date.getTime())) return '';
-    
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
+    if (isNaN(date.getTime())) return "";
+
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
     const year = String(date.getFullYear()).slice(-2);
-    
+
     return `${month}/${day}/${year}`;
   } catch {
-    return '';
+    return "";
   }
 }
 
@@ -496,6 +523,6 @@ function formatDate(isoString: string): string {
  * Capitalizes first letter of a string.
  */
 function capitalizeFirstLetter(str: string): string {
-  if (!str) return '';
+  if (!str) return "";
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 }
