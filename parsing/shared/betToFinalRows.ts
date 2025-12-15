@@ -16,7 +16,23 @@
  * - Live: "1" or "" flag (uses bet.isLive boolean, not bet.betType)
  */
 
-import { Bet, BetLeg, FinalRow, LegResult, BetResult } from "../../types";
+import {
+  Bet,
+  BetLeg,
+  FinalRow,
+  LegResult,
+  BetResult,
+  OverUnderFlag,
+} from "../../types";
+import {
+  toFinalResult,
+  toOverUnderFlag,
+  toSingleFlag,
+  formatOdds as formatOddsValidator,
+  formatAmount,
+  formatNet,
+  calculateFormattedNet,
+} from "./finalRowValidators";
 
 /**
  * Category and type information for bet classification.
@@ -269,6 +285,49 @@ function mergeResults(
 }
 
 /**
+ * Normalizes odds value: converts 0 or undefined to undefined.
+ * Treats 0 as missing since 0 is not a valid American odds value.
+ * Only accepts whole-number American odds (integers); rejects decimal odds.
+ * @param odds - The odds value to normalize (number | undefined)
+ * @param context - Optional context information for warning messages
+ * @returns undefined if odds is 0, undefined, or non-integer; otherwise returns the number
+ */
+function normalizeOdds(
+  odds: number | undefined,
+  context?: string
+): number | undefined {
+  if (odds === undefined || odds === 0) {
+    return undefined;
+  }
+  if (!Number.isInteger(odds)) {
+    const contextMsg = context ? ` (${context})` : "";
+    console.warn(
+      `Non-integer odds detected: ${odds}${contextMsg}. Only whole-number American odds are accepted.`
+    );
+    return undefined;
+  }
+  return odds;
+}
+
+/**
+ * Merges two odds values by normalizing both and returning the first non-undefined result.
+ * Treats 0 as missing (normalized to undefined) before merging.
+ * @param odds1 - First odds value to merge
+ * @param odds2 - Second odds value to merge
+ * @returns The first normalized non-undefined odds value, or undefined if both normalize to undefined
+ */
+function mergeOdds(
+  odds1: number | undefined,
+  odds2: number | undefined
+): number | undefined {
+  const normalized1 = normalizeOdds(odds1);
+  if (normalized1 !== undefined) {
+    return normalized1;
+  }
+  return normalizeOdds(odds2);
+}
+
+/**
  * Builds a pipe-delimited key string from a bet leg for deduplication purposes.
  * Normalizes values (toLowerCase), handles undefined/null safely, and returns
  * a consistently formatted string.
@@ -311,10 +370,10 @@ function classifyAndExtractLegData(
   category: string;
   type: string;
   name: string;
-  name2?: string;
+  name2: string | undefined;
 } {
-  const legCategory = classifyLegCategory(leg.market || "", sport);
-  const category = normalizeCategory(legCategory);
+  // Classify category and type
+  const category = classifyLegCategory(leg.market || "", sport);
   const type = determineType(leg.market || "", category, sport);
 
   // Totals bets (e.g., "Lakers vs Celtics Total Points") need both team names
@@ -345,6 +404,9 @@ function createLegRow(
 ): FinalRow {
   const { category, type, name, name2 } = classifyAndExtractLegData(leg, sport);
 
+  const contextInfo = `betId=${bet.id}, market=${leg.market || "N/A"}, entity=${
+    name || "N/A"
+  }`;
   return createFinalRow(
     bet,
     {
@@ -354,6 +416,7 @@ function createLegRow(
       target: leg.target,
       ou: leg.ou,
       result: leg.result,
+      odds: normalizeOdds(leg.odds, contextInfo), // Normalize: convert 0 to undefined, reject non-integer odds
     },
     {
       parlayGroupId: isParlay ? parlayGroupId : null,
@@ -445,7 +508,7 @@ export function betToFinalRows(bet: Bet): FinalRow[] {
           ou: leg.ou || existing.ou,
           entities: leg.entities || existing.entities,
           market: leg.market || existing.market,
-          odds: leg.odds !== undefined ? leg.odds : existing.odds,
+          odds: mergeOdds(leg.odds, existing.odds),
         };
         seen.set(exactKey, merged);
         continue;
@@ -491,7 +554,7 @@ export function betToFinalRows(bet: Bet): FinalRow[] {
           ou: leg.ou || existing.ou,
           entities: leg.entities || existing.entities,
           market: leg.market || existing.market,
-          odds: leg.odds !== undefined ? leg.odds : existing.odds,
+          odds: mergeOdds(leg.odds, existing.odds),
         };
 
         // When merging, the map key may change if we're adding a target to a leg
@@ -626,6 +689,7 @@ function createFinalRow(
     target?: string | number;
     ou?: "Over" | "Under";
     result: string;
+    odds?: number; // Leg odds - undefined or valid odds (0 treated as missing and normalized to undefined)
   },
   metadata: {
     parlayGroupId: string | null;
@@ -670,29 +734,49 @@ function createFinalRow(
   // Line
   const line = formatLine(legData.target);
 
+  // Odds: For parlay children, use leg odds if available; otherwise use bet odds for headers
+  let odds;
+  if (
+    metadata.isParlayChild &&
+    legData.odds !== undefined &&
+    legData.odds !== null
+  ) {
+    // For parlay children, show individual leg odds if available
+    // (0 is already normalized to undefined at call sites, so this check is sufficient)
+    odds = formatOddsValidator(legData.odds);
+  } else if (metadata.showMonetaryValues) {
+    // For headers and non-parlay bets, show bet-level odds
+    odds = formatOddsValidator(bet.odds ?? undefined);
+  } else {
+    odds = formatOddsValidator(undefined);
+  }
+
   // Monetary values - only show on header rows for parlays
-  const odds = metadata.showMonetaryValues ? formatOdds(bet.odds) : "";
-  const betAmount = metadata.showMonetaryValues ? bet.stake.toFixed(2) : "";
+  const betAmount = metadata.showMonetaryValues
+    ? formatAmount(bet.stake)
+    : formatAmount(undefined);
   const toWin = metadata.showMonetaryValues
-    ? calculateToWin(bet.stake, bet.odds)
-    : "";
+    ? formatAmount(calculateToWin(bet.stake, bet.odds, bet.payout))
+    : formatAmount(undefined);
 
   // Result - header shows bet.result, children show leg.result
   const resultValue = metadata.isParlayHeader ? bet.result : legData.result;
-  const result = capitalizeFirstLetter(resultValue);
+  const result = toFinalResult(resultValue);
 
   // Net (profit/loss) - only on header rows, use bet result for parlays
-  let net = "";
+  let net;
   if (metadata.showMonetaryValues) {
     const netResult = metadata.isParlayChild ? bet.result : legData.result;
-    net = calculateNet(netResult, bet.stake, bet.odds, bet.payout);
+    net = calculateFormattedNet(netResult, bet.stake, bet.odds, bet.payout);
+  } else {
+    net = formatNet(undefined);
   }
 
   // Live flag (uses isLive boolean field on Bet, not betType which is 'single'|'parlay'|'sgp'|'live'|'other')
-  const live = bet.isLive ? "1" : "";
+  const live = toSingleFlag(bet.isLive);
 
   // Tail
-  const tail = bet.tail ? "1" : "";
+  const tail = toSingleFlag(!!bet.tail);
 
   return {
     Date: date,
@@ -826,21 +910,24 @@ function determineType(
 function determineOverUnder(
   ou?: "Over" | "Under",
   target?: string | number
-): { over: string; under: string } {
+): { over: OverUnderFlag; under: OverUnderFlag } {
   if (ou === "Over") {
-    return { over: "1", under: "0" };
+    return { over: toOverUnderFlag(true), under: toOverUnderFlag(false) };
   }
   if (ou === "Under") {
-    return { over: "0", under: "1" };
+    return { over: toOverUnderFlag(false), under: toOverUnderFlag(true) };
   }
 
   // Check if target has "+" (milestone bet)
   if (target && target.toString().includes("+")) {
-    return { over: "1", under: "0" };
+    return { over: toOverUnderFlag(true), under: toOverUnderFlag(false) };
   }
 
   // Default: both blank for non-O/U bets
-  return { over: "", under: "" };
+  return {
+    over: toOverUnderFlag(undefined),
+    under: toOverUnderFlag(undefined),
+  };
 }
 
 /**
@@ -856,6 +943,8 @@ function formatLine(target?: string | number): string {
 
 /**
  * Formats odds with appropriate sign.
+ * @deprecated Use formatOddsValidator from finalRowValidators instead.
+ * This function is kept for backward compatibility but should be replaced.
  */
 function formatOdds(odds: number): string {
   if (odds > 0) return `+${odds}`;
@@ -865,17 +954,33 @@ function formatOdds(odds: number): string {
 /**
  * Calculates To Win amount (stake + potential profit).
  */
-function calculateToWin(stake: number, odds: number): string {
-  let profit = 0;
-
-  if (odds > 0) {
-    profit = stake * (odds / 100);
-  } else if (odds < 0) {
-    profit = stake / (Math.abs(odds) / 100);
+function calculateToWin(
+  stake: number,
+  odds?: number | null,
+  payout?: number
+): number | undefined {
+  if (payout !== undefined && payout > 0) {
+    return payout;
   }
 
-  const toWin = stake + profit;
-  return toWin.toFixed(2);
+  if (odds === undefined || odds === null) {
+    return undefined;
+  }
+
+  const numericOdds = Number(odds);
+  if (Number.isNaN(numericOdds)) {
+    return undefined;
+  }
+
+  let profit = 0;
+
+  if (numericOdds > 0) {
+    profit = stake * (numericOdds / 100);
+  } else if (numericOdds < 0) {
+    profit = stake / (Math.abs(numericOdds) / 100);
+  }
+
+  return stake + profit;
 }
 
 /**
@@ -884,7 +989,7 @@ function calculateToWin(stake: number, odds: number): string {
 function calculateNet(
   result: string,
   stake: number,
-  odds: number,
+  odds?: number | null,
   payout?: number
 ): string {
   const resultLower = result.toLowerCase();
@@ -897,11 +1002,20 @@ function calculateNet(
     }
 
     // Calculate from odds
+    if (odds === undefined || odds === null) {
+      return "";
+    }
+
+    const numericOdds = Number(odds);
+    if (Number.isNaN(numericOdds)) {
+      return "";
+    }
+
     let profit = 0;
-    if (odds > 0) {
-      profit = stake * (odds / 100);
-    } else if (odds < 0) {
-      profit = stake / (Math.abs(odds) / 100);
+    if (numericOdds > 0) {
+      profit = stake * (numericOdds / 100);
+    } else if (numericOdds < 0) {
+      profit = stake / (Math.abs(numericOdds) / 100);
     }
     return profit.toFixed(2);
   }

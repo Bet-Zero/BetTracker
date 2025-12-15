@@ -885,23 +885,43 @@ const BetTableView: React.FC = () => {
     });
   }, [sortedBets, expandedParlays]);
 
-  // Calculate stripe index for each row based on parlay groups
+  // Calculate stripe index for each row:
+  // - Alternate every visible top-level row (non-parlay or parlay header)
+  // - Keep expanded parlay legs the same color as their header
   const rowStripeIndex = useMemo(() => {
     const stripeMap = new Map<number, number>();
-    let currentGroupId: string | null = null;
-    let stripeIndex = 0;
+    const parlayStripe = new Map<string, number>();
+    let stripeIndex = -1; // start at -1 so first increment yields 0
 
     visibleBets.forEach((row, index) => {
-      const groupId = row._parlayGroupId;
-      if (groupId !== currentGroupId) {
-        currentGroupId = groupId;
-        stripeIndex++;
+      // Parlay header: new stripe, record for its group
+      if (row._isParlayHeader) {
+        stripeIndex += 1;
+        stripeMap.set(index, stripeIndex);
+        if (row._parlayGroupId) {
+          parlayStripe.set(row._parlayGroupId, stripeIndex);
+        }
+        return;
       }
+
+      // Parlay child: share header stripe when expanded
+      if (
+        row._isParlayChild &&
+        row._parlayGroupId &&
+        expandedParlays.has(row._parlayGroupId)
+      ) {
+        const headerStripe = parlayStripe.get(row._parlayGroupId);
+        stripeMap.set(index, headerStripe ?? stripeIndex);
+        return;
+      }
+
+      // Non-parlay (or collapsed child rows, which aren't visible): new stripe
+      stripeIndex += 1;
       stripeMap.set(index, stripeIndex);
     });
 
     return stripeMap;
-  }, [visibleBets]);
+  }, [visibleBets, expandedParlays]);
 
   const requestSort = (key: keyof FlatBet) => {
     let direction: "asc" | "desc" = "asc";
@@ -983,7 +1003,7 @@ const BetTableView: React.FC = () => {
   );
 
   const formatOdds = (odds: number | undefined): string => {
-    if (odds === undefined || odds === null) return "";
+    if (odds === undefined) return "";
     if (odds > 0) return `+${odds}`;
     return odds.toString();
   };
@@ -2283,9 +2303,34 @@ const BetTableView: React.FC = () => {
                         />
                       )}
                       {row._isParlayChild && !row._isParlayHeader ? (
-                        <span className="text-neutral-300 dark:text-neutral-600">
-                          ↳
-                        </span>
+                        row.odds !== undefined ? (
+                          <EditableCell
+                            value={formatOdds(row.odds)}
+                            type="number"
+                            formatAsOdds={true}
+                            isFocused={isCellFocused(rowIndex, "odds")}
+                            onFocus={() =>
+                              setFocusedCell({ rowIndex, columnKey: "odds" })
+                            }
+                            inputRef={getCellRef(rowIndex, "odds")}
+                            onSave={(val) => {
+                              const numVal = parseInt(val.replace("+", ""), 10);
+                              if (!isNaN(numVal)) {
+                                // Update leg odds if this is a parlay child
+                                if (row._legIndex != null) {
+                                  handleLegUpdate(
+                                    row.betId,
+                                    row._legIndex - 1,
+                                    { odds: numVal }
+                                  );
+                                }
+                        ) : (
+                          <span className="text-neutral-300 dark:text-neutral-600">
+                            ↳
+                          </span>
+                        )
+                      ) : (
+                        <EditableCell
                       ) : (
                         <EditableCell
                           value={formatOdds(row.odds)}

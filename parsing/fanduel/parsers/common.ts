@@ -274,7 +274,7 @@ export const inferMatchupFromTeams = (text: string): string | null => {
   return null;
 };
 
-export const extractOdds = (root: HTMLElement): number | null => {
+export const extractOdds = (root: HTMLElement): number | undefined => {
   // Strategy 1: Look for aria-label with "Odds"
   let oddsSpan = root.querySelector<HTMLElement>('span[aria-label^="Odds"]');
 
@@ -366,12 +366,12 @@ export const extractOdds = (root: HTMLElement): number | null => {
     }
   }
 
-  if (!txt) return null;
+  if (!txt) return undefined;
 
   txt = txt.replace(/\u2212/g, "-"); // unicode minus → ASCII
   txt = txt.replace(/[^+\-0-9]/g, ""); // Remove any non-numeric except +/-
   const n = parseInt(txt, 10);
-  return Number.isNaN(n) ? null : n;
+  return Number.isNaN(n) ? undefined : n;
 };
 
 export interface HeaderInfo {
@@ -1032,7 +1032,7 @@ export const cleanEntityName = (raw: string): string => {
 
 export const parseLegFromText = (
   text: string,
-  odds: number | null,
+  odds: number | undefined,
   result: LegResultInput,
   skipOdds: boolean = false
 ): BetLeg | null => {
@@ -1074,7 +1074,7 @@ export const parseLegFromText = (
       // Validate it's likely odds (>= 100 or negative like -110)
       if (value >= 100 || (oddsMatch[1].startsWith("-") && value >= 100)) {
         extractedOdds = parseInt(oddsMatch[1], 10);
-        if (Number.isNaN(extractedOdds)) extractedOdds = null;
+        if (Number.isNaN(extractedOdds)) extractedOdds = undefined;
       }
     }
   }
@@ -1177,7 +1177,7 @@ export const parseLegFromNode = (
   const text = normalizeSpaces(node.textContent ?? "");
   const rawSource = aria || text || fallbackDescription || "";
   const source = stripScoreboardText(rawSource);
-  const extractedOdds = skipOdds ? null : extractOdds(node);
+  const extractedOdds = skipOdds ? undefined : extractOdds(node);
 
   // Check for void status in HTML structure
   let isVoid = false;
@@ -1312,7 +1312,7 @@ export const parseLegFromNode = (
     market: finalMarket,
     target,
     ou: derived.ou,
-    odds: skipOdds ? null : odds ?? undefined,
+    odds: skipOdds ? undefined : odds ?? undefined,
     result: isVoid ? ("VOID" as LegResult) : normalizedResult,
   };
 
@@ -1322,7 +1322,7 @@ export const parseLegFromNode = (
 export interface BuildLegsFromRowsOptions {
   result?: LegResultInput;
   skipOdds?: boolean;
-  fallbackOdds?: number | null;
+  fallbackOdds?: number | undefined;
   fallbackType?: BetType | null;
   fallbackCategory?: MarketCategory | null;
   fallbackDescription?: string | null;
@@ -1376,7 +1376,7 @@ export const buildLegsFromDescription = (
 
   const legs: BetLeg[] = [];
   for (const part of parts) {
-    const leg = parseLegFromText(part, null, result, skipOdds);
+    const leg = parseLegFromText(part, undefined, result, skipOdds);
     if (leg) legs.push(leg);
   }
   return legs;
@@ -1587,7 +1587,7 @@ export const buildLegsFromStatText = (
     let cleanedFull = m.full.replace(/^Void\s+/i, "");
 
     // Try parsing the cleaned full match first
-    let leg = parseLegFromText(cleanedFull, null, result, false);
+    let leg = parseLegFromText(cleanedFull, undefined, result, false);
 
     // If that doesn't work, try constructing it manually
     if (!leg) {
@@ -1639,7 +1639,7 @@ export const buildLegsFromSpans = (
       );
       if (seen.has(cleanedTxt)) return;
       seen.add(cleanedTxt);
-      const leg = parseLegFromText(cleanedTxt, null, result);
+      const leg = parseLegFromText(cleanedTxt, undefined, result);
       if (leg) legs.push(leg);
     }
   });
@@ -2292,9 +2292,61 @@ export const inferMarketCategory = (
     return "Main Markets";
   }
 
-  const t = type.toLowerCase();
-  if (["pts", "reb", "ast", "pra", "3pt"].includes(t)) {
+  const t = type.toLowerCase().trim();
+
+  // Check for prop stat types (all stat codes are props)
+  // Separate single-word props from multi-word phrases for efficient matching
+  const singleWordProps = new Set([
+    // Individual stats
+    "pts",
+    "reb",
+    "ast",
+    "stl",
+    "blk",
+    "to",
+    // Combined stats
+    "pra",
+    "pr",
+    "ra",
+    "pa",
+    "stocks",
+    // Special props
+    "td",
+    "dd",
+    "fb",
+    // 3-pointers
+    "3pt",
+    "threes",
+  ]);
+  const multiWordPhrases = [
+    "top pts",
+    "top scorer",
+    "3-pointers",
+    "made threes",
+  ];
+
+  // Check for exact match first (Set lookup is O(1))
+  if (singleWordProps.has(t)) {
     return "Props";
+  }
+
+  // Check for word-boundary matches for single-word props
+  // Use regex with word boundaries to avoid false positives (e.g., "ast" matching "fast")
+  for (const prop of singleWordProps) {
+    const regex = new RegExp(
+      `\\b${prop.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
+      "i"
+    );
+    if (regex.test(t)) {
+      return "Props";
+    }
+  }
+
+  // Check for multi-word phrase containment
+  for (const phrase of multiWordPhrases) {
+    if (t.includes(phrase)) {
+      return "Props";
+    }
   }
 
   if (["spread", "moneyline", "total"].includes(t)) {

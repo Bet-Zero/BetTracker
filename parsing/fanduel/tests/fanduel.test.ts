@@ -34,9 +34,9 @@ describe("FanDuel parser fixtures", () => {
       readFileSync(join(fixtureDir, "expected_fanduel_bets.json"), "utf-8")
     ) as Bet[];
 
-  const parsed = parse(html);
-  const parsedMap = byId(parsed);
-  const expectedMap = byId(expectedBets);
+    const parsed = parse(html);
+    const parsedMap = byId(parsed);
+    const expectedMap = byId(expectedBets);
 
     expect(parsed.length).toBe(expectedBets.length);
     expect([...parsedMap.keys()].sort()).toEqual(
@@ -121,7 +121,7 @@ describe("FanDuel parser fixtures", () => {
       expect(parsedBet.legs?.length ?? 0).toBe(exp.legs?.length ?? 0);
     }
 
-    // Leg odds should be null/absent for SGP inner legs; results come from icons when present
+    // Leg odds should be undefined/absent for SGP inner legs; results come from icons when present
     const sgp = parsedMap.get("O/0242888/0028078");
     expect(sgp?.betType).toBe("sgp");
     expect(sgp?.odds).toBe(6058);
@@ -131,14 +131,24 @@ describe("FanDuel parser fixtures", () => {
     expect(groupLeg?.isGroupLeg).toBe(true);
     expect(groupLeg?.odds).toBe(6058);
     expect(groupLeg?.children?.length).toBe(4);
-    expect(groupLeg?.children?.every((child) => child.odds === null)).toBe(true);
+    expect(groupLeg?.children?.every((child) => child.odds === undefined)).toBe(
+      true
+    );
     expect(new Set(groupLeg?.children?.map((child) => child.result))).toEqual(
       new Set(["PENDING"])
     );
+    expect(
+      groupLeg?.children?.every(
+        (child) => child.odds === undefined || !child.hasOwnProperty("odds")
+      )
+    ).toBe(true);
   });
 
   it("matches SGP+ sample fixture", () => {
-    const html = readFileSync(join(fixtureDir, "sgp_plus_sample.html"), "utf-8");
+    const html = readFileSync(
+      join(fixtureDir, "sgp_plus_sample.html"),
+      "utf-8"
+    );
     const expectedBets = JSON.parse(
       readFileSync(join(fixtureDir, "expected_sgp_plus_sample.json"), "utf-8")
     ) as Bet[];
@@ -178,7 +188,10 @@ describe("FanDuel parser fixtures", () => {
 
     expect(groupLeg?.odds).toBe(2997);
     expect(groupLeg?.children?.length).toBe(2);
-    expect(groupLeg?.children?.map((c) => c.odds)).toEqual([null, null]);
+    expect(groupLeg?.children?.map((c) => c.odds)).toEqual([
+      undefined,
+      undefined,
+    ]);
     expect(groupLeg?.children?.map((c) => c.result)).toEqual(["LOSS", "WIN"]);
 
     expect(extraLeg?.odds).toBe(1100);
@@ -189,4 +202,3 @@ describe("FanDuel parser fixtures", () => {
     expect(groupLeg?.children?.length).toBeGreaterThan(0);
   });
 });
-

@@ -29,17 +29,35 @@ const formatDate = (isoString: string): string => {
   }
 };
 
-const formatOdds = (odds: number): string => {
+const formatOdds = (odds?: number | null): string => {
+  if (odds === undefined || odds === null || odds === 0) return "";
   if (odds > 0) return `+${odds}`;
   return odds.toString();
 };
 
-const calculateToWin = (stake: number, odds: number): string => {
+const calculateToWin = (
+  stake: number,
+  odds?: number | null,
+  payout?: number
+): string => {
+  if (payout !== undefined && payout > 0) {
+    return payout.toFixed(2);
+  }
+
+  if (odds === undefined || odds === null) {
+    return "";
+  }
+
+  const numericOdds = Number(odds);
+  if (Number.isNaN(numericOdds)) {
+    return "";
+  }
+
   let profit = 0;
-  if (odds > 0) {
-    profit = stake * (odds / 100);
-  } else if (odds < 0) {
-    profit = stake / (Math.abs(odds) / 100);
+  if (numericOdds > 0) {
+    profit = stake * (numericOdds / 100);
+  } else if (numericOdds < 0) {
+    profit = stake / (Math.abs(numericOdds) / 100);
   }
   const toWin = stake + profit;
   return toWin.toFixed(2);
@@ -48,7 +66,7 @@ const calculateToWin = (stake: number, odds: number): string => {
 const calculateNet = (
   result: string,
   stake: number,
-  odds: number,
+  odds?: number | null,
   payout?: number
 ): string => {
   const resultLower = result.toLowerCase();
@@ -57,11 +75,18 @@ const calculateNet = (
       const net = payout - stake;
       return net.toFixed(2);
     }
+    if (odds === undefined || odds === null) {
+      return "";
+    }
+    const numericOdds = Number(odds);
+    if (Number.isNaN(numericOdds)) {
+      return "";
+    }
     let profit = 0;
-    if (odds > 0) {
-      profit = stake * (odds / 100);
-    } else if (odds < 0) {
-      profit = stake / (Math.abs(odds) / 100);
+    if (numericOdds > 0) {
+      profit = stake * (numericOdds / 100);
+    } else if (numericOdds < 0) {
+      profit = stake / (Math.abs(numericOdds) / 100);
     }
     return profit.toFixed(2);
   }
@@ -81,17 +106,92 @@ const capitalizeFirstLetter = (str: string): string => {
 
 // Determine category for a leg based on its market
 const getLegCategory = (market: string): string => {
+  if (!market) return "Props"; // Default to Props if no market text
+
   const lower = market.toLowerCase();
-  if (lower.includes("prop")) return "Props";
-  if (
-    lower.includes("main") ||
-    lower.includes("spread") ||
-    lower.includes("total") ||
-    lower.includes("moneyline")
-  )
-    return "Main";
-  if (lower.includes("future")) return "Futures";
-  return "Props"; // Default
+
+  // Check for futures keywords first
+  const futureKeywords = [
+    "to win",
+    "award",
+    "mvp",
+    "champion",
+    "outright",
+    "win total",
+    "make playoffs",
+    "miss playoffs",
+    "nba finals",
+    "super bowl",
+  ];
+  if (futureKeywords.some((keyword) => lower.includes(keyword))) {
+    return "Futures";
+  }
+
+  // Check for prop keywords (check before main markets to avoid false positives)
+  const propKeywords = [
+    // Special props (longer forms checked first for specificity)
+    "triple double",
+    "triple-double",
+    "td",
+    "double double",
+    "double-double",
+    "dd",
+    "first basket",
+    "first field goal",
+    "first fg",
+    "fb",
+    "top scorer",
+    "top points",
+    "top pts",
+    // Stat types
+    "points",
+    "pts",
+    "rebounds",
+    "reb",
+    "assists",
+    "ast",
+    "threes",
+    "3pt",
+    "3-pointers",
+    "made threes",
+    "steals",
+    "stl",
+    "blocks",
+    "blk",
+    "turnovers",
+    "pra",
+    "pr",
+    "ra",
+    "pa",
+    "stocks",
+    // General prop indicators
+    "player",
+    "prop",
+    "to record",
+    "to score",
+  ];
+  if (propKeywords.some((keyword) => lower.includes(keyword))) {
+    return "Props";
+  }
+
+  // Check for main market keywords
+  const mainMarketKeywords = [
+    "moneyline",
+    "ml",
+    "spread",
+    "total",
+    "over",
+    "under",
+  ];
+  if (mainMarketKeywords.some((keyword) => lower.includes(keyword))) {
+    // But exclude if it's clearly a prop (e.g., "player points total")
+    if (!lower.includes("player") && !lower.includes("prop")) {
+      return "Main";
+    }
+  }
+
+  // Default to Props if unclear (safer than Main for player/team bets)
+  return "Props";
 };
 
 type VisibleLeg = {
@@ -203,11 +303,7 @@ export const ImportConfirmationModal: React.FC<
       }
     } else {
       // Checking bet-level issues for singles
-      if (
-        bet.betType === "single" ||
-        !bet.legs ||
-        visibleLegs.length === 1
-      ) {
+      if (bet.betType === "single" || !bet.legs || visibleLegs.length === 1) {
         const betName =
           bet.name ||
           visibleLegs[0]?.leg.entities?.[0] ||
@@ -351,6 +447,22 @@ export const ImportConfirmationModal: React.FC<
             parentLeg.result = value as any;
           }
           break;
+        case "Odds":
+          const numVal = parseInt(value.replace("+", ""), 10);
+          if (!isNaN(numVal)) {
+            if (target.childIndex !== undefined) {
+              const children = parentLeg.children
+                ? [...parentLeg.children]
+                : [];
+              const child = { ...(children[target.childIndex] || {}) };
+              child.odds = numVal;
+              children[target.childIndex] = child;
+              parentLeg.children = children;
+            } else {
+              parentLeg.odds = numVal;
+            }
+          }
+          break;
       }
 
       newLegs[target.parentIndex] = parentLeg;
@@ -379,6 +491,12 @@ export const ImportConfirmationModal: React.FC<
           break;
         case "Result":
           updates.result = value as any;
+          break;
+        case "Odds":
+          const numVal = parseInt(value.replace("+", ""), 10);
+          if (!isNaN(numVal)) {
+            updates.odds = numVal;
+          }
           break;
       }
     }
@@ -450,37 +568,37 @@ export const ImportConfirmationModal: React.FC<
                   <th className="px-2 py-3">Edit</th>
                 </tr>
               </thead>
-                <tbody>
-                  {bets.map((bet, betIndex) => {
-                    const isParlayBet = isParlay(bet);
-                    const isExpanded = expandedBets.has(bet.id);
-                    const betIssues = getBetIssues(bet);
-                    const isEditing =
-                      editingIndex === betIndex && editingLegIndex === null;
-                    const visibleLegs = getVisibleLegs(bet);
+              <tbody>
+                {bets.map((bet, betIndex) => {
+                  const isParlayBet = isParlay(bet);
+                  const isExpanded = expandedBets.has(bet.id);
+                  const betIssues = getBetIssues(bet);
+                  const isEditing =
+                    editingIndex === betIndex && editingLegIndex === null;
+                  const visibleLegs = getVisibleLegs(bet);
 
-                    // Format values for bet row
-                    const date = formatDate(bet.placedAt);
-                    const site = siteShortNameMap[bet.book] || bet.book;
-                    const sport = bet.sport || "";
+                  // Format values for bet row
+                  const date = formatDate(bet.placedAt);
+                  const site = siteShortNameMap[bet.book] || bet.book;
+                  const sport = bet.sport || "";
                   const category = isParlayBet
-                      ? "Parlay"
-                      : bet.marketCategory?.includes("Prop")
-                      ? "Props"
-                      : bet.marketCategory?.includes("Main")
-                      ? "Main"
-                      : bet.marketCategory?.includes("Future")
-                      ? "Futures"
-                      : "Props";
-                    const type = isParlayBet ? "—" : bet.type || "";
-                    const name = isParlayBet
-                      ? `${getParlayLabel(bet)} (${visibleLegs.length}) ${
-                          isExpanded ? "▾" : "▸"
-                        }`
-                      : bet.name ||
-                        visibleLegs[0]?.leg.entities?.[0] ||
-                        bet.legs?.[0]?.entities?.[0] ||
-                        "";
+                    ? "Parlay"
+                    : bet.marketCategory?.includes("Prop")
+                    ? "Props"
+                    : bet.marketCategory?.includes("Main")
+                    ? "Main"
+                    : bet.marketCategory?.includes("Future")
+                    ? "Futures"
+                    : "Props";
+                  const type = isParlayBet ? "—" : bet.type || "";
+                  const name = isParlayBet
+                    ? `${getParlayLabel(bet)} (${visibleLegs.length}) ${
+                        isExpanded ? "▾" : "▸"
+                      }`
+                    : bet.name ||
+                      visibleLegs[0]?.leg.entities?.[0] ||
+                      bet.legs?.[0]?.entities?.[0] ||
+                      "";
                   const ou = isParlayBet
                     ? "—"
                     : bet.ou === "Over"
@@ -491,15 +609,20 @@ export const ImportConfirmationModal: React.FC<
                   const line = isParlayBet ? "—" : bet.line || "";
                   const odds = formatOdds(bet.odds);
                   const betAmount = `$${bet.stake.toFixed(2)}`;
-                  const toWin = `$${calculateToWin(bet.stake, bet.odds)}`;
+                  const toWinValue = calculateToWin(
+                    bet.stake,
+                    bet.odds,
+                    bet.payout
+                  );
+                  const toWin = toWinValue ? `$${toWinValue}` : "";
                   const result = capitalizeFirstLetter(bet.result);
-                  const net = calculateNet(
+                  const netValue = calculateNet(
                     bet.result,
                     bet.stake,
                     bet.odds,
                     bet.payout
                   );
-                  const netDisplay = net ? `$${net}` : "";
+                  const netDisplay = netValue ? `$${netValue}` : "";
                   const live = bet.isLive ? "✓" : "";
                   const tail = bet.tail ? "✓" : "";
 
@@ -870,9 +993,9 @@ export const ImportConfirmationModal: React.FC<
                         </td>
                         <td
                           className={`px-2 py-3 ${
-                            parseFloat(net || "0") > 0
+                            parseFloat(netValue || "0") > 0
                               ? "text-accent-500"
-                              : parseFloat(net || "0") < 0
+                              : parseFloat(netValue || "0") < 0
                               ? "text-danger-500"
                               : ""
                           }`}
@@ -947,6 +1070,9 @@ export const ImportConfirmationModal: React.FC<
                                       Line
                                     </th>
                                     <th className="px-2 py-2 text-left">
+                                      Odds
+                                    </th>
+                                    <th className="px-2 py-2 text-left">
                                       Result
                                     </th>
                                     <th className="px-2 py-2 text-left">
@@ -980,10 +1106,16 @@ export const ImportConfirmationModal: React.FC<
                                     const legResult = capitalizeFirstLetter(
                                       leg.result
                                     );
+                                    const legOdds =
+                                      leg.odds !== undefined
+                                        ? formatOdds(leg.odds)
+                                        : "";
 
                                     return (
                                       <tr
-                                        key={`${visibleLeg.parentIndex}-${visibleLeg.childIndex ?? "root"}-${legIndex}`}
+                                        key={`${visibleLeg.parentIndex}-${
+                                          visibleLeg.childIndex ?? "root"
+                                        }`}
                                         className={`border-b dark:border-neutral-700 ${
                                           legIssues.length > 0
                                             ? "bg-yellow-50 dark:bg-yellow-900/20"
@@ -1205,6 +1337,26 @@ export const ImportConfirmationModal: React.FC<
                                             />
                                           ) : (
                                             <span>{legLine}</span>
+                                          )}
+                                        </td>
+                                        <td className="px-2 py-2">
+                                          {isEditingLeg ? (
+                                            <input
+                                              type="text"
+                                              value={legOdds}
+                                              onChange={(e) =>
+                                                handleEditBet(
+                                                  betIndex,
+                                                  "Odds",
+                                                  e.target.value,
+                                                  legIndex
+                                                )
+                                              }
+                                              className="w-full p-1 text-xs border rounded bg-white dark:bg-neutral-800"
+                                              placeholder="e.g., +100, -200"
+                                            />
+                                          ) : (
+                                            <span>{legOdds}</span>
                                           )}
                                         </td>
                                         <td className="px-2 py-2 capitalize">

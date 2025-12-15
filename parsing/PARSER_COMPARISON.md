@@ -13,6 +13,7 @@ This document compares the DraftKings and FanDuel parsers, highlighting key diff
 ### HTML Structure
 
 **FanDuel:**
+
 - Uses generic HTML with classes and aria-labels
 - Bet cards: `<li>` elements with varying class patterns
 - Legs identified by aria-label attributes
@@ -20,6 +21,7 @@ This document compares the DraftKings and FanDuel parsers, highlighting key diff
 - Leg rows: Various div structures with aria-labels
 
 **DraftKings:**
+
 - Uses data-test-id attributes extensively
 - Bet cards: `<div data-test-id="bet-card-{id}">`
 - Legs in collapsible panels with id patterns like "{n}-body"
@@ -28,11 +30,11 @@ This document compares the DraftKings and FanDuel parsers, highlighting key diff
 
 ### Naming Conventions
 
-| Concept | FanDuel | DraftKings | Normalized |
-|---------|---------|------------|------------|
-| Same Game Parlay Plus | SGP+ | SGPx | sgp_plus |
-| Simple Same Game Parlay | SGP | SGP | parlay (for DK), sgp (for FD) |
-| Regular Parlay | Parlay | Parlay | parlay |
+| Concept                 | FanDuel | DraftKings | Normalized                    |
+| ----------------------- | ------- | ---------- | ----------------------------- |
+| Same Game Parlay Plus   | SGP+    | SGPx       | sgp_plus                      |
+| Simple Same Game Parlay | SGP     | SGP        | parlay (for DK), sgp (for FD) |
+| Regular Parlay          | Parlay  | Parlay     | parlay                        |
 
 **Important Note on betType Classification:**
 
@@ -42,6 +44,7 @@ This intentional divergence exists because DraftKings and FanDuel have different
 - **DraftKings**: Uses betType `parlay` for both simple SGPs and regular parlays, differentiating them via the `marketCategory` field (`SGP/SGP+` vs `Parlays`)
 
 This difference is preserved in the parsers because:
+
 1. It reflects how each book actually represents these bets in their HTML
 2. The marketCategory field still allows proper filtering and classification
 3. Only nested/multi-group SGPs (SGPx/SGP+) are universally classified as `sgp_plus`
@@ -50,24 +53,28 @@ When consuming the parsed data, always check BOTH `betType` and `marketCategory`
 
 **Truth Table for Bet Type Mapping:**
 
-| Book | Scenario | betType | marketCategory | Normalized |
-|------|----------|---------|----------------|------------|
-| DraftKings | Simple SGP | parlay | SGP/SGP+ | sgp |
-| DraftKings | Nested/Multi-group SGP (SGPx) | sgp_plus | SGP/SGP+ | sgp_plus |
-| DraftKings | Regular Parlay | parlay | Parlays | parlay |
-| FanDuel | Simple SGP | sgp | SGP/SGP+ | sgp |
-| FanDuel | Nested/Multi-group SGP (SGP+) | sgp_plus | SGP/SGP+ | sgp_plus |
-| FanDuel | Regular Parlay | parlay | Parlays | parlay |
+| Book       | Scenario                      | betType  | marketCategory | Normalized |
+| ---------- | ----------------------------- | -------- | -------------- | ---------- |
+| DraftKings | Simple SGP                    | parlay   | SGP/SGP+       | sgp        |
+| DraftKings | Nested/Multi-group SGP (SGPx) | sgp_plus | SGP/SGP+       | sgp_plus   |
+| DraftKings | Regular Parlay                | parlay   | Parlays        | parlay     |
+| FanDuel    | Simple SGP                    | sgp      | SGP/SGP+       | sgp        |
+| FanDuel    | Nested/Multi-group SGP (SGP+) | sgp_plus | SGP/SGP+       | sgp_plus   |
+| FanDuel    | Regular Parlay                | parlay   | Parlays        | parlay     |
+
+Row-by-row: DraftKings labels both SGP and regular parlays as betType `parlay` and separates them via `marketCategory`, while FanDuel encodes the distinction directly in betType; nested/multi-group SGPs normalize to `sgp_plus` for both, so consumers must read betType and marketCategory together to classify correctly.
 
 ### Bet Type Detection
 
 **FanDuel:**
+
 - Checks for "X leg parlay" patterns in text
 - Looks for "Same Game Parlay" text markers
 - Checks aria-labels for parlay indicators
 - Infers from structure (multiple leg rows)
 
 **DraftKings:**
+
 - Checks for `data-test-id="sgp-{id}"` attributes (most reliable)
 - Looks for "SGPx" text for SGP+ bets
 - Checks for nested `selection-list-item` structures
@@ -76,12 +83,14 @@ When consuming the parsed data, always check BOTH `betType` and `marketCategory`
 ### Player Name / Entity Extraction
 
 **FanDuel:**
+
 - Multiple extraction strategies from aria-labels
 - Complex pattern matching for "Player Name To Record X+ Stat"
 - Extensive cleaning of team prefixes, market suffixes
 - Handles various formats: "Over {line}", "{target}+", etc.
 
 **DraftKings:**
+
 - Extracts from `data-test-id="bet-selection-subtitle-{id}"` elements
 - Simpler pattern: "{Player Name} {Stat Type}" → extract both
 - Less cleaning needed due to more structured HTML
@@ -90,11 +99,13 @@ When consuming the parsed data, always check BOTH `betType` and `marketCategory`
 ### Odds Extraction
 
 **FanDuel:**
+
 - Searches for `span[aria-label^="Odds"]`
 - Multiple fallback strategies (parent, sibling, text patterns)
 - Handles unicode minus (−) character
 
 **DraftKings:**
+
 - Direct query: `span[data-test-id^="bet-details-displayOdds-"]`
 - Also handles unicode minus (−) character
 - More straightforward due to consistent structure
@@ -102,12 +113,14 @@ When consuming the parsed data, always check BOTH `betType` and `marketCategory`
 ### Result Detection
 
 **FanDuel:**
+
 - SVG icon analysis (fill colors: #128000 = win, #d22839 = loss)
 - Checks for specific icon IDs (tick-circle, cross-circle)
 - Text analysis for "VOID" patterns
 - Footer text analysis ("WON ON FANDUEL", "RETURNED")
 
 **DraftKings:**
+
 - SVG circle stroke/fill colors (#53D337 = win, #E9344A = loss)
 - SVG title text ("X sign" = loss)
 - Status div text ("Won", "Lost", "Void")
@@ -116,12 +129,14 @@ When consuming the parsed data, always check BOTH `betType` and `marketCategory`
 ### Sport/League Detection
 
 **FanDuel:**
+
 - Infers from text patterns (team names, keywords)
 - Market type analysis (Yards/Receptions → NFL, Points/Assists → NBA)
 - Extensive team name dictionary
 - Priority system: markets > explicit mentions > team names
 
 **DraftKings:**
+
 - Extracts from team logo URLs: `/teams/{league}/{team}.png`
 - Example: `/teams/nba/PHX.png` → "NBA"
 - Much simpler and more reliable
@@ -130,6 +145,7 @@ When consuming the parsed data, always check BOTH `betType` and `marketCategory`
 ### Description Formatting
 
 **FanDuel:**
+
 - Extensive formatting utilities
 - Removes promotional text ("Same Game Parlay Available", "Parlay™")
 - Cleans aria-label artifacts
@@ -137,6 +153,7 @@ When consuming the parsed data, always check BOTH `betType` and `marketCategory`
 - Handles malformed patterns like "Name Over Name"
 
 **DraftKings:**
+
 - Simpler approach using market + target
 - For spreads/totals: just the type ("Spread", "Total")
 - For props: uses the full market description
@@ -145,13 +162,15 @@ When consuming the parsed data, always check BOTH `betType` and `marketCategory`
 ### SGP/SGP+ Structure
 
 **FanDuel SGP+:**
+
 - Group legs with `isGroupLeg: true`
 - Children array contains nested SGP selections
-- Each child has `odds: null` (combined odds on group)
+- Each child has `odds: undefined` (combined odds on group)
 - Target field contains matchup info
 - Complex nested structure with matchup extraction
 
 **DraftKings SGPx:**
+
 - Similar group leg structure
 - Uses nested `selection-list-item` elements
 - Parses hierarchy: top-level → group → children

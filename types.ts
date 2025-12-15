@@ -1,8 +1,54 @@
-export type BetResult = 'win' | 'loss' | 'push' | 'pending';
+export type BetResult = "win" | "loss" | "push" | "pending";
 export type LegResult = "WIN" | "LOSS" | "PUSH" | "PENDING" | "UNKNOWN";
-export type BetType = 'single' | 'parlay' | 'sgp' | 'sgp_plus' | 'live' | 'other';
+
+/**
+ * FinalRow result values (title-case format for spreadsheet display).
+ * These match the capitalized BetResult values used in FinalRow.Result.
+ */
+export type FinalResult = "Win" | "Loss" | "Push" | "Pending";
+
+/**
+ * Flag values for Over/Under fields: "1" for set, "0" for not set, "" for not applicable.
+ */
+export type OverUnderFlag = "1" | "0" | "";
+
+/**
+ * Flag values for single-flag fields like Live and Tail: "1" for set, "" for not set.
+ */
+export type SingleFlag = "1" | "";
+
+/**
+ * Formatted American odds string (e.g., "+360", "-120", "").
+ * Must include sign for positive odds, no sign needed for negative (but typically includes "-").
+ */
+export type FormattedOdds = string & { readonly __brand: "FormattedOdds" };
+
+/**
+ * Formatted monetary amount string (e.g., "1.00", "3.60", "").
+ * Always 2 decimal places when non-empty, no currency symbol.
+ */
+export type FormattedAmount = string & { readonly __brand: "FormattedAmount" };
+
+/**
+ * Formatted net profit/loss string (e.g., "-1.00", "0.00", "3.60", "").
+ * Can be negative (loss), zero (push), positive (win), or empty (pending).
+ * Always 2 decimal places when non-empty, no currency symbol.
+ */
+export type FormattedNet = string & { readonly __brand: "FormattedNet" };
+export type BetType =
+  | "single"
+  | "parlay"
+  | "sgp"
+  | "sgp_plus"
+  | "live"
+  | "other";
 export type SportsbookName = string;
-export type MarketCategory = "Props" | "Main Markets" | "Futures" | "SGP/SGP+" | "Parlays";
+export type MarketCategory =
+  | "Props"
+  | "Main Markets"
+  | "Futures"
+  | "SGP/SGP+"
+  | "Parlays";
 
 export interface Sportsbook {
   name: SportsbookName;
@@ -14,8 +60,8 @@ export interface BetLeg {
   entities?: string[];
   market: string;
   target?: number | string;
-  ou?: 'Over' | 'Under';
-  odds?: number | null;
+  ou?: "Over" | "Under";
+  odds?: number;
   actual?: number | string;
   /**
    * Leg-level result parsed from inline SVG icons when available.
@@ -43,13 +89,13 @@ export interface Bet {
   sport: string;
   description: string;
   name?: string; // Player/team name only (e.g., "Will Richard") - separate from description
-  odds: number;
+  odds?: number | null;
   stake: number;
   payout: number;
   result: BetResult;
   type?: string; // Stat type for props (e.g., "3pt", "Pts", "Ast") - convenience field derived from legs[0]
   line?: string; // Line/threshold (e.g., "3+", "25.5") - convenience field derived from legs[0]
-  ou?: 'Over' | 'Under'; // Over/Under - convenience field derived from legs[0]
+  ou?: "Over" | "Under"; // Over/Under - convenience field derived from legs[0]
   legs?: BetLeg[]; // All bets have legs: singles have legs.length === 1, parlays/SGPs have legs.length > 1
   tail?: string; // Who the bet was tailed from
   raw?: string; // Full raw text block for this bet
@@ -78,10 +124,10 @@ export interface StrictBetRow {
 
 /**
  * FinalRow - THE CANONICAL SPREADSHEET ROW TYPE
- * 
+ *
  * This interface represents the EXACT columns in the user's spreadsheet.
  * All fields must match the spreadsheet schema exactly.
- * 
+ *
  * RULES:
  * - Name: SUBJECT ONLY (player or team name, nothing else)
  * - Type: Depends on Category:
@@ -93,24 +139,24 @@ export interface StrictBetRow {
  * - Date format: MM/DD/YY
  */
 export interface FinalRow {
-  Date: string;        // MM/DD/YY format
+  Date: string; // MM/DD/YY format
   Site: string;
   Sport: string;
   Category: string;
   Type: string;
   Name: string;
-  Name2?: string;     // Second name for totals bets (team 2)
-  Over: string;        // "1" or "0" or ""
-  Under: string;      // "1" or "0" or ""
+  Name2?: string; // Second name for totals bets (team 2)
+  Over: OverUnderFlag;
+  Under: OverUnderFlag;
   Line: string;
-  Odds: string;       // "+360" or "-120" (keep sign)
-  Bet: string;        // "1.00" (no $)
-  "To Win": string;   // "3.60"
-  Result: string;     // "Win", "Loss", "Push", "Pending"
-  Net: string;        // "-1.00", "0", "3.60"
-  Live: string;       // "1" or ""
-  Tail: string;       // "1" or ""
-  
+  Odds: FormattedOdds;
+  Bet: FormattedAmount;
+  "To Win": FormattedAmount;
+  Result: FinalResult;
+  Net: FormattedNet;
+  Live: SingleFlag;
+  Tail: SingleFlag;
+
   // Internal parlay metadata (not visible in spreadsheet)
   _parlayGroupId?: string | null;
   _legIndex?: number | null;

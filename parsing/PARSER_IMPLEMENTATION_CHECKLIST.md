@@ -8,8 +8,8 @@ Use this checklist when implementing a parser for a new sportsbook. This ensures
   - [ ] Obtain HTML from sportsbook's settled bets page
   - [ ] Include examples of: singles, parlays, SGPs, wins, losses, pushes, pending
   - [ ] Save samples in `parsing/fixtures/{sportsbook}/`
-  
 - [ ] **Study HTML Structure**
+
   - [ ] Identify bet card/container elements
   - [ ] Locate header vs footer sections
   - [ ] Find bet ID, amounts, dates, results
@@ -43,7 +43,6 @@ Use this checklist when implementing a parser for a new sportsbook. This ensures
 - [ ] **Identify bet containers** - Find all bet cards/items in HTML
   - [ ] Selector for container list (e.g., `<ul>`, `<div class="bets">`)
   - [ ] Selector for individual bet cards
-  
 - [ ] **Extract header information** - Bet details from card header
   - [ ] Bet description/title
   - [ ] Sport name
@@ -51,14 +50,12 @@ Use this checklist when implementing a parser for a new sportsbook. This ensures
   - [ ] Market type (spread, total, prop, etc.)
   - [ ] Odds
   - [ ] Live bet indicator (if applicable)
-  
 - [ ] **Extract footer information** - Bet metadata from card footer
   - [ ] Bet ID
   - [ ] Placed date/time
   - [ ] Stake amount
   - [ ] Payout/returned amount
   - [ ] Result indicators (won, lost, pushed, pending)
-  
 - [ ] **Extract leg information** - Individual selections
   - [ ] Player/team name(s)
   - [ ] Stat type/market
@@ -70,16 +67,19 @@ Use this checklist when implementing a parser for a new sportsbook. This ensures
 ### 4. Field Normalization
 
 - [ ] **Dates and Times**
+
   - [ ] Parse date strings to ISO 8601 format
   - [ ] Handle timezone conversions
   - [ ] Generate `id` field: `"{book}:{betId}:{placedAt}"`
 
 - [ ] **Financial Values**
+
   - [ ] Parse currency strings (remove $, commas)
   - [ ] Convert to numbers
   - [ ] Handle decimal precision
 
 - [ ] **Odds**
+
   - [ ] Parse odds to American format (integer)
   - [ ] Handle both positive and negative odds
   - [ ] Convert from fractional/decimal if needed
@@ -92,6 +92,7 @@ Use this checklist when implementing a parser for a new sportsbook. This ensures
 ### 5. Bet Type Detection
 
 - [ ] **Identify bet structure**
+
   - [ ] Single: 1 selection
   - [ ] Parlay: 2+ selections from different games
   - [ ] SGP: 2+ selections from same game
@@ -118,20 +119,17 @@ Use this checklist when implementing a parser for a new sportsbook. This ensures
   - [ ] Create 1 leg matching bet-level data
   - [ ] Set leg odds = bet odds
   - [ ] Set leg result = bet result
-  
 - [ ] **For Parlays**
   - [ ] Create separate leg for each selection
   - [ ] Extract individual leg odds (if available)
   - [ ] Extract individual leg results (if available)
   - [ ] Preserve leg order from HTML
-  
 - [ ] **For SGPs**
   - [ ] Create 1 group leg with `isGroupLeg: true`
   - [ ] Set group leg odds = bet odds
   - [ ] Create children array for selections
-  - [ ] Set children odds to `null`
+  - [ ] Set children odds to `undefined`
   - [ ] Extract children results from icons/indicators
-  
 - [ ] **For SGP+**
   - [ ] Create group leg for SGP portion
   - [ ] Create separate legs for extra selections
@@ -143,15 +141,12 @@ Use this checklist when implementing a parser for a new sportsbook. This ensures
 - [ ] **Single bets**
   - [ ] Format: "{Player} {Line} {Stat Type}"
   - [ ] Example: "Royce O'Neale 5+ MADE THREES"
-  
 - [ ] **Parlays**
   - [ ] Format: "{Selection1}, {Selection2}, ..."
   - [ ] Example: "Orlando Magic -5.5, Detroit Pistons -5.5"
-  
 - [ ] **SGPs**
   - [ ] Format: "Same Game Parlay - {Game}: {Selection1}; {Selection2}; ..."
   - [ ] Example: "Same Game Parlay - Bulls @ Trail Blazers: Player1 10+ Ast; Player2 4+ 3pt"
-  
 - [ ] **SGP+**
   - [ ] Format: "{N}-leg Same Game Parlay Plus: SGP ({selections}) + {extra1} + {extra2}"
   - [ ] Example: "4-leg Same Game Parlay Plus: SGP (Adams 50+ Yds, Kupp 3+ Rec) + Pearsall 50+ Yds + Kupp 3+ Yds"
@@ -176,20 +171,17 @@ Use this checklist when implementing a parser for a new sportsbook. This ensures
   - [ ] Parser returns array
   - [ ] Correct number of bets parsed
   - [ ] No duplicate bet IDs
-  
 - [ ] **Test field accuracy**
   - [ ] All required fields present
   - [ ] Field values match expected values
   - [ ] Odds parsed correctly
   - [ ] Amounts parsed correctly
   - [ ] Dates formatted correctly
-  
 - [ ] **Test bet types**
   - [ ] Single bets parsed correctly
   - [ ] Parlay bets parsed correctly
   - [ ] SGP bets parsed correctly
   - [ ] SGP+ bets parsed correctly
-  
 - [ ] **Test edge cases**
   - [ ] Empty HTML
   - [ ] Malformed HTML
@@ -202,7 +194,6 @@ Use this checklist when implementing a parser for a new sportsbook. This ensures
   - [ ] `expected_{sportsbook}_bets.json` - Basic bet samples
   - [ ] `expected_sgp_sample.json` - SGP example (if applicable)
   - [ ] `expected_sgp_plus_sample.json` - SGP+ example (if applicable)
-  
 - [ ] **Validate against target fields**
   - [ ] Use `parsing/PARSER_TARGET_FIELDS.md` as reference
   - [ ] Verify all required fields present
@@ -215,7 +206,6 @@ Use this checklist when implementing a parser for a new sportsbook. This ensures
   - [ ] Save real HTML to fixtures
   - [ ] Run parser on real samples
   - [ ] Verify output matches expected format
-  
 - [ ] **Test edge cases**
   - [ ] Very long parlays
   - [ ] Unusual bet types
@@ -229,6 +219,7 @@ Use this checklist when implementing a parser for a new sportsbook. This ensures
 **Context:** The `pageProcessor.ts` file is the main parser entry point. It receives raw HTML content, dispatches to the selected sportsbook parser, normalizes the result, and returns or propagates errors to the caller/UI.
 
 - [ ] **Update pageProcessor.ts**
+
   - [ ] Import new parser: `import { parse as parse{Sportsbook} } from './parsers/{sportsbook}';`
   - [ ] Add case to switch statement that calls the parser and awaits its normalized output
   - [ ] Wrap the parser call in try/catch to log clear, descriptive error messages including the sportsbook name and original error details
@@ -243,11 +234,9 @@ Use this checklist when implementing a parser for a new sportsbook. This ensures
 - [ ] **Update README.md**
   - [ ] Add sportsbook to supported list
   - [ ] Update parser directory listing
-  
 - [ ] **Update PARSERS.md**
   - [ ] Add parser to structure section
   - [ ] Document any special considerations
-  
 - [ ] **Add parser-specific docs** (if needed)
   - [ ] Create `parsing/parsers/{sportsbook}/README.md`
   - [ ] Document HTML structure specifics
@@ -258,6 +247,7 @@ Use this checklist when implementing a parser for a new sportsbook. This ensures
 - [ ] **Save implementation facts**
 
 Store important implementation details that will help with future maintenance and debugging. Examples include:
+
 - HTML element patterns and selector heuristics (e.g., "bet cards use `<li class='bet-card'>` structure")
 - Edge-case parsing rules (e.g., "SGP+ bets have nested group legs with null odds for children")
 - Retry/timeout handling strategies
@@ -268,6 +258,7 @@ Store important implementation details that will help with future maintenance an
 **When to store:** On first parser rollout, after major fixes, or when an anti-pattern recurs.
 
 **Suggested format:**
+
 - Key: Short identifier (e.g., "DraftKings SGP structure")
 - Context: What HTML pattern or behavior this addresses
 - Rationale: Why this approach was chosen
@@ -282,17 +273,17 @@ Store important implementation details that will help with future maintenance an
   - [ ] All test suites pass
   - [ ] Minimum 85% overall code coverage
   - [ ] Minimum 90% coverage for parser core modules (main parser functions, HTML extraction logic, field normalization, bet type detection)
-  
 - [ ] **Integration tests** - Run FanDuel reference compatibility tests
   - [ ] Verify output matches expected JSON fixtures
   - [ ] Include regression tests for any discrepancies vs FanDuel reference
-  
 - [ ] **End-to-end tests** - Test in UI
+
   - [ ] Paste real HTML and verify import works
   - [ ] Verify all bet types display correctly in table
   - [ ] Check filtering and sorting work with parsed data
 
 - [ ] **Code quality**
+
   - [ ] Run linter: `npm run lint` (if available)
   - [ ] Code review: Use automated code review tools if available
   - [ ] Security scan: Use static analysis tools if available
@@ -311,11 +302,12 @@ See `parsing/parsers/fanduel/` for a complete reference implementation covering 
 ## Common Pitfalls
 
 ⚠️ **Watch out for:**
+
 - Inconsistent date formats across different pages
 - Currency symbols and thousand separators in amounts
 - Positive vs negative odds formatting
 - Case sensitivity in result values (bet vs leg)
-- Missing odds for SGP inner legs (should be null, not undefined)
+- Missing odds for SGP inner legs (should be undefined)
 - Description formatting consistency (commas vs semicolons)
 - Leg order preservation in parlays
 - Nested structure for SGP+ (group leg + children + extra legs)
@@ -323,6 +315,7 @@ See `parsing/parsers/fanduel/` for a complete reference implementation covering 
 ## Success Criteria
 
 Your parser is complete when:
+
 - ✅ All unit tests pass with required coverage (85% overall, 90% parser core)
 - ✅ All expected JSON fixtures match actual output
 - ✅ Integration tests with real HTML succeed
