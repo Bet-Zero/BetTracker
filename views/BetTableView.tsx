@@ -1803,18 +1803,25 @@ const BetTableView: React.FC = () => {
                   ? parseInt(row.id.split("-leg-").pop()!, 10)
                   : -1;
                 const net = row.net;
-                const resultColorClass =
-                  net > 0
-                    ? "bg-accent-500/10"
-                    : net < 0
-                    ? "bg-danger-500/10"
+                const displayResult = isLeg ? row.result : row.overallResult;
+                const resultBgClass =
+                  displayResult === "win"
+                    ? "bg-green-500/10"
+                    : displayResult === "loss"
+                    ? "bg-red-500/10"
+                    : displayResult === "push"
+                    ? "bg-neutral-500/10"
                     : "";
+                const resultTextClass =
+                  displayResult === "win"
+                    ? "text-green-600 dark:text-green-400"
+                    : displayResult === "loss"
+                    ? "text-red-600 dark:text-red-400"
+                    : "";
+                const netBgClass =
+                  net > 0 ? "bg-green-500/10" : net < 0 ? "bg-red-500/10" : "";
                 const netColorClass =
-                  net > 0
-                    ? "text-accent-500"
-                    : net < 0
-                    ? "text-danger-500"
-                    : "";
+                  net > 0 ? "text-green-500" : net < 0 ? "text-red-500" : "";
 
                 // Helper to check if cell is in drag fill range
                 const isInDragFillRange = (
@@ -2315,22 +2322,19 @@ const BetTableView: React.FC = () => {
                             inputRef={getCellRef(rowIndex, "odds")}
                             onSave={(val) => {
                               const numVal = parseInt(val.replace("+", ""), 10);
-                              if (!isNaN(numVal)) {
+                              if (!isNaN(numVal) && row._legIndex != null) {
                                 // Update leg odds if this is a parlay child
-                                if (row._legIndex != null) {
-                                  handleLegUpdate(
-                                    row.betId,
-                                    row._legIndex - 1,
-                                    { odds: numVal }
-                                  );
-                                }
+                                handleLegUpdate(row.betId, row._legIndex - 1, {
+                                  odds: numVal,
+                                });
+                              }
+                            }}
+                          />
                         ) : (
                           <span className="text-neutral-300 dark:text-neutral-600">
                             ↳
                           </span>
                         )
-                      ) : (
-                        <EditableCell
                       ) : (
                         <EditableCell
                           value={formatOdds(row.odds)}
@@ -2405,21 +2409,13 @@ const BetTableView: React.FC = () => {
                       className={
                         getCellClasses("result") +
                         " capitalize whitespace-nowrap " +
-                        resultColorClass
+                        resultBgClass
                       }
                       onClick={(e) => handleCellClick(rowIndex, "result", e)}
                     >
-                      <div
-                        className={
-                          net > 0
-                            ? "text-accent-600 dark:text-accent-400"
-                            : net < 0
-                            ? "text-danger-600 dark:text-danger-400"
-                            : ""
-                        }
-                      >
+                      <div className={resultTextClass}>
                         <ResultCell
-                          value={isLeg ? row.result : row.overallResult}
+                          value={displayResult}
                           onSave={(val) => {
                             if (isLeg) {
                               handleLegUpdate(row.betId, legIndex, {
@@ -2435,7 +2431,7 @@ const BetTableView: React.FC = () => {
                     <td
                       className={
                         getCellClasses("net") +
-                        ` font-bold whitespace-nowrap ${resultColorClass} ${netColorClass}`
+                        ` font-bold whitespace-nowrap ${netBgClass} ${netColorClass}`
                       }
                     >
                       {row._isParlayChild && !row._isParlayHeader ? (
