@@ -112,7 +112,7 @@ const formatLegSummaryShort = (leg: BetLeg): string => {
   const name = leg.entities?.[0] ?? "";
   const market = (leg.market || "").toLowerCase();
   const target = leg.target ?? "";
-  
+
   // Use short market names for concise SGP+ descriptions
   if (market === "3pt" && target) {
     return name ? `${name} ${target} 3pt` : `${target} 3pt`;
@@ -162,6 +162,108 @@ export const parseParlayBet = ({
 
   const skipLegOdds = betType === "sgp";
 
+  // Helper to normalize target for deduplication
+  // For loose matching, we treat empty/undefined as equivalent
+  // This helps catch duplicates where one leg has a target and another doesn't
+  const normalizeTargetForKey = (
+    target: string | number | undefined | null
+  ): string => {
+    if (target === undefined || target === null || target === "") {
+      return "";
+    }
+    return String(target).trim();
+  };
+
+  // Helper to check if a target is empty (for wildcard matching)
+  const isTargetEmpty = (
+    target: string | number | undefined | null
+  ): boolean => {
+    const normalized = normalizeTargetForKey(target);
+    return normalized === "";
+  };
+
+  // Creates keys for loose matching with wildcard support
+  // When a leg has an empty target, it matches any leg with the same entity+market
+  // When a leg has a non-empty target, it matches legs with the same entity+market+target
+  // OR legs with empty target (wildcard)
+  // Returns an array of keys to check for this leg
+  const legKeysLoose = (leg: BetLeg): string[] => {
+    const entity = (leg.entities?.[0] || "").toLowerCase();
+    const market = (leg.market || "").toLowerCase();
+    const target = normalizeTargetForKey(leg.target);
+
+    const keys: string[] = [];
+    // Always add the full key (entity|market|target)
+    keys.push([entity, market, target].join("|"));
+
+    // If target is empty, also add a wildcard key (entity|market) that matches any target
+    if (isTargetEmpty(leg.target)) {
+      keys.push([entity, market].join("|"));
+    }
+
+    return keys;
+  };
+
+  // Convenience wrapper that returns only the primary (full) key
+  // Use legKeysLoose when you need wildcard matching with all key variants
+  const legKeyLoose = (leg: BetLeg): string => legKeysLoose(leg)[0];
+
+  /**
+   * Checks if a leg matches any key in a set, with wildcard support for deduplication.
+   *
+   * The matching algorithm implements bidirectional wildcard matching:
+   * - For empty-target legs: checks if any of its keys (including wildcard) are in the set
+   * - For non-empty-target legs: checks if its full key is in the set, OR if its entity+market
+   *   matches any wildcard key in the set (to match empty-target legs)
+   *
+   * The `legKeysLoose` function generates wildcard keys for empty-target legs, and this function
+   * implements bidirectional matching (non-empty legs match wildcard keys in the set, and
+   * empty-target legs match full keys in the set). No manual wildcard key additions needed.
+   *
+   * @example
+   * // Empty-target leg {entities: ["lebron james"], market: "points", target: ""}
+   * //   generates keys: ["lebron james|points|", "lebron james|points"]
+   * // Non-empty leg {entities: ["lebron james"], market: "points", target: "25"}
+   * //   generates key: ["lebron james|points|25"]
+   * // They match: non-empty leg's "lebron james|points|25" matches wildcard "lebron james|points",
+   * //   and empty-target leg's "lebron james|points" matches full key "lebron james|points|25"
+   *
+   * @param leg - The leg to check for matches
+   * @param keySet - The set of keys to match against
+   * @returns true if the leg matches any key in the set
+   */
+  const legMatchesKeySet = (leg: BetLeg, keySet: Set<string>): boolean => {
+    const legKeys = legKeysLoose(leg);
+    // Check if any of the leg's keys are in the set
+    if (legKeys.some((key) => keySet.has(key))) {
+      return true;
+    }
+    // Build wildcard key for cross-matching
+    const entity = (leg.entities?.[0] || "").toLowerCase();
+    const market = (leg.market || "").toLowerCase();
+    // Skip wildcard matching if we don't have enough information to match reliably
+    if (!entity && !market) {
+      return false;
+    }
+    const wildcardKey = [entity, market].join("|");
+
+    // Check if wildcard key is in set (matches empty-target legs in set)
+    if (keySet.has(wildcardKey)) {
+      return true;
+    }
+
+    // For empty-target legs: check if any full key in set shares entity+market
+    if (isTargetEmpty(leg.target)) {
+      for (const key of keySet) {
+        if (key.startsWith(wildcardKey + "|")) {
+          return true;
+        }
+      }
+    }
+    return false;
+  };
+
+  // Original legKey for exact matching (preserves target differences when both have values)
   const legKey = (leg: BetLeg): string =>
     [
       (leg.entities?.[0] || "").toLowerCase(),
@@ -299,14 +401,28 @@ export const parseParlayBet = ({
 
     for (const [oddsValue, bucket] of groupedByOdds) {
       if (bucket.legs.length < 2) continue;
+
+      // Deduplicate legs within the bucket using all loose key variants
+      const childKeys = new Set<string>();
+      const deduplicatedLegs: BetLeg[] = [];
+      for (const leg of bucket.legs) {
+        const legKeys = legKeysLoose(leg);
+        // Only add if none of this leg's loose keys exist in childKeys
+        if (!legKeys.some((key) => childKeys.has(key))) {
+          deduplicatedLegs.push(leg);
+          // Add all loose key variants to childKeys for future checks
+          legKeys.forEach((key) => childKeys.add(key));
+        }
+      }
+
       bucket.rows.forEach((row) => consumedRows.add(row));
       groupLegs.push({
         market: "Same Game Parlay",
         target: deriveMatchup(oddsValue),
         odds: oddsValue,
-        result: aggregateChildResults(bucket.legs, result),
+        result: aggregateChildResults(deduplicatedLegs, result),
         isGroupLeg: true,
-        children: bucket.legs,
+        children: deduplicatedLegs,
       });
     }
   }
@@ -318,11 +434,18 @@ export const parseParlayBet = ({
     : [];
 
   // Avoid duplicating inner SGP legs outside the group container
+  // Use loose matching with wildcard support: empty target matches any target
   const childKeys = new Set<string>();
   groupLegs.forEach((group) =>
-    (group.children || []).forEach((child) => childKeys.add(legKey(child)))
+    (group.children || []).forEach((child) => {
+      // Add all keys (full key + wildcard key if target is empty)
+      legKeysLoose(child).forEach((key) => childKeys.add(key));
+    })
   );
-  const filteredExtras = extraLegs.filter((leg) => !childKeys.has(legKey(leg)));
+  const filteredExtras = extraLegs.filter((leg) => {
+    // Check if this leg matches any child key (with wildcard support)
+    return !legMatchesKeySet(leg, childKeys);
+  });
 
   // For SGP+ bets, ensure we extract all additional selections from raw text
   // This catches cases where additional selections aren't in the DOM structure
@@ -346,19 +469,28 @@ export const parseParlayBet = ({
       );
 
       // Filter out legs that are already in group legs' children
+      // Use loose matching with wildcard support: empty target matches any target
+      // See legMatchesKeySet function documentation for detailed matching algorithm and examples
       const allGroupChildKeys = new Set<string>();
       groupLegs.forEach((group) => {
         (group.children || []).forEach((child) => {
-          allGroupChildKeys.add(legKey(child));
+          // Add all keys (full key + wildcard key if target is empty)
+          legKeysLoose(child).forEach((key) => allGroupChildKeys.add(key));
         });
       });
 
       // Also check against filteredExtras to avoid duplicates
-      const extraKeys = new Set(filteredExtras.map(legKey));
+      const extraKeys = new Set<string>();
+      filteredExtras.forEach((leg) => {
+        legKeysLoose(leg).forEach((key) => extraKeys.add(key));
+      });
 
       additionalLegsFromText = allLegsFromText.filter((leg) => {
-        const key = legKey(leg);
-        return !allGroupChildKeys.has(key) && !extraKeys.has(key);
+        // Check if this leg matches any existing key (with wildcard support)
+        return (
+          !legMatchesKeySet(leg, allGroupChildKeys) &&
+          !legMatchesKeySet(leg, extraKeys)
+        );
       });
 
       // Only keep legs that have odds (additional selections typically have odds)
@@ -624,7 +756,7 @@ export const parseParlayBet = ({
    * Determines if a set of leg children represents a "ladder" bet.
    * A ladder bet is when all children have the same or similar stat types (e.g., all Yards or all Receptions).
    * These bets use a flat comma-separated description format rather than the structured SGP+ format.
-   * 
+   *
    * @param children - Array of child legs from SGP groups
    * @returns true if this is a ladder bet, false for mixed market types
    */
@@ -632,12 +764,17 @@ export const parseParlayBet = ({
     const marketTypes = new Set(
       children.map((c) => (c.market || "").toLowerCase())
     );
-    
+
     // Ladder bets have same-category markets (max 2 types like Yds/Rec)
     // Exclude 3pt and Ast as these are typically mixed with other types
-    return marketTypes.size <= 2 && 
-      (marketTypes.has("yds") || marketTypes.has("rec") || 
-       (marketTypes.size === 1 && !marketTypes.has("3pt") && !marketTypes.has("ast")));
+    return (
+      marketTypes.size <= 2 &&
+      (marketTypes.has("yds") ||
+        marketTypes.has("rec") ||
+        (marketTypes.size === 1 &&
+          !marketTypes.has("3pt") &&
+          !marketTypes.has("ast")))
+    );
   };
 
   const buildSGPPlusDescription = (legsForDesc: BetLeg[]): string => {
@@ -648,7 +785,7 @@ export const parseParlayBet = ({
 
     const collectChildSummaries = (group: BetLeg): string[] =>
       (group.children || []).map(formatLegSummary).filter(Boolean);
-    
+
     // Count total individual selections across all groups and extras
     const totalChildCount = groupLegs.reduce(
       (acc, g) => acc + (g.children?.length || 0),
@@ -660,7 +797,7 @@ export const parseParlayBet = ({
     // Decide format based on whether children have same market type (ladder bet) or mixed types
     if (groupLegs.length > 1 && extraLegs.length === 0) {
       const allChildren = groupLegs.flatMap((g) => g.children || []);
-      
+
       if (isLadderBet(allChildren)) {
         // Flatten all children into comma-separated format
         const allChildSummaries: string[] = [];
@@ -671,7 +808,9 @@ export const parseParlayBet = ({
       } else {
         // Mixed market types - use SGP+ format
         const sgpChunks = groupLegs.map((g) => {
-          const matchup = g.target ? shortenMatchupForDescription(g.target) : "";
+          const matchup = g.target
+            ? shortenMatchupForDescription(g.target)
+            : "";
           return matchup ? `SGP (${matchup})` : "SGP";
         });
         const suffix = sgpChunks.join(" + ");
@@ -687,15 +826,17 @@ export const parseParlayBet = ({
         return matchup ? `SGP (${matchup})` : "SGP";
       });
       // Use short format for extra legs in multi-group SGP+ descriptions
-      const extraSummaries = extraLegs.map(formatLegSummaryShort).filter(Boolean);
+      const extraSummaries = extraLegs
+        .map(formatLegSummaryShort)
+        .filter(Boolean);
       const suffix = [...sgpChunks, ...extraSummaries].join(" + ");
       return `${totalLegCount}-leg Same Game Parlay Plus: ${suffix}`;
     }
 
     const primaryGroup = groupLegs[0];
     const groupChildren = primaryGroup?.children || [];
-    const groupMatchup = primaryGroup?.target 
-      ? shortenMatchupForDescription(primaryGroup.target) 
+    const groupMatchup = primaryGroup?.target
+      ? shortenMatchupForDescription(primaryGroup.target)
       : "";
     const childSummaries = primaryGroup
       ? collectChildSummaries(primaryGroup)
@@ -899,15 +1040,71 @@ const findSGPGroupContainers = (root: HTMLElement): HTMLElement[] => {
 
 // Known team nicknames to validate matchup extraction
 const TEAM_NICKNAMES = new Set([
-  'ravens', 'browns', 'chiefs', 'broncos', 'seahawks', 'rams', 'cardinals', '49ers', 'niners',
-  'bills', 'dolphins', 'patriots', 'jets', 'steelers', 'bengals', 'cowboys', 'eagles', 'giants',
-  'commanders', 'bears', 'lions', 'packers', 'vikings', 'falcons', 'panthers', 'saints', 'buccaneers',
-  'colts', 'texans', 'jaguars', 'titans', 'raiders', 'chargers',
+  "ravens",
+  "browns",
+  "chiefs",
+  "broncos",
+  "seahawks",
+  "rams",
+  "cardinals",
+  "49ers",
+  "niners",
+  "bills",
+  "dolphins",
+  "patriots",
+  "jets",
+  "steelers",
+  "bengals",
+  "cowboys",
+  "eagles",
+  "giants",
+  "commanders",
+  "bears",
+  "lions",
+  "packers",
+  "vikings",
+  "falcons",
+  "panthers",
+  "saints",
+  "buccaneers",
+  "colts",
+  "texans",
+  "jaguars",
+  "titans",
+  "raiders",
+  "chargers",
   // NBA
-  'hawks', 'celtics', 'nets', 'hornets', 'bulls', 'cavaliers', 'mavericks', 'nuggets', 'pistons',
-  'warriors', 'rockets', 'pacers', 'clippers', 'lakers', 'grizzlies', 'heat', 'bucks', 'timberwolves',
-  'pelicans', 'knicks', 'thunder', 'magic', 'sixers', '76ers', 'suns', 'blazers', 'trail blazers',
-  'kings', 'spurs', 'raptors', 'jazz', 'wizards',
+  "hawks",
+  "celtics",
+  "nets",
+  "hornets",
+  "bulls",
+  "cavaliers",
+  "mavericks",
+  "nuggets",
+  "pistons",
+  "warriors",
+  "rockets",
+  "pacers",
+  "clippers",
+  "lakers",
+  "grizzlies",
+  "heat",
+  "bucks",
+  "timberwolves",
+  "pelicans",
+  "knicks",
+  "thunder",
+  "magic",
+  "sixers",
+  "76ers",
+  "suns",
+  "blazers",
+  "kings",
+  "spurs",
+  "raptors",
+  "jazz",
+  "wizards",
 ]);
 
 // Strip trailing player names from matchup string
@@ -916,7 +1113,7 @@ const stripTrailingPlayerName = (matchup: string): string => {
   const parts = matchup.split(/\s+@\s+|\s+vs\.?\s+/i);
   if (parts.length !== 2) return matchup;
 
-  const separator = matchup.includes('@') ? ' @ ' : ' vs ';
+  const separator = matchup.includes("@") ? " @ " : " vs ";
   const team1 = parts[0].trim();
   let team2 = parts[1].trim();
 
@@ -926,7 +1123,7 @@ const stripTrailingPlayerName = (matchup: string): string => {
     const word = team2Words[i].toLowerCase();
     if (TEAM_NICKNAMES.has(word)) {
       // Found team nickname - keep only words up to and including this one
-      team2 = team2Words.slice(0, i + 1).join(' ');
+      team2 = team2Words.slice(0, i + 1).join(" ");
       break;
     }
   }
@@ -937,23 +1134,23 @@ const stripTrailingPlayerName = (matchup: string): string => {
 // Map of full team names to short names for description purposes
 // Only shorten long city+nickname combos where the city name alone is distinctive enough
 const TEAM_SHORT_NAMES: { [key: string]: string } = {
-  'Golden State Warriors': 'Golden State',
-  'New Orleans Pelicans': 'New Orleans',
-  'Detroit Pistons': 'Detroit',
+  "Golden State Warriors": "Golden State",
+  "New Orleans Pelicans": "New Orleans",
+  "Detroit Pistons": "Detroit",
   // Keep "Atlanta Hawks", "Phoenix Suns", "Chicago Bulls", "Utah Jazz" as full names
   // because their city names alone are not distinctive enough or test fixtures expect them
-  'Los Angeles Lakers': 'Lakers',
-  'Los Angeles Clippers': 'Clippers',
-  'Portland Trail Blazers': 'Portland',
-  'Orlando Magic': 'Orlando',
-  'San Francisco 49ers': 'San Francisco',
+  "Los Angeles Lakers": "Lakers",
+  "Los Angeles Clippers": "Clippers",
+  "Portland Trail Blazers": "Portland",
+  "Orlando Magic": "Orlando",
+  "San Francisco 49ers": "San Francisco",
   // Keep Seattle Seahawks as-is (not shortened)
-  'Kansas City Chiefs': 'Kansas City',
-  'Denver Broncos': 'Denver',
-  'Baltimore Ravens': 'Baltimore',
-  'Cleveland Browns': 'Cleveland',
-  'Arizona Cardinals': 'Arizona',
-  'Dallas Mavericks': 'Dallas',
+  "Kansas City Chiefs": "Kansas City",
+  "Denver Broncos": "Denver",
+  "Baltimore Ravens": "Baltimore",
+  "Cleveland Browns": "Cleveland",
+  "Arizona Cardinals": "Arizona",
+  "Dallas Mavericks": "Dallas",
 };
 
 // Shorten team names in matchup for description purposes
@@ -961,7 +1158,7 @@ const shortenMatchupForDescription = (matchup: string): string => {
   if (!matchup) return matchup;
   let shortened = matchup;
   for (const [full, short] of Object.entries(TEAM_SHORT_NAMES)) {
-    shortened = shortened.replace(new RegExp(full, 'gi'), short);
+    shortened = shortened.replace(new RegExp(full, "gi"), short);
   }
   return shortened;
 };
@@ -1033,7 +1230,7 @@ const cleanMatchupTarget = (
       // Reject if it looks like a player name (first last format without city)
       if (name.split(/\s+/).length === 2) {
         // Check if it's a known team nickname
-        const lastWord = name.split(/\s+/).pop()?.toLowerCase() || '';
+        const lastWord = name.split(/\s+/).pop()?.toLowerCase() || "";
         if (!TEAM_NICKNAMES.has(lastWord)) return false;
       }
       return true;

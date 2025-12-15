@@ -16,7 +16,7 @@
  * - Live: "1" or "" flag (uses bet.isLive boolean, not bet.betType)
  */
 
-import { Bet, FinalRow } from "../../types";
+import { Bet, BetLeg, FinalRow, LegResult, BetResult } from "../../types";
 
 /**
  * Category and type information for bet classification.
@@ -228,12 +228,146 @@ function classifyLegCategory(market: string, sport: string): string {
 }
 
 /**
+ * Merges two result values, preferring win > loss > push > pending.
+ * @param result1 - First result value
+ * @param result2 - Second result value
+ * @returns The preferred result value, or undefined if both inputs are undefined
+ */
+function mergeResults(
+  result1?: LegResult | BetResult,
+  result2?: LegResult | BetResult
+): LegResult | BetResult | undefined {
+  const priority: Record<string, number> = {
+    win: 4,
+    loss: 3,
+    push: 2,
+    pending: 1,
+  };
+
+  const getPriority = (r?: LegResult | BetResult): number => {
+    if (!r) return 0;
+    // Both LegResult and BetResult are string literal unions, so r is a string here
+    if (typeof r !== "string") {
+      console.error(`mergeResults: Expected string but got ${typeof r}: ${r}`);
+      return 0;
+    }
+    const rLower = r.toLowerCase();
+    const priorityValue = priority[rLower];
+    // Detect when r is defined but not present in the priority map
+    if (priorityValue === undefined) {
+      console.error(
+        `mergeResults: Unexpected result value "${r}" (normalized: "${rLower}") not found in priority map`
+      );
+    }
+    return priorityValue ?? 0;
+  };
+
+  const p1 = getPriority(result1);
+  const p2 = getPriority(result2);
+
+  return p1 >= p2 ? result1 : result2;
+}
+
+/**
+ * Builds a pipe-delimited key string from a bet leg for deduplication purposes.
+ * Normalizes values (toLowerCase), handles undefined/null safely, and returns
+ * a consistently formatted string.
+ *
+ * @param leg - The bet leg to build a key from
+ * @param normalizedTarget - Optional normalized target value to include in the key
+ * @returns A pipe-delimited string key
+ */
+function buildLegKey(leg: BetLeg, normalizedTarget?: string): string {
+  const entity = (leg.entities?.[0] ?? "").toLowerCase();
+  const market = (leg.market ?? "").toLowerCase();
+  const ou = leg.ou ?? "";
+
+  const parts: string[] = [entity, market];
+  if (normalizedTarget !== undefined) {
+    parts.push(normalizedTarget);
+  }
+  parts.push(ou);
+
+  return parts.join("|");
+}
+
+/**
  * Gets the parlay label based on bet type.
  */
 function getParlayLabel(bet: Bet): string {
   if (bet.betType === "sgp_plus") return "SGP+";
   if (bet.betType === "sgp") return "SGP";
   return "Parlay";
+}
+
+/**
+ * Classifies a leg and extracts entity names.
+ * @returns Object with category, type, name, and name2 (for totals)
+ */
+function classifyAndExtractLegData(
+  leg: BetLeg,
+  sport: string
+): {
+  category: string;
+  type: string;
+  name: string;
+  name2?: string;
+} {
+  const legCategory = classifyLegCategory(leg.market || "", sport);
+  const category = normalizeCategory(legCategory);
+  const type = determineType(leg.market || "", category, sport);
+
+  // Totals bets (e.g., "Lakers vs Celtics Total Points") need both team names
+  // so we extract entities[0] for Name and entities[1] for Name2
+  const isTotalsBet = category === "Main" && type === "Total";
+
+  // Extract names: for totals, use both entities if available
+  const name = leg.entities?.[0] || "";
+  const name2 =
+    isTotalsBet && leg.entities && leg.entities.length >= 2
+      ? leg.entities[1]
+      : undefined;
+
+  return { category, type, name, name2 };
+}
+
+/**
+ * Creates a FinalRow for a single leg.
+ * Handles both parlay and non-parlay legs with appropriate metadata.
+ */
+function createLegRow(
+  bet: Bet,
+  leg: BetLeg,
+  sport: string,
+  index: number,
+  isParlay: boolean,
+  parlayGroupId: string | null
+): FinalRow {
+  const { category, type, name, name2 } = classifyAndExtractLegData(leg, sport);
+
+  return createFinalRow(
+    bet,
+    {
+      name: name,
+      name2: name2,
+      market: leg.market,
+      target: leg.target,
+      ou: leg.ou,
+      result: leg.result,
+    },
+    {
+      parlayGroupId: isParlay ? parlayGroupId : null,
+      legIndex: isParlay ? index + 1 : null,
+      legCount: null,
+      isParlayHeader: false,
+      isParlayChild: isParlay,
+      showMonetaryValues: !isParlay,
+    },
+    {
+      category: category,
+      type: type,
+    }
+  );
 }
 
 /**
@@ -270,7 +404,118 @@ export function betToFinalRows(bet: Bet): FinalRow[] {
     return leg;
   });
 
-  const isParlay = hasLegs && expandedLegs.length > 1;
+  // Deduplicate legs to catch any duplicates that slipped through the parser
+  // This handles cases where the same leg appears with and without target values
+  const deduplicatedLegs = (() => {
+    const seen = new Map<string, BetLeg>();
+    // Map from loose key to exact key for O(1) lookup
+    const looseToExactKey = new Map<string, string>();
+
+    // Helper to normalize target for deduplication
+    // Treats 0 and "0" as valid targets (present), only empty/undefined/null as absent
+    const normalizeTarget = (
+      target: string | number | undefined | null
+    ): string => {
+      if (target === undefined || target === null || target === "") {
+        return "";
+      }
+      // Convert to string and trim - 0 becomes "0", which is a valid target
+      return String(target).trim();
+    };
+
+    for (const leg of expandedLegs) {
+      // Cache normalized target at loop start to avoid re-normalizing
+      const normalizedTarget = normalizeTarget(leg.target);
+      const hasTarget = normalizedTarget !== "";
+
+      // Create keys for matching
+      // Exact key: entity + market + target + ou (for exact duplicates)
+      const exactKey = buildLegKey(leg, normalizedTarget);
+
+      // Loose key: entity + market + ou (for matching when one target is empty)
+      const looseKey = buildLegKey(leg);
+
+      // Check for exact match first
+      if (seen.has(exactKey)) {
+        // Exact duplicate - merge properties
+        const existing = seen.get(exactKey)!;
+        const merged: BetLeg = {
+          ...existing,
+          result: mergeResults(leg.result, existing.result),
+          ou: leg.ou || existing.ou,
+          entities: leg.entities || existing.entities,
+          market: leg.market || existing.market,
+          odds: leg.odds !== undefined ? leg.odds : existing.odds,
+        };
+        seen.set(exactKey, merged);
+        continue;
+      }
+
+      // Check for loose match using the lookup map
+      const existingExactKey = looseToExactKey.get(looseKey);
+      let existing: BetLeg | undefined;
+      let existingNormalizedTarget: string | undefined;
+
+      if (existingExactKey) {
+        const existingLeg = seen.get(existingExactKey);
+        if (existingLeg) {
+          // Cache normalized target for existing leg to avoid re-normalizing
+          existingNormalizedTarget = normalizeTarget(existingLeg.target);
+          const existingHasTarget = existingNormalizedTarget !== "";
+
+          // Only treat as duplicates if one has target and other doesn't
+          if (hasTarget !== existingHasTarget) {
+            existing = existingLeg;
+          } else if (hasTarget && existingHasTarget) {
+            // Edge case: both have targets but they're different
+            // Prefer keeping both legs (don't merge) to preserve distinct targets
+            // This handles cases where multiple different targets share the same loose key
+            // (e.g., "Player Points 25.5" vs "Player Points 30.5" should remain separate)
+            existing = undefined;
+          }
+        }
+      }
+
+      if (existing) {
+        // Merge: prefer the leg with a target value
+        // We know exactly one has a target (checked above), so simplify selection
+        const preferredLeg = hasTarget ? leg : existing;
+
+        // Merge properties, preferring non-empty values
+        const merged: BetLeg = {
+          ...preferredLeg,
+          // Use the target from whichever leg has it
+          target: hasTarget ? leg.target : existing.target,
+          // For other properties, prefer non-empty values from either leg
+          result: mergeResults(leg.result, existing.result),
+          ou: leg.ou || existing.ou,
+          entities: leg.entities || existing.entities,
+          market: leg.market || existing.market,
+          odds: leg.odds !== undefined ? leg.odds : existing.odds,
+        };
+
+        // When merging, the map key may change if we're adding a target to a leg
+        // that previously had none. The old key (without target) must be removed
+        // and the merged leg inserted under the correct key (with target if present).
+        seen.delete(existingExactKey!);
+        looseToExactKey.delete(looseKey);
+        // Use exact key if we have a target, otherwise use loose key
+        const keyToUse = hasTarget ? exactKey : looseKey;
+        seen.set(keyToUse, merged);
+        looseToExactKey.set(looseKey, keyToUse);
+      } else {
+        // No match found, add this leg
+        // Use exact key if we have a target, otherwise use loose key
+        const keyToUse = hasTarget ? exactKey : looseKey;
+        seen.set(keyToUse, leg);
+        looseToExactKey.set(looseKey, keyToUse);
+      }
+    }
+
+    return Array.from(seen.values());
+  })();
+
+  const isParlay = hasLegs && deduplicatedLegs.length > 1;
   const parlayGroupId = isParlay ? bet.id : null;
 
   if (!hasLegs) {
@@ -299,73 +544,69 @@ export function betToFinalRows(bet: Bet): FinalRow[] {
     // Bet with structured legs - create one row per leg
     // Safety check: Limit legs to prevent parsing errors from creating thousands of rows
     const legsToProcess =
-      expandedLegs.length > 10 ? expandedLegs.slice(0, 10) : expandedLegs;
+      deduplicatedLegs.length > 10
+        ? deduplicatedLegs.slice(0, 10)
+        : deduplicatedLegs;
 
-    if (expandedLegs.length > 10) {
+    if (deduplicatedLegs.length > 10) {
       console.error(
-        `betToFinalRows: Bet ${bet.betId} has ${expandedLegs.length} legs - limiting to 10 to prevent excessive rows`
+        `betToFinalRows: Bet ${bet.betId} has ${deduplicatedLegs.length} legs - limiting to 10 to prevent excessive rows`
       );
     }
 
-    legsToProcess.forEach((leg, index) => {
-      const isHeader = index === 0;
-      const isParlayHeader = isParlay && isHeader;
-
-      // For parlay headers, use "Parlays" category and empty type
-      // For leg rows, classify each leg individually based on its market text
-      let category: string;
-      let type: string;
-
-      if (isParlayHeader) {
-        category = "Parlays";
-        type = "";
-      } else {
-        // Classify each leg individually based on its market text
-        const legCategory = classifyLegCategory(
-          leg.market || "",
-          bet.sport || ""
-        );
-        category = normalizeCategory(legCategory);
-        type = determineType(leg.market || "", category, bet.sport || "");
-      }
-
-      // Check if this is a totals bet (Category: "Main", Type: "Total")
-      const isTotalsBet = category === "Main" && type === "Total";
-
-      // Extract names: for parlay headers, use parlay label; for totals, use both entities if available
-      const name = isParlayHeader
-        ? `${getParlayLabel(bet)} (${legsToProcess.length})`
-        : leg.entities?.[0] || "";
-      const name2 =
-        isTotalsBet && leg.entities && leg.entities.length >= 2
-          ? leg.entities[1]
-          : undefined;
-
-      const row = createFinalRow(
+    if (isParlay) {
+      // For parlays, create a separate header row that doesn't consume any leg
+      const headerRow = createFinalRow(
         bet,
         {
-          name: name,
-          name2: name2,
-          market: leg.market,
-          target: leg.target,
-          ou: leg.ou,
-          result: leg.result,
+          name: `${getParlayLabel(bet)} (${legsToProcess.length})`,
+          name2: undefined,
+          market: "",
+          target: undefined,
+          ou: undefined,
+          result: bet.result,
         },
         {
           parlayGroupId: parlayGroupId,
-          legIndex: isParlay ? index + 1 : null,
-          legCount: isParlay && isHeader ? legsToProcess.length : null,
-          isParlayHeader: isParlay && isHeader,
-          isParlayChild: isParlay,
-          showMonetaryValues: isHeader || !isParlay,
+          legIndex: null,
+          legCount: Math.min(deduplicatedLegs.length, 10),
+          isParlayHeader: true,
+          isParlayChild: false,
+          showMonetaryValues: true,
         },
         {
-          category: category,
-          type: type,
+          category: "Parlays",
+          type: "",
         }
       );
-      rows.push(row);
-    });
+      rows.push(headerRow);
+
+      // Now create rows for all legs as child rows
+      legsToProcess.forEach((leg, index) => {
+        const row = createLegRow(
+          bet,
+          leg,
+          bet.sport || "",
+          index,
+          isParlay,
+          parlayGroupId
+        );
+        rows.push(row);
+      });
+    } else {
+      // For non-parlay bets with legs, create one row per leg (no header)
+      legsToProcess.forEach((leg, index) => {
+        const row = createLegRow(
+          bet,
+          leg,
+          bet.sport || "",
+          index,
+          isParlay,
+          parlayGroupId
+        );
+        rows.push(row);
+      });
+    }
   }
 
   return rows;
@@ -604,9 +845,12 @@ function determineOverUnder(
 
 /**
  * Formats line value.
+ * Treats 0 and "0" as valid values (not empty).
  */
 function formatLine(target?: string | number): string {
-  if (!target) return "";
+  if (target === undefined || target === null || target === "") {
+    return "";
+  }
   return target.toString();
 }
 

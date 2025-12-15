@@ -111,6 +111,15 @@ export const aggregateChildResults = (
 export const normalizeSpaces = (text: string): string =>
   (text || "").replace(/\s+/g, " ").trim();
 
+/**
+ * Checks if an entities array is non-null/undefined and has length > 0.
+ * @param entities - The entities array to check
+ * @returns true if entities exists and has at least one element, false otherwise
+ */
+export const hasEntities = (entities?: string[]): boolean => {
+  return entities?.length ? entities.length > 0 : false;
+};
+
 // Remove schedule/time fragments that sometimes get glued to player names
 // e.g., "Nov 16, 8:12pm ET Isaiah Collier ..." or "7:42pm ET Josh Giddey"
 export const stripDateTimeNoise = (text: string): string => {
@@ -552,12 +561,16 @@ export const deriveFieldsFromDescription = (
     // Also try to extract line from the rest of the description
     const afterComma = desc.slice(commaIdx + 1).trim();
     // Check for "3+ Made Threes" or similar patterns
-    const madeThreesLineMatch = afterComma.match(/^(\d+)\+\s+(MADE THREES|Made Threes|THREES|3PT)/i);
+    const madeThreesLineMatch = afterComma.match(
+      /^(\d+)\+\s+\b(?:Made\s+)?(?:Threes|3PT)\b/i
+    );
     if (madeThreesLineMatch) {
       line = `${madeThreesLineMatch[1]}+`;
     } else {
       // Check for other stat line patterns like "50+ Yards" or "3+ Receptions"
-      const statLineMatch = afterComma.match(/^(\d+)\+\s+(Yards|Yds|Receptions|Rec|Points|Pts|Rebounds|Reb|Assists|Ast)/i);
+      const statLineMatch = afterComma.match(
+        /^(\d+)\+\s+\b(Yards|Yds|Receptions|Rec|Points|Pts|Rebounds|Reb|Assists|Ast)\b/i
+      );
       if (statLineMatch) {
         line = `${statLineMatch[1]}+`;
       }
@@ -580,11 +593,12 @@ export const deriveFieldsFromDescription = (
       } else {
         // FIRST: Check for "Made Threes" patterns - these take precedence over spread patterns
         // because "Royce O'Neale -130 3+ Made Threes" should NOT be treated as a spread bet
-        
+
         // Pattern: "Royce O'Neale 5+ MADE THREES" or "Royce O'Neale -130 3+ Made Threes" - extract name before number+
         // Also handles: "Royce O'Neale, 3+ Made Threes" (with comma) and odds between name and target
+        // Matches variants: "Made Threes", "Threes", "3PT" (with or without "Made")
         const madeThreesMatch = desc.match(
-          /^([A-Za-z' .-]+?)[,\s]+(?:[+\-]?\d+\s+)?(\d+)\+\s+(MADE THREES|Made Threes|THREES|3PT)/i
+          /^([A-Za-z' .-]+?)[,\s]+(?:[+\-]?\d+\s+)?(\d+)\+\s+\b(?:Made\s+)?(?:Threes|3PT)\b/i
         );
         if (madeThreesMatch) {
           name = madeThreesMatch[1].trim();
@@ -609,7 +623,10 @@ export const deriveFieldsFromDescription = (
             );
             // Only treat as spread if the line looks like a spread value (typically < 60)
             // and there's no stat line following (like "3+ Made Threes")
-            const hasStatAfter = /\d+\+\s+(Yards|Yds|Receptions|Rec|Points|Pts|Rebounds|Reb|Assists|Ast|Made\s+Threes|3pt|Threes)/i.test(desc);
+            const hasStatAfter =
+              /\d+\+\s+(Yards|Yds|Receptions|Rec|Points|Pts|Rebounds|Reb|Assists|Ast|Made\s+Threes|3pt|Threes)/i.test(
+                desc
+              );
             if (spreadMatch && !hasStatAfter) {
               name = spreadMatch[1].trim();
               line = spreadMatch[2];
@@ -715,7 +732,9 @@ export const deriveFieldsFromDescription = (
       line = `${toScoreMatch[1]}+`;
     } else {
       // Pattern: "5+ MADE THREES" or "X+ THREES"
-      const madeThreesMatch = desc.match(/(\d+)\+\s+(MADE THREES|THREES|3PT)/i);
+      const madeThreesMatch = desc.match(
+        /(\d+)\+\s+\b(MADE THREES|THREES|3PT)\b/i
+      );
       if (madeThreesMatch) {
         line = `${madeThreesMatch[1]}+`;
       } else {
@@ -834,7 +853,8 @@ export const deriveFieldsFromDescription = (
   }
 
   // Auto-set O/U to "Over" for "+" patterns (milestone bets like "2+ Ast", "30+ Pts", "100+ Yards")
-  if (line && line.toString().includes('+') && !ou) {
+  // Only match trailing '+' (milestone), not leading '+' (spread like "+2.5")
+  if (line && /\+$/.test(line.toString().trim()) && !ou) {
     ou = "Over";
   }
 
@@ -1398,7 +1418,11 @@ export const buildLegsFromStatText = (
   const patterns = [
     // Pattern for "Made Threes" legs: "Player Name X+ Made Threes" (specific pattern to catch this common case)
     // Also handles "Player Name +/-XXX X+ Made Threes" where odds are between name and stat
-    new RegExp(`(${PLAYER_NAME_PATTERN})\\s+(?:[+\\-]\\d+\\s+)?(\\d+\\+)\\s+Made\\s+Threes`, "gi"),
+    // Matches variants: "Made Threes", "Threes", "3PT" (with or without "Made")
+    new RegExp(
+      `(${PLAYER_NAME_PATTERN})\\s+(?:[+\\-]\\d+\\s+)?(\\d+\\+)\\s+(?:Made\\s+)?(?:Threes|3PT)\\b`,
+      "gi"
+    ),
     // Pattern for stat-based legs: "Player Name 50+ Yards" or "Player Name 3+ Receptions"
     // Also handles "Player Name +/-XXX X+ Stat" where odds are between name and stat
     new RegExp(
@@ -1553,7 +1577,7 @@ export const buildLegsFromStatText = (
     // This handles cases like "Dallas Mavericks Josh Giddey" vs "Josh Giddey"
     const cleanedPlayer = cleanEntityName(m.player);
     if (!cleanedPlayer) return; // Skip if player name cleans to empty
-    
+
     // Create a unique key to avoid duplicates
     const key = `${cleanedPlayer}_${m.market}_${m.target || ""}`.toLowerCase();
     if (seen.has(key)) return;
@@ -1580,7 +1604,9 @@ export const buildLegsFromStatText = (
       }
       // Also ensure the entity name is cleaned
       if (leg.entities && leg.entities[0]) {
-        leg.entities[0] = cleanEntityName(leg.entities[0].replace(/^Void\s+/i, "").trim());
+        leg.entities[0] = cleanEntityName(
+          leg.entities[0].replace(/^Void\s+/i, "").trim()
+        );
       }
     }
 
@@ -1721,24 +1747,137 @@ export const formatParlayDescriptionFromLegs = (legs: BetLeg[]): string =>
     .filter((s) => s && s.length)
     .join(", ");
 
+// Helper to normalize target for deduplication
+// Treats empty/undefined/null as the same for comparison purposes
+export const normalizeTarget = (
+  target: string | number | undefined | null
+): string => {
+  if (target === undefined || target === null || target === "") {
+    return "";
+  }
+  return String(target).trim();
+};
+
 export const dedupeLegs = (legs: BetLeg[]): BetLeg[] => {
   const seen = new Map<string, BetLeg>();
+  // Secondary map for O(1) loose key lookups: maps looseKey -> primaryKey
+  // Policy: stores the first primaryKey encountered for each looseKey.
+  // When a loose match is found (one leg has empty target, other doesn't),
+  // we merge them and update the mapping to the merged leg's primaryKey.
+  const looseKeyMap = new Map<string, string>();
 
   for (const leg of legs) {
-    const key = [
+    const normalizedTarget = normalizeTarget(leg.target);
+
+    // Primary key: entity + market + normalized target + ou
+    const primaryKey = [
       (leg.entities?.[0] || "").toLowerCase(),
       (leg.market || "").toLowerCase(),
-      String(leg.target ?? ""),
+      normalizedTarget,
       leg.ou ?? "",
     ].join("|");
 
-    if (!seen.has(key)) {
-      seen.set(key, leg);
-    } else {
-      const existing = seen.get(key)!;
-      if (existing.odds === undefined && leg.odds !== undefined) {
-        seen.set(key, { ...existing, odds: leg.odds });
+    // Secondary key for loose matching: entity + market + ou (ignoring target)
+    // This catches cases where same leg appears with and without target
+    const looseKey = [
+      (leg.entities?.[0] || "").toLowerCase(),
+      (leg.market || "").toLowerCase(),
+      leg.ou ?? "",
+    ].join("|");
+
+    if (!seen.has(primaryKey)) {
+      // Check if we have a loose match (same entity/market but different target)
+      // Use O(1) lookup instead of O(n) scan
+      const existingPrimaryKey = looseKeyMap.get(looseKey);
+      let existingLoose: BetLeg | undefined;
+      let existingLooseKey: string | undefined;
+
+      if (existingPrimaryKey) {
+        const existingLeg = seen.get(existingPrimaryKey);
+        if (existingLeg) {
+          const existingNormalizedTarget = normalizeTarget(existingLeg.target);
+          // Match if either leg has an empty target
+          if (normalizedTarget === "" || existingNormalizedTarget === "") {
+            existingLoose = existingLeg;
+            existingLooseKey = existingPrimaryKey;
+          }
+        }
       }
+
+      if (existingLoose) {
+        // Merge: prefer the leg with a target value, and merge other properties
+        const hasTarget = normalizedTarget !== "";
+        const existingHasTarget = normalizeTarget(existingLoose.target) !== "";
+
+        const preferredLeg =
+          hasTarget && !existingHasTarget
+            ? leg
+            : !hasTarget && existingHasTarget
+            ? existingLoose
+            : leg; // If both have or both don't have, prefer the new one
+
+        // Merge properties: prefer non-undefined values
+        const merged: BetLeg = {
+          ...preferredLeg,
+          target: hasTarget ? leg.target : existingLoose.target,
+          odds: leg.odds !== undefined ? leg.odds : existingLoose.odds,
+          result:
+            leg.result !== undefined && leg.result !== null
+              ? leg.result
+              : existingLoose.result,
+          ou:
+            leg.ou !== undefined && leg.ou !== null ? leg.ou : existingLoose.ou,
+          entities: hasEntities(leg.entities)
+            ? leg.entities
+            : existingLoose.entities,
+          market:
+            leg.market !== undefined && leg.market !== null
+              ? leg.market
+              : existingLoose.market,
+        };
+
+        // Remove old entry and update maps
+        seen.delete(existingLooseKey!);
+        seen.set(primaryKey, merged);
+        // Update looseKeyMap to point to the new merged leg's primaryKey
+        // (the old primaryKey is being replaced, so update the mapping)
+        looseKeyMap.set(looseKey, primaryKey);
+      } else {
+        // No loose match found, add new entry
+        seen.set(primaryKey, leg);
+        // Policy: Store the first primaryKey encountered for each looseKey.
+        // If multiple legs share the same looseKey but both have non-empty targets,
+        // they won't match each other, and we keep the first one stored for future lookups.
+        if (!looseKeyMap.has(looseKey)) {
+          looseKeyMap.set(looseKey, primaryKey);
+        }
+      }
+    } else {
+      // Exact match exists, merge properties
+      const existing = seen.get(primaryKey)!;
+      const merged: BetLeg = {
+        ...existing,
+        // Prefer non-undefined values
+        odds: leg.odds !== undefined ? leg.odds : existing.odds,
+        result:
+          leg.result !== undefined && leg.result !== null
+            ? leg.result
+            : existing.result,
+        target:
+          leg.target !== undefined && leg.target !== null && leg.target !== ""
+            ? leg.target
+            : existing.target,
+        ou: leg.ou !== undefined && leg.ou !== null ? leg.ou : existing.ou,
+        entities: hasEntities(leg.entities) ? leg.entities : existing.entities,
+        market:
+          leg.market !== undefined && leg.market !== null
+            ? leg.market
+            : existing.market,
+      };
+      seen.set(primaryKey, merged);
+      // Update looseKeyMap if needed (primaryKey might have changed, but looseKey stays same)
+      // Actually, since primaryKey includes normalizedTarget, if target changed, primaryKey would be different
+      // So this branch only happens when primaryKey matches exactly, meaning looseKey is already mapped correctly
     }
   }
 
