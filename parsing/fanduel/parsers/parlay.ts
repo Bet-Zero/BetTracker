@@ -156,9 +156,9 @@ export const parseParlayBet = ({
   const betOdds = headerInfo.odds ?? 0;
 
   // SGP modeling:
-  // - Standard SGP bets keep each inner selection as a flat leg with odds set to null when hidden.
+  // - Standard SGP bets keep each inner selection as a flat leg with odds set to undefined when hidden.
   // - SGP+ bets add a group leg (isGroupLeg=true) that carries the nested SGP combined odds
-  //   and exposes the inner selections as children (with null odds), alongside any extra legs.
+  //   and exposes the inner selections as children (with undefined odds), alongside any extra legs.
 
   const skipLegOdds = betType === "sgp";
 
@@ -321,7 +321,7 @@ export const parseParlayBet = ({
 
     // For SGP bets, inner legs never show per-leg odds
     if (skipLegOdds) {
-      return combined.map((leg) => ({ ...leg, odds: null }));
+      return combined.map((leg) => ({ ...leg, odds: undefined }));
     }
 
     return combined;
@@ -375,7 +375,7 @@ export const parseParlayBet = ({
         legs: [] as BetLeg[],
       };
       bucket.rows.push(entry.row);
-      bucket.legs.push({ ...entry.leg, odds: null });
+      bucket.legs.push({ ...entry.leg, odds: undefined });
       groupedByOdds.set(oddsVal, bucket);
     }
 
@@ -497,7 +497,7 @@ export const parseParlayBet = ({
       // or are clearly additional selections (not part of SGP groups)
       additionalLegsFromText = additionalLegsFromText.filter((leg) => {
         // If it has odds, it's likely an additional selection
-        if (leg.odds !== null && leg.odds !== undefined) return true;
+        if (typeof leg.odds === "number") return true;
         // If it doesn't have a target that matches a group leg's target, it's likely additional
         const legTarget = leg.target || "";
         const isInGroupTarget = groupLegs.some((group) => {
@@ -547,7 +547,7 @@ export const parseParlayBet = ({
         const currentTarget = leg.target || "";
 
         // --- 1) Try to infer matchup from odds (header text) ---
-        if (!(leg as any).game && leg.odds != null) {
+        if (!(leg as any).game && typeof leg.odds === "number") {
           const rawMatchup = oddsMatchups.get(leg.odds);
           if (rawMatchup && looksLikeMatchupText(rawMatchup)) {
             const cleanedMatchup =
@@ -1267,7 +1267,7 @@ const buildGroupLegFromContainer = (
   container: HTMLElement,
   childRows: HTMLElement[],
   betResult: BetResult,
-  headerOdds?: number | null,
+  headerOdds?: number,
   fallbackEventRoot?: HTMLElement
 ): BetLeg | null => {
   if (!childRows.length) return null;
@@ -1278,11 +1278,11 @@ const buildGroupLegFromContainer = (
   const children = buildLegsFromRows(childRows, {
     result: defaultChildResult,
     skipOdds: true,
-    fallbackOdds: null,
+    fallbackOdds: undefined,
     parentForResultLookup: container,
-  }).map((child) => ({ ...child, odds: null }));
+  }).map((child) => ({ ...child, odds: undefined }));
 
-  const odds = extractOdds(container) ?? headerOdds ?? null;
+  const odds = extractOdds(container) ?? headerOdds ?? undefined;
   let eventText =
     extractGameMatchup(container) ||
     (fallbackEventRoot ? extractGameMatchup(fallbackEventRoot) : null) ||
@@ -1395,7 +1395,7 @@ const buildSGPPlusGroupLegs = (
       container,
       childRows,
       betResult,
-      odds ?? null,
+      odds ?? undefined,
       root
     );
     if (groupLeg) {
@@ -1411,7 +1411,7 @@ const buildSGPGroupLegs = (
   headerLi: HTMLElement,
   legRows: HTMLElement[],
   betResult: BetResult,
-  headerOdds?: number | null
+  headerOdds?: number
 ): { groupLegs: BetLeg[]; consumedRows: Set<HTMLElement> } => {
   const containers = findSGPGroupContainers(headerLi);
   const container = containers[0] ?? headerLi;
@@ -1431,7 +1431,7 @@ const buildSGPGroupLegs = (
     container,
     childRows,
     betResult,
-    extractOdds(container) ?? headerOdds ?? null,
+    extractOdds(container) ?? headerOdds,
     headerLi
   );
 
