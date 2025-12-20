@@ -26,40 +26,42 @@ const COLUMN_WIDTHS_VERSION_KEY = "bettracker-column-widths-version";
 // Bump this when defaults/mins change and we want to migrate old saved widths.
 const COLUMN_WIDTHS_VERSION = 5;
 
+// Column widths are now handled by browser auto-sizing
+// These are only used for manual column resize feature
 const DEFAULT_COLUMN_WIDTHS: Record<string, number> = {
-  date: 68,
-  site: 28,
-  sport: 36,
-  category: 52,
-  type: 48,
-  name: 120,
-  ou: 24,
-  line: 36,
-  odds: 48,
-  bet: 44,
-  toWin: 56,
-  result: 52,
-  net: 48,
-  isLive: 32,
-  tail: 64,
+  date: 55,
+  site: 45,
+  sport: 45,
+  category: 80,
+  type: 90,
+  name: 200,
+  ou: 35,
+  line: 55,
+  odds: 65,
+  bet: 80,
+  toWin: 80,
+  result: 75,
+  net: 75,
+  isLive: 45,
+  tail: 95,
 };
 
 const MIN_COLUMN_WIDTHS: Record<string, number> = {
-  date: 60,
-  site: 24,
-  sport: 30,
-  category: 40,
-  type: 36,
-  name: 80,
-  ou: 20,
-  line: 30,
-  odds: 40,
-  bet: 36,
-  toWin: 48,
-  result: 44,
-  net: 40,
-  isLive: 28,
-  tail: 52,
+  date: 50,
+  site: 40,
+  sport: 40,
+  category: 70,
+  type: 80,
+  name: 150,
+  ou: 30,
+  line: 50,
+  odds: 60,
+  bet: 70,
+  toWin: 70,
+  result: 70,
+  net: 70,
+  isLive: 40,
+  tail: 85,
 };
 
 function clampColumnWidth(columnKey: string, width: unknown): number | null {
@@ -151,11 +153,11 @@ interface FlatBet {
 // --- Formatting Helpers ---
 const formatDate = (isoString: string) => {
   const date = new Date(isoString);
-  if (isNaN(date.getTime())) return "Invalid Date";
+  if (isNaN(date.getTime())) return "Invalid";
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
-  const year = String(date.getFullYear()).slice(-2);
-  return `${month}/${day}/${year}`;
+  // Compact format without year to save horizontal space
+  return `${month}/${day}`;
 };
 
 const abbreviateMarket = (market: string): string => {
@@ -286,7 +288,8 @@ const EditableCell: React.FC<{
         onBlur={handleBlur}
         onFocus={onFocus}
         onKeyDown={handleKeyDownInternal}
-        className={`bg-transparent w-full p-0 m-0 border-none focus:ring-0 focus:outline-none focus:bg-neutral-100 dark:focus:bg-neutral-800 rounded text-sm ${className}`}
+        className={`bg-transparent w-full p-0 m-0 border-none focus:ring-0 focus:outline-none focus:bg-neutral-100 dark:focus:bg-neutral-800 rounded text-sm max-w-full ${className}`}
+        style={{ boxSizing: "border-box", maxWidth: "100%" }}
         placeholder=""
         list={suggestions.length > 0 ? listId : undefined}
       />
@@ -309,7 +312,8 @@ const ResultCell: React.FC<{
     <select
       value={value}
       onChange={(e) => onSave(e.target.value as BetResult)}
-      className="bg-transparent w-full p-0 m-0 border-none focus:ring-0 focus:outline-none capitalize font-semibold rounded"
+      className="bg-transparent w-full p-0 m-0 border-none focus:ring-0 focus:outline-none capitalize font-semibold rounded max-w-full"
+      style={{ boxSizing: "border-box", maxWidth: "100%" }}
     >
       <option value="win">Win</option>
       <option value="loss">Loss</option>
@@ -484,7 +488,8 @@ const TypableDropdown: React.FC<{
         }}
         onBlur={handleBlur}
         onKeyDown={handleKeyDownInternal}
-        className={`bg-transparent w-full p-0 m-0 border-none focus:ring-0 focus:outline-none focus:bg-neutral-100 dark:focus:bg-neutral-800 rounded text-sm ${className}`}
+        className={`bg-transparent w-full p-0 m-0 border-none focus:ring-0 focus:outline-none focus:bg-neutral-100 dark:focus:bg-neutral-800 rounded text-sm max-w-full ${className}`}
+        style={{ boxSizing: "border-box", maxWidth: "100%" }}
         placeholder={placeholder}
       />
       {isOpen && filteredOptions.length > 0 && (
@@ -965,29 +970,43 @@ const BetTableView: React.FC = () => {
     label: string;
     style: React.CSSProperties;
   }[] = [
-    { key: "date", label: "Date", style: { width: 68 } },
-    { key: "site", label: "Site", style: { width: 28 } },
-    { key: "sport", label: "Sport", style: { width: 36 } },
-    { key: "category", label: "Category", style: { width: 52 } },
-    { key: "type", label: "Type", style: { width: 48 } },
+    { key: "date", label: "Date", style: {} },
+    { key: "site", label: "Site", style: {} },
+    { key: "sport", label: "Sport", style: {} },
+    { key: "category", label: "Cat", style: {} }, // Abbreviated header
+    { key: "type", label: "Type", style: {} },
     { key: "name", label: "Name", style: {} }, // Flexible width - fills remaining space
-    { key: "ou", label: "O/U", style: { width: 24, textAlign: "center" } },
-    { key: "line", label: "Line", style: { width: 36, textAlign: "center" } },
-    { key: "odds", label: "Odds", style: { width: 48 } },
-    { key: "bet", label: "Bet", style: { width: 44 } },
-    { key: "toWin", label: "To Win", style: { width: 56 } },
-    { key: "result", label: "Result", style: { width: 52 } },
-    { key: "net", label: "Net", style: { width: 48 } },
     {
-      key: "isLive",
-      label: "Live",
-      style: { width: 32, textAlign: "center" },
+      key: "ou",
+      label: "O/U",
+      style: { textAlign: "center", whiteSpace: "nowrap" },
     },
-    { key: "tail", label: "Tail", style: { width: 64 } },
+    { key: "line", label: "Line", style: { textAlign: "right" } },
+    { key: "odds", label: "Odds", style: { textAlign: "right" } },
+    { key: "bet", label: "Bet", style: { textAlign: "right" } },
+    { key: "toWin", label: "Win", style: { textAlign: "right" } }, // Shortened from "To Win"
+    { key: "result", label: "Result", style: { textAlign: "center" } },
+    { key: "net", label: "Net", style: { textAlign: "right" } },
+    { key: "isLive", label: "Live", style: { textAlign: "center" } },
+    { key: "tail", label: "Tail", style: {} },
   ];
 
   const getColumnWidthPx = useCallback(
     (columnKey: string, fallback?: React.CSSProperties["width"]): string => {
+      // Name column is flexible - fills remaining space with auto width
+      if (columnKey === "name") {
+        const minWidth = MIN_COLUMN_WIDTHS[columnKey] ?? 200;
+        // If user has manually resized it, use that value
+        const fromState = clampColumnWidth(columnKey, columnWidths[columnKey]);
+        if (fromState !== null && fromState >= minWidth) {
+          // For auto layout, we can set a min-width via style on the col element
+          // but the width itself should be auto to allow flexibility
+          return "auto";
+        }
+        // Default: auto width with min-width enforced via CSS
+        return "auto";
+      }
+
       const fromState = clampColumnWidth(columnKey, columnWidths[columnKey]);
       if (fromState !== null) return `${fromState}px`;
 
@@ -1742,575 +1761,666 @@ const BetTableView: React.FC = () => {
         </div>
       </div>
 
-      <div className="grow bg-white dark:bg-neutral-900 rounded-lg shadow-md overflow-x-auto overflow-y-auto">
-        <table
-          ref={tableRef}
-          className="w-full text-sm text-left text-neutral-500 dark:text-neutral-400"
-          style={{ tableLayout: "fixed" }}
+      <div className="grow bg-white dark:bg-neutral-900 rounded-lg shadow-md overflow-hidden flex flex-col">
+        <div
+          className="flex-1 overflow-y-auto overflow-x-hidden min-w-0"
+          style={{ width: "100%" }}
         >
-          <colgroup>
-            {headers.map((h) => (
-              <col
-                key={h.key}
-                style={{
-                  width: getColumnWidthPx(String(h.key), h.style.width),
-                }}
-              />
-            ))}
-          </colgroup>
-          <thead className="text-xs text-neutral-700 uppercase bg-neutral-50 dark:bg-neutral-800 dark:text-neutral-400 sticky top-0 z-10">
-            <tr className="leading-tight">
-              {headers.map((header) => {
-                const headerPaddingX = "px-1";
-                return (
-                  <th
-                    key={header.key}
-                    scope="col"
-                    className={`${headerPaddingX} py-3 relative whitespace-normal wrap-break-word`}
-                    style={{
-                      ...header.style,
-                      // Width is controlled via <colgroup> to keep header/body aligned
-                    }}
-                  >
-                    {header.label}
-                    <div
-                      className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary-500 opacity-0 hover:opacity-100 transition-opacity"
-                      onMouseDown={(e) => handleResizeStart(header.key, e)}
-                      style={{ userSelect: "none" }}
-                    />
-                  </th>
-                );
-              })}
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={headers.length} className="text-center p-8">
-                  Loading bets...
-                </td>
-              </tr>
-            ) : visibleBets.length === 0 ? (
-              <tr>
-                <td colSpan={headers.length} className="text-center p-8">
-                  No bets found matching your criteria.
-                </td>
-              </tr>
-            ) : (
-              visibleBets.map((row, rowIndex) => {
-                const isLeg = row.id.includes("-leg-");
-                const legIndex = isLeg
-                  ? parseInt(row.id.split("-leg-").pop()!, 10)
-                  : -1;
-                const net = row.net;
-                const displayResult = isLeg ? row.result : row.overallResult;
-                const resultBgClass =
-                  displayResult === "win"
-                    ? "bg-green-500/10"
-                    : displayResult === "loss"
-                    ? "bg-red-500/10"
-                    : displayResult === "push"
-                    ? "bg-neutral-500/10"
+          <table
+            ref={tableRef}
+            className="w-full text-sm text-left text-neutral-500 dark:text-neutral-400 border-collapse"
+            style={{ tableLayout: "fixed", width: "100%" }}
+          >
+            <colgroup>
+              <col style={{ width: "4.5%" }} /> {/* date */}
+              <col style={{ width: "4.5%" }} /> {/* site */}
+              <col style={{ width: "4.5%" }} /> {/* sport */}
+              <col style={{ width: "6.5%" }} /> {/* category */}
+              <col style={{ width: "7.5%" }} /> {/* type */}
+              <col style={{ width: "16.5%" }} /> {/* name - flexible */}
+              <col style={{ width: "3.5%" }} /> {/* ou */}
+              <col style={{ width: "4.5%" }} /> {/* line */}
+              <col style={{ width: "7.5%" }} /> {/* odds */}
+              <col style={{ width: "7.5%" }} /> {/* bet */}
+              <col style={{ width: "8.5%" }} /> {/* toWin */}
+              <col style={{ width: "7.5%" }} /> {/* result */}
+              <col style={{ width: "8.5%" }} /> {/* net */}
+              <col style={{ width: "3.5%" }} /> {/* isLive */}
+              <col style={{ width: "5%" }} /> {/* tail - flexible */}
+            </colgroup>
+            <thead className="text-xs font-semibold tracking-wide text-neutral-700 uppercase bg-neutral-50 dark:bg-neutral-800 dark:text-neutral-400 sticky top-0 z-10 border-b border-neutral-200 dark:border-neutral-700">
+              <tr className="leading-tight">
+                {headers.map((header) => {
+                  const headerPaddingX = "px-1";
+                  const numericRightAligned = new Set<keyof FlatBet>([
+                    "line",
+                    "odds",
+                    "bet",
+                    "toWin",
+                    "net",
+                  ]);
+                  const centerAligned = new Set<keyof FlatBet>([
+                    "ou",
+                    "isLive",
+                    "result",
+                  ]);
+                  const alignmentClass = numericRightAligned.has(header.key)
+                    ? " text-right tabular-nums"
+                    : centerAligned.has(header.key)
+                    ? " text-center"
                     : "";
-                const resultTextClass =
-                  displayResult === "win"
-                    ? "text-green-600 dark:text-green-400"
-                    : displayResult === "loss"
-                    ? "text-red-600 dark:text-red-400"
-                    : "";
-                const netBgClass =
-                  net > 0 ? "bg-green-500/10" : net < 0 ? "bg-red-500/10" : "";
-                const netColorClass =
-                  net > 0 ? "text-green-500" : net < 0 ? "text-red-500" : "";
-
-                // Helper to check if cell is in drag fill range
-                const isInDragFillRange = (
-                  rowIndex: number,
-                  columnKey: keyof FlatBet
-                ): boolean => {
-                  if (!dragFillData) return false;
-                  const { start, end } = dragFillData;
-                  const minRow = Math.min(start.rowIndex, end.rowIndex);
-                  const maxRow = Math.max(start.rowIndex, end.rowIndex);
-                  const minCol = Math.min(
-                    editableColumns.indexOf(start.columnKey),
-                    editableColumns.indexOf(end.columnKey)
-                  );
-                  const maxCol = Math.max(
-                    editableColumns.indexOf(start.columnKey),
-                    editableColumns.indexOf(end.columnKey)
-                  );
-
-                  const cellRow = rowIndex;
-                  const cellCol = editableColumns.indexOf(columnKey);
-
+                  const isMoneyBlockStart = header.key === "bet";
                   return (
-                    cellRow >= minRow &&
-                    cellRow <= maxRow &&
-                    cellCol >= minCol &&
-                    cellCol <= maxCol
-                  );
-                };
-
-                // Helper to get cell classes
-                const getCellClasses = (columnKey: keyof FlatBet) => {
-                  const paddingX = "px-1";
-                  const baseClasses = `${paddingX} py-1 relative`;
-                  const isSelected = isCellSelected(rowIndex, columnKey);
-                  const isFocused = isCellFocused(rowIndex, columnKey);
-                  const isEditable = isCellEditable(columnKey);
-                  const inDragFill = isInDragFillRange(rowIndex, columnKey);
-
-                  let classes = baseClasses;
-                  if (inDragFill) {
-                    classes += " bg-blue-200 dark:bg-blue-800/50";
-                  } else if (isSelected) {
-                    classes += " bg-blue-100 dark:bg-blue-900/30";
-                  }
-                  if (isFocused && isEditable) {
-                    classes += " ring-2 ring-blue-500 dark:ring-blue-400";
-                  }
-                  return classes;
-                };
-
-                // Get stripe index for this row
-                const stripeIdx = rowStripeIndex.get(rowIndex) || 0;
-                const isEvenStripe = stripeIdx % 2 === 0;
-                const bgClass = isEvenStripe
-                  ? "bg-white dark:bg-neutral-900"
-                  : "bg-neutral-50 dark:bg-neutral-800/50";
-
-                return (
-                  <tr
-                    key={row.id}
-                    className={`border-b dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-800/50 ${bgClass} ${
-                      row._isParlayHeader ? "font-semibold" : ""
-                    }`}
-                  >
-                    <td
-                      className={getCellClasses("date") + " whitespace-nowrap"}
-                    >
-                      <div className="flex items-center gap-2">
-                        {row._isParlayChild && !row._isParlayHeader && (
-                          <span className="text-neutral-400 dark:text-neutral-500">
-                            ↳
-                          </span>
-                        )}
-                        <span>{formatDate(row.date)}</span>
-                      </div>
-                    </td>
-                    <td
-                      className={
-                        getCellClasses("site") + " font-bold whitespace-nowrap"
-                      }
-                      onClick={(e) => handleCellClick(rowIndex, "site", e)}
-                    >
-                      {isCellFocused(rowIndex, "site") && (
-                        <div
-                          className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
-                          onMouseDown={(e) =>
-                            handleDragFillStart(rowIndex, "site", e)
-                          }
-                        />
-                      )}
-                      <EditableCell
-                        value={siteShortNameMap[row.site] || row.site}
-                        isFocused={isCellFocused(rowIndex, "site")}
-                        onFocus={() =>
-                          setFocusedCell({ rowIndex, columnKey: "site" })
-                        }
-                        inputRef={getCellRef(rowIndex, "site")}
-                        onSave={(val) => {
-                          const book = sportsbooks.find(
-                            (b) =>
-                              b.name.toLowerCase() === val.toLowerCase() ||
-                              b.abbreviation.toLowerCase() === val.toLowerCase()
-                          );
-                          updateBet(row.betId, {
-                            book: book ? book.name : val,
-                          });
-                        }}
-                        suggestions={suggestionLists.sites}
-                      />
-                    </td>
-                    <td
-                      className={getCellClasses("sport") + " whitespace-nowrap"}
-                      onClick={(e) => handleCellClick(rowIndex, "sport", e)}
-                    >
-                      {isCellFocused(rowIndex, "sport") && (
-                        <div
-                          className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
-                          onMouseDown={(e) =>
-                            handleDragFillStart(rowIndex, "sport", e)
-                          }
-                        />
-                      )}
-                      <TypableDropdown
-                        value={row.sport}
-                        onSave={(val) => {
-                          addSport(val);
-                          updateBet(row.betId, { sport: val });
-                        }}
-                        options={suggestionLists.sports}
-                        isFocused={isCellFocused(rowIndex, "sport")}
-                        onFocus={() =>
-                          setFocusedCell({ rowIndex, columnKey: "sport" })
-                        }
-                        inputRef={getCellRef(rowIndex, "sport")}
-                        allowCustom={true}
-                      />
-                    </td>
-                    <td
-                      className={
-                        getCellClasses("category") + " whitespace-nowrap"
-                      }
-                      onClick={(e) => handleCellClick(rowIndex, "category", e)}
-                    >
-                      {isCellFocused(rowIndex, "category") && (
-                        <div
-                          className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
-                          onMouseDown={(e) =>
-                            handleDragFillStart(rowIndex, "category", e)
-                          }
-                        />
-                      )}
-                      <TypableDropdown
-                        value={row.category}
-                        onSave={(val) => {
-                          addCategory(val);
-                          updateBet(row.betId, {
-                            marketCategory: val as MarketCategory,
-                          });
-                        }}
-                        options={suggestionLists.categories}
-                        isFocused={isCellFocused(rowIndex, "category")}
-                        onFocus={() =>
-                          setFocusedCell({ rowIndex, columnKey: "category" })
-                        }
-                        inputRef={getCellRef(rowIndex, "category")}
-                        allowCustom={true}
-                      />
-                    </td>
-                    <td
-                      className={
-                        getCellClasses("type") + " capitalize whitespace-nowrap"
-                      }
-                      onClick={(e) => handleCellClick(rowIndex, "type", e)}
-                    >
-                      {isCellFocused(rowIndex, "type") && (
-                        <div
-                          className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
-                          onMouseDown={(e) =>
-                            handleDragFillStart(rowIndex, "type", e)
-                          }
-                        />
-                      )}
-                      <TypableDropdown
-                        value={row.type}
-                        onSave={(val) => {
-                          if (isLeg) {
-                            addBetType(row.sport, val);
-                            handleLegUpdate(row.betId, legIndex, {
-                              market: val,
-                            });
-                          } else {
-                            // Update bet.type (stat type), NOT betType (bet form)
-                            addBetType(row.sport, val);
-                            updateBet(row.betId, { type: val });
-                          }
-                        }}
-                        options={
-                          isLeg
-                            ? suggestionLists.types(row.sport)
-                            : suggestionLists.types(row.sport) // Use stat types for single bets too
-                        }
-                        isFocused={isCellFocused(rowIndex, "type")}
-                        onFocus={() =>
-                          setFocusedCell({ rowIndex, columnKey: "type" })
-                        }
-                        inputRef={getCellRef(rowIndex, "type")}
-                        allowCustom={true}
-                      />
-                    </td>
-                    <td
-                      className={
-                        getCellClasses("name") +
-                        " font-medium text-neutral-900 dark:text-white"
-                      }
-                      onClick={(e) => {
-                        // Parlay header rows toggle expand/collapse (no inline editing)
-                        if (row._isParlayHeader && row._parlayGroupId) return;
-                        handleCellClick(rowIndex, "name", e);
+                    <th
+                      key={header.key}
+                      scope="col"
+                      className={`${headerPaddingX} py-1 relative whitespace-nowrap${alignmentClass}${
+                        isMoneyBlockStart
+                          ? " border-l border-neutral-200 dark:border-neutral-700"
+                          : ""
+                      }`}
+                      style={{
+                        ...header.style,
+                        // Width is controlled via <colgroup> to keep header/body aligned
+                        ...(header.key === "bet"
+                          ? { paddingRight: "calc(1ch + 0.125rem)" }
+                          : {}),
                       }}
                     >
-                      {isCellFocused(rowIndex, "name") && (
-                        <div
-                          className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
-                          onMouseDown={(e) =>
-                            handleDragFillStart(rowIndex, "name", e)
-                          }
-                        />
-                      )}
-                      {row._isParlayHeader && row._parlayGroupId ? (
-                        <button
-                          type="button"
-                          className="flex items-center gap-1 text-left w-full"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleParlayExpansion(row._parlayGroupId!);
-                          }}
-                          title={
-                            expandedParlays.has(row._parlayGroupId)
-                              ? "Collapse"
-                              : "Expand"
-                          }
-                        >
-                          <span className="whitespace-normal wrap-break-word">
-                            {row.name}
-                          </span>
-                          <span className="text-neutral-500 dark:text-neutral-400 select-none">
-                            {expandedParlays.has(row._parlayGroupId)
-                              ? "▾"
-                              : "▸"}
-                          </span>
-                        </button>
-                      ) : row.category === "Main Markets" &&
-                        row.type === "Total" ? (
-                        // Two side-by-side inputs for totals bets
-                        <div className="flex gap-1">
-                          <div className="flex-1">
-                            <EditableCell
-                              value={row.name}
-                              isFocused={isCellFocused(rowIndex, "name")}
-                              onFocus={() =>
-                                setFocusedCell({ rowIndex, columnKey: "name" })
-                              }
-                              inputRef={getCellRef(rowIndex, "name")}
-                              onSave={(val) => {
-                                if (isLeg) {
-                                  autoAddEntity(row.sport, val, row.type);
-                                  const name2 = row.name2 || "";
-                                  handleLegUpdate(row.betId, legIndex, {
-                                    entities: name2 ? [val, name2] : [val],
-                                  });
-                                } else {
-                                  autoAddEntity(row.sport, val, row.type);
-                                  const bet = bets.find(
-                                    (b) => b.id === row.betId
-                                  );
-                                  const name2 =
-                                    bet?.legs?.[0]?.entities?.[1] ||
-                                    row.name2 ||
-                                    "";
-                                  updateBet(row.betId, {
-                                    name: val,
-                                    legs: bet?.legs
-                                      ? bet.legs.map((leg, idx) =>
-                                          idx === 0
-                                            ? {
-                                                ...leg,
-                                                entities: name2
-                                                  ? [val, name2]
-                                                  : [val],
-                                              }
-                                            : leg
-                                        )
-                                      : [
-                                          {
-                                            entities: name2
-                                              ? [val, name2]
-                                              : [val],
-                                            market: bet?.type || "",
-                                            result: bet?.result || "pending",
-                                          },
-                                        ],
-                                  });
-                                }
-                              }}
-                              suggestions={[
-                                ...suggestionLists.players(row.sport),
-                                ...suggestionLists.teams(row.sport),
-                              ]}
-                            />
-                          </div>
-                          <div className="flex-1">
-                            <EditableCell
-                              value={row.name2 || ""}
-                              isFocused={isCellFocused(rowIndex, "name2")}
-                              onFocus={() =>
-                                setFocusedCell({ rowIndex, columnKey: "name2" })
-                              }
-                              inputRef={getCellRef(rowIndex, "name2")}
-                              onSave={(val) => {
-                                if (isLeg) {
-                                  autoAddEntity(row.sport, val, row.type);
-                                  const name1 = row.name || "";
-                                  handleLegUpdate(row.betId, legIndex, {
-                                    entities: name1 ? [name1, val] : [val],
-                                  });
-                                } else {
-                                  autoAddEntity(row.sport, val, row.type);
-                                  const bet = bets.find(
-                                    (b) => b.id === row.betId
-                                  );
-                                  const name1 = bet?.name || row.name || "";
-                                  updateBet(row.betId, {
-                                    legs: bet?.legs
-                                      ? bet.legs.map((leg, idx) =>
-                                          idx === 0
-                                            ? {
-                                                ...leg,
-                                                entities: name1
-                                                  ? [name1, val]
-                                                  : [val],
-                                              }
-                                            : leg
-                                        )
-                                      : [
-                                          {
-                                            entities: name1
-                                              ? [name1, val]
-                                              : [val],
-                                            market: bet?.type || "",
-                                            result: bet?.result || "pending",
-                                          },
-                                        ],
-                                  });
-                                }
-                              }}
-                              suggestions={[
-                                ...suggestionLists.players(row.sport),
-                                ...suggestionLists.teams(row.sport),
-                              ]}
-                            />
-                          </div>
+                      {header.label}
+                      <div
+                        className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary-500 opacity-0 hover:opacity-100 transition-opacity"
+                        onMouseDown={(e) => handleResizeStart(header.key, e)}
+                        style={{ userSelect: "none" }}
+                      />
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={headers.length} className="text-center p-8">
+                    Loading bets...
+                  </td>
+                </tr>
+              ) : visibleBets.length === 0 ? (
+                <tr>
+                  <td colSpan={headers.length} className="text-center p-8">
+                    No bets found matching your criteria.
+                  </td>
+                </tr>
+              ) : (
+                visibleBets.map((row, rowIndex) => {
+                  const isLeg = row.id.includes("-leg-");
+                  const legIndex = isLeg
+                    ? parseInt(row.id.split("-leg-").pop()!, 10)
+                    : -1;
+                  const net = row.net;
+                  const displayResult = isLeg ? row.result : row.overallResult;
+                  const resultBgClass =
+                    displayResult === "win"
+                      ? "bg-green-500/10"
+                      : displayResult === "loss"
+                      ? "bg-red-500/10"
+                      : displayResult === "push"
+                      ? "bg-neutral-500/10"
+                      : "";
+                  const resultTextClass =
+                    displayResult === "win"
+                      ? "text-green-600 dark:text-green-400"
+                      : displayResult === "loss"
+                      ? "text-red-600 dark:text-red-400"
+                      : "";
+                  const netBgClass =
+                    net > 0
+                      ? "bg-green-500/10"
+                      : net < 0
+                      ? "bg-red-500/10"
+                      : "";
+                  const netColorClass =
+                    net > 0 ? "text-green-500" : net < 0 ? "text-red-500" : "";
+
+                  // Helper to check if cell is in drag fill range
+                  const isInDragFillRange = (
+                    rowIndex: number,
+                    columnKey: keyof FlatBet
+                  ): boolean => {
+                    if (!dragFillData) return false;
+                    const { start, end } = dragFillData;
+                    const minRow = Math.min(start.rowIndex, end.rowIndex);
+                    const maxRow = Math.max(start.rowIndex, end.rowIndex);
+                    const minCol = Math.min(
+                      editableColumns.indexOf(start.columnKey),
+                      editableColumns.indexOf(end.columnKey)
+                    );
+                    const maxCol = Math.max(
+                      editableColumns.indexOf(start.columnKey),
+                      editableColumns.indexOf(end.columnKey)
+                    );
+
+                    const cellRow = rowIndex;
+                    const cellCol = editableColumns.indexOf(columnKey);
+
+                    return (
+                      cellRow >= minRow &&
+                      cellRow <= maxRow &&
+                      cellCol >= minCol &&
+                      cellCol <= maxCol
+                    );
+                  };
+
+                  // Helper to get cell classes
+                  const getCellClasses = (columnKey: keyof FlatBet) => {
+                    // Use minimal padding to maximize content space
+                    const paddingX = columnKey === "name" ? "px-1" : "px-1";
+                    const baseClasses = `${paddingX} py-0.5 relative box-border`;
+                    const isSelected = isCellSelected(rowIndex, columnKey);
+                    const isFocused = isCellFocused(rowIndex, columnKey);
+                    const isEditable = isCellEditable(columnKey);
+                    const inDragFill = isInDragFillRange(rowIndex, columnKey);
+
+                    let classes = baseClasses;
+                    if (inDragFill) {
+                      classes += " bg-blue-200 dark:bg-blue-800/50";
+                    } else if (isSelected) {
+                      classes += " bg-blue-100 dark:bg-blue-900/30";
+                    }
+                    if (isFocused && isEditable) {
+                      classes += " ring-2 ring-blue-500 dark:ring-blue-400";
+                    }
+                    return classes;
+                  };
+
+                  // Get stripe index for this row
+                  const stripeIdx = rowStripeIndex.get(rowIndex) || 0;
+                  const isEvenStripe = stripeIdx % 2 === 0;
+                  const bgClass = isEvenStripe
+                    ? "bg-white dark:bg-neutral-900"
+                    : "bg-neutral-50 dark:bg-neutral-800/50";
+
+                  return (
+                    <tr
+                      key={row.id}
+                      className={`border-b dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-800/50 ${bgClass} ${
+                        row._isParlayHeader ? "font-semibold" : ""
+                      }`}
+                    >
+                      <td
+                        className={
+                          getCellClasses("date") + " whitespace-nowrap"
+                        }
+                      >
+                        <div className="flex items-center gap-2">
+                          {row._isParlayChild && !row._isParlayHeader && (
+                            <span className="text-neutral-400 dark:text-neutral-500">
+                              ↳
+                            </span>
+                          )}
+                          <span>{formatDate(row.date)}</span>
                         </div>
-                      ) : (
-                        // Single input for non-totals bets
+                      </td>
+                      <td
+                        className={
+                          getCellClasses("site") +
+                          " font-bold whitespace-nowrap"
+                        }
+                        onClick={(e) => handleCellClick(rowIndex, "site", e)}
+                      >
+                        {isCellFocused(rowIndex, "site") && (
+                          <div
+                            className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
+                            onMouseDown={(e) =>
+                              handleDragFillStart(rowIndex, "site", e)
+                            }
+                          />
+                        )}
                         <EditableCell
-                          value={row.name}
-                          isFocused={isCellFocused(rowIndex, "name")}
+                          value={siteShortNameMap[row.site] || row.site}
+                          isFocused={isCellFocused(rowIndex, "site")}
                           onFocus={() =>
-                            setFocusedCell({ rowIndex, columnKey: "name" })
+                            setFocusedCell({ rowIndex, columnKey: "site" })
                           }
-                          inputRef={getCellRef(rowIndex, "name")}
+                          inputRef={getCellRef(rowIndex, "site")}
+                          onSave={(val) => {
+                            const book = sportsbooks.find(
+                              (b) =>
+                                b.name.toLowerCase() === val.toLowerCase() ||
+                                b.abbreviation.toLowerCase() ===
+                                  val.toLowerCase()
+                            );
+                            updateBet(row.betId, {
+                              book: book ? book.name : val,
+                            });
+                          }}
+                          suggestions={suggestionLists.sites}
+                        />
+                      </td>
+                      <td
+                        className={
+                          getCellClasses("sport") + " whitespace-nowrap"
+                        }
+                        onClick={(e) => handleCellClick(rowIndex, "sport", e)}
+                      >
+                        {isCellFocused(rowIndex, "sport") && (
+                          <div
+                            className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
+                            onMouseDown={(e) =>
+                              handleDragFillStart(rowIndex, "sport", e)
+                            }
+                          />
+                        )}
+                        <TypableDropdown
+                          value={row.sport}
+                          onSave={(val) => {
+                            addSport(val);
+                            updateBet(row.betId, { sport: val });
+                          }}
+                          options={suggestionLists.sports}
+                          isFocused={isCellFocused(rowIndex, "sport")}
+                          onFocus={() =>
+                            setFocusedCell({ rowIndex, columnKey: "sport" })
+                          }
+                          inputRef={getCellRef(rowIndex, "sport")}
+                          allowCustom={true}
+                        />
+                      </td>
+                      <td
+                        className={getCellClasses("category") + " break-words"}
+                        onClick={(e) =>
+                          handleCellClick(rowIndex, "category", e)
+                        }
+                      >
+                        {isCellFocused(rowIndex, "category") && (
+                          <div
+                            className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
+                            onMouseDown={(e) =>
+                              handleDragFillStart(rowIndex, "category", e)
+                            }
+                          />
+                        )}
+                        <TypableDropdown
+                          value={row.category}
+                          onSave={(val) => {
+                            addCategory(val);
+                            updateBet(row.betId, {
+                              marketCategory: val as MarketCategory,
+                            });
+                          }}
+                          options={suggestionLists.categories}
+                          isFocused={isCellFocused(rowIndex, "category")}
+                          onFocus={() =>
+                            setFocusedCell({ rowIndex, columnKey: "category" })
+                          }
+                          inputRef={getCellRef(rowIndex, "category")}
+                          allowCustom={true}
+                        />
+                      </td>
+                      <td
+                        className={
+                          getCellClasses("type") + " capitalize break-words"
+                        }
+                        onClick={(e) => handleCellClick(rowIndex, "type", e)}
+                      >
+                        {isCellFocused(rowIndex, "type") && (
+                          <div
+                            className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
+                            onMouseDown={(e) =>
+                              handleDragFillStart(rowIndex, "type", e)
+                            }
+                          />
+                        )}
+                        <TypableDropdown
+                          value={row.type}
                           onSave={(val) => {
                             if (isLeg) {
-                              autoAddEntity(row.sport, val, row.type);
+                              addBetType(row.sport, val);
                               handleLegUpdate(row.betId, legIndex, {
-                                entities: [val],
+                                market: val,
                               });
                             } else {
-                              // Update bet.name (player/team name), NOT description
-                              autoAddEntity(row.sport, val, row.type);
-                              updateBet(row.betId, { name: val });
+                              // Update bet.type (stat type), NOT betType (bet form)
+                              addBetType(row.sport, val);
+                              updateBet(row.betId, { type: val });
                             }
                           }}
-                          suggestions={[
-                            ...suggestionLists.players(row.sport),
-                            ...suggestionLists.teams(row.sport),
-                          ]}
-                        />
-                      )}
-                    </td>
-                    <td
-                      className={
-                        getCellClasses("ou") + " text-center whitespace-nowrap"
-                      }
-                      onClick={(e) => handleCellClick(rowIndex, "ou", e)}
-                    >
-                      {isCellFocused(rowIndex, "ou") && (
-                        <div
-                          className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
-                          onMouseDown={(e) =>
-                            handleDragFillStart(rowIndex, "ou", e)
+                          options={
+                            isLeg
+                              ? suggestionLists.types(row.sport)
+                              : suggestionLists.types(row.sport) // Use stat types for single bets too
                           }
+                          isFocused={isCellFocused(rowIndex, "type")}
+                          onFocus={() =>
+                            setFocusedCell({ rowIndex, columnKey: "type" })
+                          }
+                          inputRef={getCellRef(rowIndex, "type")}
+                          allowCustom={true}
                         />
-                      )}
-                      <TypableDropdown
-                        value={
-                          row.ou === "Over"
-                            ? "O"
-                            : row.ou === "Under"
-                            ? "U"
-                            : ""
+                      </td>
+                      <td
+                        className={
+                          getCellClasses("name") +
+                          " font-medium text-neutral-900 dark:text-white pl-2 break-words"
                         }
-                        onSave={(val) => {
-                          let ouValue: "Over" | "Under" | undefined;
-                          if (val === "O" || val.toLowerCase() === "over") {
-                            ouValue = "Over";
-                          } else if (
-                            val === "U" ||
-                            val.toLowerCase() === "under"
-                          ) {
-                            ouValue = "Under";
-                          } else {
-                            ouValue = undefined;
-                          }
-                          if (isLeg) {
-                            handleLegUpdate(row.betId, legIndex, {
-                              ou: ouValue,
-                            });
-                          } else {
-                            updateBet(row.betId, { ou: ouValue });
-                          }
+                        onClick={(e) => {
+                          // Parlay header rows toggle expand/collapse (no inline editing)
+                          if (row._isParlayHeader && row._parlayGroupId) return;
+                          handleCellClick(rowIndex, "name", e);
                         }}
-                        options={["O", "U"]}
-                        isFocused={isCellFocused(rowIndex, "ou")}
-                        onFocus={() =>
-                          setFocusedCell({ rowIndex, columnKey: "ou" })
+                      >
+                        {isCellFocused(rowIndex, "name") && (
+                          <div
+                            className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
+                            onMouseDown={(e) =>
+                              handleDragFillStart(rowIndex, "name", e)
+                            }
+                          />
+                        )}
+                        {row._isParlayHeader && row._parlayGroupId ? (
+                          <button
+                            type="button"
+                            className="flex items-center gap-1 text-left w-full"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleParlayExpansion(row._parlayGroupId!);
+                            }}
+                            title={
+                              expandedParlays.has(row._parlayGroupId)
+                                ? "Collapse"
+                                : "Expand"
+                            }
+                          >
+                            <span className="whitespace-normal wrap-break-word">
+                              {row.name}
+                            </span>
+                            <span className="text-neutral-500 dark:text-neutral-400 select-none">
+                              {expandedParlays.has(row._parlayGroupId)
+                                ? "▾"
+                                : "▸"}
+                            </span>
+                          </button>
+                        ) : row.category === "Main Markets" &&
+                          row.type === "Total" ? (
+                          // Two side-by-side inputs for totals bets
+                          <div className="flex gap-1">
+                            <div className="flex-1">
+                              <EditableCell
+                                value={row.name}
+                                isFocused={isCellFocused(rowIndex, "name")}
+                                onFocus={() =>
+                                  setFocusedCell({
+                                    rowIndex,
+                                    columnKey: "name",
+                                  })
+                                }
+                                inputRef={getCellRef(rowIndex, "name")}
+                                onSave={(val) => {
+                                  if (isLeg) {
+                                    autoAddEntity(row.sport, val, row.type);
+                                    const name2 = row.name2 || "";
+                                    handleLegUpdate(row.betId, legIndex, {
+                                      entities: name2 ? [val, name2] : [val],
+                                    });
+                                  } else {
+                                    autoAddEntity(row.sport, val, row.type);
+                                    const bet = bets.find(
+                                      (b) => b.id === row.betId
+                                    );
+                                    const name2 =
+                                      bet?.legs?.[0]?.entities?.[1] ||
+                                      row.name2 ||
+                                      "";
+                                    updateBet(row.betId, {
+                                      name: val,
+                                      legs: bet?.legs
+                                        ? bet.legs.map((leg, idx) =>
+                                            idx === 0
+                                              ? {
+                                                  ...leg,
+                                                  entities: name2
+                                                    ? [val, name2]
+                                                    : [val],
+                                                }
+                                              : leg
+                                          )
+                                        : [
+                                            {
+                                              entities: name2
+                                                ? [val, name2]
+                                                : [val],
+                                              market: bet?.type || "",
+                                              result: bet?.result || "pending",
+                                            },
+                                          ],
+                                    });
+                                  }
+                                }}
+                                suggestions={[
+                                  ...suggestionLists.players(row.sport),
+                                  ...suggestionLists.teams(row.sport),
+                                ]}
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <EditableCell
+                                value={row.name2 || ""}
+                                isFocused={isCellFocused(rowIndex, "name2")}
+                                onFocus={() =>
+                                  setFocusedCell({
+                                    rowIndex,
+                                    columnKey: "name2",
+                                  })
+                                }
+                                inputRef={getCellRef(rowIndex, "name2")}
+                                onSave={(val) => {
+                                  if (isLeg) {
+                                    autoAddEntity(row.sport, val, row.type);
+                                    const name1 = row.name || "";
+                                    handleLegUpdate(row.betId, legIndex, {
+                                      entities: name1 ? [name1, val] : [val],
+                                    });
+                                  } else {
+                                    autoAddEntity(row.sport, val, row.type);
+                                    const bet = bets.find(
+                                      (b) => b.id === row.betId
+                                    );
+                                    const name1 = bet?.name || row.name || "";
+                                    updateBet(row.betId, {
+                                      legs: bet?.legs
+                                        ? bet.legs.map((leg, idx) =>
+                                            idx === 0
+                                              ? {
+                                                  ...leg,
+                                                  entities: name1
+                                                    ? [name1, val]
+                                                    : [val],
+                                                }
+                                              : leg
+                                          )
+                                        : [
+                                            {
+                                              entities: name1
+                                                ? [name1, val]
+                                                : [val],
+                                              market: bet?.type || "",
+                                              result: bet?.result || "pending",
+                                            },
+                                          ],
+                                    });
+                                  }
+                                }}
+                                suggestions={[
+                                  ...suggestionLists.players(row.sport),
+                                  ...suggestionLists.teams(row.sport),
+                                ]}
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          // Single input for non-totals bets
+                          <EditableCell
+                            value={row.name}
+                            isFocused={isCellFocused(rowIndex, "name")}
+                            onFocus={() =>
+                              setFocusedCell({ rowIndex, columnKey: "name" })
+                            }
+                            inputRef={getCellRef(rowIndex, "name")}
+                            onSave={(val) => {
+                              if (isLeg) {
+                                autoAddEntity(row.sport, val, row.type);
+                                handleLegUpdate(row.betId, legIndex, {
+                                  entities: [val],
+                                });
+                              } else {
+                                // Update bet.name (player/team name), NOT description
+                                autoAddEntity(row.sport, val, row.type);
+                                updateBet(row.betId, { name: val });
+                              }
+                            }}
+                            suggestions={[
+                              ...suggestionLists.players(row.sport),
+                              ...suggestionLists.teams(row.sport),
+                            ]}
+                          />
+                        )}
+                      </td>
+                      <td
+                        className={
+                          getCellClasses("ou") +
+                          " text-center whitespace-nowrap"
                         }
-                        inputRef={getCellRef(rowIndex, "ou")}
-                        allowCustom={false}
-                        className="text-center font-semibold"
-                      />
-                    </td>
-                    <td
-                      className={
-                        getCellClasses("line") +
-                        " text-center whitespace-nowrap"
-                      }
-                      onClick={(e) => handleCellClick(rowIndex, "line", e)}
-                    >
-                      {isCellFocused(rowIndex, "line") && (
-                        <div
-                          className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
-                          onMouseDown={(e) =>
-                            handleDragFillStart(rowIndex, "line", e)
+                        onClick={(e) => handleCellClick(rowIndex, "ou", e)}
+                      >
+                        {isCellFocused(rowIndex, "ou") && (
+                          <div
+                            className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
+                            onMouseDown={(e) =>
+                              handleDragFillStart(rowIndex, "ou", e)
+                            }
+                          />
+                        )}
+                        <TypableDropdown
+                          value={
+                            row.ou === "Over"
+                              ? "O"
+                              : row.ou === "Under"
+                              ? "U"
+                              : ""
                           }
+                          onSave={(val) => {
+                            let ouValue: "Over" | "Under" | undefined;
+                            if (val === "O" || val.toLowerCase() === "over") {
+                              ouValue = "Over";
+                            } else if (
+                              val === "U" ||
+                              val.toLowerCase() === "under"
+                            ) {
+                              ouValue = "Under";
+                            } else {
+                              ouValue = undefined;
+                            }
+                            if (isLeg) {
+                              handleLegUpdate(row.betId, legIndex, {
+                                ou: ouValue,
+                              });
+                            } else {
+                              updateBet(row.betId, { ou: ouValue });
+                            }
+                          }}
+                          options={["O", "U"]}
+                          isFocused={isCellFocused(rowIndex, "ou")}
+                          onFocus={() =>
+                            setFocusedCell({ rowIndex, columnKey: "ou" })
+                          }
+                          inputRef={getCellRef(rowIndex, "ou")}
+                          allowCustom={false}
+                          className="text-center font-semibold"
                         />
-                      )}
-                      <EditableCell
-                        value={row.line || ""}
-                        type="text"
-                        isFocused={isCellFocused(rowIndex, "line")}
-                        onFocus={() =>
-                          setFocusedCell({ rowIndex, columnKey: "line" })
+                      </td>
+                      <td
+                        className={
+                          getCellClasses("line") +
+                          " whitespace-nowrap text-right tabular-nums"
                         }
-                        inputRef={getCellRef(rowIndex, "line")}
-                        onSave={(val) => {
-                          if (isLeg) {
-                            handleLegUpdate(row.betId, legIndex, {
-                              target: val,
-                            });
+                        onClick={(e) => handleCellClick(rowIndex, "line", e)}
+                      >
+                        {isCellFocused(rowIndex, "line") && (
+                          <div
+                            className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
+                            onMouseDown={(e) =>
+                              handleDragFillStart(rowIndex, "line", e)
+                            }
+                          />
+                        )}
+                        <EditableCell
+                          value={row.line || ""}
+                          type="text"
+                          isFocused={isCellFocused(rowIndex, "line")}
+                          onFocus={() =>
+                            setFocusedCell({ rowIndex, columnKey: "line" })
                           }
-                        }}
-                      />
-                    </td>
-                    <td
-                      className={getCellClasses("odds") + " whitespace-nowrap"}
-                      onClick={(e) => handleCellClick(rowIndex, "odds", e)}
-                    >
-                      {isCellFocused(rowIndex, "odds") && (
-                        <div
-                          className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
-                          onMouseDown={(e) =>
-                            handleDragFillStart(rowIndex, "odds", e)
-                          }
+                          inputRef={getCellRef(rowIndex, "line")}
+                          onSave={(val) => {
+                            if (isLeg) {
+                              handleLegUpdate(row.betId, legIndex, {
+                                target: val,
+                              });
+                            }
+                          }}
+                          className="text-right tabular-nums"
                         />
-                      )}
-                      {row._isParlayChild && !row._isParlayHeader ? (
-                        row.odds !== undefined ? (
+                      </td>
+                      <td
+                        className={
+                          getCellClasses("odds") +
+                          " whitespace-nowrap text-right tabular-nums"
+                        }
+                        onClick={(e) => handleCellClick(rowIndex, "odds", e)}
+                      >
+                        {isCellFocused(rowIndex, "odds") && (
+                          <div
+                            className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
+                            onMouseDown={(e) =>
+                              handleDragFillStart(rowIndex, "odds", e)
+                            }
+                          />
+                        )}
+                        {row._isParlayChild && !row._isParlayHeader ? (
+                          row.odds !== undefined ? (
+                            <EditableCell
+                              value={formatOdds(row.odds)}
+                              type="number"
+                              formatAsOdds={true}
+                              isFocused={isCellFocused(rowIndex, "odds")}
+                              onFocus={() =>
+                                setFocusedCell({ rowIndex, columnKey: "odds" })
+                              }
+                              inputRef={getCellRef(rowIndex, "odds")}
+                              onSave={(val) => {
+                                const numVal = parseInt(
+                                  val.replace("+", ""),
+                                  10
+                                );
+                                if (!isNaN(numVal) && row._legIndex != null) {
+                                  // Update leg odds if this is a parlay child
+                                  handleLegUpdate(
+                                    row.betId,
+                                    row._legIndex - 1,
+                                    {
+                                      odds: numVal,
+                                    }
+                                  );
+                                }
+                              }}
+                              className="text-right tabular-nums"
+                            />
+                          ) : (
+                            <span className="text-neutral-300 dark:text-neutral-600">
+                              ↳
+                            </span>
+                          )
+                        ) : (
                           <EditableCell
                             value={formatOdds(row.odds)}
                             type="number"
@@ -2322,164 +2432,150 @@ const BetTableView: React.FC = () => {
                             inputRef={getCellRef(rowIndex, "odds")}
                             onSave={(val) => {
                               const numVal = parseInt(val.replace("+", ""), 10);
-                              if (!isNaN(numVal) && row._legIndex != null) {
-                                // Update leg odds if this is a parlay child
-                                handleLegUpdate(row.betId, row._legIndex - 1, {
-                                  odds: numVal,
-                                });
+                              if (!isNaN(numVal)) {
+                                // Always update the main bet's odds, which drives the "To Win" calculation.
+                                updateBet(row.betId, { odds: numVal });
                               }
                             }}
+                            className="text-right tabular-nums"
                           />
-                        ) : (
+                        )}
+                      </td>
+                      <td
+                        className={
+                          getCellClasses("bet") +
+                          " whitespace-nowrap text-right tabular-nums border-l border-neutral-200 dark:border-neutral-700"
+                        }
+                        onClick={(e) => handleCellClick(rowIndex, "bet", e)}
+                      >
+                        {isCellFocused(rowIndex, "bet") && (
+                          <div
+                            className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
+                            onMouseDown={(e) =>
+                              handleDragFillStart(rowIndex, "bet", e)
+                            }
+                          />
+                        )}
+                        {row._isParlayChild && !row._isParlayHeader ? (
                           <span className="text-neutral-300 dark:text-neutral-600">
                             ↳
                           </span>
-                        )
-                      ) : (
-                        <EditableCell
-                          value={formatOdds(row.odds)}
-                          type="number"
-                          formatAsOdds={true}
-                          isFocused={isCellFocused(rowIndex, "odds")}
-                          onFocus={() =>
-                            setFocusedCell({ rowIndex, columnKey: "odds" })
-                          }
-                          inputRef={getCellRef(rowIndex, "odds")}
-                          onSave={(val) => {
-                            const numVal = parseInt(val.replace("+", ""), 10);
-                            if (!isNaN(numVal)) {
-                              // Always update the main bet's odds, which drives the "To Win" calculation.
-                              updateBet(row.betId, { odds: numVal });
-                            }
-                          }}
-                        />
-                      )}
-                    </td>
-                    <td
-                      className={getCellClasses("bet") + " whitespace-nowrap"}
-                      onClick={(e) => handleCellClick(rowIndex, "bet", e)}
-                    >
-                      {isCellFocused(rowIndex, "bet") && (
-                        <div
-                          className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
-                          onMouseDown={(e) =>
-                            handleDragFillStart(rowIndex, "bet", e)
-                          }
-                        />
-                      )}
-                      {row._isParlayChild && !row._isParlayHeader ? (
-                        <span className="text-neutral-300 dark:text-neutral-600">
-                          ↳
-                        </span>
-                      ) : (
-                        <div className="relative">
-                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none">
-                            $
+                        ) : (
+                          <>
+                            <span className="text-neutral-400">$</span>
+                            <span
+                              className="inline-block ml-0.5"
+                              style={{ width: "6ch" }}
+                            >
+                              <EditableCell
+                                value={row.bet.toFixed(2)}
+                                type="number"
+                                isFocused={isCellFocused(rowIndex, "bet")}
+                                onFocus={() =>
+                                  setFocusedCell({ rowIndex, columnKey: "bet" })
+                                }
+                                inputRef={getCellRef(rowIndex, "bet")}
+                                onSave={(val) => {
+                                  const numVal = parseFloat(val);
+                                  if (!isNaN(numVal))
+                                    updateBet(row.betId, { stake: numVal });
+                                }}
+                                className="text-right tabular-nums"
+                              />
+                            </span>
+                          </>
+                        )}
+                      </td>
+                      <td
+                        className={
+                          getCellClasses("toWin") +
+                          " whitespace-nowrap text-right tabular-nums"
+                        }
+                      >
+                        {row._isParlayChild && !row._isParlayHeader ? (
+                          <span className="text-neutral-300 dark:text-neutral-600">
+                            ↳
                           </span>
-                          <EditableCell
-                            value={row.bet.toFixed(2)}
-                            type="number"
-                            isFocused={isCellFocused(rowIndex, "bet")}
-                            onFocus={() =>
-                              setFocusedCell({ rowIndex, columnKey: "bet" })
-                            }
-                            inputRef={getCellRef(rowIndex, "bet")}
+                        ) : (
+                          `$${row.toWin.toFixed(2)}`
+                        )}
+                      </td>
+                      <td
+                        className={
+                          getCellClasses("result") +
+                          " capitalize whitespace-nowrap text-center " +
+                          resultBgClass
+                        }
+                        onClick={(e) => handleCellClick(rowIndex, "result", e)}
+                      >
+                        <div className={resultTextClass}>
+                          <ResultCell
+                            value={displayResult}
                             onSave={(val) => {
-                              const numVal = parseFloat(val);
-                              if (!isNaN(numVal))
-                                updateBet(row.betId, { stake: numVal });
+                              if (isLeg) {
+                                handleLegUpdate(row.betId, legIndex, {
+                                  result: val,
+                                });
+                              } else {
+                                updateBet(row.betId, { result: val });
+                              }
                             }}
-                            className="pl-5"
                           />
                         </div>
-                      )}
-                    </td>
-                    <td
-                      className={getCellClasses("toWin") + " whitespace-nowrap"}
-                    >
-                      {row._isParlayChild && !row._isParlayHeader ? (
-                        <span className="text-neutral-300 dark:text-neutral-600">
-                          ↳
-                        </span>
-                      ) : (
-                        `$${row.toWin.toFixed(2)}`
-                      )}
-                    </td>
-                    <td
-                      className={
-                        getCellClasses("result") +
-                        " capitalize whitespace-nowrap " +
-                        resultBgClass
-                      }
-                      onClick={(e) => handleCellClick(rowIndex, "result", e)}
-                    >
-                      <div className={resultTextClass}>
-                        <ResultCell
-                          value={displayResult}
-                          onSave={(val) => {
-                            if (isLeg) {
-                              handleLegUpdate(row.betId, legIndex, {
-                                result: val,
-                              });
-                            } else {
-                              updateBet(row.betId, { result: val });
+                      </td>
+                      <td
+                        className={
+                          getCellClasses("net") +
+                          ` font-bold whitespace-nowrap text-right tabular-nums ${netBgClass} ${netColorClass}`
+                        }
+                      >
+                        {row._isParlayChild && !row._isParlayHeader ? (
+                          <span className="text-neutral-300 dark:text-neutral-600">
+                            ↳
+                          </span>
+                        ) : (
+                          `${net < 0 ? "-" : ""}$${Math.abs(net).toFixed(2)}`
+                        )}
+                      </td>
+                      <td className={getCellClasses("isLive") + " text-center"}>
+                        {row.isLive && (
+                          <Wifi
+                            className="w-5 h-5 text-primary-500 mx-auto"
+                            title="Live Bet"
+                          />
+                        )}
+                      </td>
+                      <td
+                        className={getCellClasses("tail") + " break-words"}
+                        onClick={(e) => handleCellClick(rowIndex, "tail", e)}
+                      >
+                        {isCellFocused(rowIndex, "tail") && (
+                          <div
+                            className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
+                            onMouseDown={(e) =>
+                              handleDragFillStart(rowIndex, "tail", e)
                             }
+                          />
+                        )}
+                        <EditableCell
+                          value={row.tail || ""}
+                          isFocused={isCellFocused(rowIndex, "tail")}
+                          onFocus={() =>
+                            setFocusedCell({ rowIndex, columnKey: "tail" })
+                          }
+                          inputRef={getCellRef(rowIndex, "tail")}
+                          onSave={(newValue) => {
+                            updateBet(row.betId, { tail: newValue });
                           }}
                         />
-                      </div>
-                    </td>
-                    <td
-                      className={
-                        getCellClasses("net") +
-                        ` font-bold whitespace-nowrap ${netBgClass} ${netColorClass}`
-                      }
-                    >
-                      {row._isParlayChild && !row._isParlayHeader ? (
-                        <span className="text-neutral-300 dark:text-neutral-600">
-                          ↳
-                        </span>
-                      ) : (
-                        `${net < 0 ? "-" : ""}$${Math.abs(net).toFixed(2)}`
-                      )}
-                    </td>
-                    <td className={getCellClasses("isLive") + " text-center"}>
-                      {row.isLive && (
-                        <Wifi
-                          className="w-5 h-5 text-primary-500 mx-auto"
-                          title="Live Bet"
-                        />
-                      )}
-                    </td>
-                    <td
-                      className={getCellClasses("tail") + " whitespace-nowrap"}
-                      onClick={(e) => handleCellClick(rowIndex, "tail", e)}
-                    >
-                      {isCellFocused(rowIndex, "tail") && (
-                        <div
-                          className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
-                          onMouseDown={(e) =>
-                            handleDragFillStart(rowIndex, "tail", e)
-                          }
-                        />
-                      )}
-                      <EditableCell
-                        value={row.tail || ""}
-                        isFocused={isCellFocused(rowIndex, "tail")}
-                        onFocus={() =>
-                          setFocusedCell({ rowIndex, columnKey: "tail" })
-                        }
-                        inputRef={getCellRef(rowIndex, "tail")}
-                        onSave={(newValue) => {
-                          updateBet(row.betId, { tail: newValue });
-                        }}
-                      />
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
