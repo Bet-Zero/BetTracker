@@ -20,25 +20,24 @@ import { calculateProfit } from "../utils/betCalculations";
 import { betToFinalRows } from "../parsing/shared/betToFinalRows";
 
 // --- Column sizing (deterministic fixed-width layout) ---
-// Fixed character-based widths for deterministic, no-wrap spreadsheet behavior.
-// Using 'ch' units based on max character budgets for each column.
-// Total: ~101ch to fit typical desktop viewports (1200-1400px)
+// Fixed pixel widths for deterministic, no-wrap spreadsheet behavior.
+// Total: ~1100px to fit typical desktop viewports with proper spacing.
 const COLUMN_WIDTHS: Record<string, string> = {
-  date: "4ch",      // MM/DD format
-  site: "3ch",      // FD, DK abbreviations
-  sport: "4ch",     // NBA, NFL, MLB, NHL
-  category: "8ch",  // Props, Main Markets
-  type: "10ch",     // Market types
-  name: "18ch",     // Player/team names
-  ou: "2ch",        // O/U
-  line: "6ch",      // Betting lines
-  odds: "7ch",      // +150, -110
-  bet: "7ch",       // $XXX.XX
-  toWin: "7ch",     // $XXX.XX
-  result: "6ch",    // Win/Loss/Push
-  net: "8ch",       // $-XXX.XX
-  isLive: "3ch",    // Icon only
-  tail: "8ch",      // Tail notes
+  date: "55px",      // MM/DD format
+  site: "50px",      // Sportsbook abbreviations
+  sport: "55px",     // NBA, NFL, MLB, NHL
+  category: "85px",  // Props, Main Markets
+  type: "95px",      // Market types (abbreviated)
+  name: "180px",     // Player/team names
+  ou: "45px",        // O/U
+  line: "60px",      // Betting lines
+  odds: "70px",      // +150, -110
+  bet: "80px",       // $XXX.XX
+  toWin: "80px",     // $XXX.XX
+  result: "75px",    // Win/Loss/Push
+  net: "85px",       // $-XXX.XX
+  isLive: "45px",    // Live icon
+  tail: "95px",      // Tail notes
 };
 
 // Legacy column width state for manual resize feature (deprecated)
