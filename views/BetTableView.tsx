@@ -21,23 +21,23 @@ import { betToFinalRows } from "../parsing/shared/betToFinalRows";
 
 // --- Column sizing (deterministic fixed-width layout) ---
 // Fixed pixel widths for deterministic, no-wrap spreadsheet behavior.
-// Total: ~1100px to fit typical desktop viewports with proper spacing.
+// Total: ~1080px to fit within typical viewports with sidebar + margins.
 const COLUMN_WIDTHS: Record<string, string> = {
   date: "55px",      // MM/DD format
   site: "50px",      // Sportsbook abbreviations
   sport: "55px",     // NBA, NFL, MLB, NHL
-  category: "85px",  // Props, Main Markets
-  type: "95px",      // Market types (abbreviated)
-  name: "180px",     // Player/team names
+  category: "75px",  // Props, Main Markets
+  type: "85px",      // Market types (abbreviated)
+  name: "150px",     // Player/team names
   ou: "45px",        // O/U
   line: "60px",      // Betting lines
   odds: "70px",      // +150, -110
-  bet: "80px",       // $XXX.XX
-  toWin: "80px",     // $XXX.XX
+  bet: "75px",       // $XXX.XX
+  toWin: "75px",     // $XXX.XX
   result: "75px",    // Win/Loss/Push
-  net: "85px",       // $-XXX.XX
+  net: "80px",       // $-XXX.XX
   isLive: "45px",    // Live icon
-  tail: "95px",      // Tail notes
+  tail: "85px",      // Tail notes
 };
 
 // Legacy column width state for manual resize feature (deprecated)
