@@ -19,15 +19,31 @@ import { Wifi } from "../components/icons";
 import { calculateProfit } from "../utils/betCalculations";
 import { betToFinalRows } from "../parsing/shared/betToFinalRows";
 
-// --- Column sizing (prevents overlap/collapsed columns) ---
-// NOTE: These are in px. The table is allowed to overflow horizontally (scroll)
-// rather than compressing columns into unreadable/overlapping content.
+// --- Column sizing (deterministic fixed-width layout) ---
+// Fixed character-based widths for deterministic, no-wrap spreadsheet behavior.
+// Using 'ch' units based on max character budgets for each column.
+const COLUMN_WIDTHS: Record<string, string> = {
+  date: "5ch",
+  site: "4ch",
+  sport: "5ch",
+  category: "10ch",
+  type: "12ch",
+  name: "24ch",
+  ou: "2ch",
+  line: "7ch",
+  odds: "8ch",
+  bet: "9ch",
+  toWin: "9ch",
+  result: "7ch",
+  net: "10ch",
+  isLive: "4ch",
+  tail: "10ch",
+};
+
+// Legacy column width state for manual resize feature (deprecated)
 const COLUMN_WIDTHS_VERSION_KEY = "bettracker-column-widths-version";
-// Bump this when defaults/mins change and we want to migrate old saved widths.
 const COLUMN_WIDTHS_VERSION = 5;
 
-// Column widths are now handled by browser auto-sizing
-// These are only used for manual column resize feature
 const DEFAULT_COLUMN_WIDTHS: Record<string, number> = {
   date: 55,
   site: 45,
@@ -475,7 +491,7 @@ const TypableDropdown: React.FC<{
   };
 
   return (
-    <div className="relative w-full">
+    <div className="relative w-full min-w-0">
       <input
         ref={ref}
         type="text"
@@ -1763,7 +1779,7 @@ const BetTableView: React.FC = () => {
 
       <div className="grow bg-white dark:bg-neutral-900 rounded-lg shadow-md overflow-hidden flex flex-col">
         <div
-          className="flex-1 overflow-y-auto overflow-x-hidden min-w-0"
+          className="flex-1 overflow-y-auto min-w-0"
           style={{ width: "100%" }}
         >
           <table
@@ -1772,21 +1788,9 @@ const BetTableView: React.FC = () => {
             style={{ tableLayout: "fixed", width: "100%" }}
           >
             <colgroup>
-              <col style={{ width: "4.5%" }} /> {/* date */}
-              <col style={{ width: "4.5%" }} /> {/* site */}
-              <col style={{ width: "4.5%" }} /> {/* sport */}
-              <col style={{ width: "6.5%" }} /> {/* category */}
-              <col style={{ width: "7.5%" }} /> {/* type */}
-              <col style={{ width: "16.5%" }} /> {/* name - flexible */}
-              <col style={{ width: "3.5%" }} /> {/* ou */}
-              <col style={{ width: "4.5%" }} /> {/* line */}
-              <col style={{ width: "7.5%" }} /> {/* odds */}
-              <col style={{ width: "7.5%" }} /> {/* bet */}
-              <col style={{ width: "8.5%" }} /> {/* toWin */}
-              <col style={{ width: "7.5%" }} /> {/* result */}
-              <col style={{ width: "8.5%" }} /> {/* net */}
-              <col style={{ width: "3.5%" }} /> {/* isLive */}
-              <col style={{ width: "5%" }} /> {/* tail - flexible */}
+              {headers.map((header) => (
+                <col key={header.key} style={{ width: COLUMN_WIDTHS[header.key] }} />
+              ))}
             </colgroup>
             <thead className="text-xs font-semibold tracking-wide text-neutral-700 uppercase bg-neutral-50 dark:bg-neutral-800 dark:text-neutral-400 sticky top-0 z-10 border-b border-neutral-200 dark:border-neutral-700">
               <tr className="leading-tight">
@@ -1952,7 +1956,7 @@ const BetTableView: React.FC = () => {
                           getCellClasses("date") + " whitespace-nowrap"
                         }
                       >
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
                           {row._isParlayChild && !row._isParlayHeader && (
                             <span className="text-neutral-400 dark:text-neutral-500">
                               ↳
@@ -2027,7 +2031,7 @@ const BetTableView: React.FC = () => {
                         />
                       </td>
                       <td
-                        className={getCellClasses("category") + " break-words"}
+                        className={getCellClasses("category") + " whitespace-nowrap"}
                         onClick={(e) =>
                           handleCellClick(rowIndex, "category", e)
                         }
@@ -2059,7 +2063,7 @@ const BetTableView: React.FC = () => {
                       </td>
                       <td
                         className={
-                          getCellClasses("type") + " capitalize break-words"
+                          getCellClasses("type") + " capitalize whitespace-nowrap"
                         }
                         onClick={(e) => handleCellClick(rowIndex, "type", e)}
                       >
@@ -2101,7 +2105,7 @@ const BetTableView: React.FC = () => {
                       <td
                         className={
                           getCellClasses("name") +
-                          " font-medium text-neutral-900 dark:text-white pl-2 break-words"
+                          " font-medium text-neutral-900 dark:text-white pl-2 whitespace-nowrap"
                         }
                         onClick={(e) => {
                           // Parlay header rows toggle expand/collapse (no inline editing)
@@ -2131,7 +2135,7 @@ const BetTableView: React.FC = () => {
                                 : "Expand"
                             }
                           >
-                            <span className="whitespace-normal wrap-break-word">
+                            <span className="whitespace-nowrap overflow-hidden text-ellipsis">
                               {row.name}
                             </span>
                             <span className="text-neutral-500 dark:text-neutral-400 select-none">
@@ -2143,8 +2147,8 @@ const BetTableView: React.FC = () => {
                         ) : row.category === "Main Markets" &&
                           row.type === "Total" ? (
                           // Two side-by-side inputs for totals bets
-                          <div className="flex gap-1">
-                            <div className="flex-1">
+                          <div className="flex gap-1 min-w-0">
+                            <div className="flex-1 min-w-0">
                               <EditableCell
                                 value={row.name}
                                 isFocused={isCellFocused(rowIndex, "name")}
@@ -2202,7 +2206,7 @@ const BetTableView: React.FC = () => {
                                 ]}
                               />
                             </div>
-                            <div className="flex-1">
+                            <div className="flex-1 min-w-0">
                               <EditableCell
                                 value={row.name2 || ""}
                                 isFocused={isCellFocused(rowIndex, "name2")}
@@ -2461,10 +2465,10 @@ const BetTableView: React.FC = () => {
                             ↳
                           </span>
                         ) : (
-                          <>
+                          <div className="min-w-0">
                             <span className="text-neutral-400">$</span>
                             <span
-                              className="inline-block ml-0.5"
+                              className="inline-block ml-0.5 min-w-0"
                               style={{ width: "6ch" }}
                             >
                               <EditableCell
@@ -2483,7 +2487,7 @@ const BetTableView: React.FC = () => {
                                 className="text-right tabular-nums"
                               />
                             </span>
-                          </>
+                          </div>
                         )}
                       </td>
                       <td
@@ -2546,7 +2550,7 @@ const BetTableView: React.FC = () => {
                         )}
                       </td>
                       <td
-                        className={getCellClasses("tail") + " break-words"}
+                        className={getCellClasses("tail") + " whitespace-nowrap"}
                         onClick={(e) => handleCellClick(rowIndex, "tail", e)}
                       >
                         {isCellFocused(rowIndex, "tail") && (
