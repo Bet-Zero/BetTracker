@@ -2278,37 +2278,24 @@ const BetTableView: React.FC = () => {
                             ↳
                           </span>
                         ) : (
-                          <div className="text-right whitespace-nowrap">
-                            <span
-                              className="inline-flex items-center"
-                              style={{ gap: 0 }}
-                            >
-                              <span className="flex-shrink-0">$</span>
-                              <span
-                                className="inline-block flex-shrink-0"
-                                style={{ width: "6ch" }}
-                              >
-                                <EditableCell
-                                  value={row.bet.toFixed(2)}
-                                  type="number"
-                                  isFocused={isCellFocused(rowIndex, "bet")}
-                                  onFocus={() =>
-                                    setFocusedCell({
-                                      rowIndex,
-                                      columnKey: "bet",
-                                    })
-                                  }
-                                  inputRef={getCellRef(rowIndex, "bet")}
-                                  onSave={(val) => {
-                                    const numVal = parseFloat(val);
-                                    if (!isNaN(numVal))
-                                      updateBet(row.betId, { stake: numVal });
-                                  }}
-                                  className="text-right tabular-nums"
-                                />
-                              </span>
-                            </span>
-                          </div>
+                          <EditableCell
+                            value={`$${row.bet.toFixed(2)}`}
+                            type="number"
+                            isFocused={isCellFocused(rowIndex, "bet")}
+                            onFocus={() =>
+                              setFocusedCell({
+                                rowIndex,
+                                columnKey: "bet",
+                              })
+                            }
+                            inputRef={getCellRef(rowIndex, "bet")}
+                            onSave={(val) => {
+                              const numVal = parseFloat(val.replace("$", ""));
+                              if (!isNaN(numVal))
+                                updateBet(row.betId, { stake: numVal });
+                            }}
+                            className="text-right tabular-nums"
+                          />
                         )}
                       </td>
                       <td
