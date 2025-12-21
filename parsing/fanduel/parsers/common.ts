@@ -278,15 +278,17 @@ export const inferMatchupFromTeams = (text: string): string | null => {
  * Extract team names from raw text and convert to nicknames for Total bets.
  * FanDuel raw text contains full team names like "Detroit Pistons" and "Atlanta Hawks".
  * This function extracts both team names and returns their nicknames.
- * 
+ *
  * Example:
  *   "Over 232.5 -120 TOTAL POINTS 232 232.5 Detroit Pistons 35322726 120112 Atlanta Hawks..."
  *   → ["Pistons", "Hawks"]
- * 
+ *
  * @param rawText - The raw text from FanDuel bet
  * @returns Tuple of [team1Nickname, team2Nickname] or [undefined, undefined] if not found
  */
-export const extractTeamNicknamesFromRawText = (rawText: string): [string | undefined, string | undefined] => {
+export const extractTeamNicknamesFromRawText = (
+  rawText: string
+): [string | undefined, string | undefined] => {
   if (!rawText) return [undefined, undefined];
 
   // Full team names for extraction
@@ -1003,8 +1005,10 @@ export const guessMarketFromText = (text: string): string => {
   if (/MADE THREES|3PT|THREES/.test(upper)) return "3pt";
   if (upper.includes("POINT")) return "Pts";
   if (upper.includes("REBOUND")) return "Reb";
-  if (upper.includes("YARD")) return "Yds";
+  // Check RECEPTION before YARD to avoid misclassification
+  // (e.g., "3+ Receptions" should not be classified as "Yds" due to "Receiving Yds" elsewhere)
   if (upper.includes("RECEPTION")) return "Rec";
+  if (upper.includes("YARD")) return "Yds";
   return "";
 };
 
@@ -1712,6 +1716,17 @@ export const buildLegsFromStatText = (
         result: m.isVoid ? "PUSH" : toLegResult(result),
       };
     } else {
+      // CRITICAL: Prioritize the regex-matched market over parseLegFromText inference
+      // The regex pattern explicitly matches the market type (e.g., "Receptions", "Yards"),
+      // so m.market is more reliable than guessMarketFromText inference which can be
+      // confused by context (e.g., "Receiving Yds" appearing elsewhere in text)
+      if (m.market && m.market !== "Other") {
+        leg.market = m.market;
+      }
+      // Also ensure target matches what we extracted from regex
+      if (m.target) {
+        leg.target = m.target;
+      }
       // Update result if this leg is void
       if (m.isVoid) {
         leg.result = "PUSH";
@@ -2181,7 +2196,9 @@ export const buildPrimaryLegsFromHeader = (
   }
 
   // For single bets, create one leg from header info
-  let entities: string[] | undefined = header.name ? [cleanEntityName(header.name)] : undefined;
+  let entities: string[] | undefined = header.name
+    ? [cleanEntityName(header.name)]
+    : undefined;
 
   // For Total bets, extract team nicknames from rawText and use them as entities
   // This enables the UI to display both team names in the Name column
