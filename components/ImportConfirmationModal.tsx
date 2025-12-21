@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { Bet, Sportsbook, MarketCategory, BetLeg } from "../types";
-import { X, AlertTriangle, CheckCircle2 } from "./icons";
+import { X, AlertTriangle, CheckCircle2, Wifi } from "./icons";
 
 interface ImportConfirmationModalProps {
   bets: Bet[];
@@ -498,6 +498,9 @@ export const ImportConfirmationModal: React.FC<
             updates.odds = numVal;
           }
           break;
+        case "isLive":
+          updates.isLive = value === "true";
+          break;
       }
     }
 
@@ -591,14 +594,16 @@ export const ImportConfirmationModal: React.FC<
                     ? "Futures"
                     : "Props";
                   const type = isParlayBet ? "—" : bet.type || "";
+                  // For Total bets with two entities, show "Team1 / Team2"
+                  const isTotalBet = type.toLowerCase() === "total";
+                  const entities = visibleLegs[0]?.leg.entities || bet.legs?.[0]?.entities || [];
                   const name = isParlayBet
                     ? `${getParlayLabel(bet)} (${visibleLegs.length}) ${
                         isExpanded ? "▾" : "▸"
                       }`
-                    : bet.name ||
-                      visibleLegs[0]?.leg.entities?.[0] ||
-                      bet.legs?.[0]?.entities?.[0] ||
-                      "";
+                    : isTotalBet && entities.length >= 2
+                    ? `${entities[0]} / ${entities[1]}`
+                    : bet.name || entities[0] || "";
                   const ou = isParlayBet
                     ? "—"
                     : bet.ou === "Over"
@@ -1002,8 +1007,15 @@ export const ImportConfirmationModal: React.FC<
                         >
                           {netDisplay}
                         </td>
-                        <td className="px-2 py-3 text-center whitespace-nowrap">
-                          {live}
+                        <td 
+                          className="px-2 py-3 text-center whitespace-nowrap cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-700"
+                          onClick={() => handleEditBet(betIndex, "isLive", (!bet.isLive).toString())}
+                        >
+                          {bet.isLive ? (
+                             <Wifi className="w-5 h-5 text-primary-500 mx-auto" />
+                          ) : (
+                             <div className="w-5 h-5 mx-auto" />
+                          )}
                         </td>
                         <td className="px-2 py-3 text-center whitespace-nowrap">
                           {tail}
@@ -1090,7 +1102,11 @@ export const ImportConfirmationModal: React.FC<
                                     const isEditingLeg =
                                       editingIndex === betIndex &&
                                       editingLegIndex === legIndex;
-                                    const legName = leg.entities?.[0] || "";
+                                    const isLegTotal = (leg.market || "").toLowerCase() === "total";
+                                    const legEntities = leg.entities || [];
+                                    const legName = isLegTotal && legEntities.length >= 2
+                                      ? `${legEntities[0]} / ${legEntities[1]}`
+                                      : legEntities[0] || "";
                                     const legCategory = getLegCategory(
                                       leg.market
                                     );
@@ -1125,9 +1141,11 @@ export const ImportConfirmationModal: React.FC<
                                         <td className="px-2 py-2">
                                           {legIndex + 1}
                                         </td>
-                                        <td className="px-2 py-2">{date}</td>
-                                        <td className="px-2 py-2 font-bold">
-                                          {site}
+                                        <td className="px-2 py-2 text-neutral-400 dark:text-neutral-500">
+                                          ↳
+                                        </td>
+                                        <td className="px-2 py-2 font-bold text-neutral-400 dark:text-neutral-500 text-center">
+                                          —
                                         </td>
                                         <td className="px-2 py-2">{sport}</td>
                                         <td className="px-2 py-2">

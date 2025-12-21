@@ -1770,7 +1770,7 @@ const BetTableView: React.FC = () => {
                             </span>
                           )}
                           <span className="min-w-0">
-                            {formatDate(row.date)}
+                            {!row._isParlayChild || row._isParlayHeader ? formatDate(row.date) : ""}
                           </span>
                         </div>
                       </td>
@@ -1790,7 +1790,7 @@ const BetTableView: React.FC = () => {
                           />
                         )}
                         <EditableCell
-                          value={siteShortNameMap[row.site] || row.site}
+                          value={(!row._isParlayChild || row._isParlayHeader) ? (siteShortNameMap[row.site] || row.site) : ""}
                           isFocused={isCellFocused(rowIndex, "site")}
                           onFocus={() =>
                             setFocusedCell({ rowIndex, columnKey: "site" })
@@ -2318,14 +2318,22 @@ const BetTableView: React.FC = () => {
                       <td
                         className={
                           getCellClasses("isLive") +
-                          " text-center whitespace-nowrap min-w-0"
+                          " text-center whitespace-nowrap min-w-0 cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-700"
                         }
+                        onClick={(e) => {
+                          e.stopPropagation(); // Prevent row selection if needed
+                           // Toggle isLive
+                          updateBet(row.betId, { isLive: !row.isLive });
+                        }}
                       >
-                        {row.isLive && (
+                        {row.isLive ? (
                           <Wifi
                             className="w-5 h-5 text-primary-500 mx-auto"
                             title="Live Bet"
                           />
+                        ) : (
+                           // Empty placeholder to maintain cell height/clickability
+                           <div className="w-5 h-5 mx-auto" />
                         )}
                       </td>
                       <td
