@@ -51,8 +51,8 @@ The system aspires to be a **single source of truth** for bet tracking, with cle
 │       ↓                                                                 │
 │  ┌─────────────────┐     ┌─────────────────────┐                        │
 │  │ FanDuel Parser  │     │ DraftKings Parser   │                        │
-│  │ (Implemented)   │     │ (PLACEHOLDER ONLY)  │                        │
-│  └────────┬────────┘     └─────────────────────┘                        │
+│  │ (Implemented)   │     │ (Implemented)       │                        │
+│  └────────┬────────┘     └──────────┬──────────┘                        │
 │           ↓                                                             │
 │  parsers/single.ts, parsers/parlay.ts, parsers/common.ts                │
 └─────────────────────────────────────────────────────────────────────────┘
@@ -338,22 +338,20 @@ Single reference data module that all services import from.
 
 ---
 
-### Gap 8: DraftKings Parser is Non-Functional
+### Gap 8: ~~DraftKings Parser is Non-Functional~~ (REMOVED)
 
-**Current State:**  
-`parsing/draftkings/parsers/index.ts` returns hardcoded sample bets:
+**Update:** Upon code review, the DraftKings parser (`parsing/draftkings/parsers/index.ts`) is **fully implemented**. It contains comprehensive HTML parsing logic for:
+- Single bets (`parseSingleBet`)
+- Parlays (`parseParlayBet`)
+- SGP and SGPx (SGP+) bets
 
-```typescript
-// The DraftKings parser doesn't actually parse HTML.
-// It just returns two hardcoded example bets.
-```
+The parser extracts data from DraftKings bet cards using proper DOM parsing with `data-test-id` selectors, including:
+- Bet ID and placement date from headers
+- Stake, payout, and result from footers
+- Leg details, odds, and market types
+- Sport detection from team logo URLs
 
-**Impact:**
-- Users selecting DraftKings get fake data
-- No indication in UI that it's non-functional
-- Listed in sportsbook dropdown as available option
-
-**Risk: HIGH** - Actively misleading users
+**This gap was identified in error and has been removed from the analysis.**
 
 ---
 
@@ -399,7 +397,6 @@ Consistent Result type (`{ success: T } | { error: string }`) or structured erro
 |-----|-------|--------|
 | **Gap 1** | Classification logic in 4+ places | Data inconsistency, hard to fix |
 | **Gap 2** | Dual normalization services | Silent mismatches import vs display |
-| **Gap 8** | DraftKings parser is fake | Actively misleading users |
 
 ### 🟡 MEDIUM RISK (Future Friction)
 
@@ -458,16 +455,11 @@ The system needs **consolidation of concerns** before adding new sportsbooks or 
 **What NOT to preserve:**
 - "Import anyway" with unresolved critical issues
 
-### Phase 4: Fix DraftKings or Remove (Fix Gap 8)
+### ~~Phase 4: Fix DraftKings or Remove (Fix Gap 8)~~ (REMOVED)
 
-**Decision required:**
-- **Option A**: Implement real DraftKings parser (significant work)
-- **Option B**: Remove DraftKings from dropdown, document limitation
+**Update:** The DraftKings parser is fully implemented. This phase is no longer needed.
 
-**What NOT to preserve:**
-- Placeholder parser returning fake data while appearing functional
-
-### Phase 5: Simplify Display Model (Fix Gap 5)
+### Phase 4: Simplify Display Model (Fix Gap 5)
 
 **What to do:**
 1. Remove `FlatBet` intermediate type
@@ -492,7 +484,6 @@ The import system is a **collection of working parts** that achieves its functio
 1. **Scattered ownership**: Classification, normalization, and validation logic duplicated across layers
 2. **No single source of truth**: Reference data in multiple locations with no sync
 3. **Permissive validation**: Invalid data can enter storage
-4. **Hidden non-functionality**: DraftKings parser is fake
 
 The system should be **refactored incrementally**, starting with classification consolidation, before adding new features. The goal is to establish **clear ownership per concern** and **single data flow** so that:
 
