@@ -90,6 +90,13 @@ const formatDate = (isoString: string) => {
 
 const abbreviateMarket = (market: string): string => {
   if (!market) return "";
+
+  // Extract abbreviation from parentheses, e.g., "Triple Double (TD)" -> "TD"
+  const parenMatch = market.match(/\(([^)]+)\)$/);
+  if (parenMatch) {
+    return parenMatch[1];
+  }
+
   const lowerMarket = market.toLowerCase();
 
   const abbreviations: { [key: string]: string } = {
@@ -103,7 +110,9 @@ const abbreviateMarket = (market: string): string => {
     "receiving yards": "Rec Yds",
     moneyline: "ML",
     "player threes": "3pt",
+    "triple double": "TD",
     "to record a triple-double": "TD",
+    "double double": "DD",
     "rushing yards": "Rush Yds",
     "anytime touchdown scorer": "ATTD",
     "home runs": "HR",
@@ -115,12 +124,26 @@ const abbreviateMarket = (market: string): string => {
     "total points": "Total",
     "total goals": "Total",
     "run line": "RL",
-    spread: "Sprd",
+    spread: "Spread",
     "passing yards": "Pass Yds",
     "outright winner": "Future",
     "to win outright": "Future",
+    "first basket": "FB",
+    "first basket (fb)": "FB",
+    "top scorer": "Top Pts",
+    "top scorer (top pts)": "Top Pts",
+    "top points": "Top Pts",
   };
   return abbreviations[lowerMarket] || market;
+};
+
+// Normalize category display (e.g., "Main Markets" -> "Main")
+const normalizeCategory = (category: string): string => {
+  if (!category) return "";
+  if (category.includes("Main")) return "Main";
+  if (category.includes("Prop")) return "Props";
+  if (category.includes("Future")) return "Futures";
+  return category;
 };
 
 // --- Editable Cell Components ---
@@ -423,7 +446,7 @@ const TypableDropdown: React.FC<{
       {isOpen && filteredOptions.length > 0 && (
         <div
           ref={dropdownRef}
-          className="absolute z-50 w-full mt-1 bg-white dark:bg-neutral-800 rounded-lg shadow-lg border border-neutral-200 dark:border-neutral-700 max-h-60 overflow-y-auto"
+          className="absolute z-50 w-max min-w-full mt-1 bg-white dark:bg-neutral-800 rounded-lg shadow-lg border border-neutral-200 dark:border-neutral-700 max-h-60 overflow-y-auto"
           style={{ top: "100%", left: 0 }}
         >
           {filteredOptions.map((option, index) => (
@@ -715,16 +738,46 @@ const BetTableView: React.FC = () => {
     return (betTypes[filters.sport] || []).sort();
   }, [betTypes, filters.sport]);
 
+  // Abbreviated types for display in dropdown
+  const abbreviatedTypes = useMemo(() => {
+    const types = availableTypes.map((type) => abbreviateMarket(type));
+    return types;
+  }, [availableTypes]);
+
+  // Abbreviated types by sport for dropdown options
+  const getAbbreviatedTypesForSport = useCallback(
+    (sport: string) => {
+      const types = betTypes[sport] || [];
+      return types.map((type) => abbreviateMarket(type));
+    },
+    [betTypes]
+  );
+
   const availableSites = useMemo(
-    () => sportsbooks.map((b) => b.name).sort(),
+    () => sportsbooks.map((b) => b.abbreviation).sort(),
     [sportsbooks]
   );
+  // Create a reverse map from abbreviation to full name for saving
+  const typeAbbreviationToFull = useMemo(() => {
+    const map: Record<string, string> = {};
+    Object.values(betTypes)
+      .flat()
+      .forEach((type) => {
+        const abbrev = abbreviateMarket(type);
+        map[abbrev.toLowerCase()] = type;
+      });
+    return map;
+  }, [betTypes]);
+
   const suggestionLists = useMemo(
     () => ({
       sports: sports,
       sites: availableSites,
       categories: categories,
-      types: (sport: string) => betTypes[sport] || [],
+      types: (sport: string) => {
+        const types = betTypes[sport] || [];
+        return types.map((type) => abbreviateMarket(type));
+      },
       players: (sport: string) => players[sport] || [],
       teams: (sport: string) => teams[sport] || [],
     }),
@@ -1770,7 +1823,9 @@ const BetTableView: React.FC = () => {
                             </span>
                           )}
                           <span className="min-w-0">
-                            {!row._isParlayChild || row._isParlayHeader ? formatDate(row.date) : ""}
+                            {!row._isParlayChild || row._isParlayHeader
+                              ? formatDate(row.date)
+                              : ""}
                           </span>
                         </div>
                       </td>
@@ -1789,8 +1844,12 @@ const BetTableView: React.FC = () => {
                             }
                           />
                         )}
-                        <EditableCell
-                          value={(!row._isParlayChild || row._isParlayHeader) ? (siteShortNameMap[row.site] || row.site) : ""}
+                        <TypableDropdown
+                          value={
+                            !row._isParlayChild || row._isParlayHeader
+                              ? siteShortNameMap[row.site] || row.site
+                              : ""
+                          }
                           isFocused={isCellFocused(rowIndex, "site")}
                           onFocus={() =>
                             setFocusedCell({ rowIndex, columnKey: "site" })
@@ -1807,7 +1866,8 @@ const BetTableView: React.FC = () => {
                               book: book ? book.name : val,
                             });
                           }}
-                          suggestions={suggestionLists.sites}
+                          options={suggestionLists.sites}
+                          allowCustom={true}
                         />
                       </td>
                       <td
@@ -1857,7 +1917,7 @@ const BetTableView: React.FC = () => {
                           />
                         )}
                         <TypableDropdown
-                          value={row.category}
+                          value={normalizeCategory(row.category)}
                           onSave={(val) => {
                             addCategory(val);
                             updateBet(row.betId, {
@@ -1889,17 +1949,20 @@ const BetTableView: React.FC = () => {
                           />
                         )}
                         <TypableDropdown
-                          value={row.type}
+                          value={abbreviateMarket(row.type)}
                           onSave={(val) => {
+                            // Convert abbreviation back to full name if it exists
+                            const fullName =
+                              typeAbbreviationToFull[val.toLowerCase()] || val;
                             if (isLeg) {
-                              addBetType(row.sport, val);
+                              addBetType(row.sport, fullName);
                               handleLegUpdate(row.betId, legIndex, {
-                                market: val,
+                                market: fullName,
                               });
                             } else {
                               // Update bet.type (stat type), NOT betType (bet form)
-                              addBetType(row.sport, val);
-                              updateBet(row.betId, { type: val });
+                              addBetType(row.sport, fullName);
+                              updateBet(row.betId, { type: fullName });
                             }
                           }}
                           options={
@@ -1957,7 +2020,8 @@ const BetTableView: React.FC = () => {
                                 : "▸"}
                             </span>
                           </button>
-                        ) : row.category === "Main Markets" &&
+                        ) : (row.category === "Main Markets" ||
+                            row.category === "Main") &&
                           row.type === "Total" ? (
                           // Compact inline display for totals bets: "Team1 / Team2"
                           <span
@@ -1969,7 +2033,8 @@ const BetTableView: React.FC = () => {
                               })
                             }
                           >
-                            {isCellFocused(rowIndex, "name") || isCellFocused(rowIndex, "name2") ? (
+                            {isCellFocused(rowIndex, "name") ||
+                            isCellFocused(rowIndex, "name2") ? (
                               // Edit mode: show two inline inputs
                               <span className="inline-flex items-center gap-0.5">
                                 <input
@@ -1977,54 +2042,111 @@ const BetTableView: React.FC = () => {
                                   type="text"
                                   defaultValue={row.name || ""}
                                   className="bg-neutral-100 dark:bg-neutral-800 border-none focus:ring-0 focus:outline-none rounded text-sm p-0"
-                                  style={{ width: `${Math.max((row.name?.length || 4) + 1, 4)}ch` }}
+                                  style={{
+                                    width: `${Math.max(
+                                      (row.name?.length || 4) + 1,
+                                      4
+                                    )}ch`,
+                                  }}
                                   onBlur={(e) => {
                                     const val = e.target.value;
                                     if (val !== row.name) {
                                       autoAddEntity(row.sport, val, row.type);
-                                      const bet = bets.find((b) => b.id === row.betId);
-                                      const name2 = bet?.legs?.[0]?.entities?.[1] || row.name2 || "";
+                                      const bet = bets.find(
+                                        (b) => b.id === row.betId
+                                      );
+                                      const name2 =
+                                        bet?.legs?.[0]?.entities?.[1] ||
+                                        row.name2 ||
+                                        "";
                                       updateBet(row.betId, {
                                         name: val,
                                         legs: bet?.legs
                                           ? bet.legs.map((leg, idx) =>
-                                              idx === 0 ? { ...leg, entities: name2 ? [val, name2] : [val] } : leg
+                                              idx === 0
+                                                ? {
+                                                    ...leg,
+                                                    entities: name2
+                                                      ? [val, name2]
+                                                      : [val],
+                                                  }
+                                                : leg
                                             )
-                                          : [{ entities: name2 ? [val, name2] : [val], market: bet?.type || "", result: bet?.result || "pending" }],
+                                          : [
+                                              {
+                                                entities: name2
+                                                  ? [val, name2]
+                                                  : [val],
+                                                market: bet?.type || "",
+                                                result:
+                                                  bet?.result || "pending",
+                                              },
+                                            ],
                                       });
                                     }
                                   }}
                                   onKeyDown={(e) => {
-                                    if (e.key === "Enter" || e.key === "Escape") {
+                                    if (
+                                      e.key === "Enter" ||
+                                      e.key === "Escape"
+                                    ) {
                                       (e.target as HTMLInputElement).blur();
                                     }
                                   }}
                                   autoFocus={isCellFocused(rowIndex, "name")}
                                 />
-                                <span className="text-neutral-400 dark:text-neutral-500">/</span>
+                                <span className="text-neutral-400 dark:text-neutral-500">
+                                  /
+                                </span>
                                 <input
                                   ref={getCellRef(rowIndex, "name2")}
                                   type="text"
                                   defaultValue={row.name2 || ""}
                                   className="bg-neutral-100 dark:bg-neutral-800 border-none focus:ring-0 focus:outline-none rounded text-sm p-0"
-                                  style={{ width: `${Math.max((row.name2?.length || 4) + 1, 4)}ch` }}
+                                  style={{
+                                    width: `${Math.max(
+                                      (row.name2?.length || 4) + 1,
+                                      4
+                                    )}ch`,
+                                  }}
                                   onBlur={(e) => {
                                     const val = e.target.value;
                                     if (val !== row.name2) {
                                       autoAddEntity(row.sport, val, row.type);
-                                      const bet = bets.find((b) => b.id === row.betId);
+                                      const bet = bets.find(
+                                        (b) => b.id === row.betId
+                                      );
                                       const name1 = bet?.name || row.name || "";
                                       updateBet(row.betId, {
                                         legs: bet?.legs
                                           ? bet.legs.map((leg, idx) =>
-                                              idx === 0 ? { ...leg, entities: name1 ? [name1, val] : [val] } : leg
+                                              idx === 0
+                                                ? {
+                                                    ...leg,
+                                                    entities: name1
+                                                      ? [name1, val]
+                                                      : [val],
+                                                  }
+                                                : leg
                                             )
-                                          : [{ entities: name1 ? [name1, val] : [val], market: bet?.type || "", result: bet?.result || "pending" }],
+                                          : [
+                                              {
+                                                entities: name1
+                                                  ? [name1, val]
+                                                  : [val],
+                                                market: bet?.type || "",
+                                                result:
+                                                  bet?.result || "pending",
+                                              },
+                                            ],
                                       });
                                     }
                                   }}
                                   onKeyDown={(e) => {
-                                    if (e.key === "Enter" || e.key === "Escape") {
+                                    if (
+                                      e.key === "Enter" ||
+                                      e.key === "Escape"
+                                    ) {
                                       (e.target as HTMLInputElement).blur();
                                     }
                                   }}
@@ -2035,7 +2157,9 @@ const BetTableView: React.FC = () => {
                               // Display mode: "Team1 / Team2"
                               <>
                                 {row.name || "—"}
-                                <span className="text-neutral-400 dark:text-neutral-500 mx-0.5">/</span>
+                                <span className="text-neutral-400 dark:text-neutral-500 mx-0.5">
+                                  /
+                                </span>
                                 {row.name2 || "—"}
                               </>
                             )}
@@ -2322,7 +2446,7 @@ const BetTableView: React.FC = () => {
                         }
                         onClick={(e) => {
                           e.stopPropagation(); // Prevent row selection if needed
-                           // Toggle isLive
+                          // Toggle isLive
                           updateBet(row.betId, { isLive: !row.isLive });
                         }}
                       >
@@ -2332,8 +2456,8 @@ const BetTableView: React.FC = () => {
                             title="Live Bet"
                           />
                         ) : (
-                           // Empty placeholder to maintain cell height/clickability
-                           <div className="w-5 h-5 mx-auto" />
+                          // Empty placeholder to maintain cell height/clickability
+                          <div className="w-5 h-5 mx-auto" />
                         )}
                       </td>
                       <td
