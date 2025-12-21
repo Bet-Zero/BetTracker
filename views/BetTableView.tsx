@@ -19,96 +19,24 @@ import { Wifi } from "../components/icons";
 import { calculateProfit } from "../utils/betCalculations";
 import { betToFinalRows } from "../parsing/shared/betToFinalRows";
 
-// --- Column sizing (prevents overlap/collapsed columns) ---
-// NOTE: These are in px. The table is allowed to overflow horizontally (scroll)
-// rather than compressing columns into unreadable/overlapping content.
-const COLUMN_WIDTHS_VERSION_KEY = "bettracker-column-widths-version";
-// Bump this when defaults/mins change and we want to migrate old saved widths.
-const COLUMN_WIDTHS_VERSION = 5;
-
-// Column widths are now handled by browser auto-sizing
-// These are only used for manual column resize feature
-const DEFAULT_COLUMN_WIDTHS: Record<string, number> = {
-  date: 55,
-  site: 45,
-  sport: 45,
-  category: 80,
-  type: 90,
-  name: 200,
-  ou: 35,
-  line: 55,
-  odds: 65,
-  bet: 80,
-  toWin: 80,
-  result: 75,
-  net: 75,
-  isLive: 45,
-  tail: 95,
+// --- Fixed column widths (deterministic spreadsheet layout) ---
+const COL_W: Record<string, string> = {
+  date: "5ch",
+  site: "4ch",
+  sport: "5ch",
+  category: "7ch",
+  type: "8ch",
+  name: "20ch",
+  ou: "3ch",
+  line: "7ch",
+  odds: "7ch",
+  bet: "10ch",
+  toWin: "10ch",
+  result: "6ch",
+  net: "9ch",
+  isLive: "4ch",
+  tail: "7ch",
 };
-
-const MIN_COLUMN_WIDTHS: Record<string, number> = {
-  date: 50,
-  site: 40,
-  sport: 40,
-  category: 70,
-  type: 80,
-  name: 150,
-  ou: 30,
-  line: 50,
-  odds: 60,
-  bet: 70,
-  toWin: 70,
-  result: 70,
-  net: 70,
-  isLive: 40,
-  tail: 85,
-};
-
-function clampColumnWidth(columnKey: string, width: unknown): number | null {
-  if (typeof width !== "number" || !Number.isFinite(width)) return null;
-  const min = MIN_COLUMN_WIDTHS[columnKey] ?? 50;
-  return Math.max(min, Math.round(width));
-}
-
-function sanitizeSavedColumnWidths(saved: unknown): Record<string, number> {
-  if (!saved || typeof saved !== "object") return {};
-  const next: Record<string, number> = {};
-  for (const [k, v] of Object.entries(saved as Record<string, unknown>)) {
-    const clamped = clampColumnWidth(k, typeof v === "string" ? Number(v) : v);
-    if (clamped !== null) next[k] = clamped;
-  }
-  return next;
-}
-
-function migrateSavedColumnWidthsIfNeeded(
-  widths: Record<string, number>,
-  savedVersion: number
-): Record<string, number> {
-  if (savedVersion === COLUMN_WIDTHS_VERSION) return widths;
-
-  // We intentionally shrink these "short abbreviation" columns on migration,
-  // because older saved widths tend to waste space and make the table feel cramped.
-  const compactKeys: Array<keyof typeof DEFAULT_COLUMN_WIDTHS> = [
-    "site",
-    "sport",
-    "category",
-    "name",
-  ];
-
-  const next = { ...widths };
-  for (const key of compactKeys) {
-    const def = DEFAULT_COLUMN_WIDTHS[key];
-    const current = next[key];
-    if (typeof def === "number") {
-      const migrated =
-        typeof current === "number" ? Math.min(current, def) : def;
-      const clamped = clampColumnWidth(String(key), migrated);
-      if (clamped !== null) next[key] = clamped;
-    }
-  }
-
-  return next;
-}
 
 // Cell coordinate type
 type CellCoordinate = {
@@ -288,8 +216,8 @@ const EditableCell: React.FC<{
         onBlur={handleBlur}
         onFocus={onFocus}
         onKeyDown={handleKeyDownInternal}
-        className={`bg-transparent w-full p-0 m-0 border-none focus:ring-0 focus:outline-none focus:bg-neutral-100 dark:focus:bg-neutral-800 rounded text-sm max-w-full ${className}`}
-        style={{ boxSizing: "border-box", maxWidth: "100%" }}
+        className={`bg-transparent w-full p-0 m-0 border-none focus:ring-0 focus:outline-none focus:bg-neutral-100 dark:focus:bg-neutral-800 rounded text-sm max-w-full min-w-0 ${className}`}
+        style={{ boxSizing: "border-box", maxWidth: "100%", minWidth: 0 }}
         placeholder=""
         list={suggestions.length > 0 ? listId : undefined}
       />
@@ -312,8 +240,8 @@ const ResultCell: React.FC<{
     <select
       value={value}
       onChange={(e) => onSave(e.target.value as BetResult)}
-      className="bg-transparent w-full p-0 m-0 border-none focus:ring-0 focus:outline-none capitalize font-semibold rounded max-w-full"
-      style={{ boxSizing: "border-box", maxWidth: "100%" }}
+      className="bg-transparent w-full p-0 m-0 border-none focus:ring-0 focus:outline-none capitalize font-semibold rounded max-w-full min-w-0"
+      style={{ boxSizing: "border-box", maxWidth: "100%", minWidth: 0 }}
     >
       <option value="win">Win</option>
       <option value="loss">Loss</option>
@@ -475,7 +403,7 @@ const TypableDropdown: React.FC<{
   };
 
   return (
-    <div className="relative w-full">
+    <div className="relative w-full min-w-0">
       <input
         ref={ref}
         type="text"
@@ -488,8 +416,8 @@ const TypableDropdown: React.FC<{
         }}
         onBlur={handleBlur}
         onKeyDown={handleKeyDownInternal}
-        className={`bg-transparent w-full p-0 m-0 border-none focus:ring-0 focus:outline-none focus:bg-neutral-100 dark:focus:bg-neutral-800 rounded text-sm max-w-full ${className}`}
-        style={{ boxSizing: "border-box", maxWidth: "100%" }}
+        className={`bg-transparent w-full p-0 m-0 border-none focus:ring-0 focus:outline-none focus:bg-neutral-100 dark:focus:bg-neutral-800 rounded text-sm max-w-full min-w-0 ${className}`}
+        style={{ boxSizing: "border-box", maxWidth: "100%", minWidth: 0 }}
         placeholder={placeholder}
       />
       {isOpen && filteredOptions.length > 0 && (
@@ -590,23 +518,6 @@ const BetTableView: React.FC = () => {
   const [selectionAnchor, setSelectionAnchor] = useState<CellCoordinate | null>(
     null
   );
-  const [columnWidths, setColumnWidths] = useState<Record<string, number>>(
-    () => {
-      const saved = localStorage.getItem("bettracker-column-widths");
-      if (!saved) return {};
-      try {
-        const savedVersionRaw = localStorage.getItem(COLUMN_WIDTHS_VERSION_KEY);
-        const savedVersion = savedVersionRaw ? Number(savedVersionRaw) : 0;
-        const sanitized = sanitizeSavedColumnWidths(JSON.parse(saved));
-        return migrateSavedColumnWidthsIfNeeded(sanitized, savedVersion);
-      } catch {
-        return {};
-      }
-    }
-  );
-  const [isResizing, setIsResizing] = useState<string | null>(null);
-  const [resizeStartX, setResizeStartX] = useState(0);
-  const [resizeStartWidth, setResizeStartWidth] = useState(0);
   const [dragFillData, setDragFillData] = useState<{
     start: CellCoordinate;
     end: CellCoordinate;
@@ -620,18 +531,6 @@ const BetTableView: React.FC = () => {
   const cellRefs = useRef<Map<string, React.RefObject<HTMLInputElement>>>(
     new Map()
   );
-
-  // Save column widths to localStorage
-  useEffect(() => {
-    localStorage.setItem(
-      "bettracker-column-widths",
-      JSON.stringify(columnWidths)
-    );
-    localStorage.setItem(
-      COLUMN_WIDTHS_VERSION_KEY,
-      String(COLUMN_WIDTHS_VERSION)
-    );
-  }, [columnWidths]);
 
   // Save expanded parlays to localStorage
   useEffect(() => {
@@ -979,7 +878,7 @@ const BetTableView: React.FC = () => {
     {
       key: "ou",
       label: "O/U",
-      style: { textAlign: "center", whiteSpace: "nowrap" },
+      style: { whiteSpace: "nowrap" },
     },
     { key: "line", label: "Line", style: { textAlign: "right" } },
     { key: "odds", label: "Odds", style: { textAlign: "right" } },
@@ -990,36 +889,6 @@ const BetTableView: React.FC = () => {
     { key: "isLive", label: "Live", style: { textAlign: "center" } },
     { key: "tail", label: "Tail", style: {} },
   ];
-
-  const getColumnWidthPx = useCallback(
-    (columnKey: string, fallback?: React.CSSProperties["width"]): string => {
-      // Name column is flexible - fills remaining space with auto width
-      if (columnKey === "name") {
-        const minWidth = MIN_COLUMN_WIDTHS[columnKey] ?? 200;
-        // If user has manually resized it, use that value
-        const fromState = clampColumnWidth(columnKey, columnWidths[columnKey]);
-        if (fromState !== null && fromState >= minWidth) {
-          // For auto layout, we can set a min-width via style on the col element
-          // but the width itself should be auto to allow flexibility
-          return "auto";
-        }
-        // Default: auto width with min-width enforced via CSS
-        return "auto";
-      }
-
-      const fromState = clampColumnWidth(columnKey, columnWidths[columnKey]);
-      if (fromState !== null) return `${fromState}px`;
-
-      const fromDefault = DEFAULT_COLUMN_WIDTHS[columnKey];
-      if (typeof fromDefault === "number") return `${fromDefault}px`;
-
-      if (typeof fallback === "number") return `${fallback}px`;
-      if (typeof fallback === "string" && fallback.trim().length > 0)
-        return fallback;
-      return "auto";
-    },
-    [columnWidths]
-  );
 
   const formatOdds = (odds: number | undefined): string => {
     if (odds === undefined) return "";
@@ -1471,61 +1340,6 @@ const BetTableView: React.FC = () => {
     ]
   );
 
-  // Column resize handlers
-  const handleResizeStart = useCallback(
-    (columnKey: string, e: React.MouseEvent) => {
-      e.preventDefault();
-      setIsResizing(columnKey);
-      setResizeStartX(e.clientX);
-      const currentWidth =
-        columnWidths[columnKey] ??
-        DEFAULT_COLUMN_WIDTHS[columnKey] ??
-        headers.find((h) => h.key === (columnKey as any))?.style.width;
-      if (typeof currentWidth === "string" && currentWidth.endsWith("%")) {
-        const table = tableRef.current;
-        if (table) {
-          const percent = parseFloat(currentWidth);
-          const tableWidth = table.offsetWidth;
-          setResizeStartWidth((tableWidth * percent) / 100);
-        } else {
-          setResizeStartWidth(100);
-        }
-      } else if (typeof currentWidth === "number") {
-        setResizeStartWidth(currentWidth);
-      } else {
-        setResizeStartWidth(100);
-      }
-    },
-    [columnWidths, headers]
-  );
-
-  const handleResizeMove = useCallback(
-    (e: MouseEvent) => {
-      if (!isResizing) return;
-
-      const deltaX = e.clientX - resizeStartX;
-      const min = MIN_COLUMN_WIDTHS[isResizing] ?? 50;
-      const newWidth = Math.max(min, resizeStartWidth + deltaX);
-      setColumnWidths((prev) => ({ ...prev, [isResizing!]: newWidth }));
-    },
-    [isResizing, resizeStartX, resizeStartWidth]
-  );
-
-  const handleResizeEnd = useCallback(() => {
-    setIsResizing(null);
-  }, []);
-
-  useEffect(() => {
-    if (isResizing) {
-      window.addEventListener("mousemove", handleResizeMove);
-      window.addEventListener("mouseup", handleResizeEnd);
-      return () => {
-        window.removeEventListener("mousemove", handleResizeMove);
-        window.removeEventListener("mouseup", handleResizeEnd);
-      };
-    }
-  }, [isResizing, handleResizeMove, handleResizeEnd]);
-
   // Cell click handler
   const handleCellClick = useCallback(
     (rowIndex: number, columnKey: keyof FlatBet, e: React.MouseEvent) => {
@@ -1763,7 +1577,7 @@ const BetTableView: React.FC = () => {
 
       <div className="grow bg-white dark:bg-neutral-900 rounded-lg shadow-md overflow-hidden flex flex-col">
         <div
-          className="flex-1 overflow-y-auto overflow-x-hidden min-w-0"
+          className="flex-1 overflow-y-auto min-w-0"
           style={{ width: "100%" }}
         >
           <table
@@ -1772,25 +1586,16 @@ const BetTableView: React.FC = () => {
             style={{ tableLayout: "fixed", width: "100%" }}
           >
             <colgroup>
-              <col style={{ width: "4.5%" }} /> {/* date */}
-              <col style={{ width: "4.5%" }} /> {/* site */}
-              <col style={{ width: "4.5%" }} /> {/* sport */}
-              <col style={{ width: "6.5%" }} /> {/* category */}
-              <col style={{ width: "7.5%" }} /> {/* type */}
-              <col style={{ width: "16.5%" }} /> {/* name - flexible */}
-              <col style={{ width: "3.5%" }} /> {/* ou */}
-              <col style={{ width: "4.5%" }} /> {/* line */}
-              <col style={{ width: "7.5%" }} /> {/* odds */}
-              <col style={{ width: "7.5%" }} /> {/* bet */}
-              <col style={{ width: "8.5%" }} /> {/* toWin */}
-              <col style={{ width: "7.5%" }} /> {/* result */}
-              <col style={{ width: "8.5%" }} /> {/* net */}
-              <col style={{ width: "3.5%" }} /> {/* isLive */}
-              <col style={{ width: "5%" }} /> {/* tail - flexible */}
+              {headers.map((header) => (
+                <col
+                  key={header.key}
+                  style={{ width: COL_W[header.key] || "10ch" }}
+                />
+              ))}
             </colgroup>
             <thead className="text-xs font-semibold tracking-wide text-neutral-700 uppercase bg-neutral-50 dark:bg-neutral-800 dark:text-neutral-400 sticky top-0 z-10 border-b border-neutral-200 dark:border-neutral-700">
               <tr className="leading-tight">
-                {headers.map((header) => {
+                {headers.map((header, index) => {
                   const headerPaddingX = "px-1";
                   const numericRightAligned = new Set<keyof FlatBet>([
                     "line",
@@ -1810,6 +1615,7 @@ const BetTableView: React.FC = () => {
                     ? " text-center"
                     : "";
                   const isMoneyBlockStart = header.key === "bet";
+                  const isLastColumn = index === headers.length - 1;
                   return (
                     <th
                       key={header.key}
@@ -1817,6 +1623,10 @@ const BetTableView: React.FC = () => {
                       className={`${headerPaddingX} py-1 relative whitespace-nowrap${alignmentClass}${
                         isMoneyBlockStart
                           ? " border-l border-neutral-200 dark:border-neutral-700"
+                          : ""
+                      }${
+                        !isLastColumn
+                          ? " border-r border-neutral-200 dark:border-neutral-700"
                           : ""
                       }`}
                       style={{
@@ -1828,11 +1638,6 @@ const BetTableView: React.FC = () => {
                       }}
                     >
                       {header.label}
-                      <div
-                        className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary-500 opacity-0 hover:opacity-100 transition-opacity"
-                        onMouseDown={(e) => handleResizeStart(header.key, e)}
-                        style={{ userSelect: "none" }}
-                      />
                     </th>
                   );
                 })}
@@ -1920,6 +1725,8 @@ const BetTableView: React.FC = () => {
                     const isFocused = isCellFocused(rowIndex, columnKey);
                     const isEditable = isCellEditable(columnKey);
                     const inDragFill = isInDragFillRange(rowIndex, columnKey);
+                    const isLastColumn =
+                      headers[headers.length - 1]?.key === columnKey;
 
                     let classes = baseClasses;
                     if (inDragFill) {
@@ -1929,6 +1736,10 @@ const BetTableView: React.FC = () => {
                     }
                     if (isFocused && isEditable) {
                       classes += " ring-2 ring-blue-500 dark:ring-blue-400";
+                    }
+                    if (!isLastColumn) {
+                      classes +=
+                        " border-r border-neutral-200 dark:border-neutral-700";
                     }
                     return classes;
                   };
@@ -1949,22 +1760,24 @@ const BetTableView: React.FC = () => {
                     >
                       <td
                         className={
-                          getCellClasses("date") + " whitespace-nowrap"
+                          getCellClasses("date") + " whitespace-nowrap min-w-0"
                         }
                       >
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
                           {row._isParlayChild && !row._isParlayHeader && (
                             <span className="text-neutral-400 dark:text-neutral-500">
                               ↳
                             </span>
                           )}
-                          <span>{formatDate(row.date)}</span>
+                          <span className="min-w-0">
+                            {formatDate(row.date)}
+                          </span>
                         </div>
                       </td>
                       <td
                         className={
                           getCellClasses("site") +
-                          " font-bold whitespace-nowrap"
+                          " font-bold whitespace-nowrap min-w-0"
                         }
                         onClick={(e) => handleCellClick(rowIndex, "site", e)}
                       >
@@ -1999,7 +1812,7 @@ const BetTableView: React.FC = () => {
                       </td>
                       <td
                         className={
-                          getCellClasses("sport") + " whitespace-nowrap"
+                          getCellClasses("sport") + " whitespace-nowrap min-w-0"
                         }
                         onClick={(e) => handleCellClick(rowIndex, "sport", e)}
                       >
@@ -2027,7 +1840,10 @@ const BetTableView: React.FC = () => {
                         />
                       </td>
                       <td
-                        className={getCellClasses("category") + " break-words"}
+                        className={
+                          getCellClasses("category") +
+                          " whitespace-nowrap min-w-0"
+                        }
                         onClick={(e) =>
                           handleCellClick(rowIndex, "category", e)
                         }
@@ -2059,7 +1875,8 @@ const BetTableView: React.FC = () => {
                       </td>
                       <td
                         className={
-                          getCellClasses("type") + " capitalize break-words"
+                          getCellClasses("type") +
+                          " capitalize whitespace-nowrap min-w-0"
                         }
                         onClick={(e) => handleCellClick(rowIndex, "type", e)}
                       >
@@ -2101,7 +1918,7 @@ const BetTableView: React.FC = () => {
                       <td
                         className={
                           getCellClasses("name") +
-                          " font-medium text-neutral-900 dark:text-white pl-2 break-words"
+                          " font-medium text-neutral-900 dark:text-white pl-2 whitespace-nowrap min-w-0"
                         }
                         onClick={(e) => {
                           // Parlay header rows toggle expand/collapse (no inline editing)
@@ -2120,7 +1937,7 @@ const BetTableView: React.FC = () => {
                         {row._isParlayHeader && row._parlayGroupId ? (
                           <button
                             type="button"
-                            className="flex items-center gap-1 text-left w-full"
+                            className="flex items-center gap-1 text-left w-full min-w-0"
                             onClick={(e) => {
                               e.stopPropagation();
                               toggleParlayExpansion(row._parlayGroupId!);
@@ -2131,7 +1948,7 @@ const BetTableView: React.FC = () => {
                                 : "Expand"
                             }
                           >
-                            <span className="whitespace-normal wrap-break-word">
+                            <span className="whitespace-nowrap min-w-0">
                               {row.name}
                             </span>
                             <span className="text-neutral-500 dark:text-neutral-400 select-none">
@@ -2143,8 +1960,8 @@ const BetTableView: React.FC = () => {
                         ) : row.category === "Main Markets" &&
                           row.type === "Total" ? (
                           // Two side-by-side inputs for totals bets
-                          <div className="flex gap-1">
-                            <div className="flex-1">
+                          <div className="flex gap-1 min-w-0">
+                            <div className="flex-1 min-w-0">
                               <EditableCell
                                 value={row.name}
                                 isFocused={isCellFocused(rowIndex, "name")}
@@ -2202,7 +2019,7 @@ const BetTableView: React.FC = () => {
                                 ]}
                               />
                             </div>
-                            <div className="flex-1">
+                            <div className="flex-1 min-w-0">
                               <EditableCell
                                 value={row.name2 || ""}
                                 isFocused={isCellFocused(rowIndex, "name2")}
@@ -2288,7 +2105,7 @@ const BetTableView: React.FC = () => {
                       <td
                         className={
                           getCellClasses("ou") +
-                          " text-center whitespace-nowrap"
+                          " text-center whitespace-nowrap min-w-0"
                         }
                         onClick={(e) => handleCellClick(rowIndex, "ou", e)}
                       >
@@ -2341,7 +2158,7 @@ const BetTableView: React.FC = () => {
                       <td
                         className={
                           getCellClasses("line") +
-                          " whitespace-nowrap text-right tabular-nums"
+                          " whitespace-nowrap text-right tabular-nums min-w-0"
                         }
                         onClick={(e) => handleCellClick(rowIndex, "line", e)}
                       >
@@ -2374,7 +2191,7 @@ const BetTableView: React.FC = () => {
                       <td
                         className={
                           getCellClasses("odds") +
-                          " whitespace-nowrap text-right tabular-nums"
+                          " whitespace-nowrap text-right tabular-nums min-w-0"
                         }
                         onClick={(e) => handleCellClick(rowIndex, "odds", e)}
                       >
@@ -2444,7 +2261,7 @@ const BetTableView: React.FC = () => {
                       <td
                         className={
                           getCellClasses("bet") +
-                          " whitespace-nowrap text-right tabular-nums border-l border-neutral-200 dark:border-neutral-700"
+                          " whitespace-nowrap text-right tabular-nums border-l border-neutral-200 dark:border-neutral-700 min-w-0"
                         }
                         onClick={(e) => handleCellClick(rowIndex, "bet", e)}
                       >
@@ -2461,35 +2278,43 @@ const BetTableView: React.FC = () => {
                             ↳
                           </span>
                         ) : (
-                          <>
-                            <span className="text-neutral-400">$</span>
+                          <div className="text-right whitespace-nowrap">
                             <span
-                              className="inline-block ml-0.5"
-                              style={{ width: "6ch" }}
+                              className="inline-flex items-center"
+                              style={{ gap: 0 }}
                             >
-                              <EditableCell
-                                value={row.bet.toFixed(2)}
-                                type="number"
-                                isFocused={isCellFocused(rowIndex, "bet")}
-                                onFocus={() =>
-                                  setFocusedCell({ rowIndex, columnKey: "bet" })
-                                }
-                                inputRef={getCellRef(rowIndex, "bet")}
-                                onSave={(val) => {
-                                  const numVal = parseFloat(val);
-                                  if (!isNaN(numVal))
-                                    updateBet(row.betId, { stake: numVal });
-                                }}
-                                className="text-right tabular-nums"
-                              />
+                              <span className="flex-shrink-0">$</span>
+                              <span
+                                className="inline-block flex-shrink-0"
+                                style={{ width: "6ch" }}
+                              >
+                                <EditableCell
+                                  value={row.bet.toFixed(2)}
+                                  type="number"
+                                  isFocused={isCellFocused(rowIndex, "bet")}
+                                  onFocus={() =>
+                                    setFocusedCell({
+                                      rowIndex,
+                                      columnKey: "bet",
+                                    })
+                                  }
+                                  inputRef={getCellRef(rowIndex, "bet")}
+                                  onSave={(val) => {
+                                    const numVal = parseFloat(val);
+                                    if (!isNaN(numVal))
+                                      updateBet(row.betId, { stake: numVal });
+                                  }}
+                                  className="text-right tabular-nums"
+                                />
+                              </span>
                             </span>
-                          </>
+                          </div>
                         )}
                       </td>
                       <td
                         className={
                           getCellClasses("toWin") +
-                          " whitespace-nowrap text-right tabular-nums"
+                          " whitespace-nowrap text-right tabular-nums min-w-0"
                         }
                       >
                         {row._isParlayChild && !row._isParlayHeader ? (
@@ -2503,7 +2328,7 @@ const BetTableView: React.FC = () => {
                       <td
                         className={
                           getCellClasses("result") +
-                          " capitalize whitespace-nowrap text-center " +
+                          " capitalize whitespace-nowrap text-center min-w-0 " +
                           resultBgClass
                         }
                         onClick={(e) => handleCellClick(rowIndex, "result", e)}
@@ -2526,7 +2351,7 @@ const BetTableView: React.FC = () => {
                       <td
                         className={
                           getCellClasses("net") +
-                          ` font-bold whitespace-nowrap text-right tabular-nums ${netBgClass} ${netColorClass}`
+                          ` font-bold whitespace-nowrap text-right tabular-nums min-w-0 ${netBgClass} ${netColorClass}`
                         }
                       >
                         {row._isParlayChild && !row._isParlayHeader ? (
@@ -2537,7 +2362,12 @@ const BetTableView: React.FC = () => {
                           `${net < 0 ? "-" : ""}$${Math.abs(net).toFixed(2)}`
                         )}
                       </td>
-                      <td className={getCellClasses("isLive") + " text-center"}>
+                      <td
+                        className={
+                          getCellClasses("isLive") +
+                          " text-center whitespace-nowrap min-w-0"
+                        }
+                      >
                         {row.isLive && (
                           <Wifi
                             className="w-5 h-5 text-primary-500 mx-auto"
@@ -2546,7 +2376,9 @@ const BetTableView: React.FC = () => {
                         )}
                       </td>
                       <td
-                        className={getCellClasses("tail") + " break-words"}
+                        className={
+                          getCellClasses("tail") + " whitespace-nowrap min-w-0"
+                        }
                         onClick={(e) => handleCellClick(rowIndex, "tail", e)}
                       >
                         {isCellFocused(rowIndex, "tail") && (
