@@ -134,6 +134,7 @@
     "marketCategory": "Main Markets",
     "sport": "NBA",
     "description": "Total",
+    "name": "Suns",
     "type": "Total",
     "line": "235.5",
     "ou": "Over",
@@ -144,7 +145,8 @@
         "market": "Total",
         "target": "Over 235.5",
         "result": "win",
-        "odds": -110
+        "odds": -110,
+        "entities": ["Suns", "Trail Blazers"]
       }
     ]
   },

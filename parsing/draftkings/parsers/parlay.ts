@@ -8,6 +8,8 @@ import {
   extractLeagueFromEventCard,
   extractNameAndType,
   extractLineAndOu,
+  extractTeamNamesFromEventCard,
+  extractTeamNickname,
 } from "./common";
 
 export interface ParlayBetContext {
@@ -264,6 +266,24 @@ function extractLegFromElement(
     // Use the parsed type as market (e.g., "Pts" instead of "Jordan Hawkins Points")
     // Fall back to original text if type extraction fails
     leg.market = type || selectionText;
+
+    // For Total legs, extract both team names from the event card
+    if (leg.market.toLowerCase() === "total" || selectionText.toLowerCase().includes("total")) {
+      // Find the closest event card to get team names
+      const eventCard = legEl.closest('[data-test-id="event-card"]') || 
+                        legEl.querySelector('[data-test-id="event-card"]') ||
+                        legEl.parentElement?.closest('[data-test-id="event-card"]');
+      
+      if (eventCard) {
+        const [team1, team2] = extractTeamNamesFromEventCard(eventCard);
+        if (team1 && team2) {
+          const nickname1 = extractTeamNickname(team1);
+          const nickname2 = extractTeamNickname(team2);
+          leg.entities = [nickname1, nickname2];
+          leg.market = "Total"; // Normalize market name
+        }
+      }
+    }
   } else {
     leg.market = selectionText || "Unknown Market";
   }

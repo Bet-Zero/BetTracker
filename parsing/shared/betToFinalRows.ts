@@ -128,7 +128,7 @@ const FUTURES_TYPES: Record<string, string> = {
  *
  * @param market - The market text from the leg
  * @param sport - The sport (e.g., "NBA")
- * @returns "Props", "Main", or "Futures"
+ * @returns "Props", "Main Markets", or "Futures"
  */
 function classifyLegCategory(market: string, sport: string): string {
   if (!market) return "Props"; // Default to Props if no market text
@@ -164,7 +164,7 @@ function classifyLegCategory(market: string, sport: string): string {
   if (mainMarketKeywords.some((keyword) => lowerMarket.includes(keyword))) {
     // But exclude if it's clearly a prop (e.g., "player points total")
     if (!lowerMarket.includes("player") && !lowerMarket.includes("prop")) {
-      return "Main";
+      return "Main Markets";
     }
   }
 
@@ -378,7 +378,7 @@ function classifyAndExtractLegData(
 
   // Totals bets (e.g., "Lakers vs Celtics Total Points") need both team names
   // so we extract entities[0] for Name and entities[1] for Name2
-  const isTotalsBet = category === "Main" && type === "Total";
+  const isTotalsBet = category === "Main Markets" && type === "Total";
 
   // Extract names: for totals, use both entities if available
   const name = leg.entities?.[0] || "";
@@ -812,7 +812,7 @@ function normalizeCategory(marketCategory: string): string {
   const lower = marketCategory.toLowerCase();
 
   if (lower.includes("prop")) return "Props";
-  if (lower.includes("main")) return "Main";
+  if (lower.includes("main")) return "Main Markets";
   if (lower.includes("future")) return "Futures";
   if (lower.includes("parlay") || lower.includes("sgp")) return "Props"; // SGP/SGP+ and Parlays default to Props in spreadsheet
 
@@ -881,7 +881,7 @@ function determineType(
     return "";
   }
 
-  if (category === "Main") {
+  if (category === "Main Markets") {
     // Check main market types
     for (const [pattern, type] of Object.entries(MAIN_MARKET_TYPES)) {
       if (lowerMarket.includes(pattern)) {

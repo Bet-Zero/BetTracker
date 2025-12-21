@@ -274,6 +274,120 @@ export const inferMatchupFromTeams = (text: string): string | null => {
   return null;
 };
 
+/**
+ * Extract team names from raw text and convert to nicknames for Total bets.
+ * FanDuel raw text contains full team names like "Detroit Pistons" and "Atlanta Hawks".
+ * This function extracts both team names and returns their nicknames.
+ * 
+ * Example:
+ *   "Over 232.5 -120 TOTAL POINTS 232 232.5 Detroit Pistons 35322726 120112 Atlanta Hawks..."
+ *   → ["Pistons", "Hawks"]
+ * 
+ * @param rawText - The raw text from FanDuel bet
+ * @returns Tuple of [team1Nickname, team2Nickname] or [undefined, undefined] if not found
+ */
+export const extractTeamNicknamesFromRawText = (rawText: string): [string | undefined, string | undefined] => {
+  if (!rawText) return [undefined, undefined];
+
+  // Full team names for extraction
+  const TEAM_NAMES = [
+    { full: "Atlanta Hawks", nickname: "Hawks" },
+    { full: "Boston Celtics", nickname: "Celtics" },
+    { full: "Brooklyn Nets", nickname: "Nets" },
+    { full: "Charlotte Hornets", nickname: "Hornets" },
+    { full: "Chicago Bulls", nickname: "Bulls" },
+    { full: "Cleveland Cavaliers", nickname: "Cavaliers" },
+    { full: "Dallas Mavericks", nickname: "Mavericks" },
+    { full: "Denver Nuggets", nickname: "Nuggets" },
+    { full: "Detroit Pistons", nickname: "Pistons" },
+    { full: "Golden State Warriors", nickname: "Warriors" },
+    { full: "Houston Rockets", nickname: "Rockets" },
+    { full: "Indiana Pacers", nickname: "Pacers" },
+    { full: "LA Clippers", nickname: "Clippers" },
+    { full: "Los Angeles Clippers", nickname: "Clippers" },
+    { full: "Los Angeles Lakers", nickname: "Lakers" },
+    { full: "Memphis Grizzlies", nickname: "Grizzlies" },
+    { full: "Miami Heat", nickname: "Heat" },
+    { full: "Milwaukee Bucks", nickname: "Bucks" },
+    { full: "Minnesota Timberwolves", nickname: "Timberwolves" },
+    { full: "New Orleans Pelicans", nickname: "Pelicans" },
+    { full: "New York Knicks", nickname: "Knicks" },
+    { full: "Oklahoma City Thunder", nickname: "Thunder" },
+    { full: "Orlando Magic", nickname: "Magic" },
+    { full: "Philadelphia 76ers", nickname: "76ers" },
+    { full: "Phoenix Suns", nickname: "Suns" },
+    { full: "Portland Trail Blazers", nickname: "Trail Blazers" },
+    { full: "Sacramento Kings", nickname: "Kings" },
+    { full: "San Antonio Spurs", nickname: "Spurs" },
+    { full: "Toronto Raptors", nickname: "Raptors" },
+    { full: "Utah Jazz", nickname: "Jazz" },
+    { full: "Washington Wizards", nickname: "Wizards" },
+    // NFL
+    { full: "Arizona Cardinals", nickname: "Cardinals" },
+    { full: "Atlanta Falcons", nickname: "Falcons" },
+    { full: "Baltimore Ravens", nickname: "Ravens" },
+    { full: "Buffalo Bills", nickname: "Bills" },
+    { full: "Carolina Panthers", nickname: "Panthers" },
+    { full: "Chicago Bears", nickname: "Bears" },
+    { full: "Cincinnati Bengals", nickname: "Bengals" },
+    { full: "Cleveland Browns", nickname: "Browns" },
+    { full: "Dallas Cowboys", nickname: "Cowboys" },
+    { full: "Denver Broncos", nickname: "Broncos" },
+    { full: "Detroit Lions", nickname: "Lions" },
+    { full: "Green Bay Packers", nickname: "Packers" },
+    { full: "Houston Texans", nickname: "Texans" },
+    { full: "Indianapolis Colts", nickname: "Colts" },
+    { full: "Jacksonville Jaguars", nickname: "Jaguars" },
+    { full: "Kansas City Chiefs", nickname: "Chiefs" },
+    { full: "Las Vegas Raiders", nickname: "Raiders" },
+    { full: "Los Angeles Chargers", nickname: "Chargers" },
+    { full: "Los Angeles Rams", nickname: "Rams" },
+    { full: "Miami Dolphins", nickname: "Dolphins" },
+    { full: "Minnesota Vikings", nickname: "Vikings" },
+    { full: "New England Patriots", nickname: "Patriots" },
+    { full: "New Orleans Saints", nickname: "Saints" },
+    { full: "New York Giants", nickname: "Giants" },
+    { full: "New York Jets", nickname: "Jets" },
+    { full: "Philadelphia Eagles", nickname: "Eagles" },
+    { full: "Pittsburgh Steelers", nickname: "Steelers" },
+    { full: "San Francisco 49ers", nickname: "49ers" },
+    { full: "Seattle Seahawks", nickname: "Seahawks" },
+    { full: "Tampa Bay Buccaneers", nickname: "Buccaneers" },
+    { full: "Tennessee Titans", nickname: "Titans" },
+    { full: "Washington Commanders", nickname: "Commanders" },
+  ];
+
+  const lower = rawText.toLowerCase();
+  const hits: Array<{ nickname: string; idx: number }> = [];
+
+  for (const team of TEAM_NAMES) {
+    const idx = lower.indexOf(team.full.toLowerCase());
+    if (idx !== -1) {
+      hits.push({ nickname: team.nickname, idx });
+    }
+  }
+
+  // Sort by position in text
+  hits.sort((a, b) => a.idx - b.idx);
+
+  // Keep only unique nicknames (first two)
+  const uniq: string[] = [];
+  for (const h of hits) {
+    if (!uniq.some((n) => n.toLowerCase() === h.nickname.toLowerCase())) {
+      uniq.push(h.nickname);
+    }
+    if (uniq.length === 2) break;
+  }
+
+  if (uniq.length >= 2) {
+    return [uniq[0], uniq[1]];
+  } else if (uniq.length === 1) {
+    return [uniq[0], undefined];
+  }
+
+  return [undefined, undefined];
+};
+
 export const extractOdds = (root: HTMLElement): number | undefined => {
   // Strategy 1: Look for aria-label with "Odds"
   let oddsSpan = root.querySelector<HTMLElement>('span[aria-label^="Odds"]');
@@ -2067,8 +2181,21 @@ export const buildPrimaryLegsFromHeader = (
   }
 
   // For single bets, create one leg from header info
+  let entities: string[] | undefined = header.name ? [cleanEntityName(header.name)] : undefined;
+
+  // For Total bets, extract team nicknames from rawText and use them as entities
+  // This enables the UI to display both team names in the Name column
+  if (header.type === "Total") {
+    const [team1, team2] = extractTeamNicknamesFromRawText(header.rawText);
+    if (team1 && team2) {
+      entities = [team1, team2];
+    } else if (team1) {
+      entities = [team1];
+    }
+  }
+
   const leg: BetLeg = {
-    entities: header.name ? [cleanEntityName(header.name)] : undefined,
+    entities,
     market: header.type ?? "",
     target: header.line,
     ou: header.ou,

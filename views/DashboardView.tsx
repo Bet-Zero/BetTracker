@@ -953,6 +953,8 @@ const DashboardView: React.FC = () => {
 
       if (bet.legs?.length) {
         bet.legs.forEach((leg) => {
+          // Skip Total bets - they represent combined game scores, not individual team performance
+          if (leg.market?.toLowerCase() === "total") return;
           leg.entities?.forEach((entity) =>
             addToMap(playerTeamStatsMap, entity, bet.stake, net, result)
           );

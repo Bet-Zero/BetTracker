@@ -29,6 +29,7 @@ import {
   stripScoreboardText,
   toLegResult,
   inferMatchupFromTeams,
+  extractTeamNicknamesFromRawText,
 } from "./common";
 
 const inferMatchupForEntity = (
@@ -510,6 +511,22 @@ export const parseParlayBet = ({
   }
 
   const legs = [...groupLegs, ...filteredExtras, ...additionalLegsFromText];
+
+  // Enrich Total legs with both team names from raw text
+  // This enables parlay legs with Total bets to display "Team1 / Team2" in the UI
+  const rawText = headerInfo.rawText || "";
+  legs.forEach((leg) => {
+    const market = (leg.market || "").toLowerCase();
+    if (market === "total" || market.includes("total points")) {
+      // Extract team nicknames from raw text
+      const [team1, team2] = extractTeamNicknamesFromRawText(rawText);
+      if (team1 && team2) {
+        leg.entities = [team1, team2];
+        leg.market = "Total"; // Normalize market name
+      }
+    }
+  });
+
   // Map combined SGP odds → matchup text (e.g. "+3623 → Golden State @ New Orleans")
   const oddsMatchups = extractOddsMatchups(headerInfo.rawText);
 

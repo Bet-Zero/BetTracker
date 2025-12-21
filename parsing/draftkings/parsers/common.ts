@@ -261,6 +261,90 @@ export const extractTeamName = (target: string): string => {
 };
 
 /**
+ * Extract both team names from an event card element.
+ * DraftKings uses data-test-id attributes like "event-team-name-1-{eventId}" and "event-team-name-2-{eventId}"
+ * 
+ * @param eventCard - The event card element containing team information
+ * @returns Tuple of [team1, team2] names, or [undefined, undefined] if not found
+ */
+export const extractTeamNamesFromEventCard = (eventCard: Element | null): [string | undefined, string | undefined] => {
+  if (!eventCard) return [undefined, undefined];
+  
+  // Look for team name spans with data-test-id pattern
+  const team1El = eventCard.querySelector('span[data-test-id^="event-team-name-1-"]');
+  const team2El = eventCard.querySelector('span[data-test-id^="event-team-name-2-"]');
+  
+  const team1 = team1El ? normalizeSpaces(team1El.textContent || '') : undefined;
+  const team2 = team2El ? normalizeSpaces(team2El.textContent || '') : undefined;
+  
+  return [team1, team2];
+};
+
+/**
+ * Extract just the team nickname from a full team name.
+ * Used to create compact display names for Total bets.
+ * 
+ * Examples:
+ *   "PHO Suns" → "Suns"
+ *   "LA Lakers" → "Lakers"
+ *   "POR Trail Blazers" → "Blazers"
+ *   "PHI 76ers" → "76ers"
+ *   "SA Spurs" → "Spurs"
+ *   "Golden State Warriors" → "Warriors"
+ * 
+ * @param teamName - Full team name (e.g., "PHO Suns", "Los Angeles Lakers")
+ * @returns Just the nickname portion (e.g., "Suns", "Lakers")
+ */
+export const extractTeamNickname = (teamName: string): string => {
+  if (!teamName) return '';
+  
+  const cleaned = normalizeSpaces(teamName);
+  
+  // Known team nicknames for matching
+  const nicknames = [
+    // NBA
+    'hawks', 'celtics', 'nets', 'hornets', 'bulls', 'cavaliers', 'cavs',
+    'mavericks', 'mavs', 'nuggets', 'pistons', 'warriors', 'rockets',
+    'pacers', 'clippers', 'lakers', 'grizzlies', 'grizz', 'heat', 'bucks',
+    'timberwolves', 'wolves', 'pelicans', 'pels', 'knicks', 'thunder',
+    'magic', '76ers', 'sixers', 'suns', 'trail blazers', 'blazers', 'kings',
+    'spurs', 'raptors', 'raps', 'jazz', 'wizards', 'wiz',
+    // NFL
+    'cardinals', 'falcons', 'ravens', 'bills', 'panthers', 'bears',
+    'bengals', 'browns', 'cowboys', 'broncos', 'lions', 'packers',
+    'texans', 'colts', 'jaguars', 'jags', 'chiefs', 'raiders',
+    'chargers', 'rams', 'dolphins', 'vikings', 'vikes', 'patriots', 'pats',
+    'saints', 'giants', 'jets', 'eagles', 'steelers', '49ers', 'niners',
+    'seahawks', 'buccaneers', 'bucs', 'titans', 'commanders',
+  ];
+  
+  // Split into words and find the last word(s) that match a known nickname
+  const words = cleaned.split(/\s+/);
+  
+  // Special case: "76ers" at the end
+  if (words[words.length - 1].toLowerCase() === '76ers' || words[words.length - 1].toLowerCase() === '49ers') {
+    return words[words.length - 1];
+  }
+  
+  // Check for two-word nicknames first (e.g., "Trail Blazers")
+  if (words.length >= 2) {
+    const lastTwo = `${words[words.length - 2]} ${words[words.length - 1]}`.toLowerCase();
+    if (nicknames.includes(lastTwo)) {
+      return words.slice(-2).join(' ');
+    }
+  }
+  
+  // Check for single-word nicknames
+  const lastWord = words[words.length - 1].toLowerCase();
+  if (nicknames.includes(lastWord)) {
+    return words[words.length - 1];
+  }
+  
+  // Fallback: return the original name if no nickname found
+  return cleaned;
+};
+
+/**
  * Extract name and type from market description.
  * Works for both player props and main market bets.
  */

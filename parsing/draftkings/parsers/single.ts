@@ -1,5 +1,5 @@
 import { Bet, BetLeg } from '../../../types';
-import { FooterMeta, HeaderInfo, normalizeSpaces, extractLeagueFromEventCard, extractNameAndType, extractLineAndOu } from './common';
+import { FooterMeta, HeaderInfo, normalizeSpaces, extractLeagueFromEventCard, extractNameAndType, extractLineAndOu, extractTeamNamesFromEventCard, extractTeamNickname } from './common';
 
 export interface SingleBetContext {
   element: Element;
@@ -74,7 +74,7 @@ export const parseSingleBet = (ctx: SingleBetContext): Bet => {
   }
 
   // Extract name and type from market/target
-  const { name, type: rawType } = extractNameAndType(leg.market, leg.target as string);
+  const { name: extractedName, type: rawType } = extractNameAndType(leg.market, leg.target as string);
   
   // Normalize type variants: "Money Line" → "Moneyline"
   const MAIN_MARKET_TYPES = ['Spread', 'Total', 'Moneyline'];
@@ -85,6 +85,22 @@ export const parseSingleBet = (ctx: SingleBetContext): Bet => {
   
   // Extract line and over/under from target
   const { line, ou } = extractLineAndOu(leg.target as string);
+
+  // For Total bets, extract both team names and convert to nicknames
+  // This enables the UI to display "Suns / Blazers" instead of just blank
+  let name = extractedName;
+  if (type === 'Total' && eventCard) {
+    const [team1, team2] = extractTeamNamesFromEventCard(eventCard);
+    if (team1 && team2) {
+      // Convert to nicknames for compact display
+      const nickname1 = extractTeamNickname(team1);
+      const nickname2 = extractTeamNickname(team2);
+      // Populate entities with nicknames for the transformation layer
+      leg.entities = [nickname1, nickname2];
+      // Set name to first team's nickname for display (Name2 comes from entities[1])
+      name = nickname1;
+    }
+  }
 
   // Build a more descriptive description
   // For spreads/totals/moneylines: just the market type
