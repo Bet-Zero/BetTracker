@@ -4,9 +4,12 @@
  * SINGLE SOURCE OF TRUTH for all market/category/type classification logic.
  * 
  * This service consolidates classification logic previously scattered across:
- * - services/classificationService.ts
  * - parsing/shared/betToFinalRows.ts
  * - components/ImportConfirmationModal.tsx
+ * 
+ * Also provides unified display normalization functions:
+ * - normalizeCategoryForDisplay() - Single source of truth for category display
+ * - abbreviateMarket() - Single source of truth for market type abbreviations
  * 
  * ALL layers (import, confirmation, storage, display) must call this service
  * for market classification. NO callers should re-interpret or override results.
@@ -426,4 +429,118 @@ function isMarketProp(lowerMarket: string, sport: string): boolean {
   }
   
   return false;
+}
+
+// ============================================================================
+// DISPLAY NORMALIZATION FUNCTIONS
+// ============================================================================
+
+/**
+ * Normalizes a marketCategory to a display-friendly category value.
+ * 
+ * This is the SINGLE SOURCE OF TRUTH for category display normalization.
+ * All UI layers must use this function to ensure consistent category display.
+ * 
+ * Returns compact category names optimized for UI display:
+ * - 'Props' for prop bets, SGP/SGP+, and parlays
+ * - 'Main' for main market bets (moneylines, spreads, totals)
+ * - 'Futures' for future/outright bets
+ * 
+ * @param marketCategory - The raw marketCategory value from a Bet or classification
+ * @returns Normalized category string for display ('Props', 'Main', 'Futures')
+ * 
+ * @example
+ * normalizeCategoryForDisplay('SGP/SGP+') // returns 'Props'
+ * normalizeCategoryForDisplay('Main Markets') // returns 'Main'
+ * normalizeCategoryForDisplay('Props') // returns 'Props'
+ */
+export function normalizeCategoryForDisplay(marketCategory: string): string {
+  if (!marketCategory) return 'Props'; // Empty/undefined is "unclear" -> default to Props
+  
+  const lower = marketCategory.toLowerCase();
+
+  if (lower.includes('prop')) return 'Props';
+  if (lower.includes('main')) return 'Main';
+  if (lower.includes('future')) return 'Futures';
+  if (lower.includes('parlay') || lower.includes('sgp')) return 'Props'; // SGP/SGP+ and Parlays default to Props in display
+
+  // Default to Props if unclear
+  return 'Props';
+}
+
+/**
+ * Market type abbreviation mappings for display.
+ * 
+ * Maps lowercase market text to abbreviated display codes.
+ * Centralized here to avoid duplication across display components.
+ * 
+ * @internal
+ */
+const MARKET_ABBREVIATIONS: Record<string, string> = {
+  'player points': 'Pts',
+  'points': 'Pts',
+  'player rebounds': 'Reb',
+  'rebounds': 'Reb',
+  'player assists': 'Ast',
+  'assists': 'Ast',
+  'passing touchdowns': 'Pass TD',
+  'receiving yards': 'Rec Yds',
+  'moneyline': 'ML',
+  'player threes': '3pt',
+  'triple double': 'TD',
+  'to record a triple-double': 'TD',
+  'double double': 'DD',
+  'rushing yards': 'Rush Yds',
+  'anytime touchdown scorer': 'ATTD',
+  'home runs': 'HR',
+  'player home runs': 'HR',
+  'player strikeouts': 'Ks',
+  'strikeouts': 'Ks',
+  'player hits': 'Hits',
+  'hits': 'Hits',
+  'total points': 'Total',
+  'total goals': 'Total',
+  'run line': 'RL',
+  'spread': 'Spread',
+  'passing yards': 'Pass Yds',
+  'outright winner': 'Future',
+  'to win outright': 'Future',
+  'first basket': 'FB',
+  'first basket (fb)': 'FB',
+  'top scorer': 'Top Pts',
+  'top scorer (top pts)': 'Top Pts',
+  'top points': 'Top Pts',
+};
+
+/**
+ * Abbreviates a market type for compact display.
+ * 
+ * This is the SINGLE SOURCE OF TRUTH for market type abbreviations.
+ * All UI layers must use this function to ensure consistent abbreviation display.
+ * 
+ * Logic:
+ * 1. First checks for explicit abbreviation in parentheses (e.g., "Triple Double (TD)" → "TD")
+ * 2. Then looks up lowercase market text in the abbreviation mapping
+ * 3. Falls back to returning the original market text if no abbreviation found
+ * 
+ * @param market - The market type text to abbreviate
+ * @returns Abbreviated market type for display
+ * 
+ * @example
+ * abbreviateMarket('Triple Double (TD)') // returns 'TD'
+ * abbreviateMarket('Player Points') // returns 'Pts'
+ * abbreviateMarket('moneyline') // returns 'ML'
+ * abbreviateMarket('Unknown Market') // returns 'Unknown Market'
+ */
+export function abbreviateMarket(market: string): string {
+  if (!market) return '';
+
+  // Extract abbreviation from parentheses, e.g., "Triple Double (TD)" -> "TD"
+  const parenMatch = market.match(/\(([^)]+)\)$/);
+  if (parenMatch) {
+    return parenMatch[1];
+  }
+
+  const lowerMarket = market.toLowerCase();
+  return MARKET_ABBREVIATIONS[lowerMarket] || market;
 }

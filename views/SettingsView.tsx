@@ -3,7 +3,7 @@ import { useBets } from '../hooks/useBets';
 import { useInputs } from '../hooks/useInputs';
 import { Bet, BetResult, BetType, BetLeg } from '../types';
 import { parseCsv } from '../services/csvParser';
-import { classifyBet } from '../services/classificationService';
+import { classifyBet } from '../services/marketClassification';
 import { AlertTriangle, CheckCircle2 } from '../components/icons';
 import InputManagementSection from './InputManagementView';
 

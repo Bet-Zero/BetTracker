@@ -36,7 +36,7 @@ import {
   formatNet,
   calculateFormattedNet,
 } from "./finalRowValidators";
-import { classifyLeg, determineType } from "../../services/marketClassification";
+import { classifyLeg, determineType, normalizeCategoryForDisplay } from "../../services/marketClassification";
 
 // ============================================================================
 // CONSTANTS
@@ -559,7 +559,7 @@ function createFinalRow(
     type = categoryAndType.type;
   } else {
     // Compute from bet-level data when categoryAndType not provided
-    category = normalizeCategory(bet.marketCategory);
+    category = normalizeCategoryForDisplay(bet.marketCategory);
     type = determineType(legData.market, category, bet.sport || "");
   }
 
@@ -644,22 +644,9 @@ function createFinalRow(
 }
 
 /**
- * Normalizes marketCategory (from Bet) to spreadsheet Category values.
- * Maps MarketCategory values (Props, Main Markets, Futures, SGP/SGP+, Parlays) to simpler Category values (Props, Main, Futures).
- */
-function normalizeCategory(marketCategory: string): string {
-  const lower = marketCategory.toLowerCase();
-
-  if (lower.includes("prop")) return "Props";
-  if (lower.includes("main")) return "Main Markets";
-  if (lower.includes("future")) return "Futures";
-  if (lower.includes("parlay") || lower.includes("sgp")) return "Props"; // SGP/SGP+ and Parlays default to Props in spreadsheet
-
-  // Default to Props if unclear
-  return "Props";
-}
-
-/**
+ * NOTE: normalizeCategory has been removed from this file.
+ * Use normalizeCategoryForDisplay from services/marketClassification.ts instead.
+ * 
  * NOTE: determineType has been removed from this file.
  * Use determineType from services/marketClassification.ts instead.
  */

@@ -18,6 +18,7 @@ import {
 import { Wifi } from "../components/icons";
 import { calculateProfit } from "../utils/betCalculations";
 import { betToFinalRows } from "../parsing/shared/betToFinalRows";
+import { abbreviateMarket, normalizeCategoryForDisplay } from "../services/marketClassification";
 
 // --- Fixed column widths (deterministic spreadsheet layout) ---
 const COL_W: Record<string, string> = {
@@ -88,63 +89,9 @@ const formatDate = (isoString: string) => {
   return `${month}/${day}`;
 };
 
-const abbreviateMarket = (market: string): string => {
-  if (!market) return "";
-
-  // Extract abbreviation from parentheses, e.g., "Triple Double (TD)" -> "TD"
-  const parenMatch = market.match(/\(([^)]+)\)$/);
-  if (parenMatch) {
-    return parenMatch[1];
-  }
-
-  const lowerMarket = market.toLowerCase();
-
-  const abbreviations: { [key: string]: string } = {
-    "player points": "Pts",
-    points: "Pts",
-    "player rebounds": "Reb",
-    rebounds: "Reb",
-    "player assists": "Ast",
-    assists: "Ast",
-    "passing touchdowns": "Pass TD",
-    "receiving yards": "Rec Yds",
-    moneyline: "ML",
-    "player threes": "3pt",
-    "triple double": "TD",
-    "to record a triple-double": "TD",
-    "double double": "DD",
-    "rushing yards": "Rush Yds",
-    "anytime touchdown scorer": "ATTD",
-    "home runs": "HR",
-    "player home runs": "HR",
-    "player strikeouts": "Ks",
-    strikeouts: "Ks",
-    "player hits": "Hits",
-    hits: "Hits",
-    "total points": "Total",
-    "total goals": "Total",
-    "run line": "RL",
-    spread: "Spread",
-    "passing yards": "Pass Yds",
-    "outright winner": "Future",
-    "to win outright": "Future",
-    "first basket": "FB",
-    "first basket (fb)": "FB",
-    "top scorer": "Top Pts",
-    "top scorer (top pts)": "Top Pts",
-    "top points": "Top Pts",
-  };
-  return abbreviations[lowerMarket] || market;
-};
-
-// Normalize category display (e.g., "Main Markets" -> "Main")
-const normalizeCategory = (category: string): string => {
-  if (!category) return "";
-  if (category.includes("Main")) return "Main";
-  if (category.includes("Prop")) return "Props";
-  if (category.includes("Future")) return "Futures";
-  return category;
-};
+// NOTE: abbreviateMarket and normalizeCategoryForDisplay have been moved to 
+// services/marketClassification.ts for centralization.
+// Import normalizeCategoryForDisplay and abbreviateMarket from there instead.
 
 // --- Editable Cell Components ---
 
@@ -1917,7 +1864,7 @@ const BetTableView: React.FC = () => {
                           />
                         )}
                         <TypableDropdown
-                          value={normalizeCategory(row.category)}
+                          value={normalizeCategoryForDisplay(row.category)}
                           onSave={(val) => {
                             addCategory(val);
                             updateBet(row.betId, {

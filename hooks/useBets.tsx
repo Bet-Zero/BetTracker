@@ -8,7 +8,7 @@ import React, {
 } from "react";
 import { Bet, BetResult } from "../types";
 import { useInputs } from "./useInputs";
-import { classifyBet } from "../services/classificationService";
+import { classifyBet } from "../services/marketClassification";
 import { calculateProfit, recalculatePayout } from "../utils/betCalculations";
 import { isSampleData, migrateBets } from "../utils/migrations";
 import { validateBet } from "../utils/validation";

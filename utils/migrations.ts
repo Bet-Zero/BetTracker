@@ -1,5 +1,5 @@
 import { Bet } from '../types';
-import { classifyBet } from '../services/classificationService';
+import { classifyBet } from '../services/marketClassification';
 
 /**
  * Checks if the given bets array contains sample data
