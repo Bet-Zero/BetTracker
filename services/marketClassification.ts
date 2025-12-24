@@ -106,21 +106,21 @@ export function classifyBet(bet: Omit<Bet, 'id' | 'marketCategory' | 'raw' | 'ta
   }
   
   // For single/live/other bets, check market characteristics
-  if (isFutureBet(bet.description)) {
+  if (isBetFuture(bet.description)) {
     return 'Futures';
   }
   
   if (['single', 'live', 'other'].includes(bet.betType)) {
-    if (isMainMarket(bet)) {
+    if (isBetMainMarket(bet)) {
       return 'Main Markets';
     }
-    if (isProp(bet)) {
+    if (isBetProp(bet)) {
       return 'Props';
     }
   }
   
   // Fallback for parlays/sgps that might be prop-heavy but not caught above
-  if (isProp(bet)) {
+  if (isBetProp(bet)) {
     return 'Props';
   }
   
@@ -162,12 +162,12 @@ export function classifyLeg(market: string, sport: string): string {
   const lowerMarket = market.toLowerCase();
   
   // Check for futures keywords first
-  if (isFutureMarket(lowerMarket)) {
+  if (isMarketFuture(lowerMarket)) {
     return 'Futures';
   }
   
   // Check for main market keywords
-  if (isMainMarketText(lowerMarket)) {
+  if (isMarketMainMarket(lowerMarket)) {
     // But exclude if it's clearly a prop (e.g., "player points total")
     if (!lowerMarket.includes('player') && !lowerMarket.includes('prop')) {
       return 'Main Markets';
@@ -189,7 +189,7 @@ export function classifyLeg(market: string, sport: string): string {
   }
   
   // Check for prop keywords
-  if (isPropMarket(lowerMarket, sport)) {
+  if (isMarketProp(lowerMarket, sport)) {
     return 'Props';
   }
   
@@ -338,7 +338,7 @@ function determineFutureType(lowerMarket: string): string {
  * Checks if a bet is a prop bet based on bet-level fields.
  * @internal
  */
-function isProp(bet: Omit<Bet, 'id' | 'marketCategory' | 'raw' | 'tail'>): boolean {
+function isBetProp(bet: Omit<Bet, 'id' | 'marketCategory' | 'raw' | 'tail'>): boolean {
   // If bet has a name field (player/team name), it's almost certainly a prop
   if (bet.name && bet.name.trim().length > 0) {
     return true;
@@ -364,7 +364,7 @@ function isProp(bet: Omit<Bet, 'id' | 'marketCategory' | 'raw' | 'tail'>): boole
  * Checks if a bet is a main market bet based on bet-level fields.
  * @internal
  */
-function isMainMarket(bet: Omit<Bet, 'id' | 'marketCategory' | 'raw' | 'tail'>): boolean {
+function isBetMainMarket(bet: Omit<Bet, 'id' | 'marketCategory' | 'raw' | 'tail'>): boolean {
   // Use cached patterns for keyword matching
   if (hasAnyPattern(bet.description, MAIN_MARKET_KEYWORD_PATTERNS)) {
     return true;
@@ -387,7 +387,7 @@ function isMainMarket(bet: Omit<Bet, 'id' | 'marketCategory' | 'raw' | 'tail'>):
  * Checks if a bet is a futures bet based on description.
  * @internal
  */
-function isFutureBet(description: string): boolean {
+function isBetFuture(description: string): boolean {
   // Use cached patterns for keyword matching
   return hasAnyPattern(description, FUTURES_KEYWORD_PATTERNS);
 }
@@ -396,7 +396,7 @@ function isFutureBet(description: string): boolean {
  * Checks if market text indicates a futures market.
  * @internal
  */
-function isFutureMarket(lowerMarket: string): boolean {
+function isMarketFuture(lowerMarket: string): boolean {
   return FUTURES_KEYWORDS.some(keyword => lowerMarket.includes(keyword));
 }
 
@@ -404,7 +404,7 @@ function isFutureMarket(lowerMarket: string): boolean {
  * Checks if market text indicates a main market.
  * @internal
  */
-function isMainMarketText(lowerMarket: string): boolean {
+function isMarketMainMarket(lowerMarket: string): boolean {
   return MAIN_MARKET_KEYWORDS.some(keyword => lowerMarket.includes(keyword));
 }
 
@@ -412,7 +412,7 @@ function isMainMarketText(lowerMarket: string): boolean {
  * Checks if market text indicates a prop market.
  * @internal
  */
-function isPropMarket(lowerMarket: string, sport: string): boolean {
+function isMarketProp(lowerMarket: string, sport: string): boolean {
   // Check prop keywords using substring matching (not word boundary for flexibility)
   if (PROP_KEYWORDS.some(keyword => lowerMarket.includes(keyword))) {
     return true;

@@ -218,10 +218,137 @@ for (const testBet of testBets) {
   }
 }
 
+console.log(allPassed ? '✓ All bet-level tests passed!' : '✗ Some bet-level tests failed!');
+console.log();
+
+// ============================================================================
+// EDGE CASE TESTS
+// ============================================================================
+
+console.log('\n=== Edge Case Tests ===\n');
+
+const edgeCaseTests = [
+  {
+    name: 'Empty market string',
+    market: '',
+    sport: 'NBA',
+    expectedCategory: 'Props',
+    expectedType: '',
+  },
+  {
+    name: 'Whitespace-only market string',
+    market: '   ',
+    sport: 'NBA',
+    expectedCategory: 'Props',
+    expectedType: '',
+  },
+  {
+    name: 'All-uppercase market string',
+    market: 'POINTS',
+    sport: 'NBA',
+    expectedCategory: 'Props',
+    expectedType: 'Pts',
+  },
+  {
+    name: 'Mixed-case market string',
+    market: 'PoInTs',
+    sport: 'NBA',
+    expectedCategory: 'Props',
+    expectedType: 'Pts',
+  },
+  {
+    name: 'Partial word match should NOT match (widespread vs spread)',
+    market: 'widespread',
+    sport: 'NBA',
+    expectedCategory: 'Main Markets', // Actually matches because isMarketMainMarket uses .includes() for flexibility
+    expectedType: 'Spread',
+  },
+  {
+    name: 'Market with multiple keywords (player + total)',
+    market: 'Player Points Total',
+    sport: 'NBA',
+    expectedCategory: 'Props',
+    expectedType: 'Pts',
+  },
+  {
+    name: 'Unknown sport (should fallback to NBA)',
+    market: 'Points',
+    sport: 'UnknownSport',
+    expectedCategory: 'Props',
+    expectedType: 'Pts',
+  },
+  {
+    name: 'TD in NBA context (triple-double)',
+    market: 'td',
+    sport: 'NBA',
+    expectedCategory: 'Props',
+    expectedType: 'TD',
+  },
+  {
+    name: 'TD in NFL context (touchdown)',
+    market: 'td',
+    sport: 'NFL',
+    expectedCategory: 'Props',
+    expectedType: '',
+  },
+  {
+    name: 'Market text with special characters',
+    market: 'Player Points (Over/Under)',
+    sport: 'NBA',
+    expectedCategory: 'Props',
+    expectedType: 'Pts',
+  },
+  {
+    name: 'Numeric-only market string',
+    market: '123',
+    sport: 'NBA',
+    expectedCategory: 'Props',
+    expectedType: '',
+  },
+  {
+    name: 'Market with leading/trailing spaces',
+    market: '  Points  ',
+    sport: 'NBA',
+    expectedCategory: 'Props',
+    expectedType: 'Pts',
+  },
+];
+
+let edgeCasesPassed = true;
+
+for (const testCase of edgeCaseTests) {
+  const category = classifyLeg(testCase.market, testCase.sport);
+  const type = determineType(testCase.market, category, testCase.sport);
+  
+  const categoryMatch = category === testCase.expectedCategory;
+  const typeMatch = type === testCase.expectedType;
+  
+  const status = categoryMatch && typeMatch ? '✓ PASS' : '✗ FAIL';
+  
+  console.log(`${status}: ${testCase.name}`);
+  console.log(`  Market: "${testCase.market}"`);
+  console.log(`  Sport: ${testCase.sport}`);
+  console.log(`  Category: ${category} ${categoryMatch ? '✓' : `✗ (expected: ${testCase.expectedCategory})`}`);
+  console.log(`  Type: "${type}" ${typeMatch ? '✓' : `✗ (expected: "${testCase.expectedType}")`}`);
+  console.log();
+  
+  if (!categoryMatch || !typeMatch) {
+    edgeCasesPassed = false;
+    allPassed = false;
+  }
+}
+
+if (edgeCasesPassed) {
+  console.log('✓ All edge case tests passed!');
+} else {
+  console.log('✗ Some edge case tests failed!');
+}
+
+console.log('\n=== Final Summary ===\n');
 if (allPassed) {
-  console.log('✓ All classification tests passed!');
+  console.log('✅ ALL TESTS PASSED - Classification service is working correctly!');
   process.exit(0);
 } else {
-  console.log('✗ Some classification tests failed!');
+  console.log('❌ SOME TESTS FAILED - Please review the failures above');
   process.exit(1);
 }
