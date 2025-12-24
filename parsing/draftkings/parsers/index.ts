@@ -1,5 +1,9 @@
 import { Bet } from "../../../types";
-import { extractFooterMeta, extractHeaderInfo, normalizeBetType } from "./common";
+import {
+  extractFooterMeta,
+  extractHeaderInfo,
+  normalizeBetType,
+} from "./common";
 import { parseSingleBet } from "./single";
 import { parseParlayBet } from "./parlay";
 
@@ -26,20 +30,21 @@ export const parseDraftKingsHTML = (html: string): Bet[] => {
 
       // Check card text content for SGPx or parlay indicators
       const cardText = card.textContent || "";
-      
+
       // Check for SGP indicator in data-test-id (most reliable)
-      const hasSGPTestId = card.querySelector('[data-test-id^="sgp-"]') !== null;
-      
+      const hasSGPTestId =
+        card.querySelector('[data-test-id^="sgp-"]') !== null;
+
       // Use normalizeBetType to reuse terminology logic
-      let betType: 'parlay' | 'sgp' | 'sgp_plus' | null = null;
-      
+      let betType: "parlay" | "sgp" | "sgp_plus" | null = null;
+
       // Priority 1: Check for SGPx explicitly
-      if (cardText.toLowerCase().includes('sgpx')) {
-        betType = 'sgp_plus';
+      if (cardText.toLowerCase().includes("sgpx")) {
+        betType = "sgp_plus";
       }
       // Priority 2: Check for SGP test-id
       else if (hasSGPTestId) {
-        betType = 'sgp';
+        betType = "sgp";
       }
       // Priority 3: Use normalizeBetType for subtitle and card text
       else {
@@ -48,7 +53,12 @@ export const parseDraftKingsHTML = (html: string): Bet[] => {
 
       const isParlay = betType !== null;
 
-      const context = { element: card, header, footer, betType: betType || undefined };
+      const context = {
+        element: card,
+        header,
+        footer,
+        betType: betType || undefined,
+      };
 
       const bet = isParlay ? parseParlayBet(context) : parseSingleBet(context);
 
