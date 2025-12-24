@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { Bet, Sportsbook, MarketCategory, BetLeg } from "../types";
 import { X, AlertTriangle, CheckCircle2, Wifi } from "./icons";
+import { classifyLeg } from "../services/marketClassification";
 
 interface ImportConfirmationModalProps {
   bets: Bet[];
@@ -104,95 +105,9 @@ const capitalizeFirstLetter = (str: string): string => {
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 };
 
-// Determine category for a leg based on its market
-const getLegCategory = (market: string): string => {
-  if (!market) return "Props"; // Default to Props if no market text
-
-  const lower = market.toLowerCase();
-
-  // Check for futures keywords first
-  const futureKeywords = [
-    "to win",
-    "award",
-    "mvp",
-    "champion",
-    "outright",
-    "win total",
-    "make playoffs",
-    "miss playoffs",
-    "nba finals",
-    "super bowl",
-  ];
-  if (futureKeywords.some((keyword) => lower.includes(keyword))) {
-    return "Futures";
-  }
-
-  // Check for prop keywords (check before main markets to avoid false positives)
-  const propKeywords = [
-    // Special props (longer forms checked first for specificity)
-    "triple double",
-    "triple-double",
-    "td",
-    "double double",
-    "double-double",
-    "dd",
-    "first basket",
-    "first field goal",
-    "first fg",
-    "fb",
-    "top scorer",
-    "top points",
-    "top pts",
-    // Stat types
-    "points",
-    "pts",
-    "rebounds",
-    "reb",
-    "assists",
-    "ast",
-    "threes",
-    "3pt",
-    "3-pointers",
-    "made threes",
-    "steals",
-    "stl",
-    "blocks",
-    "blk",
-    "turnovers",
-    "pra",
-    "pr",
-    "ra",
-    "pa",
-    "stocks",
-    // General prop indicators
-    "player",
-    "prop",
-    "to record",
-    "to score",
-  ];
-  if (propKeywords.some((keyword) => lower.includes(keyword))) {
-    return "Props";
-  }
-
-  // Check for main market keywords
-  const mainMarketKeywords = [
-    "moneyline",
-    "ml",
-    "spread",
-    "total",
-    "over",
-    "under",
-  ];
-  if (mainMarketKeywords.some((keyword) => lower.includes(keyword))) {
-    // But exclude if it's clearly a prop (e.g., "player points total")
-    if (!lower.includes("player") && !lower.includes("prop")) {
-      return "Main";
-    }
-  }
-
-  // Default to Props if unclear (safer than Main for player/team bets)
-  return "Props";
-};
+// NOTE: getLegCategory has been removed and replaced with the unified
+// classifyLeg function from services/marketClassification.ts
+// All classification logic is now in one place.
 
 type VisibleLeg = {
   leg: BetLeg;
@@ -278,7 +193,7 @@ export const ImportConfirmationModal: React.FC<
       const legMeta = visibleLegs[legIndex];
       if (!legMeta) return issues;
       const leg = legMeta.leg;
-      const legCategory = getLegCategory(leg.market);
+      const legCategory = classifyLeg(leg.market, bet.sport);
 
       if (!legCategory || legCategory.trim() === "") {
         issues.push({
@@ -1107,8 +1022,9 @@ export const ImportConfirmationModal: React.FC<
                                     const legName = isLegTotal && legEntities.length >= 2
                                       ? `${legEntities[0]} / ${legEntities[1]}`
                                       : legEntities[0] || "";
-                                    const legCategory = getLegCategory(
-                                      leg.market
+                                    const legCategory = classifyLeg(
+                                      leg.market,
+                                      sport
                                     );
                                     const legType = leg.market || "";
                                     const legOu =

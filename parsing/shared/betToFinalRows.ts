@@ -14,6 +14,9 @@
  * - One FinalRow per leg for multi-leg bets (parlays/SGPs produce multiple rows)
  * - Over/Under: "1"/"0" flags (or "" when not applicable)
  * - Live: "1" or "" flag (uses bet.isLive boolean, not bet.betType)
+ * 
+ * CLASSIFICATION: All market classification logic has been moved to
+ * services/marketClassification.ts. This module imports and uses that service.
  */
 
 import {
@@ -33,6 +36,36 @@ import {
   formatNet,
   calculateFormattedNet,
 } from "./finalRowValidators";
+import { classifyLeg, determineType } from "../../services/marketClassification";
+
+// ============================================================================
+// CONSTANTS
+// ============================================================================
+
+/**
+ * Maximum number of legs to process per bet.
+ * 
+ * This limit prevents parser errors from creating excessive rows that could
+ * degrade UI performance. Bets with more legs than this are logged as errors
+ * and truncated.
+ * 
+ * @constant {number}
+ */
+const MAX_LEGS_PER_BET = 10;
+
+/**
+ * Character indicator for milestone bets (e.g., "30+ points").
+ * 
+ * When a target value contains this character, it indicates a milestone bet
+ * which is treated as an Over bet (player must exceed the threshold).
+ * 
+ * Examples:
+ * - "25+ Points" → Over bet
+ * - "3+ Made Threes" → Over bet
+ * 
+ * @constant {string}
+ */
+const MILESTONE_INDICATOR = '+';
 
 /**
  * Category and type information for bet classification.
@@ -43,205 +76,11 @@ interface CategoryAndType {
 }
 
 /**
- * Sport-specific stat type mappings for Props category.
- * Maps market text patterns to stat type codes.
+ * NOTE: STAT_TYPE_MAPPINGS, MAIN_MARKET_TYPES, FUTURES_TYPES, and classifyLegCategory
+ * have been removed from this file. All classification logic is now in
+ * services/marketClassification.ts. Import and use classifyLeg() and determineType()
+ * from that service instead.
  */
-const STAT_TYPE_MAPPINGS: Record<string, Record<string, string>> = {
-  NBA: {
-    // Combined stats (check before individual)
-    "points rebounds assists": "PRA",
-    "pts reb ast": "PRA",
-    "points rebounds": "PR",
-    "pts reb": "PR",
-    "rebounds assists": "RA",
-    "reb ast": "RA",
-    "points assists": "PA",
-    "pts ast": "PA",
-    "steals blocks": "Stocks",
-    "stl blk": "Stocks",
-    // Special props
-    "first basket": "FB",
-    "first field goal": "FB",
-    "first fg": "FB",
-    "top scorer": "Top Pts",
-    "top points": "Top Pts",
-    "top pts": "Top Pts",
-    "double double": "DD",
-    "double-double": "DD",
-    "triple double": "TD",
-    "triple-double": "TD",
-
-    // Individual stats
-    "made threes": "3pt",
-    "3-pointers": "3pt",
-    threes: "3pt",
-    "3pt": "3pt",
-    points: "Pts",
-    pts: "Pts",
-    rebounds: "Reb",
-    reb: "Reb",
-    assists: "Ast",
-    ast: "Ast",
-    steals: "Stl",
-    stl: "Stl",
-    blocks: "Blk",
-    blk: "Blk",
-    turnovers: "TO",
-    // Removed "to" - too broad, "turnovers" is sufficient
-  },
-  // Add other sports as needed
-};
-
-/**
- * Main Markets type mappings.
- */
-const MAIN_MARKET_TYPES: Record<string, string> = {
-  spread: "Spread",
-  total: "Total",
-  over: "Total",
-  under: "Total",
-  moneyline: "Moneyline",
-  ml: "Moneyline",
-};
-
-/**
- * Futures type mappings.
- */
-const FUTURES_TYPES: Record<string, string> = {
-  "nba finals": "NBA Finals",
-  "super bowl": "Super Bowl",
-  wcc: "WCC",
-  ecc: "ECC",
-  "win total": "Win Total",
-  "win totals": "Win Total",
-  "make playoffs": "Make Playoffs",
-  "miss playoffs": "Miss Playoffs",
-  mvp: "MVP",
-  dpoy: "DPOY",
-  roy: "ROY",
-  champion: "Champion",
-};
-
-/**
- * Classifies a leg's market category based on market text.
- * Determines if a leg is Props, Main Markets, or Futures.
- *
- * @param market - The market text from the leg
- * @param sport - The sport (e.g., "NBA")
- * @returns "Props", "Main Markets", or "Futures"
- */
-function classifyLegCategory(market: string, sport: string): string {
-  if (!market) return "Props"; // Default to Props if no market text
-
-  const lowerMarket = market.toLowerCase();
-
-  // Check for futures keywords first
-  const futureKeywords = [
-    "to win",
-    "award",
-    "mvp",
-    "champion",
-    "outright",
-    "win total",
-    "make playoffs",
-    "miss playoffs",
-    "nba finals",
-    "super bowl",
-  ];
-  if (futureKeywords.some((keyword) => lowerMarket.includes(keyword))) {
-    return "Futures";
-  }
-
-  // Check for main market keywords
-  const mainMarketKeywords = [
-    "moneyline",
-    "ml",
-    "spread",
-    "total",
-    "over",
-    "under",
-  ];
-  if (mainMarketKeywords.some((keyword) => lowerMarket.includes(keyword))) {
-    // But exclude if it's clearly a prop (e.g., "player points total")
-    if (!lowerMarket.includes("player") && !lowerMarket.includes("prop")) {
-      return "Main Markets";
-    }
-  }
-
-  // Sport-specific: "td" means triple-double in basketball, touchdown in football
-  // Check this BEFORE the general propKeywords to avoid false positives
-  const basketballSports = ["NBA", "WNBA", "CBB", "NCAAB"];
-  if (basketballSports.includes(sport)) {
-    // Use word boundaries or check for standalone "td" to reduce false positives
-    if (
-      lowerMarket === "td" ||
-      lowerMarket.includes(" td ") ||
-      lowerMarket.startsWith("td ") ||
-      lowerMarket.endsWith(" td")
-    ) {
-      return "Props";
-    }
-  }
-
-  // Check for prop keywords (TD, Top Pts, FB, and other stat types)
-  const propKeywords = [
-    // Special props (longer forms checked first for specificity)
-    "triple double",
-    "triple-double",
-    // "td" checked separately above with sport awareness
-    "double double",
-    "double-double",
-    "dd", // "dd" is safer since "double double" is already checked first
-    "first basket",
-    "first field goal",
-    "first fg",
-    "fb",
-    "top scorer",
-    "top points",
-    "top pts",
-    // Stat types
-    "points",
-    "pts",
-    "rebounds",
-    "reb",
-    "assists",
-    "ast",
-    "threes",
-    "3pt",
-    "3-pointers",
-    "made threes",
-    "steals",
-    "stl",
-    "blocks",
-    "blk",
-    "turnovers",
-    // Removed "to" - too broad, "turnovers" is sufficient
-    "pra",
-    "pr",
-    "ra",
-    "pa",
-    "stocks",
-    // General prop indicators
-    "player",
-    "prop",
-    "to record",
-    "to score",
-  ];
-  if (propKeywords.some((keyword) => lowerMarket.includes(keyword))) {
-    return "Props";
-  }
-
-  // Check sport-specific stat mappings
-  const sportMappings = STAT_TYPE_MAPPINGS[sport] || STAT_TYPE_MAPPINGS.NBA;
-  for (const pattern of Object.keys(sportMappings)) {
-    if (lowerMarket.includes(pattern)) {
-      return "Props";
-    }
-  }
-
-  // Default to Props if unclear (safer than Main for player/team bets)
-  return "Props";
-}
 
 /**
  * Merges two result values, preferring win > loss > push > pending.
@@ -372,8 +211,8 @@ function classifyAndExtractLegData(
   name: string;
   name2: string | undefined;
 } {
-  // Classify category and type
-  const category = classifyLegCategory(leg.market || "", sport);
+  // Classify category and type using unified classification service
+  const category = classifyLeg(leg.market || "", sport);
   const type = determineType(leg.market || "", category, sport);
 
   // Totals bets (e.g., "Lakers vs Celtics Total Points") need both team names
@@ -607,13 +446,13 @@ export function betToFinalRows(bet: Bet): FinalRow[] {
     // Bet with structured legs - create one row per leg
     // Safety check: Limit legs to prevent parsing errors from creating thousands of rows
     const legsToProcess =
-      deduplicatedLegs.length > 10
-        ? deduplicatedLegs.slice(0, 10)
+      deduplicatedLegs.length > MAX_LEGS_PER_BET
+        ? deduplicatedLegs.slice(0, MAX_LEGS_PER_BET)
         : deduplicatedLegs;
 
-    if (deduplicatedLegs.length > 10) {
+    if (deduplicatedLegs.length > MAX_LEGS_PER_BET) {
       console.error(
-        `betToFinalRows: Bet ${bet.betId} has ${deduplicatedLegs.length} legs - limiting to 10 to prevent excessive rows`
+        `betToFinalRows: Bet ${bet.betId} has ${deduplicatedLegs.length} legs - limiting to ${MAX_LEGS_PER_BET} to prevent excessive rows`
       );
     }
 
@@ -632,7 +471,7 @@ export function betToFinalRows(bet: Bet): FinalRow[] {
         {
           parlayGroupId: parlayGroupId,
           legIndex: null,
-          legCount: Math.min(deduplicatedLegs.length, 10),
+          legCount: Math.min(deduplicatedLegs.length, MAX_LEGS_PER_BET),
           isParlayHeader: true,
           isParlayChild: false,
           showMonetaryValues: true,
@@ -821,88 +660,9 @@ function normalizeCategory(marketCategory: string): string {
 }
 
 /**
- * Determines the Type field based on Category and market text.
+ * NOTE: determineType has been removed from this file.
+ * Use determineType from services/marketClassification.ts instead.
  */
-function determineType(
-  market: string,
-  category: string,
-  sport: string
-): string {
-  const lowerMarket = market.toLowerCase();
-  const normalizedMarket = lowerMarket.trim();
-
-  if (category === "Props") {
-    // Direct code/alias mappings for special props
-    const directMap: Record<string, string> = {
-      fb: "FB",
-      "first basket": "FB",
-      "first field goal": "FB",
-      "first fg": "FB",
-      "top pts": "Top Pts",
-      "top scorer": "Top Pts",
-      "top points": "Top Pts",
-      "top points scorer": "Top Pts",
-      dd: "DD",
-      "double double": "DD",
-      "double-double": "DD",
-      // "td" is handled separately with sport awareness below
-      "triple double": "TD",
-      "triple-double": "TD",
-    };
-
-    // Sport-specific: "td" means triple-double in basketball, touchdown in football
-    const basketballSports = ["NBA", "WNBA", "CBB", "NCAAB"];
-    if (basketballSports.includes(sport)) {
-      if (
-        normalizedMarket === "td" ||
-        lowerMarket.includes(" td ") ||
-        lowerMarket.startsWith("td ") ||
-        lowerMarket.endsWith(" td")
-      ) {
-        return "TD";
-      }
-    }
-
-    if (directMap[normalizedMarket]) {
-      return directMap[normalizedMarket];
-    }
-
-    // Look up stat type from sport-specific mappings
-    const sportMappings = STAT_TYPE_MAPPINGS[sport] || STAT_TYPE_MAPPINGS.NBA;
-
-    // Check each mapping pattern
-    for (const [pattern, statType] of Object.entries(sportMappings)) {
-      if (lowerMarket.includes(pattern)) {
-        return statType;
-      }
-    }
-
-    // If no match, return empty string for manual review
-    return "";
-  }
-
-  if (category === "Main Markets") {
-    // Check main market types
-    for (const [pattern, type] of Object.entries(MAIN_MARKET_TYPES)) {
-      if (lowerMarket.includes(pattern)) {
-        return type;
-      }
-    }
-    return "Spread"; // Default
-  }
-
-  if (category === "Futures") {
-    // Check futures types
-    for (const [pattern, type] of Object.entries(FUTURES_TYPES)) {
-      if (lowerMarket.includes(pattern)) {
-        return type;
-      }
-    }
-    return "Future"; // Generic fallback
-  }
-
-  return "";
-}
 
 /**
  * Determines Over/Under flags based on leg data.
@@ -919,7 +679,7 @@ function determineOverUnder(
   }
 
   // Check if target has "+" (milestone bet)
-  if (target && target.toString().includes("+")) {
+  if (target && target.toString().includes(MILESTONE_INDICATOR)) {
     return { over: toOverUnderFlag(true), under: toOverUnderFlag(false) };
   }
 
