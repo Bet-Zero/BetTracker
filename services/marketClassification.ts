@@ -13,205 +13,48 @@
  */
 
 import { Bet, MarketCategory } from '../types';
+import {
+  FUTURES_KEYWORDS,
+  MAIN_MARKET_KEYWORDS,
+  PROP_KEYWORDS,
+  STAT_TYPE_MAPPINGS,
+  MAIN_MARKET_TYPES,
+  FUTURES_TYPES,
+} from './marketClassification.config';
 
 // ============================================================================
-// KEYWORD LISTS - Consolidated from all sources
+// HELPER FUNCTIONS
 // ============================================================================
 
 /**
- * Keywords that indicate a Futures bet.
- * Consolidated from classificationService.ts, betToFinalRows.ts, and ImportConfirmationModal.tsx
+ * Checks if a keyword exists in text with proper word boundary matching.
+ * Prevents false positives like "spread" matching "widespread".
+ * 
+ * @param text - The text to search in
+ * @param keyword - The keyword to search for
+ * @returns true if keyword is found with word boundaries, false otherwise
+ * 
+ * @internal
  */
-const FUTURES_KEYWORDS = [
-  'to win',
-  'award',
-  'mvp',
-  'dpoy',
-  'roy',
-  'champion',
-  'championship',
-  'outright',
-  'win total',
-  'win totals',
-  'make playoffs',
-  'miss playoffs',
-  'nba finals',
-  'super bowl',
-  'world series',
-  'stanley cup',
-] as const;
+function hasKeyword(text: string, keyword: string): boolean {
+  // Escape special regex characters in the keyword
+  const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = new RegExp(`\\b${escapedKeyword}\\b`, 'i');
+  return pattern.test(text);
+}
 
 /**
- * Keywords that indicate a Main Market bet.
- * Consolidated from classificationService.ts, betToFinalRows.ts, and ImportConfirmationModal.tsx
+ * Checks if any keyword from an array exists in text with word boundary matching.
+ * 
+ * @param text - The text to search in
+ * @param keywords - Array of keywords to search for
+ * @returns true if any keyword is found, false otherwise
+ * 
+ * @internal
  */
-const MAIN_MARKET_KEYWORDS = [
-  'moneyline',
-  'ml',
-  'spread',
-  'point spread',
-  'total',
-  'totals',
-  'over',
-  'under',
-  'run line',
-  'puck line',
-] as const;
-
-/**
- * Keywords that indicate a Props bet.
- * Consolidated from classificationService.ts, betToFinalRows.ts, and ImportConfirmationModal.tsx
- */
-const PROP_KEYWORDS = [
-  // Special props (longer forms checked first for specificity)
-  'triple double',
-  'triple-double',
-  'double double',
-  'double-double',
-  'first basket',
-  'first field goal',
-  'first fg',
-  'top scorer',
-  'top points',
-  'top pts',
-  
-  // Stat types
-  'points',
-  'pts',
-  'rebounds',
-  'reb',
-  'assists',
-  'ast',
-  'threes',
-  '3pt',
-  '3-pointers',
-  'made threes',
-  'steals',
-  'stl',
-  'blocks',
-  'blk',
-  'turnovers',
-  
-  // Combined stats
-  'pra',
-  'pr',
-  'ra',
-  'pa',
-  'stocks',
-  
-  // General prop indicators
-  'player',
-  'prop',
-  'to record',
-  'to score',
-  
-  // NFL/Football
-  'yards',
-  'touchdown',
-  'td',
-  'receiving',
-  'rushing',
-  'passing',
-  
-  // MLB/Baseball
-  'home runs',
-  'strikeouts',
-  'hits',
-  'runs',
-  
-  // NHL/Soccer
-  'goals',
-  'shots on goal',
-] as const;
-
-/**
- * Sport-specific stat type mappings for Props category.
- * Maps market text patterns to stat type codes.
- * Consolidated from betToFinalRows.ts
- */
-const STAT_TYPE_MAPPINGS: Record<string, Record<string, string>> = {
-  NBA: {
-    // Combined stats (check before individual)
-    'points rebounds assists': 'PRA',
-    'pts reb ast': 'PRA',
-    'points rebounds': 'PR',
-    'pts reb': 'PR',
-    'rebounds assists': 'RA',
-    'reb ast': 'RA',
-    'points assists': 'PA',
-    'pts ast': 'PA',
-    'steals blocks': 'Stocks',
-    'stl blk': 'Stocks',
-    
-    // Special props
-    'first basket': 'FB',
-    'first field goal': 'FB',
-    'first fg': 'FB',
-    'top scorer': 'Top Pts',
-    'top points': 'Top Pts',
-    'top pts': 'Top Pts',
-    'double double': 'DD',
-    'double-double': 'DD',
-    'triple double': 'TD',
-    'triple-double': 'TD',
-    
-    // Individual stats
-    'made threes': '3pt',
-    '3-pointers': '3pt',
-    'threes': '3pt',
-    '3pt': '3pt',
-    'points': 'Pts',
-    'pts': 'Pts',
-    'rebounds': 'Reb',
-    'reb': 'Reb',
-    'assists': 'Ast',
-    'ast': 'Ast',
-    'steals': 'Stl',
-    'stl': 'Stl',
-    'blocks': 'Blk',
-    'blk': 'Blk',
-    'turnovers': 'TO',
-  },
-  // Add other sports as needed
-};
-
-/**
- * Main Markets type mappings.
- * Consolidated from betToFinalRows.ts
- */
-const MAIN_MARKET_TYPES: Record<string, string> = {
-  'spread': 'Spread',
-  'point spread': 'Spread',
-  'total': 'Total',
-  'totals': 'Total',
-  'over': 'Total',
-  'under': 'Total',
-  'moneyline': 'Moneyline',
-  'ml': 'Moneyline',
-  'money line': 'Moneyline',
-};
-
-/**
- * Futures type mappings.
- * Consolidated from betToFinalRows.ts
- */
-const FUTURES_TYPES: Record<string, string> = {
-  'nba finals': 'NBA Finals',
-  'super bowl': 'Super Bowl',
-  'world series': 'World Series',
-  'stanley cup': 'Stanley Cup',
-  'wcc': 'WCC',
-  'ecc': 'ECC',
-  'win total': 'Win Total',
-  'win totals': 'Win Total',
-  'make playoffs': 'Make Playoffs',
-  'miss playoffs': 'Miss Playoffs',
-  'mvp': 'MVP',
-  'dpoy': 'DPOY',
-  'roy': 'ROY',
-  'champion': 'Champion',
-  'championship': 'Champion',
-};
+function hasAnyKeyword(text: string, keywords: readonly string[]): boolean {
+  return keywords.some(keyword => hasKeyword(text, keyword));
+}
 
 // ============================================================================
 // CLASSIFICATION FUNCTIONS
@@ -225,6 +68,16 @@ const FUTURES_TYPES: Record<string, string> = {
  * @returns MarketCategory - One of: 'Props', 'Main Markets', 'Futures', 'SGP/SGP+', 'Parlays'
  */
 export function classifyBet(bet: Omit<Bet, 'id' | 'marketCategory' | 'raw' | 'tail'>): MarketCategory {
+  // Input validation
+  if (!bet || typeof bet !== 'object') {
+    console.error('[classifyBet] Invalid bet object provided:', bet);
+    return 'Props';
+  }
+
+  if (!bet.betType) {
+    console.warn(`[classifyBet] Missing betType for bet ${bet.betId || 'unknown'}`);
+  }
+
   // SGP/SGP+ classification based on bet type
   if (bet.betType === 'sgp' || bet.betType === 'sgp_plus') {
     return 'SGP/SGP+';
@@ -273,7 +126,21 @@ export function classifyBet(bet: Omit<Bet, 'id' | 'marketCategory' | 'raw' | 'ta
  * @returns Category string - One of: 'Props', 'Main Markets', 'Futures'
  */
 export function classifyLeg(market: string, sport: string): string {
-  if (!market) return 'Props'; // Default to Props if no market text
+  // Input validation
+  if (typeof market !== 'string') {
+    console.warn('[classifyLeg] Invalid market type provided:', typeof market);
+    return 'Props';
+  }
+
+  if (!sport || typeof sport !== 'string' || sport.trim() === '') {
+    console.warn('[classifyLeg] Invalid or empty sport provided, defaulting to NBA');
+    sport = 'NBA';
+  }
+
+  // Handle empty/whitespace-only market
+  if (!market || market.trim() === '') {
+    return 'Props'; // Default to Props if no market text
+  }
   
   const lowerMarket = market.toLowerCase();
   
@@ -323,6 +190,27 @@ export function classifyLeg(market: string, sport: string): string {
  * @returns Type string - Stat type code or market type
  */
 export function determineType(market: string, category: string, sport: string): string {
+  // Input validation
+  if (typeof market !== 'string') {
+    console.warn('[determineType] Invalid market type provided:', typeof market);
+    return '';
+  }
+
+  if (typeof category !== 'string') {
+    console.warn('[determineType] Invalid category type provided:', typeof category);
+    return '';
+  }
+
+  if (typeof sport !== 'string') {
+    console.warn('[determineType] Invalid sport type provided:', typeof sport);
+    sport = 'NBA'; // Fallback to NBA
+  }
+
+  // Handle empty strings
+  if (market.trim() === '') {
+    return '';
+  }
+
   const lowerMarket = market.toLowerCase();
   const normalizedMarket = lowerMarket.trim();
   
@@ -422,10 +310,8 @@ function isProp(bet: Omit<Bet, 'id' | 'marketCategory' | 'raw' | 'tail'>): boole
     return true;
   }
   
-  // Check description for common prop keywords
-  return PROP_KEYWORDS.some(keyword => 
-    new RegExp(`\\b${keyword}\\b`, 'i').test(bet.description)
-  );
+  // Check description for common prop keywords using word boundary matching
+  return hasAnyKeyword(bet.description, PROP_KEYWORDS);
 }
 
 /**
@@ -433,9 +319,7 @@ function isProp(bet: Omit<Bet, 'id' | 'marketCategory' | 'raw' | 'tail'>): boole
  * @internal
  */
 function isMainMarket(bet: Omit<Bet, 'id' | 'marketCategory' | 'raw' | 'tail'>): boolean {
-  if (MAIN_MARKET_KEYWORDS.some(keyword => 
-    new RegExp(`\\b${keyword}\\b`, 'i').test(bet.description)
-  )) {
+  if (hasAnyKeyword(bet.description, MAIN_MARKET_KEYWORDS)) {
     return true;
   }
   
@@ -457,9 +341,7 @@ function isMainMarket(bet: Omit<Bet, 'id' | 'marketCategory' | 'raw' | 'tail'>):
  * @internal
  */
 function isFutureBet(description: string): boolean {
-  return FUTURES_KEYWORDS.some(keyword => 
-    new RegExp(`\\b${keyword}\\b`, 'i').test(description)
-  );
+  return hasAnyKeyword(description, FUTURES_KEYWORDS);
 }
 
 /**
@@ -483,7 +365,7 @@ function isMainMarketText(lowerMarket: string): boolean {
  * @internal
  */
 function isPropMarket(lowerMarket: string, sport: string): boolean {
-  // Check prop keywords
+  // Check prop keywords using substring matching (not word boundary for flexibility)
   if (PROP_KEYWORDS.some(keyword => lowerMarket.includes(keyword))) {
     return true;
   }
