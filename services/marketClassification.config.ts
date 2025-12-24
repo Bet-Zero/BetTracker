@@ -284,3 +284,14 @@ export const FUTURES_TYPES: Record<string, string> = {
   'champion': 'Champion',
   'championship': 'Champion',
 };
+
+/**
+ * Basketball sports that treat "TD" as Triple-Double.
+ * 
+ * Used to determine context-specific classification of "TD" market text.
+ * In basketball leagues, TD means Triple-Double (a prop bet).
+ * In football leagues, TD means Touchdown (also a prop bet but with different handling).
+ * 
+ * @constant {ReadonlyArray<string>}
+ */
+export const BASKETBALL_SPORTS = ['NBA', 'WNBA', 'CBB', 'NCAAB'] as const;

@@ -20,6 +20,7 @@ import {
   STAT_TYPE_MAPPINGS,
   MAIN_MARKET_TYPES,
   FUTURES_TYPES,
+  BASKETBALL_SPORTS,
 } from './marketClassification.config';
 
 // ============================================================================
@@ -176,8 +177,7 @@ export function classifyLeg(market: string, sport: string): string {
   
   // Sport-specific: "td" means triple-double in basketball, touchdown in football
   // Check this BEFORE the general propKeywords to avoid false positives
-  const basketballSports = ['NBA', 'WNBA', 'CBB', 'NCAAB'];
-  if (basketballSports.includes(sport)) {
+  if (BASKETBALL_SPORTS.includes(sport as any)) {
     if (
       lowerMarket === 'td' ||
       lowerMarket.includes(' td ') ||
@@ -274,8 +274,7 @@ function determinePropsType(lowerMarket: string, normalizedMarket: string, sport
   }
   
   // Sport-specific: "td" means triple-double in basketball - early return
-  const basketballSports = ['NBA', 'WNBA', 'CBB', 'NCAAB'];
-  if (basketballSports.includes(sport)) {
+  if (BASKETBALL_SPORTS.includes(sport as any)) {
     if (
       normalizedMarket === 'td' ||
       lowerMarket.includes(' td ') ||
