@@ -23,37 +23,54 @@ import {
 } from './marketClassification.config';
 
 // ============================================================================
+// CACHED REGEX PATTERNS (for performance)
+// ============================================================================
+
+/**
+ * Pre-compiled regex patterns for prop keyword matching.
+ * Cached at module level to avoid re-creating RegExp objects on every call.
+ * @internal
+ */
+const PROP_KEYWORD_PATTERNS = PROP_KEYWORDS.map(keyword => {
+  const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`\\b${escapedKeyword}\\b`, 'i');
+});
+
+/**
+ * Pre-compiled regex patterns for futures keyword matching.
+ * Cached at module level to avoid re-creating RegExp objects on every call.
+ * @internal
+ */
+const FUTURES_KEYWORD_PATTERNS = FUTURES_KEYWORDS.map(keyword => {
+  const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`\\b${escapedKeyword}\\b`, 'i');
+});
+
+/**
+ * Pre-compiled regex patterns for main market keyword matching.
+ * Cached at module level to avoid re-creating RegExp objects on every call.
+ * @internal
+ */
+const MAIN_MARKET_KEYWORD_PATTERNS = MAIN_MARKET_KEYWORDS.map(keyword => {
+  const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`\\b${escapedKeyword}\\b`, 'i');
+});
+
+// ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
 
 /**
- * Checks if a keyword exists in text with proper word boundary matching.
- * Prevents false positives like "spread" matching "widespread".
+ * Checks if any pre-compiled pattern matches the text.
  * 
  * @param text - The text to search in
- * @param keyword - The keyword to search for
- * @returns true if keyword is found with word boundaries, false otherwise
+ * @param patterns - Array of pre-compiled RegExp patterns
+ * @returns true if any pattern matches, false otherwise
  * 
  * @internal
  */
-function hasKeyword(text: string, keyword: string): boolean {
-  // Escape special regex characters in the keyword
-  const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const pattern = new RegExp(`\\b${escapedKeyword}\\b`, 'i');
-  return pattern.test(text);
-}
-
-/**
- * Checks if any keyword from an array exists in text with word boundary matching.
- * 
- * @param text - The text to search in
- * @param keywords - Array of keywords to search for
- * @returns true if any keyword is found, false otherwise
- * 
- * @internal
- */
-function hasAnyKeyword(text: string, keywords: readonly string[]): boolean {
-  return keywords.some(keyword => hasKeyword(text, keyword));
+function hasAnyPattern(text: string, patterns: RegExp[]): boolean {
+  return patterns.some(pattern => pattern.test(text));
 }
 
 // ============================================================================
@@ -206,7 +223,7 @@ export function determineType(market: string, category: string, sport: string): 
     sport = 'NBA'; // Fallback to NBA
   }
 
-  // Handle empty strings
+  // Handle empty strings - early return
   if (market.trim() === '') {
     return '';
   }
@@ -215,75 +232,102 @@ export function determineType(market: string, category: string, sport: string): 
   const normalizedMarket = lowerMarket.trim();
   
   if (category === 'Props') {
-    // Direct code/alias mappings for special props
-    const directMap: Record<string, string> = {
-      'fb': 'FB',
-      'first basket': 'FB',
-      'first field goal': 'FB',
-      'first fg': 'FB',
-      'top pts': 'Top Pts',
-      'top scorer': 'Top Pts',
-      'top points': 'Top Pts',
-      'top points scorer': 'Top Pts',
-      'dd': 'DD',
-      'double double': 'DD',
-      'double-double': 'DD',
-      'triple double': 'TD',
-      'triple-double': 'TD',
-    };
-    
-    // Sport-specific: "td" means triple-double in basketball, touchdown in football
-    const basketballSports = ['NBA', 'WNBA', 'CBB', 'NCAAB'];
-    if (basketballSports.includes(sport)) {
-      if (
-        normalizedMarket === 'td' ||
-        lowerMarket.includes(' td ') ||
-        lowerMarket.startsWith('td ') ||
-        lowerMarket.endsWith(' td')
-      ) {
-        return 'TD';
-      }
-    }
-    
-    if (directMap[normalizedMarket]) {
-      return directMap[normalizedMarket];
-    }
-    
-    // Look up stat type from sport-specific mappings
-    const sportMappings = STAT_TYPE_MAPPINGS[sport] || STAT_TYPE_MAPPINGS.NBA;
-    
-    // Check each mapping pattern
-    for (const [pattern, statType] of Object.entries(sportMappings)) {
-      if (lowerMarket.includes(pattern)) {
-        return statType;
-      }
-    }
-    
-    // If no match, return empty string for manual review
-    return '';
+    return determinePropsType(lowerMarket, normalizedMarket, sport);
   }
   
   if (category === 'Main Markets') {
-    // Check main market types
-    for (const [pattern, type] of Object.entries(MAIN_MARKET_TYPES)) {
-      if (lowerMarket.includes(pattern)) {
-        return type;
-      }
-    }
-    return 'Spread'; // Default
+    return determineMainMarketType(lowerMarket);
   }
   
   if (category === 'Futures') {
-    // Check futures types
-    for (const [pattern, type] of Object.entries(FUTURES_TYPES)) {
-      if (lowerMarket.includes(pattern)) {
-        return type;
-      }
-    }
-    return 'Future'; // Generic fallback
+    return determineFutureType(lowerMarket);
   }
   
   return '';
+}
+
+/**
+ * Determines type for Props category with early returns.
+ * @internal
+ */
+function determinePropsType(lowerMarket: string, normalizedMarket: string, sport: string): string {
+  // Direct code/alias mappings for special props - check first for exact matches
+  const directMap: Record<string, string> = {
+    'fb': 'FB',
+    'first basket': 'FB',
+    'first field goal': 'FB',
+    'first fg': 'FB',
+    'top pts': 'Top Pts',
+    'top scorer': 'Top Pts',
+    'top points': 'Top Pts',
+    'top points scorer': 'Top Pts',
+    'dd': 'DD',
+    'double double': 'DD',
+    'double-double': 'DD',
+    'triple double': 'TD',
+    'triple-double': 'TD',
+  };
+  
+  // Check direct map first for exact normalized market - early return
+  if (directMap[normalizedMarket]) {
+    return directMap[normalizedMarket];
+  }
+  
+  // Sport-specific: "td" means triple-double in basketball - early return
+  const basketballSports = ['NBA', 'WNBA', 'CBB', 'NCAAB'];
+  if (basketballSports.includes(sport)) {
+    if (
+      normalizedMarket === 'td' ||
+      lowerMarket.includes(' td ') ||
+      lowerMarket.startsWith('td ') ||
+      lowerMarket.endsWith(' td')
+    ) {
+      return 'TD';
+    }
+  }
+  
+  // Look up stat type from sport-specific mappings
+  const sportMappings = STAT_TYPE_MAPPINGS[sport] || STAT_TYPE_MAPPINGS.NBA;
+  
+  // Check each mapping pattern - early return on first match
+  for (const [pattern, statType] of Object.entries(sportMappings)) {
+    if (lowerMarket.includes(pattern)) {
+      return statType;
+    }
+  }
+  
+  // No match found - return empty string for manual review
+  return '';
+}
+
+/**
+ * Determines type for Main Markets category.
+ * @internal
+ */
+function determineMainMarketType(lowerMarket: string): string {
+  // Check main market types - early return on first match
+  for (const [pattern, type] of Object.entries(MAIN_MARKET_TYPES)) {
+    if (lowerMarket.includes(pattern)) {
+      return type;
+    }
+  }
+  // Default fallback
+  return 'Spread';
+}
+
+/**
+ * Determines type for Futures category.
+ * @internal
+ */
+function determineFutureType(lowerMarket: string): string {
+  // Check futures types - early return on first match
+  for (const [pattern, type] of Object.entries(FUTURES_TYPES)) {
+    if (lowerMarket.includes(pattern)) {
+      return type;
+    }
+  }
+  // Generic fallback
+  return 'Future';
 }
 
 // ============================================================================
@@ -305,13 +349,15 @@ function isProp(bet: Omit<Bet, 'id' | 'marketCategory' | 'raw' | 'tail'>): boole
     return true;
   }
   
-  // Check legs for player/team props
-  if (bet.legs?.some(leg => leg.entities && leg.entities.length > 0)) {
-    return true;
+  // Check legs for player/team props - explicitly check for non-empty array
+  if (bet.legs && bet.legs.length > 0) {
+    if (bet.legs.some(leg => leg.entities && leg.entities.length > 0)) {
+      return true;
+    }
   }
   
-  // Check description for common prop keywords using word boundary matching
-  return hasAnyKeyword(bet.description, PROP_KEYWORDS);
+  // Check description for common prop keywords using cached patterns
+  return hasAnyPattern(bet.description, PROP_KEYWORD_PATTERNS);
 }
 
 /**
@@ -319,7 +365,8 @@ function isProp(bet: Omit<Bet, 'id' | 'marketCategory' | 'raw' | 'tail'>): boole
  * @internal
  */
 function isMainMarket(bet: Omit<Bet, 'id' | 'marketCategory' | 'raw' | 'tail'>): boolean {
-  if (hasAnyKeyword(bet.description, MAIN_MARKET_KEYWORDS)) {
+  // Use cached patterns for keyword matching
+  if (hasAnyPattern(bet.description, MAIN_MARKET_KEYWORD_PATTERNS)) {
     return true;
   }
   
@@ -341,7 +388,8 @@ function isMainMarket(bet: Omit<Bet, 'id' | 'marketCategory' | 'raw' | 'tail'>):
  * @internal
  */
 function isFutureBet(description: string): boolean {
-  return hasAnyKeyword(description, FUTURES_KEYWORDS);
+  // Use cached patterns for keyword matching
+  return hasAnyPattern(description, FUTURES_KEYWORD_PATTERNS);
 }
 
 /**

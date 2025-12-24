@@ -38,6 +38,35 @@ import {
 } from "./finalRowValidators";
 import { classifyLeg, determineType } from "../../services/marketClassification";
 
+// ============================================================================
+// CONSTANTS
+// ============================================================================
+
+/**
+ * Maximum number of legs to process per bet.
+ * 
+ * This limit prevents parser errors from creating excessive rows that could
+ * degrade UI performance. Bets with more legs than this are logged as errors
+ * and truncated.
+ * 
+ * @constant {number}
+ */
+const MAX_LEGS_PER_BET = 10;
+
+/**
+ * Character indicator for milestone bets (e.g., "30+ points").
+ * 
+ * When a target value contains this character, it indicates a milestone bet
+ * which is treated as an Over bet (player must exceed the threshold).
+ * 
+ * Examples:
+ * - "25+ Points" → Over bet
+ * - "3+ Made Threes" → Over bet
+ * 
+ * @constant {string}
+ */
+const MILESTONE_INDICATOR = '+';
+
 /**
  * Category and type information for bet classification.
  */
@@ -417,13 +446,13 @@ export function betToFinalRows(bet: Bet): FinalRow[] {
     // Bet with structured legs - create one row per leg
     // Safety check: Limit legs to prevent parsing errors from creating thousands of rows
     const legsToProcess =
-      deduplicatedLegs.length > 10
-        ? deduplicatedLegs.slice(0, 10)
+      deduplicatedLegs.length > MAX_LEGS_PER_BET
+        ? deduplicatedLegs.slice(0, MAX_LEGS_PER_BET)
         : deduplicatedLegs;
 
-    if (deduplicatedLegs.length > 10) {
+    if (deduplicatedLegs.length > MAX_LEGS_PER_BET) {
       console.error(
-        `betToFinalRows: Bet ${bet.betId} has ${deduplicatedLegs.length} legs - limiting to 10 to prevent excessive rows`
+        `betToFinalRows: Bet ${bet.betId} has ${deduplicatedLegs.length} legs - limiting to ${MAX_LEGS_PER_BET} to prevent excessive rows`
       );
     }
 
@@ -442,7 +471,7 @@ export function betToFinalRows(bet: Bet): FinalRow[] {
         {
           parlayGroupId: parlayGroupId,
           legIndex: null,
-          legCount: Math.min(deduplicatedLegs.length, 10),
+          legCount: Math.min(deduplicatedLegs.length, MAX_LEGS_PER_BET),
           isParlayHeader: true,
           isParlayChild: false,
           showMonetaryValues: true,
@@ -650,7 +679,7 @@ function determineOverUnder(
   }
 
   // Check if target has "+" (milestone bet)
-  if (target && target.toString().includes("+")) {
+  if (target && target.toString().includes(MILESTONE_INDICATOR)) {
     return { over: toOverUnderFlag(true), under: toOverUnderFlag(false) };
   }
 
