@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from "react";
 import { Bet, Sportsbook, MarketCategory, BetLeg } from "../types";
-import { X, AlertTriangle, CheckCircle2, Wifi } from "./icons";
+import { X, AlertTriangle, CheckCircle2, Wifi, XCircle } from "./icons";
 import { classifyLeg } from "../services/marketClassification";
+import { validateBetsForImport } from "../utils/importValidation";
 
 interface ImportConfirmationModalProps {
   bets: Bet[];
@@ -157,6 +158,14 @@ export const ImportConfirmationModal: React.FC<
     });
     return map;
   }, [sportsbooks]);
+
+  // Compute import validation summary (blockers vs warnings)
+  const validationSummary = useMemo(() => {
+    return validateBetsForImport(bets);
+  }, [bets]);
+
+  const hasBlockers = validationSummary.totalBlockers > 0;
+  const hasWarnings = validationSummary.totalWarnings > 0;
 
   // Toggle expansion for a parlay bet
   const toggleExpansion = (betId: string) => {
@@ -1360,16 +1369,34 @@ export const ImportConfirmationModal: React.FC<
 
         {/* Footer */}
         <div className="p-6 border-t border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
-          <div className="text-sm text-neutral-600 dark:text-neutral-400">
-            {hasAnyIssues && (
-              <span className="text-yellow-600 dark:text-yellow-400">
-                Some bets have issues that need attention
-              </span>
+          <div className="text-sm">
+            {/* Blocker status - RED - blocks import */}
+            {hasBlockers && (
+              <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                <XCircle className="w-4 h-4" />
+                <span className="font-medium">
+                  {validationSummary.betsWithBlockers} bet{validationSummary.betsWithBlockers !== 1 ? 's' : ''} cannot be imported
+                </span>
+                <span className="text-neutral-500 dark:text-neutral-400 text-xs">
+                  ({validationSummary.totalBlockers} blocking issue{validationSummary.totalBlockers !== 1 ? 's' : ''})
+                </span>
+              </div>
             )}
-            {!hasAnyIssues && (
-              <span className="text-green-600 dark:text-green-400">
-                All bets look good!
-              </span>
+            {/* Warning status - YELLOW - allows import */}
+            {!hasBlockers && hasWarnings && (
+              <div className="flex items-center gap-2 text-yellow-600 dark:text-yellow-400">
+                <AlertTriangle className="w-4 h-4" />
+                <span>
+                  {validationSummary.totalWarnings} warning{validationSummary.totalWarnings !== 1 ? 's' : ''} (can import)
+                </span>
+              </div>
+            )}
+            {/* All good - GREEN */}
+            {!hasBlockers && !hasWarnings && (
+              <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>All bets look good!</span>
+              </div>
             )}
           </div>
           <div className="flex gap-3">
@@ -1381,9 +1408,18 @@ export const ImportConfirmationModal: React.FC<
             </button>
             <button
               onClick={onConfirm}
-              className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+              disabled={hasBlockers}
+              className={`px-4 py-2 rounded-lg ${
+                hasBlockers
+                  ? 'bg-neutral-400 text-neutral-200 cursor-not-allowed'
+                  : 'bg-primary-600 text-white hover:bg-primary-700'
+              }`}
+              title={hasBlockers ? 'Fix blocking issues before importing' : undefined}
             >
-              Import {bets.length} Bet{bets.length !== 1 ? "s" : ""}
+              {hasBlockers
+                ? `Cannot Import (${validationSummary.betsWithBlockers} blocked)`
+                : `Import ${validationSummary.validBets.length} Bet${validationSummary.validBets.length !== 1 ? 's' : ''}`
+              }
             </button>
           </div>
         </div>

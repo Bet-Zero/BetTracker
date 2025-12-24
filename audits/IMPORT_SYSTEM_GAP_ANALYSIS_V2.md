@@ -208,43 +208,27 @@ One normalization service with one interface. The service decides whether to rea
 
 ---
 
-### Gap B: Validation Is Still Not a Gate
+### Gap B: Validation Is Still Not a Gate — ✅ RESOLVED (Pass 2)
 
-**Current State:**
+**Status:** RESOLVED in Pass 2 (2025-12-24)
 
-- `utils/validation.ts` exists with `validateBet()` function
-- Only validates stake, odds, dates, and result format
-- Called only in `useBets.tsx::updateBet()` (post-import edits)
-- **NOT called during import at all**
-- `ImportConfirmationModal` shows warnings but "Import" button is always enabled
+**Solution Implemented:**
 
-**Code evidence:**
+- Created `utils/importValidation.ts` with blocker/warning validation model
+- `useBets.tsx::addBets()` now filters out bets with blocking issues
+- `ImportConfirmationModal.tsx` shows validation summary in footer
+- Import button disabled when any blockers exist
+- See Progress Log for full details
 
-```typescript
-// useBets.tsx - addBets() does NOT call validateBet
-const addBets = useCallback((newBets: Bet[]) => {
-  // ... entity extraction ...
-  // ... deduplication ...
-  // No validation call here
-  const classifiedNewBets = trulyNewBets.map((bet) => { ... });
-  // ...
-}, [addPlayer, addTeam]);
-```
+~~**Previous State:**~~
 
-**Ideal State:**
+- ~~`utils/validation.ts` exists with `validateBet()` function~~
+- ~~Only validates stake, odds, dates, and result format~~
+- ~~Called only in `useBets.tsx::updateBet()` (post-import edits)~~
+- ~~**NOT called during import at all**~~
+- ~~`ImportConfirmationModal` shows warnings but "Import" button is always enabled~~
 
-- Pre-import validation that can block critical issues (missing required fields)
-- Import-time validation that logs warnings (unknown entities)
-- Post-import validation for edit constraints
-- "Import" button disabled for critical issues, or confirmation required
-
-**Why this matters:**
-
-- Bets with missing `sport` field enter storage
-- Bets with invalid odds (0, NaN) can be imported
-- Data quality degrades silently, discovered only at display time
-
-**Risk:** 🟡 Medium — Invalid data accumulates in storage
+**Risk:** ~~🟡 Medium~~ → ✅ Resolved
 
 ---
 
@@ -497,7 +481,7 @@ _None identified._ The major foundational flaw (classification fragmentation) ha
 | Gap       | Issue                           | Impact                                  |
 | --------- | ------------------------------- | --------------------------------------- |
 | **Gap A** | Dual normalization services     | Silent mismatches, maintenance burden   |
-| **Gap B** | Validation not a gate           | Invalid data enters storage             |
+| ~~Gap B~~ | ~~Validation not a gate~~       | ✅ RESOLVED (Pass 2)                    |
 | **Gap C** | Entity type guessing in storage | Data pollution in entity lists          |
 | **Gap E** | Reference data fragmentation    | Drift between sources, multi-file edits |
 
@@ -652,3 +636,73 @@ None of these prevent the system from functioning correctly today. They represen
 **Gaps Resolved:** G, H, I (all Low Risk)
 
 **Remaining Gaps:** A, B, C, D, E, F (addressed in future passes)
+
+---
+
+### 2025-12-24: Tightening Pass 2 Complete ✅
+
+**Scope:** Import-time validation gate (Gap B)
+
+**Changes Made:**
+
+1. **Created Import Validation Module**
+   - New file: `utils/importValidation.ts`
+   - Implements `validateBetForImport()` with blocker/warning distinction
+   - Implements `validateBetsForImport()` for batch validation with aggregated counts
+   - Clear separation: blockers prevent import, warnings allow import with notice
+
+2. **Enforced Validation at Storage Boundary**
+   - Updated `hooks/useBets.tsx::addBets()` to filter out bets with blockers
+   - Validation runs BEFORE localStorage persist
+   - Invalid bets are logged to console with blocker reasons
+   - Only valid bets (no blockers) are persisted
+
+3. **Wired Validation into UI**
+   - Updated `components/ImportConfirmationModal.tsx` footer
+   - Shows red blocker count when blockers exist (import disabled)
+   - Shows yellow warning count when only warnings exist (import allowed)
+   - Shows green "All bets look good!" when no issues
+   - Import button disabled when any blockers exist
+   - Added `XCircle` icon to `components/icons.tsx`
+
+**Validation Rules Implemented:**
+
+| Type | Condition | Field | Message |
+|------|-----------|-------|---------|
+| BLOCKER | Missing/empty bet.id | id | Required for storage |
+| BLOCKER | Invalid placedAt date | placedAt | Required for sorting |
+| BLOCKER | Missing/invalid stake | stake | Required for calculations |
+| BLOCKER | stake ≤ 0 | stake | Must be greater than zero |
+| BLOCKER | Missing result | result | Required field |
+| BLOCKER | Missing odds for win | odds | Required for win calculation |
+| BLOCKER | odds = 0 | odds | Cannot be zero |
+| BLOCKER | Net would be NaN | calculation | Would break display |
+| WARNING | Missing sport | sport | Can edit after import |
+| WARNING | Missing type for props | type | Can edit after import |
+| WARNING | Missing marketCategory | marketCategory | Will use default |
+| WARNING | Parlay with no legs | legs | Informational only |
+
+**Files Created:**
+- `utils/importValidation.ts`
+
+**Files Modified:**
+- `hooks/useBets.tsx` (added import, validation filter in addBets)
+- `components/ImportConfirmationModal.tsx` (validation summary, button state)
+- `components/icons.tsx` (added XCircle icon)
+
+**Verification:**
+- Build passes (`npm run build`)
+- Import button disabled when blockers exist
+- Invalid bets filtered before localStorage write
+
+**Constraints Respected:**
+- ✅ Did NOT redesign the system
+- ✅ Did NOT unify normalization services
+- ✅ Did NOT change parser structure
+- ✅ Did NOT touch entity type detection (beyond validation)
+- ✅ Did NOT implement "Import Anyway" for blockers
+- ✅ Minimal UX changes (summary + button state only)
+
+**Gap B Status:** RESOLVED ✅
+
+**Remaining Gaps:** A, C, D, E, F

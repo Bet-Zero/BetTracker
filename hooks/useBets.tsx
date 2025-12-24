@@ -12,6 +12,7 @@ import { classifyBet } from "../services/marketClassification";
 import { calculateProfit, recalculatePayout } from "../utils/betCalculations";
 import { isSampleData, migrateBets } from "../utils/migrations";
 import { validateBet } from "../utils/validation";
+import { validateBetForImport } from "../utils/importValidation";
 import { handleStorageError, showStorageError } from "../utils/storageErrorHandler";
 
 interface BetsContextType {
@@ -168,9 +169,20 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
           (newBet) => !existingBetIds.has(newBet.id)
         );
 
+        // Validate bets - filter out bets with blockers (critical issues)
+        const validBets = trulyNewBets.filter((bet) => {
+          const validation = validateBetForImport(bet);
+          if (!validation.valid) {
+            console.warn(
+              `[Import] Blocked bet ${bet.id}: ${validation.blockers.map(b => b.message).join(', ')}`
+            );
+          }
+          return validation.valid;
+        });
+
         // Don't re-classify bets - they already have the correct category from the parser
         // Only classify if category is missing (shouldn't happen, but safety check)
-        const classifiedNewBets = trulyNewBets.map((bet) => {
+        const classifiedNewBets = validBets.map((bet) => {
           if (!bet.marketCategory) {
             return {
               ...bet,
