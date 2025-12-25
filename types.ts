@@ -58,6 +58,20 @@ export interface Sportsbook {
 
 export interface BetLeg {
   entities?: string[];
+  /**
+   * Entity type classification set by parsers based on market structure.
+   * - "player": Player prop markets (e.g., points, rebounds, assists)
+   * - "team": Main markets (spread, total, moneyline) and team-level bets
+   * - "unknown": Explicitly set by parsers when the market type is ambiguous
+   * - undefined: Field not present (older data or parsers that didn't set it)
+   *
+   * IMPORTANT for consumers: Both `undefined` and `"unknown"` indicate the
+   * entity type could not be reliably determined. Treat them identically:
+   * do NOT auto-add entities to reference lists when entityType is missing
+   * or "unknown". Check for either condition, e.g.:
+   *   `if (!leg.entityType || leg.entityType === "unknown") { ... }`
+   */
+  entityType?: "player" | "team" | "unknown";
   market: string;
   target?: number | string;
   ou?: "Over" | "Under";

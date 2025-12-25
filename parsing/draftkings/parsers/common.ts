@@ -195,6 +195,43 @@ const STAT_PATTERNS: Array<{ pattern: RegExp; type: string }> = [
   { pattern: /moneyline|money\s*line|ml/i, type: 'Moneyline' },
 ];
 
+/* -------------------------------------------------------------------------- */
+/*                          ENTITY TYPE CLASSIFICATION                        */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Player stat types - detected types that indicate a player prop.
+ * Derived from STAT_PATTERNS above, excluding main market types.
+ */
+const PLAYER_STAT_TYPES = new Set([
+  'PRA', 'PR', 'PA', 'RA', 'Stocks',     // Combined stats
+  '3pt', 'Pts', 'Ast', 'Reb', 'Stl',     // Individual stats
+  'Blk', 'TO', 'FB', 'DD', 'TD',         // More individual stats
+]);
+
+/**
+ * Team prop types - detected types that indicate a team-level prop (not main market).
+ * Add future team-level prop types here (e.g., "Team Total", "1Q Spread").
+ */
+const TEAM_PROP_TYPES = new Set<string>([
+  // Placeholder for future team prop types
+  // 'TmTotal', 'Q1Spread', etc.
+]);
+
+/**
+ * Check if a detected stat type represents a player prop.
+ */
+export const isPlayerStatType = (type: string): boolean => {
+  return PLAYER_STAT_TYPES.has(type);
+};
+
+/**
+ * Check if a detected stat type represents a team prop (non-main-market team bet).
+ */
+export const isTeamPropType = (type: string): boolean => {
+  return TEAM_PROP_TYPES.has(type);
+};
+
 /**
  * Detect stat/bet type from market text.
  * Returns the stat code (e.g., "Pts", "Ast", "3pt", "Spread").

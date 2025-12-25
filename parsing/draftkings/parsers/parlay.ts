@@ -82,8 +82,13 @@ const MAX_DEPTH_MARKET = "__MAX_DEPTH__";
 
 // Fallback literals centralized for maintenance
 const UNKNOWN_SPORT = "Unknown";
+const UNKNOWN_MARKET = "Unknown Market";
 const MARKET_CATEGORY_SGP = "SGP/SGP+";
 const MARKET_CATEGORY_PARLAY = "Parlays";
+
+// Main market types for entityType detection (lowercase for case-insensitive matching)
+// These markets represent team-level bets as opposed to player props
+const MAIN_MARKET_MARKETS = new Set(["spread", "total", "moneyline"]);
 
 function determineBetType(
   element: Element,
@@ -151,6 +156,7 @@ function extractLegFromElement(
 
   const leg: BetLeg = {
     market: "",
+    entityType: 'unknown', // Will be set based on detected market type
     result: "pending",
     odds: undefined,
   };
@@ -284,8 +290,21 @@ function extractLegFromElement(
         }
       }
     }
+
+    // Set entityType based on market type (case-insensitive)
+    const normalizedMarket = (leg.market || '').trim().toLowerCase();
+    if (MAIN_MARKET_MARKETS.has(normalizedMarket)) {
+      leg.entityType = 'team';
+    } else if (normalizedMarket && normalizedMarket !== '' && normalizedMarket !== UNKNOWN_MARKET.toLowerCase()) {
+      // Props have a detected stat type (Pts, Reb, Ast, 3pt, etc.)
+      leg.entityType = 'player';
+    } else {
+      leg.entityType = 'unknown';
+    }
   } else {
-    leg.market = selectionText || "Unknown Market";
+    // Group legs: entityType remains 'unknown' as the group itself is a container,
+    // not a distinct team or player bet. Child legs carry their own entityType.
+    leg.market = selectionText || UNKNOWN_MARKET;
   }
 
   // Set target for non-group legs

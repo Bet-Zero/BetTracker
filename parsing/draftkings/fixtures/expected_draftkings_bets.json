@@ -18,6 +18,7 @@
     "odds": -112,
     "legs": [
       {
+        "entityType": "team",
         "market": "Spread",
         "target": "PHO Suns +2.5",
         "result": "win",
@@ -40,6 +41,7 @@
     "odds": 37500,
     "legs": [
       {
+        "entityType": "player",
         "market": "Pts",
         "target": "18+",
         "odds": 0,
@@ -47,6 +49,7 @@
         "entities": ["Jordan Hawkins"]
       },
       {
+        "entityType": "player",
         "market": "Ast",
         "target": "9+",
         "odds": 0,
@@ -70,6 +73,7 @@
     "odds": 39020,
     "legs": [
       {
+        "entityType": "player",
         "market": "Pts",
         "target": "25+",
         "odds": 226,
@@ -77,12 +81,14 @@
         "entities": ["Zach LaVine"]
       },
       {
+        "entityType": "unknown",
         "isGroupLeg": true,
         "market": "2 Pick SGP",
         "result": "loss",
         "odds": 900,
         "children": [
           {
+            "entityType": "player",
             "market": "Ast",
             "target": "4+",
             "result": "loss",
@@ -90,6 +96,7 @@
             "entities": ["Paul George"]
           },
           {
+            "entityType": "player",
             "market": "Ast",
             "target": "4+",
             "result": "loss",
@@ -99,12 +106,14 @@
         ]
       },
       {
+        "entityType": "unknown",
         "isGroupLeg": true,
         "market": "2 Pick SGP",
         "result": "loss",
         "odds": 1100,
         "children": [
           {
+            "entityType": "player",
             "market": "3pt",
             "target": "2+",
             "result": "loss",
@@ -112,6 +121,7 @@
             "entities": ["Kelly Olynyk"]
           },
           {
+            "entityType": "player",
             "market": "Ast",
             "target": "6+",
             "result": "loss",
@@ -142,6 +152,7 @@
     "odds": -110,
     "legs": [
       {
+        "entityType": "team",
         "market": "Total",
         "target": "Over 235.5",
         "result": "win",
@@ -169,6 +180,7 @@
     "odds": -125,
     "legs": [
       {
+        "entityType": "team",
         "market": "Spread",
         "target": "LA Lakers -5.5",
         "result": "win",
@@ -196,6 +208,7 @@
     "odds": 700,
     "legs": [
       {
+        "entityType": "player",
         "market": "Marcus Smart Three Pointers Made",
         "target": "3+",
         "result": "win",

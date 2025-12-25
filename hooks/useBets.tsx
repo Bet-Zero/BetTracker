@@ -87,79 +87,33 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
 
   const addBets = useCallback(
     (newBets: Bet[]) => {
-      // Keywords to help identify if a market is for a team or a player
-      const teamMarketKeywords = [
-        "moneyline",
-        "ml",
-        "spread",
-        "total",
-        "run line",
-        "money line",
-        "outright winner",
-        "to win",
-      ];
-      const playerMarketKeywords = [
-        "player",
-        "prop",
-        "yards",
-        "points",
-        "rebounds",
-        "assists",
-        "touchdown",
-        "strikeouts",
-        "hits",
-        "goals",
-        "scorer",
-        "triple-double",
-        "threes",
-      ];
-
+      // Process entities from legs using entityType set by parsers
+      // This replaces the previous heuristic keyword-based guessing
       newBets.forEach((bet) => {
-        const processEntities = (entities: string[], market: string) => {
-          const lowerMarket = market.toLowerCase();
-          const isTeamMarket = teamMarketKeywords.some((keyword) =>
-            lowerMarket.includes(keyword)
-          );
-          const isPlayerMarket = playerMarketKeywords.some((keyword) =>
-            lowerMarket.includes(keyword)
-          );
-
-          entities.forEach((entity) => {
-            if (isPlayerMarket && !isTeamMarket) {
-              addPlayer(bet.sport, entity);
-            } else if (isTeamMarket && !isPlayerMarket) {
-              addTeam(bet.sport, entity);
-            } else {
-              // Ambiguous case. Let's infer from the sport type.
-              const teamSports = ["NFL", "NBA", "MLB", "NHL", "Soccer"];
-              if (teamSports.includes(bet.sport)) {
-                // For team sports, ambiguous markets are more likely to be for teams.
-                addTeam(bet.sport, entity);
-              } else {
-                // For individual sports (e.g., Tennis), default to player.
-                addPlayer(bet.sport, entity);
-              }
-            }
-          });
-        };
-
-        // Process entities from structured legs first
         bet.legs?.forEach((leg) => {
-          if (leg.entities && leg.market) {
-            processEntities(leg.entities, leg.market);
-          }
-        });
+          if (!leg.entities || !leg.entities.length) return;
 
-        // For single bets without structured legs, use bet.name if available
-        if ((!bet.legs || bet.legs.length === 0) && bet.name) {
-          // Check if this is a main market bet by category
-          if (bet.marketCategory.toLowerCase().includes('main')) {
-            addTeam(bet.sport, bet.name);
-          } else {
-            // For props, it's likely a player name
-            addPlayer(bet.sport, bet.name);
-          }
-        }
+          leg.entities.forEach((entity) => {
+            // Guard against invalid entity values
+            if (!entity || typeof entity !== 'string' || entity.trim().length === 0) {
+              return;
+            }
+            
+            // Guard against missing sport
+            if (!bet.sport) {
+              console.warn(`Bet ${bet.id} missing sport, skipping entity processing`);
+              return;
+            }
+            
+            // Use entityType set by parsers for explicit classification
+            if (leg.entityType === 'player') {
+              addPlayer(bet.sport, entity);
+            } else if (leg.entityType === 'team') {
+              addTeam(bet.sport, entity);
+            }
+            // entityType === 'unknown' or undefined → skip to avoid polluting lists
+          });
+        });
       });
 
       let importedCount = 0;

@@ -1,5 +1,5 @@
 import { Bet, BetLeg } from '../../../types';
-import { FooterMeta, HeaderInfo, normalizeSpaces, extractLeagueFromEventCard, extractNameAndType, extractLineAndOu, extractTeamNamesFromEventCard, extractTeamNickname } from './common';
+import { FooterMeta, HeaderInfo, normalizeSpaces, extractLeagueFromEventCard, extractNameAndType, extractLineAndOu, extractTeamNamesFromEventCard, extractTeamNickname, isPlayerStatType, isTeamPropType } from './common';
 
 export interface SingleBetContext {
   element: Element;
@@ -12,6 +12,7 @@ export const parseSingleBet = (ctx: SingleBetContext): Bet => {
 
   const leg: BetLeg = {
     market: '',
+    entityType: 'unknown', // Will be set based on detected market type
     odds: 0,
     result: footer.result || 'pending',
     target: '',
@@ -100,6 +101,25 @@ export const parseSingleBet = (ctx: SingleBetContext): Bet => {
       // Set name to first team's nickname for display (Name2 comes from entities[1])
       name = nickname1;
     }
+  }
+
+  // Set entityType based on detected market type
+  // Main market types (Spread, Total, Moneyline) are team bets
+  // Props dispatch to helper functions for correct classification
+  if (MAIN_MARKET_TYPES.includes(type)) {
+    leg.entityType = 'team';
+  } else if (type) {
+    // Non-empty type detected - classify based on prop type
+    if (isPlayerStatType(type)) {
+      leg.entityType = 'player';
+    } else if (isTeamPropType(type)) {
+      leg.entityType = 'team';
+    } else {
+      // Unrecognized prop type - mark as unknown for future handling
+      leg.entityType = 'unknown';
+    }
+  } else {
+    leg.entityType = 'unknown';
   }
 
   // Build a more descriptive description

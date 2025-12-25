@@ -112,6 +112,40 @@ export const normalizeSpaces = (text: string): string =>
   (text || "").replace(/\s+/g, " ").trim();
 
 /**
+ * Infer entity type from market classification.
+ * Main market types (Spread, Total, Moneyline) are team bets.
+ * Known player prop stat types are player bets.
+ * Ambiguous or unrecognized markets return "unknown" to prevent entity list pollution.
+ *
+ * @example
+ * inferEntityType("Spread")            // => "team"
+ * inferEntityType("Moneyline")         // => "team"
+ * inferEntityType("Pts")               // => "player"
+ * inferEntityType("Reb")               // => "player"
+ * inferEntityType("Super Bowl Winner") // => "unknown"
+ * inferEntityType("Season Win Total")  // => "unknown"
+ */
+const MAIN_MARKET_TYPES = ['Spread', 'Total', 'Moneyline'] as const;
+const PLAYER_PROP_TYPES = ['Pts', 'Reb', 'Ast', '3pt', 'Yds', 'Rec', 'TD', 'DD', 'FB', 'Top Pts', 'PRA'] as const;
+
+export const inferEntityType = (
+  market?: string
+): "player" | "team" | "unknown" => {
+  if (!market || market === "") return "unknown";
+
+  const normalizedMarket = market.toLowerCase();
+
+  // Main market types are team bets
+  if (MAIN_MARKET_TYPES.some(t => t.toLowerCase() === normalizedMarket)) return "team";
+
+  // Explicit player prop detection (safer than broad assumption)
+  if (PLAYER_PROP_TYPES.some(t => t.toLowerCase() === normalizedMarket)) return "player";
+
+  // Ambiguous or unrecognized markets: don't auto-add to any list
+  return "unknown";
+};
+
+/**
  * Checks if an entities array is non-null/undefined and has length > 0.
  * @param entities - The entities array to check
  * @returns true if entities exists and has at least one element, false otherwise
@@ -1256,6 +1290,7 @@ export const parseLegFromText = (
 
   const leg: BetLeg = {
     entities: entityName ? [entityName] : undefined,
+    entityType: inferEntityType(market),
     market,
     target,
     ou: derived.ou,
@@ -1427,6 +1462,7 @@ export const parseLegFromNode = (
 
   const leg: BetLeg = {
     entities: entityName ? [entityName] : undefined,
+    entityType: inferEntityType(finalMarket),
     market: finalMarket,
     target,
     ou: derived.ou,
@@ -2213,6 +2249,7 @@ export const buildPrimaryLegsFromHeader = (
 
   const leg: BetLeg = {
     entities,
+    entityType: inferEntityType(header.type),
     market: header.type ?? "",
     target: header.line,
     ou: header.ou,

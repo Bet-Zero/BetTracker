@@ -776,3 +776,60 @@ None of these prevent the system from functioning correctly today. They represen
 
 **Remaining Gaps:** C, D, F
 
+---
+
+### 2025-12-24: Tightening Pass 4 Complete ✅
+
+**Scope:** Entity Typing + Remove Storage Heuristics (Gap C)
+
+**Changes Made:**
+
+1. **Extended Data Model**
+   - Added `entityType?: "player" | "team" | "unknown"` field to `BetLeg` interface in `types.ts`
+   - JSDoc documentation explains purpose and values
+
+2. **Updated DraftKings Parsers**
+   - `single.ts`: Sets `entityType` based on `MAIN_MARKET_TYPES.includes(type)` → team, else player for props
+   - `parlay.ts`: Same logic applied in `extractLegFromElement`
+
+3. **Updated FanDuel Parsers**
+   - Created `inferEntityType(market)` helper in `common.ts`
+   - Applied to all 3 leg construction sites: line 1276, 1448, 2234
+   - Returns `team` for Spread/Total/Moneyline, `player` for props, `unknown` for ambiguous
+
+4. **Removed Storage Layer Heuristics (Critical)**
+   - Deleted `teamMarketKeywords` array (~8 items) from `useBets.tsx`
+   - Deleted `playerMarketKeywords` array (~14 items) from `useBets.tsx`
+   - Deleted `processEntities()` function with heuristic guessing logic
+   - Deleted fallback sport-based guessing ("NFL", "NBA" defaults to team)
+   - Replaced ~60 lines with clean 15-line entityType-based processing:
+     - `entityType === 'player'` → `addPlayer()`
+     - `entityType === 'team'` → `addTeam()`
+     - `entityType === 'unknown'` → skip (no auto-add)
+
+**Known Issue (to address in future pass):**
+- `inferEntityType()` in `common.ts` uses broad heuristic that may misclassify futures/specials as player props
+- Recommend adding explicit `PLAYER_PROP_TYPES` list for safer classification
+
+**Files Modified:**
+- `types.ts` (added entityType to BetLeg)
+- `parsing/draftkings/parsers/single.ts` (added entityType assignment)
+- `parsing/draftkings/parsers/parlay.ts` (added entityType assignment)
+- `parsing/fanduel/parsers/common.ts` (added inferEntityType helper, updated 3 leg sites)
+- `hooks/useBets.tsx` (replaced heuristics with entityType-based logic)
+
+**Verification:**
+- ✅ Build passes (`npm run build`)
+- ✅ Zero remaining heuristic keyword arrays in `hooks/`
+- ✅ Storage layer contains ZERO entity guessing logic
+
+**Constraints Respected:**
+- ✅ Did NOT redesign the UI
+- ✅ Did NOT change classification behavior except where entityType improves precision
+- ✅ Did NOT introduce new features
+- ✅ Did NOT expand scope into entity normalization
+- ✅ Did NOT auto-classify unknown as team/player based on sport
+
+**Gap C Status:** MOSTLY RESOLVED ✅ (storage heuristics removed; parser classification needs refinement)
+
+**Remaining Gaps:** D, F
