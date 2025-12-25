@@ -5,17 +5,7 @@ import { SportsbookName, Bet } from '../types';
 import { AlertTriangle, CheckCircle2, ExternalLink } from '../components/icons';
 import { ManualPasteSourceProvider } from '../services/pageSourceProvider';
 import { parseBetsResult } from '../services/importer';
-import { ImportError, ImportErrorCode } from '../services/errors';
 import { ImportConfirmationModal } from '../components/ImportConfirmationModal';
-
-/**
- * Helper to get user-friendly error message with consistent phrasing.
- * Maps ImportError to display-ready message.
- */
-const getDisplayMessage = (error: ImportError): string => {
-  // Use the message from ImportError, which is already user-safe
-  return error.message;
-};
 
 const ImportView: React.FC = () => {
   const { addBets } = useBets();
@@ -46,23 +36,13 @@ const ImportView: React.FC = () => {
     const result = await parseBetsResult(selectedBook, sourceProvider);
     
     if (!result.ok) {
-      // Display user-safe error message using consistent rendering
-      showNotification(getDisplayMessage(result.error), 'error');
+      // Display user-safe error message from ImportError
+      showNotification(result.error.message, 'error');
       setIsImporting(false);
       return;
     }
     
-    const bets = result.value;
-    
-    if (bets.length === 0) {
-      // This shouldn't happen since processPageResult returns NO_BETS_FOUND error,
-      // but handle it defensively
-      showNotification('No bets found in the page source.', 'error');
-      setIsImporting(false);
-      return;
-    }
-    
-    setParsedBets(bets);
+    setParsedBets(result.value);
     setIsImporting(false);
   };
 
