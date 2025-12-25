@@ -8,8 +8,9 @@ import {
   normalizeStatType, 
   inferSportFromContext,
   initializeLookupMaps
-} from "../../../services/normalizationServiceDynamic";
+} from "../../../services/normalizationService";
 import { SPORTS, Sport } from "../../../data/referenceData";
+
 
 /**
  * Normalizes whitespace in text content.

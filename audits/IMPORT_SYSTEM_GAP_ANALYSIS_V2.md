@@ -706,3 +706,73 @@ None of these prevent the system from functioning correctly today. They represen
 **Gap B Status:** RESOLVED ✅
 
 **Remaining Gaps:** A, C, D, E, F
+
+---
+
+### 2025-12-24: Tightening Pass 3 Complete ✅
+
+**Scope:** Normalization + Reference Data Unification (Gaps A, E)
+
+**Changes Made:**
+
+1. **Unified Normalization Service (Gap A)**
+   - Merged `normalizationServiceDynamic.ts` functionality into `normalizationService.ts`
+   - Implemented localStorage overlay pattern: user overlays EXTEND base seed data
+   - Added `refreshLookupMaps()` for consumers to call after UI edits
+   - Exported `NORMALIZATION_STORAGE_KEYS` documenting localStorage schema
+   - Added `ReferenceDataSnapshot` interface and `getReferenceDataSnapshot()` function
+   - Added `getBaseSeedTeams()` and `getBaseSeedStatTypes()` for reset functionality
+
+2. **Deleted Old Dynamic Service**
+   - Removed `services/normalizationServiceDynamic.ts` entirely
+   - Updated `parsing/shared/utils/index.ts` to import from unified service
+   - Zero remaining imports from deleted module
+
+3. **Wired UI to Unified Service**
+   - Updated `hooks/useNormalizationData.tsx` to:
+     - Import storage keys and types from unified service
+     - Call `refreshLookupMaps()` after every localStorage update
+     - Use `getBaseSeedTeams()`/`getBaseSeedStatTypes()` for defaults
+   - Aliases added via UI now immediately recognized by classification
+
+4. **Reference Data Clarification (Gap E partial)**
+   - Added clarifying comments to `marketClassification.config.ts::STAT_TYPE_MAPPINGS`
+   - Documented intentional separation: classification patterns vs normalization aliases
+   - Classification: "points rebounds assists" → "PRA" (pattern matching)
+   - Normalization: "Rebounds", "Rebs", "REB" → "Reb" (alias resolution)
+
+**Files Modified:**
+- `services/normalizationService.ts` (rewrote with overlay pattern, added exports)
+- `parsing/shared/utils/index.ts` (updated import path)
+- `hooks/useNormalizationData.tsx` (wired to unified service)
+- `services/marketClassification.config.ts` (added clarifying comments)
+
+**Files Deleted:**
+- `services/normalizationServiceDynamic.ts`
+
+**localStorage Schema Keys (Single documentation point):**
+
+| Key | Purpose |
+|-----|---------|
+| `bettracker-normalization-teams` | User-editable team data with aliases |
+| `bettracker-normalization-stattypes` | User-editable stat type data with aliases |
+
+**Verification:**
+- ✅ Build passes (`npm run build`)
+- ✅ All 50 normalization tests pass
+- ✅ Zero remaining imports from `normalizationServiceDynamic`
+- ✅ Existing user localStorage data compatible (same keys/structure)
+
+**Constraints Respected:**
+- ✅ Did NOT change parsers except import path
+- ✅ Did NOT redesign data models
+- ✅ Did NOT introduce backend
+- ✅ Did NOT create multiple new reference modules
+- ✅ Did NOT break existing user localStorage data
+
+**Gap A Status:** RESOLVED ✅
+
+**Gap E Status:** PARTIALLY RESOLVED (normalization unified; classification patterns intentionally separate with documentation)
+
+**Remaining Gaps:** C, D, F
+

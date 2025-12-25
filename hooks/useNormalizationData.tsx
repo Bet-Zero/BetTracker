@@ -1,24 +1,23 @@
 /**
  * Hook for managing normalization data (teams, stat types with aliases)
- * This replaces hardcoded referenceData.ts with user-manageable data in localStorage
+ * 
+ * This hook manages user-editable reference data stored in localStorage.
+ * After any CRUD operation, it refreshes the unified normalization service
+ * to ensure classification immediately reflects UI changes.
  */
 
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { TEAMS, STAT_TYPES, TeamInfo, StatTypeInfo, Sport } from '../data/referenceData';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { 
+  refreshLookupMaps,
+  NORMALIZATION_STORAGE_KEYS,
+  getBaseSeedTeams,
+  getBaseSeedStatTypes,
+  TeamData,
+  StatTypeData
+} from '../services/normalizationService';
 
-export interface TeamData {
-  canonical: string;
-  sport: string;
-  abbreviations: string[];
-  aliases: string[];
-}
-
-export interface StatTypeData {
-  canonical: string;
-  sport: string;
-  description: string;
-  aliases: string[];
-}
+// Re-export types from unified service for consumers
+export type { TeamData, StatTypeData };
 
 interface NormalizationDataContextType {
   teams: TeamData[];
@@ -34,21 +33,9 @@ interface NormalizationDataContextType {
 
 const NormalizationDataContext = createContext<NormalizationDataContextType | undefined>(undefined);
 
-// Convert reference data to TeamData format
-const defaultTeams: TeamData[] = TEAMS.map(team => ({
-  canonical: team.canonical,
-  sport: team.sport,
-  abbreviations: [...team.abbreviations],
-  aliases: [...team.aliases]
-}));
-
-// Convert reference data to StatTypeData format
-const defaultStatTypes: StatTypeData[] = STAT_TYPES.map(stat => ({
-  canonical: stat.canonical,
-  sport: stat.sport,
-  description: stat.description,
-  aliases: [...stat.aliases]
-}));
+// Get default data from normalization service base seed
+const defaultTeams: TeamData[] = getBaseSeedTeams();
+const defaultStatTypes: StatTypeData[] = getBaseSeedStatTypes();
 
 const useLocalStorage = <T,>(
   key: string,
@@ -69,6 +56,8 @@ const useLocalStorage = <T,>(
       const valueToStore = value instanceof Function ? value(storedValue) : value;
       setStoredValue(valueToStore);
       window.localStorage.setItem(key, JSON.stringify(valueToStore));
+      // Refresh normalization service after any localStorage update
+      refreshLookupMaps();
     } catch (error) {
       console.error(`Failed to save ${key} to localStorage:`, error);
       if (error instanceof Error) {
@@ -83,11 +72,13 @@ const useLocalStorage = <T,>(
 };
 
 export const NormalizationDataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [teams, setTeams] = useLocalStorage<TeamData[]>('bettracker-normalization-teams', defaultTeams);
-  const [statTypes, setStatTypes] = useLocalStorage<StatTypeData[]>('bettracker-normalization-stattypes', defaultStatTypes);
+  const [teams, setTeams] = useLocalStorage<TeamData[]>(NORMALIZATION_STORAGE_KEYS.TEAMS, defaultTeams);
+  const [statTypes, setStatTypes] = useLocalStorage<StatTypeData[]>(NORMALIZATION_STORAGE_KEYS.STAT_TYPES, defaultStatTypes);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Initialize normalization service with current localStorage data
+    refreshLookupMaps();
     setLoading(false);
   }, []);
 

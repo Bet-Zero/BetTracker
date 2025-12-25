@@ -1,8 +1,28 @@
 /**
- * Normalization service for standardizing sports, teams, and stat types across sportsbooks.
+ * Unified Normalization Service
+ * 
+ * SINGLE SOURCE OF TRUTH for all normalization lookups.
  * 
  * This service provides lookup functions that map various aliases and formats to canonical names,
  * ensuring consistent data representation regardless of how different sportsbooks format their data.
+ * 
+ * Architecture:
+ * - Base seed data comes from `data/referenceData.ts` (versioned in code)
+ * - User-added aliases are stored in localStorage as overlays
+ * - Overlays EXTEND base data (user entries take precedence on conflict)
+ * - Call `refreshLookupMaps()` after users add/edit aliases via UI
+ * 
+ * ============================================================================
+ * localStorage Schema Keys
+ * ============================================================================
+ * 
+ * NORMALIZATION_STORAGE_KEYS.TEAMS = 'bettracker-normalization-teams'
+ *   - Structure: TeamData[] (see interface below)
+ *   - Contains full team data including user additions/edits
+ * 
+ * NORMALIZATION_STORAGE_KEYS.STAT_TYPES = 'bettracker-normalization-stattypes'
+ *   - Structure: StatTypeData[] (see interface below)
+ *   - Contains full stat type data including user additions/edits
  */
 
 import { 
@@ -10,69 +30,402 @@ import {
   STAT_TYPES, 
   MAIN_MARKET_TYPES, 
   FUTURE_TYPES,
+  SPORTS,
   TeamInfo, 
   StatTypeInfo,
   Sport 
 } from '../data/referenceData';
 
 // ============================================================================
-// LOOKUP MAPS (Performance Optimization)
+// TYPE GUARDS
+// ============================================================================
+
+/**
+ * Type guard to validate if a string is a valid Sport.
+ * Checks against the canonical SPORTS array from referenceData.
+ */
+function isValidSport(value: string): value is Sport {
+  return (SPORTS as readonly string[]).includes(value);
+}
+
+/**
+ * Type guard to validate TeamData shape from localStorage.
+ */
+function isValidTeamData(item: unknown): item is TeamData {
+  if (typeof item !== 'object' || item === null) return false;
+  const obj = item as Record<string, unknown>;
+  return (
+    typeof obj.canonical === 'string' &&
+    typeof obj.sport === 'string' &&
+    isValidSport(obj.sport) &&
+    Array.isArray(obj.aliases) &&
+    obj.aliases.every((a) => typeof a === 'string') &&
+    Array.isArray(obj.abbreviations) &&
+    obj.abbreviations.every((a) => typeof a === 'string')
+  );
+}
+
+/**
+ * Type guard to validate StatTypeData shape from localStorage.
+ */
+function isValidStatTypeData(item: unknown): item is StatTypeData {
+  if (typeof item !== 'object' || item === null) return false;
+  const obj = item as Record<string, unknown>;
+  return (
+    typeof obj.canonical === 'string' &&
+    typeof obj.sport === 'string' &&
+    isValidSport(obj.sport) &&
+    typeof obj.description === 'string' &&
+    Array.isArray(obj.aliases) &&
+    obj.aliases.every((a) => typeof a === 'string')
+  );
+}
+
+// ============================================================================
+// STORAGE KEYS
+// ============================================================================
+
+/**
+ * localStorage keys for normalization overlays.
+ * Documented here as the single source of truth for schema.
+ */
+export const NORMALIZATION_STORAGE_KEYS = {
+  TEAMS: 'bettracker-normalization-teams',
+  STAT_TYPES: 'bettracker-normalization-stattypes',
+} as const;
+
+// ============================================================================
+// EXPORTED DATA INTERFACES
+// ============================================================================
+
+/**
+ * FutureTypeData interface for consistency with other data types.
+ * 
+ * Note: Futures are intentionally immutable and do not support localStorage 
+ * overlays because they are sport-league defined values (e.g., "NBA Finals",
+ * "Super Bowl") that rarely need user customization. Unlike team aliases
+ * which vary by sportsbook, future bet types are standardized.
+ */
+export interface FutureTypeData {
+  canonical: string;
+  sport?: Sport;
+  aliases: string[];
+  description: string;
+}
+
+/**
+ * Team data structure used in localStorage and UI.
+ * Matches the shape expected by useNormalizationData hook.
+ */
+import { Sport } from '../data/referenceData';
+
+export interface TeamData {
+  canonical: string;
+  sport: Sport;
+  abbreviations: string[];
+  aliases: string[];
+}
+
+/**
+ * Stat type data structure used in localStorage and UI.
+ * Matches the shape expected by useNormalizationData hook.
+ */
+export interface StatTypeData {
+  canonical: string;
+  sport: Sport;
+  description: string;
+  aliases: string[];
+}
+
+/**
+ * Snapshot of current reference data for consumers.
+ * Use this instead of copying arrays directly to prevent drift.
+ */
+export interface ReferenceDataSnapshot {
+  teams: TeamData[];
+  statTypes: StatTypeData[];
+  version: string;
+}
+
+// Current version for migration support
+const REFERENCE_DATA_VERSION = '1.0.0';
+
+// ============================================================================
+// LOOKUP MAPS (Internal State)
 // ============================================================================
 
 // Build lookup maps on initialization for O(1) lookups
-const teamLookupMap = new Map<string, TeamInfo>();
-const statTypeLookupMap = new Map<string, StatTypeInfo>();
+let teamLookupMap = new Map<string, TeamData>();
+let statTypeLookupMap = new Map<string, StatTypeData>();
+let initialized = false;
 
-// Initialize team lookup map
-for (const team of TEAMS) {
-  // Add canonical name
-  teamLookupMap.set(team.canonical.toLowerCase(), team);
+// Cache the merged data for getReferenceDataSnapshot
+let cachedTeams: TeamData[] = [];
+let cachedStatTypes: StatTypeData[] = [];
+
+// ============================================================================
+// INITIALIZATION
+// ============================================================================
+
+/**
+ * Converts base TeamInfo from referenceData to TeamData format.
+ */
+function toTeamData(team: TeamInfo): TeamData {
+  return {
+    canonical: team.canonical,
+    sport: team.sport,
+    abbreviations: [...team.abbreviations],
+    aliases: [...team.aliases],
+  };
+}
+
+/**
+ * Converts base StatTypeInfo from referenceData to StatTypeData format.
+ */
+function toStatTypeData(stat: StatTypeInfo): StatTypeData {
+  return {
+    canonical: stat.canonical,
+    sport: stat.sport,
+    description: stat.description,
+    aliases: [...stat.aliases],
+  };
+}
+
+/**
+ * Loads teams from localStorage, falling back to base seed if not present.
+ * Validates the shape of parsed data to prevent runtime errors from malformed data.
+ */
+function loadTeams(): TeamData[] {
+  const baseSeed = TEAMS.map(toTeamData);
   
-  // Add all aliases
-  for (const alias of team.aliases) {
-    teamLookupMap.set(alias.toLowerCase(), team);
+  try {
+    const stored = localStorage.getItem(NORMALIZATION_STORAGE_KEYS.TEAMS);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      
+      // Validate parsed data is an array
+      if (!Array.isArray(parsed)) {
+        console.error(
+          '[normalizationService] Invalid teams data in localStorage: expected array, got',
+          typeof parsed
+        );
+        return baseSeed;
+      }
+      
+      // Validate each item has the correct shape
+      const validTeams: TeamData[] = [];
+      for (let i = 0; i < parsed.length; i++) {
+        const item = parsed[i];
+        if (isValidTeamData(item)) {
+          validTeams.push(item);
+        } else {
+          console.error(
+            `[normalizationService] Invalid team data at index ${i}:`,
+            'expected {canonical: string, sport: Sport, aliases: string[], abbreviations: string[]}, got',
+            JSON.stringify(item).slice(0, 100)
+          );
+        }
+      }
+      
+      // If all items were invalid, fall back to base seed
+      if (validTeams.length === 0 && parsed.length > 0) {
+        console.error(
+          '[normalizationService] All team entries in localStorage were invalid, falling back to base seed'
+        );
+        return baseSeed;
+      }
+      
+      return validTeams.length > 0 ? validTeams : baseSeed;
+    }
+  } catch (error) {
+    console.error('[normalizationService] Failed to load teams from localStorage:', error);
   }
   
-  // Add all abbreviations
-  for (const abbr of team.abbreviations) {
-    teamLookupMap.set(abbr.toLowerCase(), team);
+  return baseSeed;
+}
+
+/**
+ * Loads stat types from localStorage, falling back to base seed if not present.
+ * Validates the shape of parsed data to prevent runtime errors from malformed data.
+ */
+function loadStatTypes(): StatTypeData[] {
+  const baseSeed = STAT_TYPES.map(toStatTypeData);
+  
+  try {
+    const stored = localStorage.getItem(NORMALIZATION_STORAGE_KEYS.STAT_TYPES);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      
+      // Validate parsed data is an array
+      if (!Array.isArray(parsed)) {
+        console.error(
+          '[normalizationService] Invalid stat types data in localStorage: expected array, got',
+          typeof parsed
+        );
+        return baseSeed;
+      }
+      
+      // Validate each item has the correct shape
+      const validStatTypes: StatTypeData[] = [];
+      for (let i = 0; i < parsed.length; i++) {
+        const item = parsed[i];
+        if (isValidStatTypeData(item)) {
+          validStatTypes.push(item);
+        } else {
+          console.error(
+            `[normalizationService] Invalid stat type data at index ${i}:`,
+            'expected {canonical: string, sport: Sport, description: string, aliases: string[]}, got',
+            JSON.stringify(item).slice(0, 100)
+          );
+        }
+      }
+      
+      // If all items were invalid, fall back to base seed
+      if (validStatTypes.length === 0 && parsed.length > 0) {
+        console.error(
+          '[normalizationService] All stat type entries in localStorage were invalid, falling back to base seed'
+        );
+        return baseSeed;
+      }
+      
+      return validStatTypes.length > 0 ? validStatTypes : baseSeed;
+    }
+  } catch (error) {
+    console.error('[normalizationService] Failed to load stat types from localStorage:', error);
+  }
+  
+  return baseSeed;
+}
+
+/**
+ * Builds lookup map for teams from the provided data.
+ * Detects and logs collisions when multiple teams share the same key.
+ * Policy: Keep the first entry, skip subsequent overrides.
+ */
+function buildTeamLookupMap(teams: TeamData[]): Map<string, TeamData> {
+  const map = new Map<string, TeamData>();
+  
+  const addEntry = (key: string, team: TeamData, keyType: string) => {
+    const lowerKey = key.toLowerCase();
+    const existing = map.get(lowerKey);
+    if (existing && existing.canonical !== team.canonical) {
+      console.warn(
+        `[normalizationService] Team lookup collision: key "${key}" (${keyType}) ` +
+        `maps to both "${existing.canonical}" and "${team.canonical}". ` +
+        `Keeping first entry: "${existing.canonical}".`
+      );
+      return; // Skip override, keep first entry
+    }
+    map.set(lowerKey, team);
+  };
+  
+  for (const team of teams) {
+    addEntry(team.canonical, team, 'canonical');
+    for (const alias of team.aliases) {
+      addEntry(alias, team, 'alias');
+    }
+    for (const abbr of team.abbreviations) {
+      addEntry(abbr, team, 'abbreviation');
+    }
+  }
+  
+  return map;
+}
+
+/**
+ * Builds lookup map for stat types from the provided data.
+ * Detects and logs collisions when multiple stat types share the same key.
+ * Policy: Keep the first entry, skip subsequent overrides.
+ */
+function buildStatTypeLookupMap(statTypes: StatTypeData[]): Map<string, StatTypeData> {
+  const map = new Map<string, StatTypeData>();
+  
+  const addEntry = (key: string, stat: StatTypeData, keyType: string) => {
+    const lowerKey = key.toLowerCase();
+    const existing = map.get(lowerKey);
+    if (existing && existing.canonical !== stat.canonical) {
+      console.warn(
+        `[normalizationService] Stat type lookup collision: key "${key}" (${keyType}) ` +
+        `maps to both "${existing.canonical}" (${existing.sport}) and "${stat.canonical}" (${stat.sport}). ` +
+        `Keeping first entry: "${existing.canonical}".`
+      );
+      return; // Skip override, keep first entry
+    }
+    map.set(lowerKey, stat);
+  };
+  
+  for (const stat of statTypes) {
+    addEntry(stat.canonical, stat, 'canonical');
+    for (const alias of stat.aliases) {
+      addEntry(alias, stat, 'alias');
+    }
+  }
+  
+  return map;
+}
+
+/**
+ * Initialize or refresh lookup maps from localStorage.
+ * Called automatically on first use, and should be called after UI edits.
+ */
+export function initializeLookupMaps(): void {
+  cachedTeams = loadTeams();
+  cachedStatTypes = loadStatTypes();
+  
+  teamLookupMap = buildTeamLookupMap(cachedTeams);
+  statTypeLookupMap = buildStatTypeLookupMap(cachedStatTypes);
+  
+  initialized = true;
+}
+
+/**
+ * Alias for initializeLookupMaps for semantic clarity.
+ * Call this after user adds/edits aliases via UI.
+ */
+export function refreshLookupMaps(): void {
+  initializeLookupMaps();
+}
+
+/**
+ * Ensures lookup maps are initialized (lazy initialization).
+ */
+function ensureInitialized(): void {
+  if (!initialized) {
+    initializeLookupMaps();
   }
 }
 
-// Initialize stat type lookup map
-for (const stat of STAT_TYPES) {
-  // Add canonical name
-  statTypeLookupMap.set(stat.canonical.toLowerCase(), stat);
-  
-  // Add all aliases
-  for (const alias of stat.aliases) {
-    statTypeLookupMap.set(alias.toLowerCase(), stat);
-  }
+// ============================================================================
+// REFERENCE DATA SNAPSHOT
+// ============================================================================
+
+/**
+ * Returns a snapshot of current reference data.
+ * Use this for consumers that need the full dataset.
+ */
+export function getReferenceDataSnapshot(): ReferenceDataSnapshot {
+  ensureInitialized();
+  return {
+    teams: [...cachedTeams],
+    statTypes: [...cachedStatTypes],
+    version: REFERENCE_DATA_VERSION,
+  };
 }
 
-// Build sport-specific future type lookup maps for O(1) lookups
-const futureTypeLookupMap = new Map<string, typeof FUTURE_TYPES[0]>();
-const sportSpecificFutureLookupMaps = new Map<Sport, Map<string, typeof FUTURE_TYPES[0]>>();
+/**
+ * Returns the base seed teams (without user overlays).
+ * Useful for reset functionality.
+ */
+export function getBaseSeedTeams(): TeamData[] {
+  return TEAMS.map(toTeamData);
+}
 
-// Initialize future type lookup maps
-for (const future of FUTURE_TYPES) {
-  // Add to general map
-  futureTypeLookupMap.set(future.canonical.toLowerCase(), future);
-  for (const alias of future.aliases) {
-    futureTypeLookupMap.set(alias.toLowerCase(), future);
-  }
-  
-  // Add to sport-specific maps
-  if (future.sport) {
-    if (!sportSpecificFutureLookupMaps.has(future.sport)) {
-      sportSpecificFutureLookupMaps.set(future.sport, new Map());
-    }
-    const sportMap = sportSpecificFutureLookupMaps.get(future.sport)!;
-    sportMap.set(future.canonical.toLowerCase(), future);
-    for (const alias of future.aliases) {
-      sportMap.set(alias.toLowerCase(), future);
-    }
-  }
+/**
+ * Returns the base seed stat types (without user overlays).
+ * Useful for reset functionality.
+ */
+export function getBaseSeedStatTypes(): StatTypeData[] {
+  return STAT_TYPES.map(toStatTypeData);
 }
 
 // ============================================================================
@@ -89,6 +442,8 @@ for (const future of FUTURE_TYPES) {
 export function normalizeTeamName(teamName: string): string {
   if (!teamName) return teamName;
   
+  ensureInitialized();
+  
   const normalized = teamName.trim();
   const lowerSearch = normalized.toLowerCase();
   
@@ -100,7 +455,11 @@ export function normalizeTeamName(teamName: string): string {
   
   // If no exact match, try partial matching for compound names
   // e.g., "PHO Suns" should match "Phoenix Suns"
-  for (const team of TEAMS) {
+  const uniqueTeams = Array.from(new Map(
+    Array.from(teamLookupMap.values()).map(t => [t.canonical, t])
+  ).values());
+  
+  for (const team of uniqueTeams) {
     // Check if the input contains a team abbreviation + nickname pattern
     for (const abbr of team.abbreviations) {
       const pattern1 = new RegExp(`^${abbr}\\s+`, 'i'); // "PHO Suns"
@@ -137,10 +496,12 @@ export function normalizeTeamName(teamName: string): string {
 export function getSportForTeam(teamName: string): Sport | undefined {
   if (!teamName) return undefined;
   
+  ensureInitialized();
+  
   const lowerSearch = teamName.trim().toLowerCase();
   const teamInfo = teamLookupMap.get(lowerSearch);
   
-  if (teamInfo) {
+  if (teamInfo && isValidSport(teamInfo.sport)) {
     return teamInfo.sport;
   }
   
@@ -148,7 +509,11 @@ export function getSportForTeam(teamName: string): Sport | undefined {
   const canonical = normalizeTeamName(teamName);
   const canonicalInfo = teamLookupMap.get(canonical.toLowerCase());
   
-  return canonicalInfo?.sport;
+  if (canonicalInfo && isValidSport(canonicalInfo.sport)) {
+    return canonicalInfo.sport;
+  }
+  
+  return undefined;
 }
 
 /**
@@ -157,8 +522,10 @@ export function getSportForTeam(teamName: string): Sport | undefined {
  * @param teamName - The team name (can be in any format)
  * @returns The team info object, or undefined if not found
  */
-export function getTeamInfo(teamName: string): TeamInfo | undefined {
+export function getTeamInfo(teamName: string): TeamData | undefined {
   if (!teamName) return undefined;
+  
+  ensureInitialized();
   
   const lowerSearch = teamName.trim().toLowerCase();
   const teamInfo = teamLookupMap.get(lowerSearch);
@@ -187,6 +554,8 @@ export function getTeamInfo(teamName: string): TeamInfo | undefined {
 export function normalizeStatType(statType: string, sport?: Sport): string {
   if (!statType) return statType;
   
+  ensureInitialized();
+  
   const normalized = statType.trim();
   const lowerSearch = normalized.toLowerCase();
   
@@ -197,7 +566,11 @@ export function normalizeStatType(statType: string, sport?: Sport): string {
   if (statInfo) {
     if (sport && statInfo.sport !== sport) {
       // Look for a sport-specific match
-      for (const stat of STAT_TYPES) {
+      const uniqueStats = Array.from(new Map(
+        Array.from(statTypeLookupMap.values()).map(st => [st.canonical + st.sport, st])
+      ).values());
+      
+      for (const stat of uniqueStats) {
         if (stat.sport === sport) {
           if (stat.canonical.toLowerCase() === lowerSearch || 
               stat.aliases.some(a => a.toLowerCase() === lowerSearch)) {
@@ -220,8 +593,10 @@ export function normalizeStatType(statType: string, sport?: Sport): string {
  * @param sport - Optional sport context
  * @returns The stat type info object, or undefined if not found
  */
-export function getStatTypeInfo(statType: string, sport?: Sport): StatTypeInfo | undefined {
+export function getStatTypeInfo(statType: string, sport?: Sport): StatTypeData | undefined {
   if (!statType) return undefined;
+  
+  ensureInitialized();
   
   const lowerSearch = statType.trim().toLowerCase();
   const statInfo = statTypeLookupMap.get(lowerSearch);
@@ -230,7 +605,11 @@ export function getStatTypeInfo(statType: string, sport?: Sport): StatTypeInfo |
   if (statInfo) {
     if (sport && statInfo.sport !== sport) {
       // Look for a sport-specific match
-      for (const stat of STAT_TYPES) {
+      const uniqueStats = Array.from(new Map(
+        Array.from(statTypeLookupMap.values()).map(st => [st.canonical + st.sport, st])
+      ).values());
+      
+      for (const stat of uniqueStats) {
         if (stat.sport === sport && stat.canonical.toLowerCase() === lowerSearch) {
           return stat;
         }
@@ -253,11 +632,17 @@ export function getStatTypeInfo(statType: string, sport?: Sport): StatTypeInfo |
 export function getSportsForStatType(statType: string): Sport[] {
   if (!statType) return [];
   
+  ensureInitialized();
+  
   const canonical = normalizeStatType(statType);
   const sports: Sport[] = [];
   
-  for (const stat of STAT_TYPES) {
-    if (stat.canonical === canonical && !sports.includes(stat.sport)) {
+  const uniqueStats = Array.from(new Map(
+    Array.from(statTypeLookupMap.values()).map(st => [st.canonical + st.sport, st])
+  ).values());
+  
+  for (const stat of uniqueStats) {
+    if (stat.canonical === canonical && isValidSport(stat.sport) && !sports.includes(stat.sport)) {
       sports.push(stat.sport);
     }
   }
@@ -300,6 +685,41 @@ export function normalizeMainMarketType(marketType: string): string {
 // ============================================================================
 // FUTURE TYPE NORMALIZATION
 // ============================================================================
+
+/**
+ * Future type lookup maps are initialized eagerly at module load.
+ * 
+ * Design Decision: Futures are intentionally immutable and do not support 
+ * localStorage overlays because they represent sport-league defined values
+ * (e.g., "NBA Finals", "Super Bowl") that are standardized across all
+ * sportsbooks. Unlike team aliases which vary by sportsbook presentation,
+ * future bet types have canonical names that don't need user customization.
+ */
+const futureTypeLookupMap = new Map<string, FutureTypeData>();
+const sportSpecificFutureLookupMaps = new Map<Sport, Map<string, FutureTypeData>>();
+
+// Initialize future type lookup maps
+for (const future of FUTURE_TYPES) {
+  // Add to general map
+  futureTypeLookupMap.set(future.canonical.toLowerCase(), future);
+  for (const alias of future.aliases) {
+    futureTypeLookupMap.set(alias.toLowerCase(), future);
+  }
+  
+  // Add to sport-specific maps using explicit get-after-set pattern
+  if (future.sport && isValidSport(future.sport)) {
+    let sportMap = sportSpecificFutureLookupMaps.get(future.sport);
+    if (!sportMap) {
+      sportMap = new Map();
+      sportSpecificFutureLookupMaps.set(future.sport, sportMap);
+    }
+    // sportMap is now guaranteed to exist, no need for non-null assertion
+    sportMap.set(future.canonical.toLowerCase(), future);
+    for (const alias of future.aliases) {
+      sportMap.set(alias.toLowerCase(), future);
+    }
+  }
+}
 
 /**
  * Normalizes a future type to its canonical form.
@@ -364,6 +784,8 @@ export function inferSportFromContext(context: {
   statType?: string;
   description?: string;
 }): Sport | undefined {
+  ensureInitialized();
+  
   // Try team name first (most reliable)
   if (context.team) {
     const sport = getSportForTeam(context.team);

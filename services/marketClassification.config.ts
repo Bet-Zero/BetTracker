@@ -163,16 +163,19 @@ export const PROP_KEYWORDS = [
 /**
  * Sport-specific stat type mappings for Props category.
  * 
- * Maps market text patterns to standardized stat type codes used
- * in the display layer. Patterns are matched case-insensitively.
+ * IMPORTANT: This is for CLASSIFICATION PATTERN MATCHING, not normalization.
  * 
- * Matching: Case-insensitive substring matching
+ * Purpose: Maps market TEXT PATTERNS to stat type codes during classification.
+ * For example, when classifying "Player Points Rebounds Assists", we match
+ * "points rebounds assists" → "PRA" to determine the bet type.
  * 
- * Usage:
- * - Input: "LeBron James Points", Category: "Props", Sport: "NBA"
- * - Pattern match: "points" → "Pts"
- * - Output: Type = "Pts"
+ * This is intentionally separate from normalization (services/normalizationService.ts)
+ * which maps ALIASES to CANONICAL names (e.g., "Rebounds" → "Reb").
  * 
+ * - Classification needs: "points rebounds assists" → "PRA" (pattern matching)
+ * - Normalization needs: "Rebounds", "Rebs", "REB" → "Reb" (alias resolution)
+ * 
+ * Patterns are matched case-insensitively as substrings.
  * Note: Patterns are checked in order, so more specific patterns
  * (like "points rebounds assists") should appear before less specific
  * ones (like "points").
