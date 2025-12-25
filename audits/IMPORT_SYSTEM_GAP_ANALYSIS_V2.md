@@ -818,6 +818,7 @@ None of these prevent the system from functioning correctly today. They represen
 - `parsing/fanduel/parsers/common.ts` (added inferEntityType helper, updated 3 leg sites)
 - `hooks/useBets.tsx` (replaced heuristics with entityType-based logic)
 
+**Remaining Gaps:** D, F
 **Verification:**
 - ✅ Build passes (`npm run build`)
 - ✅ Zero remaining heuristic keyword arrays in `hooks/`
@@ -832,4 +833,34 @@ None of these prevent the system from functioning correctly today. They represen
 
 **Gap C Status:** MOSTLY RESOLVED ✅ (storage heuristics removed; parser classification needs refinement)
 
-**Remaining Gaps:** D, F
+---
+
+### Pass 5: Display Pipeline Simplification (Completed 2025-12-24)
+
+**Objective:** Reduce display-layer complexity and address leg deduplication (Gap D/F).
+
+**Actions Taken:**
+1. **Simplified FinalRow -> FlatBet Conversion (Gap F):**
+   - Added raw numeric fields (`_rawBet`, `_rawToWin`, `_rawNet`, `_rawOdds`) to `FinalRow` interface in `types.ts`.
+   - Updated `betToFinalRows.ts` to populate these fields alongside formatted strings.
+   - Updated `BetTableView.tsx` to use raw fields directly, eliminating wasteful string round-trip parsing.
+   - Kept string parsing as fallback for backwards compatibility.
+
+2. **Evaluated Leg Deduplication (Gap D):**
+   - Confirmed FanDuel parsers have sophisticated deduplication.
+   - Confirmed DraftKings parsers LACK deduplication entirely.
+   - **Decision:** Kept display-layer deduplication in `betToFinalRows.ts` as a **documented safety net**.
+   - Added comprehensive JSDoc explaining why it exists (to cover DraftKings gap) and that ideally it should be removed once parsers are updated.
+
+**Files Modified:**
+- `types.ts`
+- `parsing/shared/betToFinalRows.ts`
+- `views/BetTableView.tsx`
+
+**Gap Status:**
+- **Gap F:** RESOLVED ✅ (FinalRow now authoritative for both display and calculation)
+- **Gap D:** PARTIALLY RESOLVED ⚠️ (Deduplication remains in display layer as critical safety net until DraftKings parsers are updated)
+
+**Recommendations for Future:**
+- Add deduplication logic to DraftKings parsers (aligning with FanDuel).
+- Once implemented, remove the safety net from `betToFinalRows.ts`.

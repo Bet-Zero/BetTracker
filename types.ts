@@ -177,4 +177,14 @@ export interface FinalRow {
   _legCount?: number | null;
   _isParlayHeader?: boolean;
   _isParlayChild?: boolean;
+  // Raw numeric values for editing/calculations (avoids string parsing)
+  // These are populated by betToFinalRows alongside formatted string fields
+  /** Raw odds value. Undefined for parlay children without leg odds, or when odds unavailable. */
+  _rawOdds?: number;
+  /** Raw bet amount. Undefined for parlay child rows (only shown on headers). */
+  _rawBet?: number;
+  /** Raw to-win amount. Undefined for parlay child rows or when calculation not possible. */
+  _rawToWin?: number;
+  /** Raw net profit/loss. Undefined for pending bets or parlay child rows. */
+  _rawNet?: number;
 }

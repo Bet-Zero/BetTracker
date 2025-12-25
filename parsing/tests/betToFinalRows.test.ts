@@ -2,6 +2,24 @@ import { describe, it, expect } from "vitest";
 import { betToFinalRows } from "../shared/betToFinalRows";
 import { Bet } from "../../types";
 
+/**
+ * Helper to verify raw numeric fields with explicit precision
+ */
+function expectRawFields(
+  row: any,
+  {
+    bet,
+    odds,
+    toWin,
+    net,
+  }: { bet?: number; odds?: number; toWin?: number; net?: number }
+) {
+  if (bet !== undefined) expect(row._rawBet).toBe(bet);
+  if (odds !== undefined) expect(row._rawOdds).toBe(odds);
+  if (toWin !== undefined) expect(row._rawToWin).toBeCloseTo(toWin, 2);
+  if (net !== undefined) expect(row._rawNet).toBeCloseTo(net, 2);
+}
+
 describe("betToFinalRows", () => {
   describe("single bet without legs", () => {
     it("should convert a simple single bet to FinalRow", () => {
@@ -27,7 +45,7 @@ describe("betToFinalRows", () => {
       const rows = betToFinalRows(bet);
 
       expect(rows).toHaveLength(1);
-      expect(rows[0]).toEqual({
+      expect(rows[0]).toMatchObject({
         Date: "11/18/24",
         Site: "FanDuel",
         Sport: "NBA",
@@ -49,6 +67,13 @@ describe("betToFinalRows", () => {
         _legCount: null,
         _isParlayHeader: false,
         _isParlayChild: false,
+      });
+      // Verify raw numeric fields are also populated
+      expectRawFields(rows[0], {
+        bet: 1,
+        odds: 360,
+        toWin: 4.6,
+        net: 3.6,
       });
     });
 
@@ -78,6 +103,12 @@ describe("betToFinalRows", () => {
       expect(rows[0].Odds).toBe("-120");
       expect(rows[0].Result).toBe("Loss");
       expect(rows[0].Net).toBe("-12.00");
+      expectRawFields(rows[0], {
+        bet: 12.0,
+        odds: -120,
+        toWin: 22.0,
+        net: -12.0,
+      });
     });
 
     it("should handle push result", () => {
@@ -104,6 +135,7 @@ describe("betToFinalRows", () => {
       expect(rows).toHaveLength(1);
       expect(rows[0].Result).toBe("Push");
       expect(rows[0].Net).toBe("0.00");
+      expectRawFields(rows[0], { bet: 10.0, odds: -110, toWin: 10.0, net: 0 });
     });
 
     it("should set Live flag for live bets", () => {
@@ -286,6 +318,14 @@ describe("betToFinalRows", () => {
       expect(rows[0].Bet).toBe("10.00");
       expect(rows[1].Bet).toBe("");
       expect(rows[2].Bet).toBe("");
+
+      // Verify raw fields on header
+      expectRawFields(rows[0], {
+        bet: 10.0,
+        odds: 500,
+        toWin: 60.0,
+        net: -10.0,
+      });
 
       // Result: header shows bet result, children show leg results
       expect(rows[0].Result).toBe("Loss"); // bet.result
@@ -1403,10 +1443,6 @@ describe("betToFinalRows", () => {
         const playerRows = rows.filter((r) => r.Name === "Player Test");
         expect(playerRows).toHaveLength(1);
         // When merging exact duplicates, prefer Win > Loss > Push > Pending
-        expect(playerRows[0].Result).toBe(expectedResult);
-        expect(playerRows[0].Category).not.toBe("Parlays");
-      }
-    );
         expect(playerRows[0].Result).toBe(expectedResult);
         expect(playerRows[0].Category).not.toBe("Parlays");
       }

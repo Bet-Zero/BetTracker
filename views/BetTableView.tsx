@@ -541,15 +541,31 @@ const BetTableView: React.FC = () => {
         // Convert FinalRow to FlatBet format
         const isLive = bet.isLive || false;
 
-        // Parse monetary values (empty string means child row, should be 0)
-        const betAmount = finalRow.Bet ? parseFloat(finalRow.Bet) : 0;
-        const toWinAmount = finalRow["To Win"]
-          ? parseFloat(finalRow["To Win"])
-          : 0;
-        const netAmount = finalRow.Net ? parseFloat(finalRow.Net) : 0;
-        const oddsValue = finalRow.Odds
-          ? parseFloat(finalRow.Odds.replace("+", ""))
-          : undefined;
+        // Use raw numeric values when available, fall back to string parsing for backwards compatibility
+        const betAmount =
+          finalRow._rawBet !== undefined
+            ? finalRow._rawBet
+            : finalRow.Bet
+            ? (parseFloat(finalRow.Bet) || 0)
+            : 0;
+        const toWinAmount =
+          finalRow._rawToWin !== undefined
+            ? finalRow._rawToWin
+            : finalRow["To Win"]
+            ? (parseFloat(finalRow["To Win"]) || 0)
+            : 0;
+        const netAmount =
+          finalRow._rawNet !== undefined
+            ? finalRow._rawNet
+            : finalRow.Net
+            ? (parseFloat(finalRow.Net) || 0)
+            : 0;
+        const oddsValue =
+          finalRow._rawOdds !== undefined
+            ? finalRow._rawOdds
+            : finalRow.Odds
+            ? parseFloat(finalRow.Odds.replace("+", ""))
+            : undefined;
 
         // Parse Over/Under
         const ou =

@@ -111,7 +111,7 @@ function mergeResults(
     // Detect when r is defined but not present in the priority map
     if (priorityValue === undefined) {
       console.error(
-        `mergeResults: Unexpected result value "${r}" (normalized: "${rLower}") not found in priority map`
+        `mergeResults: Unexpected result value "${r}" (normalized: "${rLower}") not found in priority map. Keys: ${Object.keys(priority).join(',')}`
       );
     }
     return priorityValue ?? 0;
@@ -306,8 +306,23 @@ export function betToFinalRows(bet: Bet): FinalRow[] {
     return leg;
   });
 
-  // Deduplicate legs to catch any duplicates that slipped through the parser
-  // This handles cases where the same leg appears with and without target values
+  /**
+   * DEDUPLICATION SAFETY NET
+   *
+   * This deduplication block catches any duplicate legs that slipped through the parser.
+   * It handles cases where the same leg appears with and without target values.
+   *
+   * WHY THIS EXISTS:
+   * - FanDuel parsers have sophisticated deduplication (parlay.ts lines 166-265, 403-428)
+   * - DraftKings parsers do NOT have deduplication
+   * - This block serves as a safety net to prevent duplicate rows in the UI
+   *
+   * IDEAL STATE:
+   * Parsers should output deduplicated legs. Once DraftKings parsers have deduplication,
+   * this block can be simplified or removed. Until then, it remains as a defensive measure.
+   *
+   * If this code is merging legs, it indicates a parser bug that should be fixed upstream.
+   */
   const deduplicatedLegs = (() => {
     const seen = new Map<string, BetLeg>();
     // Map from loose key to exact key for O(1) lookup
@@ -560,7 +575,9 @@ function createFinalRow(
   } else {
     // Compute from bet-level data when categoryAndType not provided
     category = normalizeCategoryForDisplay(bet.marketCategory);
-    type = determineType(legData.market, category, bet.sport || "");
+    // determineType expects 'Main Markets' but normalize returns 'Main'
+    const typeCategory = category === "Main" ? "Main Markets" : category;
+    type = determineType(legData.market, typeCategory, bet.sport || "");
   }
 
   // Name: SUBJECT ONLY (player/team from entities)
@@ -617,6 +634,31 @@ function createFinalRow(
   // Tail
   const tail = toSingleFlag(!!bet.tail);
 
+  // Calculate raw numeric values for editing/calculations
+  // These avoid string parsing in BetTableView
+  let rawOdds: number | undefined;
+  if (
+    metadata.isParlayChild &&
+    legData.odds !== undefined &&
+    legData.odds !== null
+  ) {
+    rawOdds = legData.odds;
+  } else if (metadata.showMonetaryValues) {
+    rawOdds = bet.odds ?? undefined;
+  }
+
+  const rawBet = metadata.showMonetaryValues ? bet.stake : undefined;
+  const rawToWin = metadata.showMonetaryValues
+    ? calculateToWin(bet.stake, bet.odds, bet.payout)
+    : undefined;
+
+  // Calculate raw net value
+  let rawNet: number | undefined;
+  if (metadata.showMonetaryValues) {
+    const netResult = metadata.isParlayChild ? bet.result : legData.result;
+    rawNet = calculateRawNet(netResult, bet.stake, bet.odds, bet.payout);
+  }
+
   return {
     Date: date,
     Site: site,
@@ -640,6 +682,11 @@ function createFinalRow(
     _legCount: metadata.legCount,
     _isParlayHeader: metadata.isParlayHeader,
     _isParlayChild: metadata.isParlayChild,
+    // Raw numeric values for editing/calculations
+    _rawOdds: rawOdds,
+    _rawBet: rawBet,
+    _rawToWin: rawToWin,
+    _rawNet: rawNet,
   };
 }
 
@@ -733,29 +780,33 @@ function calculateToWin(
 /**
  * Calculates Net profit/loss.
  */
-function calculateNet(
+/**
+ * Calculates Net profit or loss value as a number.
+ * Shared helper for both formatted string output and raw numeric output.
+ * @returns number representing profit/loss, or undefined if calculation not possible
+ */
+function computeNetNumeric(
   result: string,
   stake: number,
   odds?: number | null,
   payout?: number
-): string {
+): number | undefined {
   const resultLower = result.toLowerCase();
 
   if (resultLower === "win") {
     // Use payout if available, otherwise calculate from odds
     if (payout !== undefined && payout > 0) {
-      const net = payout - stake;
-      return net.toFixed(2);
+      return payout - stake;
     }
 
     // Calculate from odds
     if (odds === undefined || odds === null) {
-      return "";
+      return undefined;
     }
 
     const numericOdds = Number(odds);
     if (Number.isNaN(numericOdds)) {
-      return "";
+      return undefined;
     }
 
     let profit = 0;
@@ -764,19 +815,48 @@ function calculateNet(
     } else if (numericOdds < 0) {
       profit = stake / (Math.abs(numericOdds) / 100);
     }
-    return profit.toFixed(2);
+    return profit;
   }
 
   if (resultLower === "loss") {
-    return `-${stake.toFixed(2)}`;
+    return -stake;
   }
 
   if (resultLower === "push") {
-    return "0.00";
+    return 0;
   }
 
-  // Pending - return empty or 0
-  return "";
+  // Pending - return undefined
+  return undefined;
+}
+
+/**
+ * Calculates Net profit/loss.
+ */
+function calculateNet(
+  result: string,
+  stake: number,
+  odds?: number | null,
+  payout?: number
+): string {
+  const net = computeNetNumeric(result, stake, odds, payout);
+  if (net === undefined) {
+    return "";
+  }
+  return net.toFixed(2);
+}
+
+/**
+ * Calculates raw Net profit/loss as a number.
+ * Returns undefined for pending bets or when calculation is not possible.
+ */
+function calculateRawNet(
+  result: string,
+  stake: number,
+  odds?: number | null,
+  payout?: number
+): number | undefined {
+  return computeNetNumeric(result, stake, odds, payout);
 }
 
 /**
