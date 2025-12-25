@@ -4,9 +4,18 @@ import { useInputs } from '../hooks/useInputs';
 import { SportsbookName, Bet } from '../types';
 import { AlertTriangle, CheckCircle2, ExternalLink } from '../components/icons';
 import { ManualPasteSourceProvider } from '../services/pageSourceProvider';
-import { parseBets, handleImport } from '../services/importer';
-import { NoSourceDataError } from '../services/errors';
+import { parseBetsResult } from '../services/importer';
+import { ImportError, ImportErrorCode } from '../services/errors';
 import { ImportConfirmationModal } from '../components/ImportConfirmationModal';
+
+/**
+ * Helper to get user-friendly error message with consistent phrasing.
+ * Maps ImportError to display-ready message.
+ */
+const getDisplayMessage = (error: ImportError): string => {
+  // Use the message from ImportError, which is already user-safe
+  return error.message;
+};
 
 const ImportView: React.FC = () => {
   const { addBets } = useBets();
@@ -34,26 +43,27 @@ const ImportView: React.FC = () => {
 
     const sourceProvider = new ManualPasteSourceProvider(() => pageHtml);
     
-    try {
-      const bets = await parseBets(selectedBook, sourceProvider);
-      
-      if (bets.length === 0) {
-        showNotification('Could not find any bets to import. Check the source or parser.', 'error');
-        setIsImporting(false);
-        return;
-      }
-      
-      setParsedBets(bets);
-    } catch (error) {
-      if (error instanceof NoSourceDataError) {
-        showNotification(error.message, 'error');
-      } else {
-        console.error("Parse failed:", error);
-        showNotification(`An unexpected error occurred while parsing. Check console for details.`, 'error');
-      }
-    } finally {
+    const result = await parseBetsResult(selectedBook, sourceProvider);
+    
+    if (!result.ok) {
+      // Display user-safe error message using consistent rendering
+      showNotification(getDisplayMessage(result.error), 'error');
       setIsImporting(false);
+      return;
     }
+    
+    const bets = result.value;
+    
+    if (bets.length === 0) {
+      // This shouldn't happen since processPageResult returns NO_BETS_FOUND error,
+      // but handle it defensively
+      showNotification('No bets found in the page source.', 'error');
+      setIsImporting(false);
+      return;
+    }
+    
+    setParsedBets(bets);
+    setIsImporting(false);
   };
 
   const handleConfirmImport = async () => {
@@ -67,7 +77,7 @@ const ImportView: React.FC = () => {
       setParsedBets(null);
     } catch (error) {
       console.error("Import failed:", error);
-      showNotification(`An unexpected error occurred during import. Check console for details.`, 'error');
+      showNotification('Failed to save bets. Please try again.', 'error');
     } finally {
       setIsImporting(false);
     }
