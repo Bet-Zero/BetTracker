@@ -362,9 +362,10 @@ if (resultLower === "pending") {
   ```typescript
   bet.legs.forEach((leg) => {
     if (leg.ou) {
+      const ou = leg.ou.toLowerCase() as "over" | "under";
       const net = bet.payout - bet.stake; // Full bet net
       stats[ou].count++;
-      stats[ou].stake += bet.stake; // Full stake
+      stats[ou].stake += bet.stake; // Full stake attributed per leg
       stats[ou].net += net;
     }
   });
