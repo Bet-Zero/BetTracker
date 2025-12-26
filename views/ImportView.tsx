@@ -249,6 +249,7 @@ import React, { useState, useMemo } from 'react';
           <button
             onClick={handleParseClick}
             disabled={isProcessing || !pageHtml.trim()}
+            type="button"
             className="px-6 py-2.5 bg-primary-600 text-white font-semibold rounded-lg shadow-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-75 transition-transform transform hover:scale-105 disabled:bg-neutral-600 dark:disabled:bg-neutral-700 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {importState === 'parsing' && <Loader className="w-4 h-4 animate-spin" />}
