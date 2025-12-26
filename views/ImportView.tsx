@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useBets } from '../hooks/useBets';
 import { useInputs } from '../hooks/useInputs';
 import { SportsbookName, Bet } from '../types';
@@ -6,6 +6,7 @@ import { AlertTriangle, CheckCircle2, ExternalLink, Loader, Info, XCircle } from
 import { ManualPasteSourceProvider } from '../services/pageSourceProvider';
 import { parseBetsResult } from '../services/importer';
 import { ImportConfirmationModal, ImportSummary } from '../components/ImportConfirmationModal';
+import { isParserEnabled, getParserUnavailableMessage } from '../parsing/parserRegistry';
 
 // Import flow state machine
 type ImportState = 
@@ -33,7 +34,12 @@ const ImportView: React.FC = () => {
   const [parseError, setParseError] = useState<string | null>(null);
   
   const selectedBookUrl = sportsbooks.find(b => b.name === selectedBook)?.url || 'https://google.com/search?q=sportsbooks';
-import React, { useState, useMemo } from 'react';
+  
+  // Check if selected sportsbook has an enabled parser
+  const selectedBookHasParser = useMemo(() => isParserEnabled(selectedBook), [selectedBook]);
+  
+  // Get existing bet IDs for duplicate detection
+  const existingBetIds = useMemo(() => new Set(bets.map(b => b.id)), [bets]);
 
   const handleParseClick = async () => {
     if (!selectedBook) {
@@ -239,24 +245,47 @@ import React, { useState, useMemo } from 'react';
             className="bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 text-neutral-900 dark:text-white text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-full p-2.5"
             disabled={isProcessing}
           >
-            {sportsbooks.map((book) => (
-              <option key={book.name} value={book.name}>{book.name}</option>
-            ))}
+            {sportsbooks.map((book) => {
+              const hasParser = isParserEnabled(book.name);
+              return (
+                <option key={book.name} value={book.name}>
+                  {book.name}{!hasParser ? ' (No parser)' : ''}
+                </option>
+              );
+            })}
           </select>
+          {!selectedBookHasParser && (
+            <span className="text-xs text-amber-600 dark:text-amber-400 whitespace-nowrap">
+              ⚠ Parser not available
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-4">
           <StateIndicator />
           <button
             onClick={handleParseClick}
-            disabled={isProcessing || !pageHtml.trim()}
+            disabled={isProcessing || !pageHtml.trim() || !selectedBookHasParser}
             type="button"
             className="px-6 py-2.5 bg-primary-600 text-white font-semibold rounded-lg shadow-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-75 transition-transform transform hover:scale-105 disabled:bg-neutral-600 dark:disabled:bg-neutral-700 disabled:cursor-not-allowed flex items-center gap-2"
+            title={!selectedBookHasParser ? getParserUnavailableMessage(selectedBook) : ''}
           >
             {importState === 'parsing' && <Loader className="w-4 h-4 animate-spin" />}
             {importState === 'parsing' ? 'Parsing...' : 'Parse & Review Bets'}
           </button>
         </div>
       </div>
+      
+      {/* Parser unavailable warning */}
+      {!selectedBookHasParser && (
+        <div className="flex-shrink-0 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+          <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-300">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+            <span>
+              <strong>{selectedBook}</strong> does not have a parser yet. Only FanDuel and DraftKings are currently supported.
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Last import result summary */}
       {lastImportResult && importState === 'idle' && (

@@ -439,11 +439,125 @@ When corruption is detected:
 
 ---
 
+## 9. Extensibility Contract (Pass 11 - Add a Sportsbook)
+
+### Overview
+
+Pass 11 establishes a formal contract for adding new sportsbook parsers without guesswork, drift, or hidden coupling. This makes the system future-proof and enables safe extension.
+
+### Parser Contract Location
+
+All contract definitions live in `parsing/parserContract.ts`:
+
+```typescript
+// Parser function signature
+type ParserFunction = (html: string) => Bet[] | Result<Bet[]>;
+
+// Required bet fields
+const REQUIRED_BET_FIELDS = [
+  'id', 'book', 'betId', 'placedAt', 'betType', 'marketCategory',
+  'sport', 'description', 'odds', 'stake', 'payout', 'result', 'legs'
+];
+
+// Parser responsibilities:
+// 1. Deduplication - remove duplicate legs before returning
+// 2. Entity Type - set entityType on each leg ("player", "team", "unknown")
+// 3. Market Category - set marketCategory on each bet
+// 4. Date normalization - ISO 8601 format
+// 5. Amount normalization - numbers, not strings
+// 6. Result detection - lowercase for bets, uppercase for legs
+// 7. ID generation - "{book}:{betId}:{placedAt}"
+// 8. Error handling - return typed ImportError, not throw
+```
+
+### Parser Registry
+
+All parsers are registered in `parsing/parserRegistry.ts`:
+
+| Sportsbook | Status | Enabled | Notes |
+|------------|--------|---------|-------|
+| FanDuel | implemented | ✅ | Full support |
+| DraftKings | implemented | ✅ | Full support |
+| Other | disabled | ❌ | Placeholder - no parser |
+
+### Template Parser
+
+A minimal template parser exists at `parsing/template/templateParser.ts`:
+- Demonstrates contract-compliant structure
+- Returns `PARSER_NOT_AVAILABLE` error (not fake data)
+- Includes extensive documentation comments
+
+### Guardrails
+
+1. **Registry-based discovery**: `pageProcessor.ts` uses `parserRegistry.ts` for parser lookup
+2. **Explicit enabled/disabled state**: Only enabled parsers can be used
+3. **Clear error messages**: `getParserUnavailableMessage()` provides user-friendly explanations
+4. **Contract validation**: `validateBetContract()` validates parser output
+
+### How to Add a New Sportsbook Parser
+
+Follow these steps to add a parser for a new sportsbook:
+
+1. **Collect Sample HTML**
+   - Get HTML from the sportsbook's settled bets page
+   - Save to `parsing/{sportsbook}/fixtures/`
+   - Include: singles, parlays, SGPs, wins, losses, pushes, pending
+
+2. **Create Parser Directory Structure**
+
+3. **Implement Parser Following Contract**
+   - Use `parsing/template/templateParser.ts` as starting point
+   - Implement all required fields per `parserContract.ts`
+   - Set `entityType` on all legs
+   - Set `marketCategory` on all bets
+   - Return `Bet[]` or `Result<Bet[]>`
+
+4. **Register Parser**
+   - Import parser in `parsing/parserRegistry.ts`
+   - Add entry with `enabled: true` once tested
+   ```typescript
+   'NewSportsbook': {
+     parser: parseNewSportsbook,
+     enabled: true,
+     status: 'implemented',
+     notes: 'Full support for singles, parlays, SGP'
+   }
+   ```
+
+5. **Add to Default Sportsbooks (Optional)**
+   - Update `hooks/useInputs.tsx` `defaultSportsbooks` array
+   - Only if you want it shown in UI by default
+
+6. **Write Contract Tests**
+   - Add test in `parsing/tests/parser-contract.test.ts`
+   - Verify all required fields
+   - Verify `validateBetContract()` passes
+
+7. **Update Documentation**
+   - Update `PARSER_IMPLEMENTATION_CHECKLIST.md` if needed
+   - Update this document's registry table
+
+### Contract Tests
+
+Tests in `parsing/tests/parser-contract.test.ts`:
+
+| Test | Purpose |
+|------|---------|
+| Parser Registry | Verifies enabled/disabled state |
+| Unsupported Sportsbook Handling | Returns typed errors |
+| Contract Validation | validateBetContract works correctly |
+| Parser Output Contract | FanDuel/DraftKings satisfy contract |
+| Error Handling | Graceful handling of invalid input |
+| ImportError Types | Typed errors returned (not thrown) |
+
+---
+
 ## Document History
 
 | Version | Date | Status | Author |
 |---------|------|--------|--------|
 | v1 | 2025-12-21 | Superseded | Initial gap analysis |
 | v2 | 2025-12-24 | Superseded | Post-refactor review |
-| v3 | 2025-12-26 | **CURRENT** | Foundation closeout audit |
-| v3.1 | 2025-12-26 | **CURRENT** | Added Operator UX section (Pass 10) |
+| v3 | 2025-12-26 | Superseded | Foundation closeout audit |
+| v3.1 | 2025-12-26 | Superseded | Added Operator UX section (Pass 10) |
+| v3.2 | 2025-12-26 | **CURRENT** | Added Extensibility Contract (Pass 11) |
