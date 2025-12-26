@@ -30,9 +30,12 @@
  * Performance profiling is enabled when:
  * - NODE_ENV is not 'production', OR
  * - PERF_PROFILE env var is set to 'true'
+ * - import.meta.env.DEV is true (Vite browser builds), OR
+ * - VITE_PERF_PROFILE is set to 'true'
  * 
  * This ensures profiling logs don't appear in production builds.
- * In browser environments, we check import.meta.env.PROD (Vite) or default to disabled.
+ * In browser environments, we check import.meta.env directly so Vite can
+ * statically replace env vars at build time.
  */
 function checkIsDevMode(): boolean {
   // Node.js environment
@@ -40,12 +43,16 @@ function checkIsDevMode(): boolean {
     return process.env.NODE_ENV !== 'production' || process.env.PERF_PROFILE === 'true';
   }
   
-  // Browser with Vite (import.meta available)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  if (typeof (globalThis as any).import?.meta?.env !== 'undefined') {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const env = (globalThis as any).import.meta.env;
-    return !env.PROD || env.VITE_PERF_PROFILE === 'true';
+  // Browser with Vite - use import.meta.env directly so Vite can statically replace it
+  // Wrapped in try/catch for environments where import.meta is not available
+  try {
+    // @ts-expect-error import.meta.env is Vite-specific and may not exist in all environments
+    if (import.meta.env) {
+      // @ts-expect-error import.meta.env is Vite-specific
+      return import.meta.env.DEV === true || import.meta.env.VITE_PERF_PROFILE === 'true';
+    }
+  } catch {
+    // import.meta not available in this environment
   }
   
   // Browser fallback: default to DISABLED in unknown environments
