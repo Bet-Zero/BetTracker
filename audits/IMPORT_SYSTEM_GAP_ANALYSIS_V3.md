@@ -350,6 +350,95 @@ The failing tests are fixture/expectation drift from parser output changes, not 
 
 ---
 
+## 8. Operator UX (Pass 10 - Trust Signals)
+
+### Overview
+
+Pass 10 adds UX polish and trust signals to make the import experience feel confident for daily use, without changing the underlying pipeline architecture.
+
+### Import Flow States
+
+The import flow now has clearly defined states:
+
+| State | Description | UI Indicator |
+|-------|-------------|--------------|
+| **idle** | Ready to paste HTML | "Paste page source to begin" |
+| **parsing** | Currently parsing HTML | Spinning loader + "Parsing HTML..." |
+| **parsed** | Parse successful, modal shown | "X bets ready for review" |
+| **importing** | Saving to storage | Spinning loader + "Importing bets..." |
+| **error** | Parse/import failed | Red error message with details |
+
+### "What Will Happen" Summary
+
+Before import, users see a live-updating summary:
+
+| Metric | Description | Source |
+|--------|-------------|--------|
+| **Total Parsed** | Number of bets found in HTML | `bets.length` |
+| **Blockers** | Bets that CANNOT be imported | `validateBetsForImport().betsWithBlockers` |
+| **Warnings** | Bets with issues but CAN import | `validateBetsForImport().totalWarnings` |
+| **Duplicates** | Bets already in database | `bets.filter(b => existingBetIds.has(b.id)).length` |
+| **Will Import** | Net-new bets to add | `totalParsed - duplicates - blockers` |
+
+### Terminology (Consistent Everywhere)
+
+| Term | Meaning | Import Impact |
+|------|---------|---------------|
+| **Blocker** | Critical issue preventing import | ❌ Blocks import |
+| **Warning** | Minor issue, review recommended | ⚠️ Allows import |
+| **Duplicate** | Bet ID already exists in storage | 🔁 Skipped silently |
+
+### Blocker Conditions
+
+From `utils/importValidation.ts`:
+
+- Missing or empty `bet.id`
+- Invalid or missing `placedAt` date
+- Missing or negative `stake`
+- Missing `result` field
+- Missing `odds` for win bets
+- Net profit calculation would be NaN
+
+### Warning Conditions
+
+- Missing `sport` (can edit after import)
+- Missing `type` for prop bets
+- Missing `marketCategory`
+- Parlay/SGP with no leg details
+
+### Duplicate Detection
+
+Duplicates are detected by comparing `bet.id` against existing bets in storage. The `bet.id` is typically derived from the sportsbook's bet ID + placement timestamp.
+
+### Export Backup Feature
+
+Users can export their data as JSON for recovery:
+
+- **Location:** Settings > Data Management > Export Full Backup (JSON)
+- **Format:** Complete persisted state including version, metadata, and all bets
+- **Purpose:** Trust signal for data recovery, complements automatic corruption backups
+
+### Error Recovery Messaging
+
+When corruption is detected:
+
+1. **Automatic backup created** with timestamp key
+2. **Clear message shown** to user explaining what happened
+3. **Guidance provided** on next steps (export backup, clean state ready)
+
+### Visual Trust Signals
+
+| Element | Location | Purpose |
+|---------|----------|---------|
+| State indicator | Import header bar | Shows current flow state |
+| Parse result banner | Import view | Shows "X bets found" on success |
+| Last import summary | Import view | Shows previous import counts |
+| Duplicate badges | Bet table rows | "DUP" badge on duplicate rows |
+| Summary cards | Confirmation modal | Live counts for blockers/warnings/duplicates |
+| Character count | Textarea header | Shows pasted HTML size |
+
+---
+
 ## Document History
 
 | Version | Date | Status | Author |
@@ -357,3 +446,4 @@ The failing tests are fixture/expectation drift from parser output changes, not 
 | v1 | 2025-12-21 | Superseded | Initial gap analysis |
 | v2 | 2025-12-24 | Superseded | Post-refactor review |
 | v3 | 2025-12-26 | **CURRENT** | Foundation closeout audit |
+| v3.1 | 2025-12-26 | **CURRENT** | Added Operator UX section (Pass 10) |
