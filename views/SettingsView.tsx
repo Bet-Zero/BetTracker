@@ -385,13 +385,14 @@ const SettingsView: React.FC<SettingsViewProps> = ({ theme, toggleTheme }) => {
                 </button>
             </SettingCard>
             <SettingCard title="Export Full Backup (JSON)" description="Download a complete backup including all bet data, leg details, and metadata. Use this for data recovery.">
-                <button
-                    onClick={exportBackupJSON}
-                    className="px-4 py-2 bg-neutral-600 dark:bg-neutral-700 text-white font-semibold rounded-lg shadow-md hover:bg-neutral-700 dark:hover:bg-neutral-600 focus:outline-none focus:ring-2 focus:ring-neutral-500 focus:ring-opacity-75 flex items-center gap-2"
-                >
-                    <Download className="w-4 h-4" />
-                    Export JSON Backup
-                </button>
+<button
+    onClick={exportBackupJSON}
+    type="button"
+    className="px-4 py-2 bg-neutral-600 dark:bg-neutral-700 text-white font-semibold rounded-lg shadow-md hover:bg-neutral-700 dark:hover:bg-neutral-600 focus:outline-none focus:ring-2 focus:ring-neutral-500 focus:ring-opacity-75 flex items-center gap-2"
+>
+    <Download className="w-4 h-4" />
+    Export JSON Backup
+</button>
             </SettingCard>
           </div>
       </div>
