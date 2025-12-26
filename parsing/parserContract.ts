@@ -58,12 +58,35 @@ export type LegacyParserFunction = (html: string) => Bet[];
 // ============================================================================
 
 /**
+ * Type-safe definition of required Bet fields.
+ * This type is derived directly from the Bet interface to prevent drift.
+ */
+export type RequiredBetField = keyof Pick<Bet, 
+  | 'id'
+  | 'book' 
+  | 'betId'
+  | 'placedAt'
+  | 'betType'
+  | 'marketCategory'
+  | 'sport'
+  | 'description'
+  | 'odds'
+  | 'stake'
+  | 'payout'
+  | 'result'
+  | 'legs'
+>;
+
+/**
  * Required fields for every Bet object.
  * Parsers MUST populate all of these fields.
  * 
+ * This array is type-safe: if a field is removed from Bet or renamed,
+ * TypeScript will report a compilation error here.
+ * 
  * See PARSER_TARGET_FIELDS.md for detailed documentation.
  */
-export const REQUIRED_BET_FIELDS = [
+export const REQUIRED_BET_FIELDS: readonly RequiredBetField[] = [
   'id',           // Unique identifier: "{book}:{betId}:{placedAt}"
   'book',         // Sportsbook name (e.g., "FanDuel", "DraftKings")
   'betId',        // Sportsbook's bet identifier
