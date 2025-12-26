@@ -55,6 +55,7 @@ This document provides a quick manual regression checklist for verifying the imp
 ## What to Check After Any Future Refactor
 
 ### Error Handling
+
 - [ ] EMPTY_HTML: Empty paste shows clear error
 - [ ] NO_BETS_FOUND: Invalid HTML shows "no bets found"
 - [ ] PARSER_FAILED: Malformed data shows graceful error
@@ -62,18 +63,21 @@ This document provides a quick manual regression checklist for verifying the imp
 - [ ] STORAGE_FAILED: Storage errors show user-friendly message
 
 ### Parser Output Shape
+
 - [ ] Every bet has: `id`, `betId`, `placedAt`, `stake`, `result`, `betType`
 - [ ] Singles have Name and Type populated (for props)
 - [ ] Parlays have `legs` array with entities and market
 - [ ] SGP/SGP+ bets correctly identify nested legs
 
 ### UI Behavior
+
 - [ ] ImportView shows errors in consistent location (notification banner)
 - [ ] ImportConfirmationModal distinguishes blockers (red) from warnings (yellow)
 - [ ] Import disabled when blockers present
 - [ ] Import enabled when only warnings present
 
 ### Display Transform
+
 - [ ] Single bets produce 1 FinalRow
 - [ ] Parlays produce 1 header + N leg rows
 - [ ] Header shows Bet/Odds/ToWin/Net; legs show Name/Type/Line
