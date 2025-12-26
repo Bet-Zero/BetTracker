@@ -1577,6 +1577,7 @@ export const ImportConfirmationModal: React.FC<
             <button
               onClick={() => onConfirm(importSummary)}
               disabled={hasBlockers || importSummary.netNew === 0}
+              type="button"
               className={`px-4 py-2 rounded-lg ${
                 hasBlockers || importSummary.netNew === 0
                   ? 'bg-neutral-400 text-neutral-200 cursor-not-allowed'
