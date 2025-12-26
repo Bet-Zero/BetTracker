@@ -2,8 +2,21 @@
 
 **Date:** 2025-12-26  
 **Scope:** Full Import Pipeline - Foundation Complete Audit  
-**Status:** AUTHORITATIVE  
+**Status:** AUTHORITATIVE (Foundation Audit)  
 **Previous Version:** `IMPORT_SYSTEM_GAP_ANALYSIS_V2.md` (superseded)
+
+---
+
+> **📚 User Documentation**
+>
+> This document is a **technical foundation audit** intended for deep architecture review.
+> For daily operations and onboarding, see:
+>
+> | Guide | Purpose |
+> |-------|---------|
+> | [IMPORT_OPERATOR_GUIDE.md](../docs/IMPORT_OPERATOR_GUIDE.md) | Daily workflow, quick fixes, backup procedures |
+> | [IMPORT_DEV_GUIDE.md](../docs/IMPORT_DEV_GUIDE.md) | Architecture overview, parser checklist, test strategy |
+> | [IMPORT_TROUBLESHOOTING.md](../docs/IMPORT_TROUBLESHOOTING.md) | Symptom-based debugging reference |
 
 ---
 
