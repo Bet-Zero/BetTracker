@@ -77,8 +77,11 @@ export const showStorageError = (errorInfo: StorageErrorInfo): void => {
 
 /**
  * Creates a formatted corruption recovery message for display
+ * @param options - Optional configuration
+ * @param options.backupKey - The localStorage key where backup was saved
  */
-export const getCorruptionRecoveryMessage = (backupKey?: string): StorageErrorInfo => {
+export const getCorruptionRecoveryMessage = (options?: { backupKey?: string }): StorageErrorInfo => {
+  const backupKey = options?.backupKey;
   return {
     message: 'Data Recovery Complete',
     suggestion: backupKey 

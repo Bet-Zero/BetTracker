@@ -184,7 +184,6 @@ export const ImportConfirmationModal: React.FC<
   const importSummary: ImportSummary = useMemo(() => {
     const totalParsed = bets.length;
     const blockers = validationSummary.betsWithBlockers;
-    const warnings = validationSummary.betsWithWarnings - validationSummary.betsWithBlockers; // Warnings that aren't also blockers
     const duplicates = duplicateCount;
     // Net-new = total - duplicates - blocked
     const netNew = Math.max(0, totalParsed - duplicates - blockers);
@@ -192,7 +191,7 @@ export const ImportConfirmationModal: React.FC<
     return {
       totalParsed,
       blockers,
-      warnings: validationSummary.totalWarnings,
+      warnings: validationSummary.totalWarnings, // Total warning issues across all bets
       duplicates,
       netNew,
     };
@@ -200,6 +199,28 @@ export const ImportConfirmationModal: React.FC<
 
   const hasBlockers = validationSummary.totalBlockers > 0;
   const hasWarnings = validationSummary.totalWarnings > 0;
+  
+  // Get warning hints for tooltip display
+  const getWarningHints = (): string => {
+    const hints: string[] = [];
+    const seenFields = new Set<string>();
+    
+    // Collect unique warning hints from all bets
+    for (const [_, result] of validationSummary.validationResults) {
+      for (const warning of result.warnings) {
+        if (!seenFields.has(warning.field) && warning.hint) {
+          hints.push(`• ${warning.message}: ${warning.hint}`);
+          seenFields.add(warning.field);
+        }
+      }
+      // Limit to top 4 warning types
+      if (hints.length >= 4) break;
+    }
+    
+    return hints.length > 0 
+      ? `Common warnings:\n${hints.join('\n')}`
+      : 'Review warnings before importing';
+  };
 
   // Toggle expansion for a parlay bet
   const toggleExpansion = (betId: string) => {
@@ -539,11 +560,14 @@ export const ImportConfirmationModal: React.FC<
             </div>
             
             {/* Warnings */}
-            <div className={`rounded-lg p-3 border ${
-              importSummary.warnings > 0 
-                ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800' 
-                : 'bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700'
-            }`}>
+            <div 
+              className={`rounded-lg p-3 border ${
+                importSummary.warnings > 0 
+                  ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800' 
+                  : 'bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700'
+              }`}
+              title={importSummary.warnings > 0 ? getWarningHints() : undefined}
+            >
               <div className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide flex items-center gap-1">
                 Warnings
                 {importSummary.warnings > 0 && <AlertTriangle className="w-3 h-3 text-yellow-500" />}
@@ -554,7 +578,10 @@ export const ImportConfirmationModal: React.FC<
                 {importSummary.warnings}
               </div>
               {importSummary.warnings > 0 && (
-                <div className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">Won't block import</div>
+                <div className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
+                  Won't block import
+                  <span className="text-neutral-500 dark:text-neutral-400 ml-1">(hover for details)</span>
+                </div>
               )}
             </div>
             

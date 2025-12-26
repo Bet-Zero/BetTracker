@@ -214,7 +214,11 @@ const SettingsView: React.FC<SettingsViewProps> = ({ theme, toggleTheme }) => {
       
       if (link.download !== undefined) {
         const url = URL.createObjectURL(blob);
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+        // Format: YYYY-MM-DD_HHmmss for filesystem-safe timestamp
+        const now = new Date();
+        const date = now.toISOString().split('T')[0];
+        const time = now.toTimeString().slice(0, 8).replace(/:/g, '');
+        const timestamp = `${date}_${time}`;
         link.setAttribute('href', url);
         link.setAttribute('download', `bettracker_backup_${timestamp}.json`);
         link.style.visibility = 'hidden';

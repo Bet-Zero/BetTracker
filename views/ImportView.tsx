@@ -57,16 +57,18 @@ const ImportView: React.FC = () => {
     
     if (!result.ok) {
       // Display user-safe error message from ImportError
-      setParseError(result.error.message);
+      const errorMsg = result.error.message;
+      setParseError(errorMsg);
       setImportState('error');
-      showNotification(result.error.message, 'error');
+      showNotification(errorMsg, 'error');
       return;
     }
     
     if (result.value.length === 0) {
-      setParseError('No bets found in the pasted HTML. Make sure you copied the entire page source.');
+      const noBetsMsg = 'No bets found in the pasted HTML. Make sure you copied the entire page source.';
+      setParseError(noBetsMsg);
       setImportState('error');
-      showNotification('No bets found in the pasted HTML.', 'error');
+      showNotification(noBetsMsg, 'error');
       return;
     }
     

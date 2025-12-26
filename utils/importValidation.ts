@@ -11,6 +11,8 @@ export interface ImportValidationIssue {
   field: string;
   message: string;
   severity: 'blocker' | 'warning';
+  /** Optional hint on how to resolve the issue */
+  hint?: string;
 }
 
 export interface ImportValidationResult {
@@ -190,6 +192,7 @@ export const validateBetForImport = (bet: Bet): ImportValidationResult => {
       field: 'sport',
       message: 'Sport is missing (can edit after import)',
       severity: 'warning',
+      hint: 'Set sport to enable filtering by sport on the dashboard.',
     });
   }
   
@@ -202,6 +205,7 @@ export const validateBetForImport = (bet: Bet): ImportValidationResult => {
       field: 'type',
       message: 'Stat type is missing for prop bet',
       severity: 'warning',
+      hint: 'Add stat type (e.g., Pts, Reb, Ast) for accurate prop analysis.',
     });
   }
   
@@ -211,6 +215,7 @@ export const validateBetForImport = (bet: Bet): ImportValidationResult => {
       field: 'marketCategory',
       message: 'Market category is missing (will use default)',
       severity: 'warning',
+      hint: 'Category will be auto-classified based on bet type.',
     });
   }
   
@@ -223,6 +228,7 @@ export const validateBetForImport = (bet: Bet): ImportValidationResult => {
       field: 'legs',
       message: 'Parlay/SGP has no leg details',
       severity: 'warning',
+      hint: 'Leg breakdown may not be available for this bet.',
     });
   }
   
