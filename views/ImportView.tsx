@@ -33,9 +33,7 @@ const ImportView: React.FC = () => {
   const [parseError, setParseError] = useState<string | null>(null);
   
   const selectedBookUrl = sportsbooks.find(b => b.name === selectedBook)?.url || 'https://google.com/search?q=sportsbooks';
-  
-  // Get existing bet IDs for duplicate detection
-  const existingBetIds = new Set(bets.map(b => b.id));
+import React, { useState, useMemo } from 'react';
 
   const handleParseClick = async () => {
     if (!selectedBook) {
