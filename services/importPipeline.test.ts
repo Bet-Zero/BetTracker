@@ -10,8 +10,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'fs';
-import { join } from 'path';
+import { readFileSync, existsSync } from 'fs';
+import { join, resolve } from 'path';
 import { 
   ok, 
   err, 
@@ -27,9 +27,35 @@ import { parse as parseDraftKings } from '../parsing/draftkings/parsers';
 import { betToFinalRows } from '../parsing/shared/betToFinalRows';
 import { Bet } from '../types';
 
-// Helper to load fixture files
-const loadFixture = (path: string): string => {
-  return readFileSync(join(__dirname, '..', path), 'utf-8');
+/**
+ * Helper to load fixture files with improved error handling.
+ * Resolves the absolute path and provides clear error messages if file is missing.
+ * 
+ * @param relativePath - Path relative to the project root (e.g., 'parsing/draftkings/fixtures/file.html')
+ * @returns The file contents as a string
+ * @throws Error with clear context if file cannot be read
+ */
+const loadFixture = (relativePath: string): string => {
+  const absolutePath = resolve(__dirname, '..', relativePath);
+  
+  if (!existsSync(absolutePath)) {
+    throw new Error(
+      `Fixture file not found: ${relativePath}\n` +
+      `Resolved path: ${absolutePath}\n` +
+      `Ensure the fixture exists in the repository.`
+    );
+  }
+  
+  try {
+    return readFileSync(absolutePath, 'utf-8');
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `Failed to read fixture file: ${relativePath}\n` +
+      `Resolved path: ${absolutePath}\n` +
+      `Error: ${errorMessage}`
+    );
+  }
 };
 
 describe('Import Pipeline - Result/Error Model', () => {
@@ -131,6 +157,69 @@ describe('Import Pipeline - Validation Gate', () => {
       const result = validateBetForImport(bet);
       expect(result.valid).toBe(false);
       expect(result.blockers.some(b => b.field === 'odds')).toBe(true);
+    });
+
+    it('zero stake is valid (free bet scenario)', () => {
+      const bet: Bet = {
+        id: 'free-bet-id',
+        betId: 'free-bet',
+        book: 'FanDuel',
+        placedAt: '2024-01-01T00:00:00Z',
+        betType: 'single',
+        marketCategory: 'Props',
+        sport: 'NBA',
+        description: 'Free bet promotion',
+        stake: 0, // Zero stake for free bet - should be valid
+        odds: -110,
+        result: 'win',
+        payout: 10.0,
+      };
+
+      const result = validateBetForImport(bet);
+      expect(result.valid).toBe(true);
+      expect(result.blockers.some(b => b.field === 'stake')).toBe(false);
+    });
+
+    it('missing odds is OK for loss result', () => {
+      const bet: Bet = {
+        id: 'loss-no-odds-id',
+        betId: 'loss-no-odds',
+        book: 'FanDuel',
+        placedAt: '2024-01-01T00:00:00Z',
+        betType: 'single',
+        marketCategory: 'Props',
+        sport: 'NBA',
+        description: 'Lost bet without odds',
+        stake: 10,
+        odds: null, // Missing odds - OK for loss since net = -stake
+        result: 'loss',
+        payout: 0,
+      };
+
+      const result = validateBetForImport(bet);
+      expect(result.valid).toBe(true);
+      expect(result.blockers.some(b => b.field === 'odds')).toBe(false);
+    });
+
+    it('missing odds is OK for push result', () => {
+      const bet: Bet = {
+        id: 'push-no-odds-id',
+        betId: 'push-no-odds',
+        book: 'FanDuel',
+        placedAt: '2024-01-01T00:00:00Z',
+        betType: 'single',
+        marketCategory: 'Props',
+        sport: 'NBA',
+        description: 'Push bet without odds',
+        stake: 10,
+        odds: null, // Missing odds - OK for push since net = 0
+        result: 'push',
+        payout: 10.0,
+      };
+
+      const result = validateBetForImport(bet);
+      expect(result.valid).toBe(true);
+      expect(result.blockers.some(b => b.field === 'odds')).toBe(false);
     });
 
     it('missing sport is a warning (not blocker)', () => {
@@ -312,6 +401,16 @@ describe('Import Pipeline - Parser Smoke Tests', () => {
       expect(summary.betsWithBlockers).toBe(0);
       expect(summary.validBets.length).toBe(bets.length);
     });
+
+    // Deterministic count assertion to catch regressions.
+    // Expected count: 6 bets from combined_rendered_stubs.html
+    // Update this value if the fixture is intentionally modified.
+    it('parses expected number of bets from fixture (regression guard)', () => {
+      const html = loadFixture('parsing/draftkings/fixtures/combined_rendered_stubs.html');
+      const bets = parseDraftKings(html);
+      
+      expect(bets.length).toBe(6);
+    });
   });
 
   describe('FanDuel parser', () => {
@@ -344,6 +443,16 @@ describe('Import Pipeline - Parser Smoke Tests', () => {
       // All parsed bets should be valid (no blockers)
       expect(summary.betsWithBlockers).toBe(0);
       expect(summary.validBets.length).toBe(bets.length);
+    });
+
+    // Deterministic count assertion to catch regressions.
+    // Expected count: 1 bet from sgp_sample.html
+    // Update this value if the fixture is intentionally modified.
+    it('parses expected number of bets from fixture (regression guard)', () => {
+      const html = loadFixture('parsing/fanduel/fixtures/sgp_sample.html');
+      const bets = parseFanDuel(html);
+      
+      expect(bets.length).toBe(1);
     });
   });
 });
