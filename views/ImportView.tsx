@@ -4,8 +4,7 @@ import { useInputs } from '../hooks/useInputs';
 import { SportsbookName, Bet } from '../types';
 import { AlertTriangle, CheckCircle2, ExternalLink } from '../components/icons';
 import { ManualPasteSourceProvider } from '../services/pageSourceProvider';
-import { parseBets, handleImport } from '../services/importer';
-import { NoSourceDataError } from '../services/errors';
+import { parseBetsResult } from '../services/importer';
 import { ImportConfirmationModal } from '../components/ImportConfirmationModal';
 
 const ImportView: React.FC = () => {
@@ -34,26 +33,17 @@ const ImportView: React.FC = () => {
 
     const sourceProvider = new ManualPasteSourceProvider(() => pageHtml);
     
-    try {
-      const bets = await parseBets(selectedBook, sourceProvider);
-      
-      if (bets.length === 0) {
-        showNotification('Could not find any bets to import. Check the source or parser.', 'error');
-        setIsImporting(false);
-        return;
-      }
-      
-      setParsedBets(bets);
-    } catch (error) {
-      if (error instanceof NoSourceDataError) {
-        showNotification(error.message, 'error');
-      } else {
-        console.error("Parse failed:", error);
-        showNotification(`An unexpected error occurred while parsing. Check console for details.`, 'error');
-      }
-    } finally {
+    const result = await parseBetsResult(selectedBook, sourceProvider);
+    
+    if (!result.ok) {
+      // Display user-safe error message from ImportError
+      showNotification(result.error.message, 'error');
       setIsImporting(false);
+      return;
     }
+    
+    setParsedBets(result.value);
+    setIsImporting(false);
   };
 
   const handleConfirmImport = async () => {
@@ -67,7 +57,7 @@ const ImportView: React.FC = () => {
       setParsedBets(null);
     } catch (error) {
       console.error("Import failed:", error);
-      showNotification(`An unexpected error occurred during import. Check console for details.`, 'error');
+      showNotification('Failed to save bets. Please try again.', 'error');
     } finally {
       setIsImporting(false);
     }

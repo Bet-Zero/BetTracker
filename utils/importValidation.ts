@@ -113,16 +113,17 @@ export const validateBetForImport = (bet: Bet): ImportValidationResult => {
   }
   
   // 3. Missing or invalid stake
+  // Note: stake === 0 is allowed for free bet scenarios
   if (!isValidNumber(bet.stake)) {
     blockers.push({
       field: 'stake',
       message: 'Missing or invalid stake amount',
       severity: 'blocker',
     });
-  } else if (bet.stake <= 0) {
+  } else if (bet.stake < 0) {
     blockers.push({
       field: 'stake',
-      message: 'Stake must be greater than zero',
+      message: 'Stake cannot be negative',
       severity: 'blocker',
     });
   }
