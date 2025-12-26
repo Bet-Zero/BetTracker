@@ -552,6 +552,96 @@ Tests in `parsing/tests/parser-contract.test.ts`:
 
 ---
 
+## 10. Security & Privacy Guardrails (Pass 12)
+
+### Overview
+
+Pass 12 adds lightweight security and data integrity guardrails appropriate for a client-side HTML import tool. These protections prevent unsafe HTML handling, accidental PII persistence, and performance/memory issues.
+
+### Input Size Limits
+
+| Setting | Value | Location |
+|---------|-------|----------|
+| MAX_INPUT_SIZE_CHARS | 5 MB (5,242,880 chars) | `parsing/shared/pageProcessor.ts` |
+| Error Code | `INPUT_TOO_LARGE` | `services/errors.ts` |
+| User Message | "The pasted content is too large to process safely. Please copy a smaller range of bets and try again." | `services/errors.ts` |
+
+**Why 5 MB?** Typical sportsbook bet history pages are 500KB-2MB. 5MB is generous while preventing memory/performance issues on resource-constrained devices.
+
+**Recovery Hint:** The error message guides users to copy a smaller range of bets or export in batches.
+
+### Raw HTML Handling Safety
+
+| Concern | Protection | Notes |
+|---------|------------|-------|
+| **Script execution** | DOMParser does NOT execute scripts | HTML is parsed into inert in-memory document |
+| **innerHTML injection** | Never used for pasted HTML | Only selector-based data extraction |
+| **dangerouslySetInnerHTML** | Not used anywhere | Audited and confirmed |
+
+**DOMParser Security Note:** All parsers (FanDuel, DraftKings) use `new DOMParser().parseFromString(html, 'text/html')` which creates an in-memory Document object. Scripts embedded in the HTML are NOT executed. Only `querySelector()` and `textContent` are used to extract data.
+
+### Data Persistence Privacy
+
+| Field | Stored? | Notes |
+|-------|---------|-------|
+| Raw pasted HTML | ❌ NO | Never stored in localStorage |
+| Full page source | ❌ NO | Never persisted |
+| Account identifiers | ❌ NO | Not extracted from HTML |
+| `Bet.raw` field | ✅ YES | Contains extracted TEXT only (not HTML) |
+
+**`Bet.raw` Clarification:** This optional field stores cleaned text content extracted from bet cards for debugging purposes. It contains only `textContent` (plain text), not HTML markup or scripts.
+
+### What Is Persisted
+
+The `bettracker-state` localStorage key contains:
+
+```typescript
+{
+  version: number,           // Schema version (currently 1)
+  updatedAt: string,         // ISO timestamp
+  bets: Bet[],               // Array of normalized bet objects
+  metadata?: {...}           // Optional migration metadata
+}
+```
+
+Each `Bet` object contains only structured data:
+- Identifiers: `id`, `betId`, `book`
+- Timestamps: `placedAt`, `settledAt`
+- Bet details: `betType`, `marketCategory`, `sport`, `description`
+- Numeric values: `odds`, `stake`, `payout`
+- Result: `result` (win/loss/push/pending)
+- Legs: `legs[]` (structured leg data)
+
+**No raw HTML, page source, or sensitive identifiers are ever stored.**
+
+### Console Logging
+
+- Debug logging for parsers is controlled by `FD_DEBUG` and similar flags
+- Production builds should have debug flags disabled
+- No sensitive data (HTML content, account info) is logged
+
+### Tests Added (Pass 12)
+
+| Test | Purpose |
+|------|---------|
+| `returns INPUT_TOO_LARGE error for oversized input` | Validates size limit enforcement |
+| `returns INPUT_TOO_LARGE with helpful recovery message` | Validates user-friendly messaging |
+| `accepts input at exactly MAX_INPUT_SIZE_CHARS` | Boundary condition validation |
+| `MAX_INPUT_SIZE_CHARS is set to a reasonable value` | Constant verification |
+| `Bet interface does not include pageSource or html fields` | Static schema validation |
+| `parsed bets do not contain HTML markup in raw field` | Runtime content validation |
+| `parsers use DOMParser which does not execute scripts` | DOMParser safety verification |
+
+### Manual Verification Checklist
+
+- [ ] Paste extremely large input (>5MB) → User sees clear error, app stays responsive
+- [ ] Run a normal import → Behavior unchanged, bets import correctly
+- [ ] Inspect localStorage (`bettracker-state`) → Contains only normalized data, no HTML blobs
+- [ ] Search codebase for `dangerouslySetInnerHTML` → No results
+- [ ] Search codebase for `innerHTML` with pasted HTML → No unsafe usage
+
+---
+
 ## Document History
 
 | Version | Date | Status | Author |
@@ -560,4 +650,5 @@ Tests in `parsing/tests/parser-contract.test.ts`:
 | v2 | 2025-12-24 | Superseded | Post-refactor review |
 | v3 | 2025-12-26 | Superseded | Foundation closeout audit |
 | v3.1 | 2025-12-26 | Superseded | Added Operator UX section (Pass 10) |
-| v3.2 | 2025-12-26 | **CURRENT** | Added Extensibility Contract (Pass 11) |
+| v3.2 | 2025-12-26 | Superseded | Added Extensibility Contract (Pass 11) |
+| v3.3 | 2025-12-26 | **CURRENT** | Added Security & Privacy Guardrails (Pass 12) |

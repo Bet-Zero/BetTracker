@@ -2,6 +2,19 @@ import { Bet } from '../types';
 import { Result, ok, err, createImportError } from './errors';
 import { migrateBets } from '../utils/migrations';
 
+/**
+ * Persistence Service
+ * 
+ * Manages localStorage for the BetTracker application.
+ * 
+ * PRIVACY & SECURITY NOTES:
+ * - Only normalized Bet data is persisted; raw HTML is NEVER stored.
+ * - The Bet.raw field (if present) contains only extracted text content for debugging,
+ *   NOT the full pasted HTML blob.
+ * - No account identifiers, passwords, or sensitive PII are stored.
+ * - All data is local to the browser; no backend transmission occurs.
+ */
+
 // Current version number for the storage schema
 export const STORAGE_VERSION = 1;
 

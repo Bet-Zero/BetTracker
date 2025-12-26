@@ -6,6 +6,11 @@
  * 
  * Parser discovery is now centralized in parserRegistry.ts. To add a new
  * sportsbook parser, register it there - no changes needed here.
+ * 
+ * SECURITY NOTE:
+ * - Input size is validated before parsing to prevent memory/performance issues.
+ * - DOMParser is used safely in an in-memory context (scripts are not executed).
+ * - Raw HTML is never stored in localStorage or rendered via innerHTML.
  */
 
 import { SportsbookName, Bet } from '../../types';
@@ -21,6 +26,13 @@ import {
   getParser,
   getParserUnavailableMessage
 } from '../parserRegistry';
+
+/**
+ * Maximum allowed input size in characters.
+ * 5MB is generous for page source HTML while preventing memory issues.
+ * Typical sportsbook bet history pages are 500KB-2MB.
+ */
+export const MAX_INPUT_SIZE_CHARS = 5 * 1024 * 1024; // 5MB in characters
 
 /**
  * Legacy ParseResult interface for backward compatibility.
@@ -39,6 +51,7 @@ export interface ParseResult {
  * 
  * Error handling:
  * - EMPTY_HTML: HTML is empty or whitespace-only
+ * - INPUT_TOO_LARGE: Input exceeds MAX_INPUT_SIZE_CHARS (security guardrail)
  * - NO_BETS_FOUND: Parser ran but found no bets
  * - PARSER_NOT_AVAILABLE: No parser exists or parser is disabled for the sportsbook
  * - PARSER_FAILED: Parser threw an unexpected error
@@ -53,6 +66,17 @@ export const processPageResult = (book: SportsbookName, html: string): Result<Be
     return err(createImportError(
       'EMPTY_HTML',
       getErrorMessage('EMPTY_HTML')
+    ));
+  }
+
+  // SECURITY: Check input size before parsing to prevent memory/performance issues
+  if (html.length > MAX_INPUT_SIZE_CHARS) {
+    const sizeMB = (html.length / (1024 * 1024)).toFixed(1);
+    const maxMB = (MAX_INPUT_SIZE_CHARS / (1024 * 1024)).toFixed(0);
+    return err(createImportError(
+      'INPUT_TOO_LARGE',
+      getErrorMessage('INPUT_TOO_LARGE'),
+      `Input size: ${sizeMB}MB exceeds maximum of ${maxMB}MB. Copy a smaller range of bets or export in batches.`
     ));
   }
 

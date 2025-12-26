@@ -23,6 +23,7 @@
  */
 export type ImportErrorCode =
   | 'EMPTY_HTML'           // HTML content is empty or whitespace-only
+  | 'INPUT_TOO_LARGE'      // Input exceeds max allowed size (security/performance guardrail)
   | 'NO_BETS_FOUND'        // Parser ran but found no bets
   | 'PARSER_FAILED'        // Parser threw an unexpected error
   | 'PARSER_NOT_AVAILABLE' // No parser exists for the sportsbook
@@ -83,6 +84,7 @@ export function createImportError(
  */
 export const ERROR_MESSAGES: Record<ImportErrorCode, string> = {
   EMPTY_HTML: 'Please paste the page source HTML. The content appears to be empty.',
+  INPUT_TOO_LARGE: 'The pasted content is too large to process safely. Please copy a smaller range of bets and try again.',
   NO_BETS_FOUND: 'No bets were found in the HTML. Make sure you copied the full page source from your settled bets page.',
   PARSER_FAILED: 'An unexpected error occurred while parsing. Please check the page source and try again.',
   PARSER_NOT_AVAILABLE: 'No parser is available for this sportsbook yet.',

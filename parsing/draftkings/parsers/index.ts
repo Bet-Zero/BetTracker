@@ -7,7 +7,17 @@ import {
 import { parseSingleBet } from "./single";
 import { parseParlayBet } from "./parlay";
 
+/**
+ * Parses DraftKings HTML into Bet objects.
+ * 
+ * SECURITY NOTE:
+ * - DOMParser creates an in-memory document only; scripts are NOT executed.
+ * - The parsed document is used solely for data extraction via querySelector.
+ * - Raw HTML is never stored or rendered; only extracted bet data is returned.
+ */
 export const parseDraftKingsHTML = (html: string): Bet[] => {
+  // SECURITY: DOMParser safely parses HTML into an in-memory document.
+  // Scripts embedded in HTML are NOT executed by DOMParser.
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, "text/html");
   const bets: Bet[] = [];
