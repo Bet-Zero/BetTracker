@@ -284,7 +284,9 @@ export function validateBetContract(bet: Bet, sportsbook: string): BetValidation
       // Check leg result format (should be uppercase)
       if (leg.result && typeof leg.result === 'string') {
         const upper = leg.result.toUpperCase();
-        if (leg.result !== upper && VALID_LEG_RESULTS.includes(upper as LegResult)) {
+        // Type-safe check: verify upper is in VALID_LEG_RESULTS before warning
+        const isValidUppercase = (VALID_LEG_RESULTS as readonly string[]).includes(upper);
+        if (leg.result !== upper && isValidUppercase) {
           warnings.push(`${sportsbook}: Leg ${index} result should be uppercase ("${upper}" not "${leg.result}")`);
         }
       }

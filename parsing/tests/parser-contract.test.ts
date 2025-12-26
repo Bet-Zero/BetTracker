@@ -236,7 +236,10 @@ describe("Parser Output Contract", () => {
     expect(bet.stake, `${sportsbook}: Invalid stake`).toBeTypeOf("number");
     expect(bet.stake, `${sportsbook}: Stake must be positive`).toBeGreaterThan(0);
     expect(bet.odds, `${sportsbook}: Invalid odds`).toBeTypeOf("number");
-    expect(isNaN(bet.odds as number), `${sportsbook}: Odds cannot be NaN`).toBe(false);
+    // After toBeTypeOf("number") assertion, bet.odds is verified as number type
+    if (typeof bet.odds === 'number') {
+      expect(isNaN(bet.odds), `${sportsbook}: Odds cannot be NaN`).toBe(false);
+    }
     expect(bet.payout, `${sportsbook}: Invalid payout`).toBeTypeOf("number");
     expect(bet.placedAt, `${sportsbook}: Missing placedAt`).toBeDefined();
     const date = new Date(bet.placedAt);
@@ -255,15 +258,18 @@ describe("Parser Output Contract", () => {
 
     // 5. Structure
     expect(bet.legs, `${sportsbook}: Missing legs array`).toBeInstanceOf(Array);
-    expect(bet.legs!.length, `${sportsbook}: Bet must have at least one leg`).toBeGreaterThan(0);
-    bet.legs!.forEach((leg, index) => {
-      expect(leg, `${sportsbook}: Leg ${index} must be an object`).toBeDefined();
-      expect(leg.market, `${sportsbook}: Leg ${index} must have market`).toBeDefined();
-      // entityType should be set for new parsers
-      if (leg.entityType !== undefined) {
-        expect(VALID_ENTITY_TYPES).toContain(leg.entityType);
-      }
-    });
+    // After legs assertion, safely access length with null check
+    if (bet.legs && Array.isArray(bet.legs)) {
+      expect(bet.legs.length, `${sportsbook}: Bet must have at least one leg`).toBeGreaterThan(0);
+      bet.legs.forEach((leg, index) => {
+        expect(leg, `${sportsbook}: Leg ${index} must be an object`).toBeDefined();
+        expect(leg.market, `${sportsbook}: Leg ${index} must have market`).toBeDefined();
+        // entityType should be set for new parsers
+        if (leg.entityType !== undefined) {
+          expect(VALID_ENTITY_TYPES).toContain(leg.entityType);
+        }
+      });
+    }
 
     // 6. Result
     expect(bet.result, `${sportsbook}: Missing result`).toBeDefined();
