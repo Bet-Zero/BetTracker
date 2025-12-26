@@ -4,8 +4,9 @@ import { useInputs } from '../hooks/useInputs';
 import { Bet, BetResult, BetType, BetLeg } from '../types';
 import { parseCsv } from '../services/csvParser';
 import { classifyBet } from '../services/marketClassification';
-import { AlertTriangle, CheckCircle2 } from '../components/icons';
+import { AlertTriangle, CheckCircle2, Download } from '../components/icons';
 import InputManagementSection from './InputManagementView';
+import { loadState, STORAGE_VERSION } from '../services/persistence';
 
 interface SettingsViewProps {
   theme: 'light' | 'dark';
@@ -178,6 +179,61 @@ const SettingsView: React.FC<SettingsViewProps> = ({ theme, toggleTheme }) => {
       document.body.removeChild(link);
     }
   };
+  
+  /**
+   * Export full persisted state as JSON backup.
+   * This includes version info, metadata, and all bets with full leg data.
+   * Useful for data recovery and migration.
+   */
+  const exportBackupJSON = () => {
+    try {
+      const result = loadState();
+      
+      if (!result.ok) {
+        showNotification('Failed to load state for backup: ' + result.error.message, 'error');
+        return;
+      }
+      
+      const state = result.value;
+      
+      // Create a comprehensive backup object
+      const backup = {
+        exportedAt: new Date().toISOString(),
+        version: STORAGE_VERSION,
+        format: 'bettracker-backup-v1',
+        stats: {
+          totalBets: state.bets.length,
+          lastUpdated: state.updatedAt,
+        },
+        state: state,
+      };
+      
+      const jsonString = JSON.stringify(backup, null, 2);
+      const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8;' });
+      const link = document.createElement('a');
+      
+      if (link.download !== undefined) {
+        const url = URL.createObjectURL(blob);
+        // Format: YYYY-MM-DD_HHmmss for filesystem-safe timestamp
+        const now = new Date();
+        const date = now.toISOString().split('T')[0];
+        const time = now.toTimeString().slice(0, 8).replace(/:/g, '');
+        const timestamp = `${date}_${time}`;
+        link.setAttribute('href', url);
+        link.setAttribute('download', `bettracker_backup_${timestamp}.json`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        showNotification(`Backup exported: ${state.bets.length} bets saved.`, 'success');
+      }
+    } catch (error) {
+      console.error('Export backup failed:', error);
+      showNotification('Failed to export backup: ' + (error instanceof Error ? error.message : 'Unknown error'), 'error');
+    }
+  };
 
   const handleClearDataClick = () => {
     setShowClearConfirm(true);
@@ -327,6 +383,16 @@ const SettingsView: React.FC<SettingsViewProps> = ({ theme, toggleTheme }) => {
                 >
                     Export All Bets to CSV
                 </button>
+            </SettingCard>
+            <SettingCard title="Export Full Backup (JSON)" description="Download a complete backup including all bet data, leg details, and metadata. Use this for data recovery.">
+<button
+    onClick={exportBackupJSON}
+    type="button"
+    className="px-4 py-2 bg-neutral-600 dark:bg-neutral-700 text-white font-semibold rounded-lg shadow-md hover:bg-neutral-700 dark:hover:bg-neutral-600 focus:outline-none focus:ring-2 focus:ring-neutral-500 focus:ring-opacity-75 flex items-center gap-2"
+>
+    <Download className="w-4 h-4" />
+    Export JSON Backup
+</button>
             </SettingCard>
           </div>
       </div>

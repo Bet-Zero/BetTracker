@@ -5,6 +5,8 @@
 export interface StorageErrorInfo {
   message: string;
   suggestion: string;
+  isRecoverable?: boolean;
+  backupCreated?: boolean;
 }
 
 /**
@@ -23,7 +25,8 @@ export const handleStorageError = (
   if (errorMessage.includes('QuotaExceededError') || errorMessage.includes('quota')) {
     return {
       message: 'Storage is full. Your data could not be saved.',
-      suggestion: 'Please clear some browser storage or export your data as a backup.',
+      suggestion: 'Please clear some browser storage or export your data as a backup using Settings > Export JSON Backup.',
+      isRecoverable: true,
     };
   }
   
@@ -31,24 +34,60 @@ export const handleStorageError = (
     return {
       message: 'Browser storage is disabled or blocked.',
       suggestion: 'Please enable localStorage in your browser settings or check privacy settings.',
+      isRecoverable: false,
+    };
+  }
+  
+  // Check for corruption errors
+  if (errorMessage.includes('corrupted') || errorMessage.includes('invalid')) {
+    return {
+      message: 'Your saved data was corrupted.',
+      suggestion: 'A backup was automatically created. You can find it in Settings > Export JSON Backup. The app has been reset to a clean state.',
+      isRecoverable: true,
+      backupCreated: true,
     };
   }
   
   // Generic error
   return {
     message: `Failed to ${operation} data: ${errorMessage}`,
-    suggestion: 'Please check your browser console for details. Consider exporting your data as a backup.',
+    suggestion: 'Please check your browser console for details. Consider exporting your data as a backup using Settings > Export JSON Backup.',
+    isRecoverable: true,
   };
 };
 
 /**
- * Shows a user-visible error notification
- * This is a simple implementation that uses alert().
- * TODO: Replace with a proper toast/notification system when available.
+ * Shows a user-visible error notification with better formatting.
+ * @param errorInfo - Error information to display
  */
 export const showStorageError = (errorInfo: StorageErrorInfo): void => {
-  // For now, use alert. In a production app, this would use a toast/notification system.
-  alert(`${errorInfo.message}\n\n${errorInfo.suggestion}`);
+  // Build a more informative message
+  let fullMessage = errorInfo.message;
+  
+  if (errorInfo.backupCreated) {
+    fullMessage += '\n\n✓ A backup was automatically created.';
+  }
+  
+  fullMessage += '\n\n' + errorInfo.suggestion;
+  
+  // Use alert for now - in a production app this would use a toast/notification system
+  alert(fullMessage);
   console.error('Storage Error:', errorInfo.message, errorInfo.suggestion);
 };
 
+/**
+ * Creates a formatted corruption recovery message for display
+ * @param options - Optional configuration
+ * @param options.backupKey - The localStorage key where backup was saved
+ */
+export const getCorruptionRecoveryMessage = (options?: { backupKey?: string }): StorageErrorInfo => {
+  const backupKey = options?.backupKey;
+  return {
+    message: 'Data Recovery Complete',
+    suggestion: backupKey 
+      ? `Your previous data was corrupted and has been backed up to "${backupKey}". The app has been reset. You can export the backup from Settings if needed.`
+      : 'Your previous data was corrupted. A backup was created automatically. The app has been reset to a clean state.',
+    isRecoverable: true,
+    backupCreated: true,
+  };
+};

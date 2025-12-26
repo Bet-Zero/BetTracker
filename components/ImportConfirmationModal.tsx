@@ -1,12 +1,22 @@
 import React, { useState, useMemo } from "react";
 import { Bet, Sportsbook, MarketCategory, BetLeg } from "../types";
-import { X, AlertTriangle, CheckCircle2, Wifi, XCircle } from "./icons";
+import { X, AlertTriangle, CheckCircle2, Wifi, XCircle, Info } from "./icons";
 import { classifyLeg } from "../services/marketClassification";
 import { validateBetsForImport } from "../utils/importValidation";
 
+// Export summary type for parent components
+export interface ImportSummary {
+  totalParsed: number;
+  blockers: number;
+  warnings: number;
+  duplicates: number;
+  netNew: number;
+}
+
 interface ImportConfirmationModalProps {
   bets: Bet[];
-  onConfirm: () => void;
+  existingBetIds: Set<string>;
+  onConfirm: (summary: ImportSummary) => void;
   onCancel: () => void;
   onEditBet: (index: number, updates: Partial<Bet>) => void;
   availableSports: string[];
@@ -137,6 +147,7 @@ export const ImportConfirmationModal: React.FC<
   ImportConfirmationModalProps
 > = ({
   bets,
+  existingBetIds,
   onConfirm,
   onCancel,
   onEditBet,
@@ -163,9 +174,53 @@ export const ImportConfirmationModal: React.FC<
   const validationSummary = useMemo(() => {
     return validateBetsForImport(bets);
   }, [bets]);
+  
+  // Compute duplicate count based on existingBetIds
+  const duplicateCount = useMemo(() => {
+    return bets.filter(bet => existingBetIds.has(bet.id)).length;
+  }, [bets, existingBetIds]);
+  
+  // Compute the full import summary for the "What Will Happen" section
+  const importSummary: ImportSummary = useMemo(() => {
+    const totalParsed = bets.length;
+    const blockers = validationSummary.betsWithBlockers;
+    const duplicates = duplicateCount;
+    // Net-new = total - duplicates - blocked
+    const netNew = Math.max(0, totalParsed - duplicates - blockers);
+    
+    return {
+      totalParsed,
+      blockers,
+      warnings: validationSummary.totalWarnings, // Total warning issues across all bets
+      duplicates,
+      netNew,
+    };
+  }, [bets, validationSummary, duplicateCount]);
 
   const hasBlockers = validationSummary.totalBlockers > 0;
   const hasWarnings = validationSummary.totalWarnings > 0;
+  
+  // Get warning hints for tooltip display
+  const getWarningHints = (): string => {
+    const hints: string[] = [];
+    const seenFields = new Set<string>();
+    
+    // Collect unique warning hints from all bets
+    for (const [_, result] of validationSummary.validationResults) {
+      for (const warning of result.warnings) {
+        if (!seenFields.has(warning.field) && warning.hint) {
+          hints.push(`• ${warning.message}: ${warning.hint}`);
+          seenFields.add(warning.field);
+        }
+      }
+      // Limit to top 4 warning types
+      if (hints.length >= 4) break;
+    }
+    
+    return hints.length > 0 
+      ? `Common warnings:\n${hints.join('\n')}`
+      : 'Review warnings before importing';
+  };
 
   // Toggle expansion for a parlay bet
   const toggleExpansion = (betId: string) => {
@@ -459,7 +514,7 @@ export const ImportConfirmationModal: React.FC<
               <span className="font-semibold text-neutral-900 dark:text-white">
                 {bets.length}
               </span>{" "}
-              bet{bets.length !== 1 ? "s" : ""} ready to import. Review and fix
+              bet{bets.length !== 1 ? "s" : ""} parsed. Review and fix
               any issues before importing.
             </p>
           </div>
@@ -469,6 +524,98 @@ export const ImportConfirmationModal: React.FC<
           >
             <X className="w-6 h-6" />
           </button>
+        </div>
+        
+        {/* "What Will Happen" Summary - updates live */}
+        <div className="px-6 py-4 bg-neutral-50 dark:bg-neutral-800/50 border-b border-neutral-200 dark:border-neutral-800">
+          <div className="flex items-center gap-2 mb-3">
+            <Info className="w-4 h-4 text-primary-600 dark:text-primary-400" />
+            <h3 className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">What Will Happen</h3>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+            {/* Total Parsed */}
+            <div className="bg-white dark:bg-neutral-900 rounded-lg p-3 border border-neutral-200 dark:border-neutral-700">
+              <div className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">Total Parsed</div>
+              <div className="text-xl font-bold text-neutral-900 dark:text-white">{importSummary.totalParsed}</div>
+            </div>
+            
+            {/* Blockers */}
+            <div className={`rounded-lg p-3 border ${
+              importSummary.blockers > 0 
+                ? 'bg-danger-50 dark:bg-danger-900/20 border-danger-200 dark:border-danger-800' 
+                : 'bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700'
+            }`}>
+              <div className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide flex items-center gap-1">
+                Blockers
+                {importSummary.blockers > 0 && <XCircle className="w-3 h-3 text-danger-500" />}
+              </div>
+              <div className={`text-xl font-bold ${
+                importSummary.blockers > 0 ? 'text-danger-600 dark:text-danger-400' : 'text-neutral-900 dark:text-white'
+              }`}>
+                {importSummary.blockers}
+              </div>
+              {importSummary.blockers > 0 && (
+                <div className="text-xs text-danger-600 dark:text-danger-400 mt-1">Must be 0 to import</div>
+              )}
+            </div>
+            
+            {/* Warnings */}
+            <div 
+              className={`rounded-lg p-3 border ${
+                importSummary.warnings > 0 
+                  ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800' 
+                  : 'bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700'
+              }`}
+              title={importSummary.warnings > 0 ? getWarningHints() : undefined}
+            >
+              <div className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide flex items-center gap-1">
+                Warnings
+                {importSummary.warnings > 0 && <AlertTriangle className="w-3 h-3 text-yellow-500" />}
+              </div>
+              <div className={`text-xl font-bold ${
+                importSummary.warnings > 0 ? 'text-yellow-600 dark:text-yellow-400' : 'text-neutral-900 dark:text-white'
+              }`}>
+                {importSummary.warnings}
+              </div>
+              {importSummary.warnings > 0 && (
+                <div className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
+                  Won't block import
+                  <span className="text-neutral-500 dark:text-neutral-400 ml-1">(hover for details)</span>
+                </div>
+              )}
+            </div>
+            
+            {/* Duplicates */}
+            <div className={`rounded-lg p-3 border ${
+              importSummary.duplicates > 0 
+                ? 'bg-neutral-100 dark:bg-neutral-800 border-neutral-300 dark:border-neutral-600' 
+                : 'bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700'
+            }`}>
+              <div className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">Duplicates</div>
+              <div className="text-xl font-bold text-neutral-600 dark:text-neutral-300">{importSummary.duplicates}</div>
+              {importSummary.duplicates > 0 && (
+                <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">Already in database</div>
+              )}
+            </div>
+            
+            {/* Net New */}
+            <div className={`rounded-lg p-3 border ${
+              importSummary.netNew > 0 
+                ? 'bg-accent-50 dark:bg-accent-900/20 border-accent-200 dark:border-accent-800' 
+                : 'bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700'
+            }`}>
+              <div className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide flex items-center gap-1">
+                Will Import
+                {importSummary.netNew > 0 && <CheckCircle2 className="w-3 h-3 text-accent-500" />}
+              </div>
+              <div className={`text-xl font-bold ${
+                importSummary.netNew > 0 ? 'text-accent-600 dark:text-accent-400' : 'text-neutral-900 dark:text-white'
+              }`}>
+                {importSummary.netNew}
+              </div>
+              <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">Net-new bets</div>
+            </div>
+          </div>
         </div>
 
         {/* Bets Table */}
@@ -500,6 +647,7 @@ export const ImportConfirmationModal: React.FC<
                   const isParlayBet = isParlay(bet);
                   const isExpanded = expandedBets.has(bet.id);
                   const betIssues = getBetIssues(bet);
+                  const isDuplicate = existingBetIds.has(bet.id);
                   const isEditing =
                     editingIndex === betIndex && editingLegIndex === null;
                   const visibleLegs = getVisibleLegs(bet);
@@ -560,14 +708,25 @@ export const ImportConfirmationModal: React.FC<
                       {/* Main bet row */}
                       <tr
                         className={`border-b dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-800/50 ${
-                          betIssues.length > 0
+                          isDuplicate
+                            ? "bg-neutral-200 dark:bg-neutral-700/50 opacity-60"
+                            : betIssues.length > 0
                             ? "bg-yellow-50 dark:bg-yellow-900/20"
                             : betIndex % 2 === 0
                             ? "bg-white dark:bg-neutral-900"
                             : "bg-neutral-50 dark:bg-neutral-800/50"
                         }`}
                       >
-                        <td className="px-2 py-3 whitespace-nowrap">{date}</td>
+                        <td className="px-2 py-3 whitespace-nowrap">
+                          <div className="flex items-center gap-1">
+                            {isDuplicate && (
+                              <span className="text-xs bg-neutral-400 dark:bg-neutral-600 text-white px-1.5 py-0.5 rounded" title="Already in database">
+                                DUP
+                              </span>
+                            )}
+                            {date}
+                          </div>
+                        </td>
                         <td className="px-2 py-3 font-bold">{site}</td>
                         <td className="px-2 py-3">
                           {isEditing ? (
@@ -1387,15 +1546,24 @@ export const ImportConfirmationModal: React.FC<
               <div className="flex items-center gap-2 text-yellow-600 dark:text-yellow-400">
                 <AlertTriangle className="w-4 h-4" />
                 <span>
-                  {validationSummary.totalWarnings} warning{validationSummary.totalWarnings !== 1 ? 's' : ''} (can import)
+                  {validationSummary.totalWarnings} warning{validationSummary.totalWarnings !== 1 ? 's' : ''} (can still import)
                 </span>
               </div>
             )}
             {/* All good - GREEN */}
-            {!hasBlockers && !hasWarnings && (
+            {!hasBlockers && !hasWarnings && duplicateCount === 0 && (
               <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
                 <CheckCircle2 className="w-4 h-4" />
                 <span>All bets look good!</span>
+              </div>
+            )}
+            {/* Duplicates info */}
+            {duplicateCount > 0 && !hasBlockers && (
+              <div className="flex items-center gap-2 text-neutral-600 dark:text-neutral-400 mt-1">
+                <Info className="w-4 h-4" />
+                <span>
+                  {duplicateCount} duplicate{duplicateCount !== 1 ? 's' : ''} will be skipped
+                </span>
               </div>
             )}
           </div>
@@ -1407,18 +1575,27 @@ export const ImportConfirmationModal: React.FC<
               Cancel
             </button>
             <button
-              onClick={onConfirm}
-              disabled={hasBlockers}
+              onClick={() => onConfirm(importSummary)}
+              disabled={hasBlockers || importSummary.netNew === 0}
+              type="button"
               className={`px-4 py-2 rounded-lg ${
-                hasBlockers
+                hasBlockers || importSummary.netNew === 0
                   ? 'bg-neutral-400 text-neutral-200 cursor-not-allowed'
                   : 'bg-primary-600 text-white hover:bg-primary-700'
               }`}
-              title={hasBlockers ? 'Fix blocking issues before importing' : undefined}
+              title={
+                hasBlockers 
+                  ? 'Fix blocking issues before importing' 
+                  : importSummary.netNew === 0 
+                  ? 'No new bets to import' 
+                  : undefined
+              }
             >
               {hasBlockers
                 ? `Cannot Import (${validationSummary.betsWithBlockers} blocked)`
-                : `Import ${validationSummary.validBets.length} Bet${validationSummary.validBets.length !== 1 ? 's' : ''}`
+                : importSummary.netNew === 0
+                ? 'No New Bets'
+                : `Import ${importSummary.netNew} Bet${importSummary.netNew !== 1 ? 's' : ''}`
               }
             </button>
           </div>
