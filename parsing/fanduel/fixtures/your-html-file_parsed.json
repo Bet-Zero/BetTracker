@@ -21,6 +21,7 @@
         "entities": [
           "Royce O'Neale"
         ],
+        "entityType": "player",
         "market": "3pt",
         "target": "5+",
         "ou": "Over",
@@ -39,7 +40,7 @@
     "betId": "O/0242888/0028021",
     "placedAt": "2025-11-18T19:40:00-05:00",
     "betType": "single",
-    "marketCategory": "Main Markets",
+    "marketCategory": "Props",
     "sport": "NBA",
     "description": "Jalen Johnson To RECORD A TRIPLE DOUBLE",
     "name": "Jalen Johnson",
@@ -53,6 +54,7 @@
         "entities": [
           "Jalen Johnson"
         ],
+        "entityType": "player",
         "market": "TD",
         "odds": 850,
         "result": "LOSS"
@@ -71,7 +73,7 @@
     "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "6-leg Same Game Parlay Plus: SGP (Detroit @ Atlanta Hawks - Jalen Johnson TD, Cade Cunningham TD) + Luka Doncic +410 TD + Deni Avdija +1200 TD + Luka Doncic TD + Deni Avdija TD",
+    "description": "4-leg Same Game Parlay Plus: SGP (Detroit @ Atlanta Hawks - Jalen Johnson TD, Cade Cunningham TD) + Luka Doncic TD + Deni Avdija TD",
     "name": "SGP+",
     "odds": 1108261,
     "stake": 0.5,
@@ -89,16 +91,16 @@
             "entities": [
               "Jalen Johnson"
             ],
+            "entityType": "player",
             "market": "TD",
-            "odds": null,
             "result": "LOSS"
           },
           {
             "entities": [
               "Cade Cunningham"
             ],
+            "entityType": "player",
             "market": "TD",
-            "odds": null,
             "result": "LOSS"
           }
         ]
@@ -107,9 +109,8 @@
         "entities": [
           "Luka Doncic"
         ],
+        "entityType": "player",
         "market": "TD",
-        "target": "+410",
-        "ou": "Over",
         "odds": 410,
         "result": "LOSS",
         "game": "Utah Jazz @ Los Angeles Lakers"
@@ -118,28 +119,9 @@
         "entities": [
           "Deni Avdija"
         ],
+        "entityType": "player",
         "market": "TD",
-        "target": "+1200",
-        "ou": "Over",
         "odds": 1200,
-        "result": "LOSS",
-        "game": "Phoenix Suns @ Portland Trail Blazers"
-      },
-      {
-        "entities": [
-          "Luka Doncic"
-        ],
-        "market": "TD",
-        "ou": "Over",
-        "result": "LOSS",
-        "game": "Utah Jazz @ Los Angeles Lakers"
-      },
-      {
-        "entities": [
-          "Deni Avdija"
-        ],
-        "market": "TD",
-        "ou": "Over",
         "result": "LOSS",
         "game": "Phoenix Suns @ Portland Trail Blazers"
       }
@@ -157,7 +139,7 @@
     "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "4-leg Same Game Parlay Plus: SGP (Detroit @ Atlanta Hawks - Jalen Johnson TD, Cade Cunningham TD) + Deni Avdija +1200 TD + Deni Avdija TD",
+    "description": "3-leg Same Game Parlay Plus: SGP (Detroit @ Atlanta Hawks - Jalen Johnson TD, Cade Cunningham TD) + Deni Avdija TD",
     "name": "SGP+",
     "odds": 217225,
     "stake": 0.5,
@@ -175,16 +157,16 @@
             "entities": [
               "Jalen Johnson"
             ],
+            "entityType": "player",
             "market": "TD",
-            "odds": null,
             "result": "LOSS"
           },
           {
             "entities": [
               "Cade Cunningham"
             ],
+            "entityType": "player",
             "market": "TD",
-            "odds": null,
             "result": "LOSS"
           }
         ]
@@ -193,19 +175,9 @@
         "entities": [
           "Deni Avdija"
         ],
+        "entityType": "player",
         "market": "TD",
-        "target": "+1200",
-        "ou": "Over",
         "odds": 1200,
-        "result": "LOSS",
-        "game": "Phoenix Suns @ Portland Trail Blazers"
-      },
-      {
-        "entities": [
-          "Deni Avdija"
-        ],
-        "market": "TD",
-        "ou": "Over",
         "result": "LOSS",
         "game": "Phoenix Suns @ Portland Trail Blazers"
       }
@@ -237,6 +209,7 @@
         "entities": [
           "Cade Cunningham"
         ],
+        "entityType": "player",
         "market": "Pts",
         "target": "30+",
         "ou": "Over",
@@ -275,20 +248,20 @@
             "entities": [
               "Isaiah Collier"
             ],
+            "entityType": "player",
             "market": "Ast",
             "target": "10+",
             "ou": "Over",
-            "odds": null,
             "result": "LOSS"
           },
           {
             "entities": [
               "LeBron James"
             ],
+            "entityType": "player",
             "market": "Ast",
             "target": "10+",
             "ou": "Over",
-            "odds": null,
             "result": "WIN"
           }
         ]
@@ -297,6 +270,7 @@
         "entities": [
           "Jalen Johnson"
         ],
+        "entityType": "player",
         "market": "Ast",
         "target": "10+",
         "ou": "Over",
@@ -308,6 +282,7 @@
         "entities": [
           "Deni Avdija"
         ],
+        "entityType": "player",
         "market": "Ast",
         "target": "10+",
         "ou": "Over",
@@ -343,6 +318,7 @@
         "entities": [
           "Ausar Thompson"
         ],
+        "entityType": "player",
         "market": "Pts",
         "target": "10.5",
         "ou": "Under",
@@ -377,6 +353,7 @@
         "entities": [
           "Onyeka Okongwu"
         ],
+        "entityType": "player",
         "market": "Reb",
         "target": "8.5",
         "ou": "Over",
@@ -408,6 +385,7 @@
         "entities": [
           "Orlando Magic"
         ],
+        "entityType": "team",
         "market": "Spread",
         "target": "-5.5",
         "odds": -144,
@@ -417,6 +395,7 @@
         "entities": [
           "Detroit Pistons"
         ],
+        "entityType": "team",
         "market": "Spread",
         "target": "-5.5",
         "odds": -125,
@@ -446,6 +425,11 @@
     "ou": "Over",
     "legs": [
       {
+        "entities": [
+          "Pistons",
+          "Hawks"
+        ],
+        "entityType": "team",
         "market": "Total",
         "target": "232.5",
         "ou": "Over",
@@ -464,7 +448,7 @@
     "betId": "O/0242888/0028005",
     "placedAt": "2025-11-18T18:53:00-05:00",
     "betType": "single",
-    "marketCategory": "Main Markets",
+    "marketCategory": "Props",
     "sport": "NBA",
     "description": "Franz Wagner Top POINTS SCORER",
     "name": "Franz Wagner",
@@ -478,6 +462,7 @@
         "entities": [
           "Franz Wagner"
         ],
+        "entityType": "player",
         "market": "Top Pts",
         "odds": 240,
         "result": "LOSS"
@@ -506,6 +491,11 @@
     "ou": "Under",
     "legs": [
       {
+        "entities": [
+          "Warriors",
+          "Magic"
+        ],
+        "entityType": "team",
         "market": "Total",
         "target": "224.5",
         "ou": "Under",
@@ -539,6 +529,7 @@
         "entities": [
           "Orlando Magic"
         ],
+        "entityType": "team",
         "market": "Spread",
         "target": "+2.5",
         "odds": -112,
@@ -570,6 +561,7 @@
         "entities": [
           "Orlando Magic"
         ],
+        "entityType": "team",
         "market": "Moneyline",
         "odds": 116,
         "result": "WIN"
@@ -586,7 +578,7 @@
     "betId": "O/0242888/0028017",
     "placedAt": "2025-11-18T19:36:00-05:00",
     "betType": "single",
-    "marketCategory": "Main Markets",
+    "marketCategory": "Props",
     "sport": "NBA",
     "description": "Duncan Robinson First BASKET",
     "name": "Duncan Robinson",
@@ -600,6 +592,7 @@
         "entities": [
           "Duncan Robinson"
         ],
+        "entityType": "player",
         "market": "FB",
         "odds": 900,
         "result": "LOSS"
@@ -636,50 +629,50 @@
             "entities": [
               "Jalen Smith"
             ],
+            "entityType": "player",
             "market": "3pt",
             "target": "2+",
             "ou": "Over",
-            "odds": null,
             "result": "LOSS"
           },
           {
             "entities": [
               "Ace Bailey"
             ],
+            "entityType": "player",
             "market": "3pt",
             "target": "2+",
             "ou": "Over",
-            "odds": null,
             "result": "LOSS"
           },
           {
             "entities": [
               "Patrick Williams"
             ],
+            "entityType": "player",
             "market": "3pt",
             "target": "2+",
             "ou": "Over",
-            "odds": null,
             "result": "LOSS"
           },
           {
             "entities": [
               "Coby White"
             ],
+            "entityType": "player",
             "market": "3pt",
             "target": "2+",
             "ou": "Over",
-            "odds": null,
             "result": "LOSS"
           },
           {
             "entities": [
               "Isaiah Collier"
             ],
+            "entityType": "player",
             "market": "Ast",
             "target": "8+",
             "ou": "Over",
-            "odds": null,
             "result": "LOSS"
           }
         ]
@@ -716,30 +709,30 @@
             "entities": [
               "Jalen Smith"
             ],
+            "entityType": "player",
             "market": "3pt",
             "target": "2+",
             "ou": "Over",
-            "odds": null,
             "result": "LOSS"
           },
           {
             "entities": [
               "Ace Bailey"
             ],
+            "entityType": "player",
             "market": "3pt",
             "target": "2+",
             "ou": "Over",
-            "odds": null,
             "result": "LOSS"
           },
           {
             "entities": [
               "Patrick Williams"
             ],
+            "entityType": "player",
             "market": "3pt",
             "target": "2+",
             "ou": "Over",
-            "odds": null,
             "result": "LOSS"
           }
         ]
@@ -776,50 +769,50 @@
             "entities": [
               "Coby White"
             ],
+            "entityType": "player",
             "market": "3pt",
             "target": "4+",
             "ou": "Over",
-            "odds": null,
             "result": "LOSS"
           },
           {
             "entities": [
               "Patrick Williams"
             ],
+            "entityType": "player",
             "market": "3pt",
             "target": "2+",
             "ou": "Over",
-            "odds": null,
             "result": "LOSS"
           },
           {
             "entities": [
               "Ayo Dosunmu"
             ],
+            "entityType": "player",
             "market": "3pt",
             "target": "2+",
             "ou": "Over",
-            "odds": null,
             "result": "LOSS"
           },
           {
             "entities": [
               "Ace Bailey"
             ],
+            "entityType": "player",
             "market": "3pt",
             "target": "3+",
             "ou": "Over",
-            "odds": null,
             "result": "LOSS"
           },
           {
             "entities": [
               "Isaiah Collier"
             ],
+            "entityType": "player",
             "market": "Ast",
             "target": "4+",
             "ou": "Over",
-            "odds": null,
             "result": "LOSS"
           }
         ]
@@ -838,8 +831,8 @@
     "betType": "parlay",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Deni Avdija +1200 TD, Josh Giddey +250 TD, Jalen Johnson +700 TD, Josh Giddey TD, Jalen Johnson TD, Deni Avdija TD",
-    "name": "Parlay (6)",
+    "description": "Deni Avdija TD, Josh Giddey TD, Jalen Johnson TD",
+    "name": "Parlay (3)",
     "odds": 36300,
     "stake": 0.5,
     "payout": 0,
@@ -849,9 +842,8 @@
         "entities": [
           "Deni Avdija"
         ],
+        "entityType": "player",
         "market": "TD",
-        "target": "+1200",
-        "ou": "Over",
         "odds": 1200,
         "result": "LOSS"
       },
@@ -859,9 +851,8 @@
         "entities": [
           "Josh Giddey"
         ],
+        "entityType": "player",
         "market": "TD",
-        "target": "+250",
-        "ou": "Over",
         "odds": 250,
         "result": "LOSS"
       },
@@ -869,31 +860,9 @@
         "entities": [
           "Jalen Johnson"
         ],
+        "entityType": "player",
         "market": "TD",
-        "target": "+700",
-        "ou": "Over",
         "odds": 700,
-        "result": "LOSS"
-      },
-      {
-        "entities": [
-          "Josh Giddey"
-        ],
-        "market": "TD",
-        "result": "LOSS"
-      },
-      {
-        "entities": [
-          "Jalen Johnson"
-        ],
-        "market": "TD",
-        "result": "LOSS"
-      },
-      {
-        "entities": [
-          "Deni Avdija"
-        ],
-        "market": "TD",
         "result": "LOSS"
       }
     ],
@@ -928,20 +897,20 @@
             "entities": [
               "Jalen Smith"
             ],
+            "entityType": "player",
             "market": "3pt",
             "target": "3+",
             "ou": "Over",
-            "odds": null,
             "result": "LOSS"
           },
           {
             "entities": [
               "Isaiah Collier"
             ],
+            "entityType": "player",
             "market": "Ast",
             "target": "10+",
             "ou": "Over",
-            "odds": null,
             "result": "LOSS"
           }
         ]
@@ -957,20 +926,20 @@
             "entities": [
               "Royce O'Neale"
             ],
+            "entityType": "player",
             "market": "3pt",
             "target": "4+",
             "ou": "Over",
-            "odds": null,
             "result": "LOSS"
           },
           {
             "entities": [
               "Jalen Johnson"
             ],
+            "entityType": "player",
             "market": "Ast",
             "target": "8+",
             "ou": "Over",
-            "odds": null,
             "result": "LOSS"
           }
         ]
@@ -1007,20 +976,20 @@
             "entities": [
               "Will Richard"
             ],
+            "entityType": "player",
             "market": "3pt",
             "target": "3+",
             "ou": "Over",
-            "odds": null,
             "result": "LOSS"
           },
           {
             "entities": [
               "Saddiq Bey"
             ],
+            "entityType": "player",
             "market": "3pt",
             "target": "3+",
             "ou": "Over",
-            "odds": null,
             "result": "LOSS"
           }
         ]
@@ -1053,6 +1022,7 @@
         "entities": [
           "Will Richard"
         ],
+        "entityType": "player",
         "market": "3pt",
         "target": "3+",
         "ou": "Over",
@@ -1087,6 +1057,7 @@
         "entities": [
           "Will Richard"
         ],
+        "entityType": "player",
         "market": "3pt",
         "target": "2+",
         "ou": "Over",
@@ -1125,20 +1096,20 @@
             "entities": [
               "Zion Williamson"
             ],
+            "entityType": "player",
             "market": "Pts",
             "target": "30+",
             "ou": "Over",
-            "odds": null,
             "result": "VOID"
           },
           {
             "entities": [
               "Will Richard"
             ],
+            "entityType": "player",
             "market": "3pt",
             "target": "3+",
             "ou": "Over",
-            "odds": null,
             "result": "LOSS"
           }
         ]
@@ -1154,20 +1125,20 @@
             "entities": [
               "Jalen Smith"
             ],
+            "entityType": "player",
             "market": "3pt",
             "target": "3+",
             "ou": "Over",
-            "odds": null,
             "result": "LOSS"
           },
           {
             "entities": [
               "Ace Bailey"
             ],
+            "entityType": "player",
             "market": "3pt",
             "target": "3+",
             "ou": "Over",
-            "odds": null,
             "result": "LOSS"
           }
         ]
@@ -1176,6 +1147,7 @@
         "entities": [
           "Royce O'Neale"
         ],
+        "entityType": "player",
         "market": "3pt",
         "target": "3+",
         "ou": "Over",
@@ -1215,30 +1187,30 @@
             "entities": [
               "Quinshon Judkins"
             ],
+            "entityType": "player",
             "market": "Yds",
             "target": "80+",
             "ou": "Over",
-            "odds": null,
             "result": "LOSS"
           },
           {
             "entities": [
               "Derrick Henry"
             ],
+            "entityType": "player",
             "market": "Yds",
             "target": "80+",
             "ou": "Over",
-            "odds": null,
             "result": "LOSS"
           },
           {
             "entities": [
               "Lamar Jackson"
             ],
+            "entityType": "player",
             "market": "Yds",
             "target": "40+",
             "ou": "Over",
-            "odds": null,
             "result": "LOSS"
           }
         ]
@@ -1254,20 +1226,20 @@
             "entities": [
               "Rashee Rice"
             ],
+            "entityType": "player",
             "market": "Rec",
             "target": "7+",
             "ou": "Over",
-            "odds": null,
             "result": "LOSS"
           },
           {
             "entities": [
               "Evan Engram"
             ],
+            "entityType": "player",
             "market": "Rec",
             "target": "4+",
             "ou": "Over",
-            "odds": null,
             "result": "LOSS"
           }
         ]
@@ -1300,6 +1272,7 @@
         "entities": [
           "Ricky Pearsall"
         ],
+        "entityType": "player",
         "market": "Rec",
         "target": "3+",
         "ou": "Over",
@@ -1334,6 +1307,7 @@
         "entities": [
           "Ricky Pearsall"
         ],
+        "entityType": "player",
         "market": "Yds",
         "target": "35.5",
         "ou": "Over",
@@ -1368,6 +1342,7 @@
         "entities": [
           "Ricky Pearsall"
         ],
+        "entityType": "player",
         "market": "Yds",
         "target": "60+",
         "ou": "Over",
@@ -1402,6 +1377,7 @@
         "entities": [
           "Ricky Pearsall"
         ],
+        "entityType": "player",
         "market": "Rec",
         "target": "4+",
         "ou": "Over",
@@ -1436,6 +1412,7 @@
         "entities": [
           "Ricky Pearsall"
         ],
+        "entityType": "player",
         "market": "Yds",
         "target": "50+",
         "ou": "Over",
@@ -1456,7 +1433,7 @@
     "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NFL",
-    "description": "4-leg Same Game Parlay Plus: SGP (Seattle Seahawks @ Los Angeles Rams - Davante Adams 50+ Yds, Cooper Kupp 3+ Rec) + Ricky Pearsall 50+ Yds + Cooper Kupp 3+ Yds",
+    "description": "3-leg Same Game Parlay Plus: SGP (Seattle Seahawks @ Los Angeles Rams - Davante Adams 50+ Yds, Cooper Kupp 3+ Rec) + Ricky Pearsall 50+ Yds",
     "name": "SGP+",
     "odds": 37067,
     "stake": 0.25,
@@ -1474,20 +1451,20 @@
             "entities": [
               "Davante Adams"
             ],
+            "entityType": "player",
             "market": "Yds",
             "target": "50+",
             "ou": "Over",
-            "odds": null,
             "result": "LOSS"
           },
           {
             "entities": [
               "Cooper Kupp"
             ],
+            "entityType": "player",
             "market": "Rec",
             "target": "3+",
             "ou": "Over",
-            "odds": null,
             "result": "LOSS"
           }
         ]
@@ -1496,22 +1473,13 @@
         "entities": [
           "Ricky Pearsall"
         ],
+        "entityType": "player",
         "market": "Yds",
         "target": "50+",
         "ou": "Over",
         "odds": 1100,
         "result": "LOSS",
         "game": "San Francisco 49ers @ Arizona Cardinals"
-      },
-      {
-        "entities": [
-          "Cooper Kupp"
-        ],
-        "market": "Yds",
-        "target": "3+",
-        "ou": "Over",
-        "result": "LOSS",
-        "game": "Seattle Seahawks @ Los Angeles Rams"
       }
     ],
     "tail": "",
@@ -1538,6 +1506,7 @@
         "entities": [
           "Ricky Pearsall"
         ],
+        "entityType": "player",
         "market": "Yds",
         "target": "50+",
         "ou": "Over",
@@ -1548,6 +1517,7 @@
         "entities": [
           "Davante Adams"
         ],
+        "entityType": "player",
         "market": "Yds",
         "target": "50+",
         "ou": "Over",
@@ -1586,20 +1556,20 @@
             "entities": [
               "Cooper Kupp"
             ],
+            "entityType": "player",
             "market": "Rec",
             "target": "2+",
             "ou": "Over",
-            "odds": null,
             "result": "LOSS"
           },
           {
             "entities": [
               "Davante Adams"
             ],
+            "entityType": "player",
             "market": "Rec",
             "target": "3+",
             "ou": "Over",
-            "odds": null,
             "result": "LOSS"
           }
         ]
@@ -1608,6 +1578,7 @@
         "entities": [
           "Ricky Pearsall"
         ],
+        "entityType": "player",
         "market": "Rec",
         "target": "3+",
         "ou": "Over",
@@ -1647,20 +1618,20 @@
             "entities": [
               "Davante Adams"
             ],
+            "entityType": "player",
             "market": "Rec",
             "target": "5+",
             "ou": "Over",
-            "odds": null,
             "result": "LOSS"
           },
           {
             "entities": [
               "Cooper Kupp"
             ],
+            "entityType": "player",
             "market": "Rec",
             "target": "3+",
             "ou": "Over",
-            "odds": null,
             "result": "LOSS"
           }
         ]
@@ -1676,20 +1647,20 @@
             "entities": [
               "Ricky Pearsall"
             ],
+            "entityType": "player",
             "market": "Rec",
             "target": "3+",
             "ou": "Over",
-            "odds": null,
             "result": "LOSS"
           },
           {
             "entities": [
               "Jauan Jennings"
             ],
+            "entityType": "player",
             "market": "Rec",
             "target": "6+",
             "ou": "Over",
-            "odds": null,
             "result": "LOSS"
           }
         ]

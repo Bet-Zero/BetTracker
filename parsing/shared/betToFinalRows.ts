@@ -166,28 +166,6 @@ function mergeOdds(
   return normalizeOdds(odds2);
 }
 
-/**
- * Builds a pipe-delimited key string from a bet leg for deduplication purposes.
- * Normalizes values (toLowerCase), handles undefined/null safely, and returns
- * a consistently formatted string.
- *
- * @param leg - The bet leg to build a key from
- * @param normalizedTarget - Optional normalized target value to include in the key
- * @returns A pipe-delimited string key
- */
-function buildLegKey(leg: BetLeg, normalizedTarget?: string): string {
-  const entity = (leg.entities?.[0] ?? "").toLowerCase();
-  const market = (leg.market ?? "").toLowerCase();
-  const ou = leg.ou ?? "";
-
-  const parts: string[] = [entity, market];
-  if (normalizedTarget !== undefined) {
-    parts.push(normalizedTarget);
-  }
-  parts.push(ou);
-
-  return parts.join("|");
-}
 
 /**
  * Gets the parlay label based on bet type.
@@ -306,133 +284,9 @@ export function betToFinalRows(bet: Bet): FinalRow[] {
     return leg;
   });
 
-  /**
-   * DEDUPLICATION SAFETY NET
-   *
-   * This deduplication block catches any duplicate legs that slipped through the parser.
-   * It handles cases where the same leg appears with and without target values.
-   *
-   * WHY THIS EXISTS:
-   * - FanDuel parsers have sophisticated deduplication (parlay.ts lines 166-265, 403-428)
-   * - DraftKings parsers do NOT have deduplication
-   * - This block serves as a safety net to prevent duplicate rows in the UI
-   *
-   * IDEAL STATE:
-   * Parsers should output deduplicated legs. Once DraftKings parsers have deduplication,
-   * this block can be simplified or removed. Until then, it remains as a defensive measure.
-   *
-   * If this code is merging legs, it indicates a parser bug that should be fixed upstream.
-   */
-  const deduplicatedLegs = (() => {
-    const seen = new Map<string, BetLeg>();
-    // Map from loose key to exact key for O(1) lookup
-    const looseToExactKey = new Map<string, string>();
-
-    // Helper to normalize target for deduplication
-    // Treats 0 and "0" as valid targets (present), only empty/undefined/null as absent
-    const normalizeTarget = (
-      target: string | number | undefined | null
-    ): string => {
-      if (target === undefined || target === null || target === "") {
-        return "";
-      }
-      // Convert to string and trim - 0 becomes "0", which is a valid target
-      return String(target).trim();
-    };
-
-    for (const leg of expandedLegs) {
-      // Cache normalized target at loop start to avoid re-normalizing
-      const normalizedTarget = normalizeTarget(leg.target);
-      const hasTarget = normalizedTarget !== "";
-
-      // Create keys for matching
-      // Exact key: entity + market + target + ou (for exact duplicates)
-      const exactKey = buildLegKey(leg, normalizedTarget);
-
-      // Loose key: entity + market + ou (for matching when one target is empty)
-      const looseKey = buildLegKey(leg);
-
-      // Check for exact match first
-      if (seen.has(exactKey)) {
-        // Exact duplicate - merge properties
-        const existing = seen.get(exactKey)!;
-        const merged: BetLeg = {
-          ...existing,
-          result: mergeResults(leg.result, existing.result),
-          ou: leg.ou || existing.ou,
-          entities: leg.entities || existing.entities,
-          market: leg.market || existing.market,
-          odds: mergeOdds(leg.odds, existing.odds),
-        };
-        seen.set(exactKey, merged);
-        continue;
-      }
-
-      // Check for loose match using the lookup map
-      const existingExactKey = looseToExactKey.get(looseKey);
-      let existing: BetLeg | undefined;
-      let existingNormalizedTarget: string | undefined;
-
-      if (existingExactKey) {
-        const existingLeg = seen.get(existingExactKey);
-        if (existingLeg) {
-          // Cache normalized target for existing leg to avoid re-normalizing
-          existingNormalizedTarget = normalizeTarget(existingLeg.target);
-          const existingHasTarget = existingNormalizedTarget !== "";
-
-          // Only treat as duplicates if one has target and other doesn't
-          if (hasTarget !== existingHasTarget) {
-            existing = existingLeg;
-          } else if (hasTarget && existingHasTarget) {
-            // Edge case: both have targets but they're different
-            // Prefer keeping both legs (don't merge) to preserve distinct targets
-            // This handles cases where multiple different targets share the same loose key
-            // (e.g., "Player Points 25.5" vs "Player Points 30.5" should remain separate)
-            existing = undefined;
-          }
-        }
-      }
-
-      if (existing) {
-        // Merge: prefer the leg with a target value
-        // We know exactly one has a target (checked above), so simplify selection
-        const preferredLeg = hasTarget ? leg : existing;
-
-        // Merge properties, preferring non-empty values
-        const merged: BetLeg = {
-          ...preferredLeg,
-          // Use the target from whichever leg has it
-          target: hasTarget ? leg.target : existing.target,
-          // For other properties, prefer non-empty values from either leg
-          result: mergeResults(leg.result, existing.result),
-          ou: leg.ou || existing.ou,
-          entities: leg.entities || existing.entities,
-          market: leg.market || existing.market,
-          odds: mergeOdds(leg.odds, existing.odds),
-        };
-
-        // When merging, the map key may change if we're adding a target to a leg
-        // that previously had none. The old key (without target) must be removed
-        // and the merged leg inserted under the correct key (with target if present).
-        seen.delete(existingExactKey!);
-        looseToExactKey.delete(looseKey);
-        // Use exact key if we have a target, otherwise use loose key
-        const keyToUse = hasTarget ? exactKey : looseKey;
-        seen.set(keyToUse, merged);
-        looseToExactKey.set(looseKey, keyToUse);
-      } else {
-        // No match found, add this leg
-        // Use exact key if we have a target, otherwise use loose key
-        const keyToUse = hasTarget ? exactKey : looseKey;
-        seen.set(keyToUse, leg);
-        looseToExactKey.set(looseKey, keyToUse);
-      }
-    }
-
-    return Array.from(seen.values());
-  })();
-
-  const isParlay = hasLegs && deduplicatedLegs.length > 1;
+  // Parsers are responsible for deduplicating legs.
+  // FanDuel and DraftKings parsers both call dedupeLegs() before returning.
+  const isParlay = hasLegs && expandedLegs.length > 1;
   const parlayGroupId = isParlay ? bet.id : null;
 
   if (!hasLegs) {
@@ -461,13 +315,13 @@ export function betToFinalRows(bet: Bet): FinalRow[] {
     // Bet with structured legs - create one row per leg
     // Safety check: Limit legs to prevent parsing errors from creating thousands of rows
     const legsToProcess =
-      deduplicatedLegs.length > MAX_LEGS_PER_BET
-        ? deduplicatedLegs.slice(0, MAX_LEGS_PER_BET)
-        : deduplicatedLegs;
+      expandedLegs.length > MAX_LEGS_PER_BET
+        ? expandedLegs.slice(0, MAX_LEGS_PER_BET)
+        : expandedLegs;
 
-    if (deduplicatedLegs.length > MAX_LEGS_PER_BET) {
+    if (expandedLegs.length > MAX_LEGS_PER_BET) {
       console.error(
-        `betToFinalRows: Bet ${bet.betId} has ${deduplicatedLegs.length} legs - limiting to ${MAX_LEGS_PER_BET} to prevent excessive rows`
+        `betToFinalRows: Bet ${bet.betId} has ${expandedLegs.length} legs - limiting to ${MAX_LEGS_PER_BET} to prevent excessive rows`
       );
     }
 
@@ -486,7 +340,7 @@ export function betToFinalRows(bet: Bet): FinalRow[] {
         {
           parlayGroupId: parlayGroupId,
           legIndex: null,
-          legCount: Math.min(deduplicatedLegs.length, MAX_LEGS_PER_BET),
+          legCount: Math.min(expandedLegs.length, MAX_LEGS_PER_BET),
           isParlayHeader: true,
           isParlayChild: false,
           showMonetaryValues: true,

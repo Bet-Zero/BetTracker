@@ -1,6 +1,7 @@
 import { Bet, BetLeg, BetResult } from "../../../types";
 import { collectLeafLegs } from "../../utils/legs";
 import {
+  dedupeLegs,
   FooterMeta,
   HeaderInfo,
   normalizeSpaces,
@@ -571,6 +572,6 @@ export const parseParlayBet = (ctx: ParlayBetContext): Bet => {
     sport,
     description,
     odds,
-    legs: topLevelLegs,
+    legs: dedupeLegs(topLevelLegs),
   };
 };

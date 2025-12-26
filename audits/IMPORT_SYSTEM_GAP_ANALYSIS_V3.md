@@ -30,9 +30,9 @@
 │  ┌─────────────────────────┐    ┌─────────────────────────┐                 │
 │  │ FanDuel Parser          │    │ DraftKings Parser       │                 │
 │  │ (Full implementation)   │    │ (Full implementation)   │                 │
-│  │ • Deduplication ✓       │    │ • entityType set ✓      │                 │
-│  │ • entityType set ✓      │    │ • marketCategory set ✓  │                 │
-│  │ • marketCategory set ✓  │    │                         │                 │
+│  │ • Deduplication ✓       │    │ • Deduplication ✓       │                 │
+│  │ • entityType set ✓      │    │ • entityType set ✓      │                 │
+│  │ • marketCategory set ✓  │    │ • marketCategory set ✓  │                 │
 │  └───────────┬─────────────┘    └───────────┬─────────────┘                 │
 │              ↓                              ↓                               │
 │  Output: Bet[] with marketCategory + entityType assigned                    │
@@ -98,9 +98,7 @@
 │  ├── betToFinalRows() → FinalRow[] (single transform)                       │
 │  ├── Uses normalizeCategoryForDisplay() from marketClassification.ts ✓      │
 │  ├── Uses abbreviateMarket() from marketClassification.ts ✓                 │
-│  ├── FinalRow has _rawOdds/_rawBet/_rawToWin/_rawNet (no string parsing)   │
-│  ├── Leg deduplication safety net (handles DraftKings parser gap)            │
-│  └── Spreadsheet-style editing with copy/paste                              │
+│  ├── Spreadsheet-style editing with copy/paste                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -178,29 +176,25 @@
 |------|--------|-------|
 | FinalRow with raw fields | ✅ Implemented | `_rawOdds`, `_rawBet`, `_rawToWin`, `_rawNet` |
 | BetTableView uses raw fields | ✅ Implemented | No string round-trip parsing |
-| Leg deduplication | ⚠️ Safety net | Still in display layer (documented) |
+| Leg deduplication | ✅ Parser layer | Both FD and DK parsers call dedupeLegs() |
 
-**Raw numeric fields added to FinalRow. Deduplication remains as documented safety net.**
+**Raw numeric fields added to FinalRow. Deduplication moved to parser layer.**
 
 ---
 
 ## 3. Remaining Gaps (Current State)
 
-### Gap D: Leg Deduplication in Display Layer — LOW RISK ⚠️
+### ~~Gap D: Leg Deduplication in Display Layer~~ — RESOLVED ✅
 
-**Status:** Intentionally retained as documented safety net
+**Status:** Resolved — Deduplication moved to parser layer
 
-**Current State:**
-- `betToFinalRows.ts` contains deduplication logic (lines 309-430)
-- FanDuel parser has sophisticated deduplication
-- DraftKings parser does NOT have deduplication
-- Display-layer dedup catches parser gaps
+**Resolution:**
+- Added `dedupeLegs()` function to DraftKings parser (`common.ts`)
+- Applied dedup in `parseParlayBet()` before returning legs
+- Removed display-layer safety net from `betToFinalRows.ts`
+- FanDuel parser already had deduplication
 
-**Resolution Path:**
-1. Add deduplication to DraftKings parsers
-2. Once verified, remove display-layer safety net
-
-**Risk:** 🟢 LOW — Deduplication works correctly, masks parser issue rather than causing bugs
+**Verification:** 4 new tests in `parlay-deduplication.test.ts`
 
 ---
 
@@ -265,7 +259,7 @@
 | 2 | Normalization unified with overlay pattern | ✅ PASS | Base seed + localStorage overlays |
 | 3 | Import cannot persist invalid bets (blockers enforced) | ✅ PASS | Validation gate filters in `addBets()` |
 | 4 | Storage layer contains no guessing logic | ✅ PASS | Entity heuristics removed |
-| 5 | Display layer contains no data-cleaning logic | ⚠️ PARTIAL | Dedup safety net intentionally retained |
+| 5 | Display layer contains no data-cleaning logic | ✅ PASS | Dedup moved to parser layer |
 | 6 | Parsers output typed entities with entityType | ✅ PASS | Both FD and DK set entityType |
 | 7 | Consistent Result/error handling end-to-end | ✅ PASS | Result<T> pattern throughout |
 | 8 | Minimal tests exist for classification | ✅ PASS | 51 tests passing |
@@ -277,7 +271,7 @@
 | 14 | Overlay keys documented | ✅ PASS | `NORMALIZATION_STORAGE_KEYS` exported |
 | 15 | Import button disabled when blockers exist | ✅ PASS | UI enforces validation gate |
 
-**PASS: 14/15 | PARTIAL: 1/15 | FAIL: 0/15**
+**PASS: 15/15 | PARTIAL: 0/15 | FAIL: 0/15**
 
 ---
 
@@ -285,11 +279,11 @@
 
 ### Immediate (None Required)
 
-The foundation is complete. No critical defects were found that require immediate code changes.
+The foundation is complete. All 15 criteria now pass.
 
 ### Future Improvements (Optional, Low Priority)
 
-1. **DraftKings Parser Deduplication** — Add deduplication logic to DraftKings parsers to match FanDuel. Once verified, remove the display-layer safety net.
+1. ~~**DraftKings Parser Deduplication**~~ — ✅ DONE (Pass 8A)
 
 2. **Test Fixture Maintenance** — Update parser test fixtures to match current output format. This is test maintenance, not a foundation issue.
 
@@ -318,20 +312,23 @@ The import system foundation meets all critical exit criteria:
 ## Appendix: Test Suite Summary (2025-12-26)
 
 ```
-Test Files:  5 failed | 5 passed (10)
-     Tests: 11 failed | 218 passed (229)
+Test Files: 12 passed (12)
+     Tests: 216 passed (216)
 
 Passing test suites:
-✓ services/marketClassification.test.ts (51 tests)
-✓ services/importPipeline.test.ts (28 tests)
-✓ services/normalizationService.test.ts (50 tests)
-✓ parsing/fanduel/tests/common.test.ts (5 tests)
-✓ parsing/tests/legs.test.ts (2 tests)
+✓ services/marketClassification.test.ts
+✓ services/importPipeline.test.ts
+✓ services/normalizationService.test.ts
+✓ parsing/fanduel/tests/common.test.ts
+✓ parsing/tests/legs.test.ts
+✓ parsing/fanduel/tests/fanduel.test.ts
+✓ parsing/draftkings/tests/draftkings.test.ts
+✓ parsing/tests/parser-contract.test.ts (NEW)
+✓ parsing/tests/parlay-deduplication.test.ts
 
-Failing tests (fixture drift, not foundation issues):
-- Parser description format differences
-- Leg count expectation mismatches
-- Result merge priority tests (test expectation issue)
+Failing tests:
+- NONE
+
 ```
 
 The failing tests are fixture/expectation drift from parser output changes, not validation or classification failures. Core pipeline functionality is verified.

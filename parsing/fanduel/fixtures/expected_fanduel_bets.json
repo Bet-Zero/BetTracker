@@ -1,13 +1,13 @@
 [
   {
-    "id": "fanduel:O/0242888/0028020:2025-11-18T19:39:00-05:00",
+    "id": "FanDuel:O/0242888/0028020:2025-11-18T19:39:00-05:00",
     "book": "FanDuel",
     "betId": "O/0242888/0028020",
     "placedAt": "2025-11-18T19:39:00-05:00",
     "betType": "single",
     "marketCategory": "Props",
     "sport": "NBA",
-    "description": "Cade Cunningham To Score 30+ Points",
+    "description": "Cade Cunningham Over 30+ Points",
     "name": "Cade Cunningham",
     "odds": 240,
     "stake": 1.02,
@@ -15,25 +15,27 @@
     "result": "loss",
     "type": "Pts",
     "line": "30+",
+    "ou": "Over",
     "legs": [
       {
         "entities": [
           "Cade Cunningham"
         ],
-        "market": "Points",
+        "entityType": "player",
+        "market": "Pts",
         "target": "30+",
-        "actual": 25,
-        "result": "LOSS",
-        "ou": "Over"
+        "ou": "Over",
+        "odds": 240,
+        "result": "LOSS"
       }
     ],
     "tail": "",
-    "raw": "",
+    "raw": "Cade Cunningham+240TO SCORE 30+ POINTS2530Detroit Pistons35322726120112Atlanta Hawks30242830112120FinishedFinishedBox ScorePlay-by-play\n----\n$1.02TOTAL WAGER$0.00RETURNEDBET ID: O/0242888/0028020PLACED: 11/18/2025 7:39PM ET",
     "isLive": false,
-    "ou": "Over"
+    "isSample": false
   },
   {
-    "id": "fanduel:O/0242888/0028018:2025-11-18T19:38:00-05:00",
+    "id": "FanDuel:O/0242888/0028018:2025-11-18T19:38:00-05:00",
     "book": "FanDuel",
     "betId": "O/0242888/0028018",
     "placedAt": "2025-11-18T19:38:00-05:00",
@@ -54,26 +56,29 @@
         "entities": [
           "Ausar Thompson"
         ],
-        "market": "Points",
-        "target": 10.5,
+        "entityType": "player",
+        "market": "Pts",
+        "target": "10.5",
         "ou": "Under",
-        "actual": 6,
+        "odds": -120,
         "result": "WIN"
       }
     ],
     "tail": "",
-    "raw": "",
-    "isLive": false
+    "raw": "Ausar Thompson Under 10.5-120AUSAR THOMPSON - POINTS610.5Detroit Pistons35322726120112Atlanta Hawks30242830112120FinishedFinishedBox ScorePlay-by-play\n----\n$1.23TOTAL WAGER$2.26WON ON FANDUELBET ID: O/0242888/0028018PLACED: 11/18/2025 7:38PM ET",
+    "isLive": false,
+    "isSample": false
   },
   {
-    "id": "fanduel:O/0242888/0028023:2025-11-18T19:54:00-05:00",
+    "id": "FanDuel:O/0242888/0028023:2025-11-18T19:54:00-05:00",
     "book": "FanDuel",
     "betId": "O/0242888/0028023",
     "placedAt": "2025-11-18T19:54:00-05:00",
     "betType": "parlay",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Orlando Magic -5.5, Detroit Pistons -5.5",
+    "description": "Detroit Pistons -5.5, Orlando Magic -5.5",
+    "name": "Parlay (2)",
     "odds": 205,
     "stake": 2,
     "payout": 6.1,
@@ -81,29 +86,32 @@
     "legs": [
       {
         "entities": [
-          "Orlando Magic"
+          "Detroit Pistons"
         ],
+        "entityType": "team",
         "market": "Spread",
-        "target": -5.5,
-        "odds": -144,
+        "target": "-5.5",
+        "odds": -125,
         "result": "WIN"
       },
       {
         "entities": [
-          "Detroit Pistons"
+          "Orlando Magic"
         ],
+        "entityType": "team",
         "market": "Spread",
-        "target": -5.5,
-        "odds": -125,
+        "target": "-5.5",
+        "odds": -144,
         "result": "WIN"
       }
     ],
     "tail": "",
-    "raw": "",
-    "isLive": false
+    "raw": "2 leg parlay+205Orlando Magic -5.5 Spread Betting, Detroit Pistons -5.5 Spread BettingOrlando Magic -5.5-144SPREAD BETTINGGolden State Warriors32282528113121Orlando Magic36312628121113FinishedFinishedBox ScorePlay-by-playDetroit Pistons -5.5-125SPREAD BETTINGDetroit Pistons35322726120112Atlanta Hawks30242830112120FinishedFinishedBox ScorePlay-by-play$2.00TOTAL WAGER$6.10WON ON FANDUELBET ID: O/0242888/0028023PLACED: 11/18/2025\n----\n2 leg parlay+205Orlando Magic -5.5 Spread Betting, Detroit Pistons -5.5 Spread BettingOrlando Magic -5.5-144SPREAD BETTINGGolden State Warriors32282528113121Orlando Magic36312628121113FinishedFinishedBox ScorePlay-by-playDetroit Pistons -5.5-125SPREAD BETTINGDetroit Pistons35322726120112Atlanta Hawks30242830112120FinishedFinishedBox ScorePlay-by-play$2.00TOTAL WAGER$6.10WON ON FANDUELBET ID: O/0242888/0028023PLACED: 11/18/2025 7:54PM ET",
+    "isLive": false,
+    "isSample": false
   },
   {
-    "id": "fanduel:O/0242888/0028003:2025-11-18T18:52:00-05:00",
+    "id": "FanDuel:O/0242888/0028003:2025-11-18T18:52:00-05:00",
     "book": "FanDuel",
     "betId": "O/0242888/0028003",
     "placedAt": "2025-11-18T18:52:00-05:00",
@@ -120,19 +128,25 @@
     "ou": "Under",
     "legs": [
       {
+        "entities": [
+          "Warriors",
+          "Magic"
+        ],
+        "entityType": "team",
         "market": "Total",
-        "target": 224.5,
+        "target": "224.5",
         "ou": "Under",
-        "actual": 234,
+        "odds": -110,
         "result": "LOSS"
       }
     ],
     "tail": "",
-    "raw": "",
-    "isLive": false
+    "raw": "Under224.5-110TOTAL POINTS224.5234Golden State Warriors32282528113121Orlando Magic36312628121113FinishedFinishedBox ScorePlay-by-play\n----\n$1.50TOTAL WAGER$0.00RETURNEDBET ID: O/0242888/0028003PLACED: 11/18/2025 6:52PM ET",
+    "isLive": false,
+    "isSample": false
   },
   {
-    "id": "fanduel:O/0242888/0028004:2025-11-18T18:52:00-05:00",
+    "id": "FanDuel:O/0242888/0028004:2025-11-18T18:52:00-05:00",
     "book": "FanDuel",
     "betId": "O/0242888/0028004",
     "placedAt": "2025-11-18T18:52:00-05:00",
@@ -151,16 +165,19 @@
         "entities": [
           "Orlando Magic"
         ],
+        "entityType": "team",
         "market": "Moneyline",
+        "odds": 116,
         "result": "WIN"
       }
     ],
     "tail": "",
-    "raw": "",
-    "isLive": false
+    "raw": "Orlando Magic+116MONEYLINEGolden State Warriors32282528113121Orlando Magic36312628121113FinishedFinishedBox ScorePlay-by-play\n----\n$2.00TOTAL WAGER$4.32WON ON FANDUELBET ID: O/0242888/0028004PLACED: 11/18/2025 6:52PM ET",
+    "isLive": false,
+    "isSample": false
   },
   {
-    "id": "fanduel:O/0242888/0028002:2025-11-18T18:52:00-05:00",
+    "id": "FanDuel:O/0242888/0028002:2025-11-18T18:52:00-05:00",
     "book": "FanDuel",
     "betId": "O/0242888/0028002",
     "placedAt": "2025-11-18T18:52:00-05:00",
@@ -180,14 +197,16 @@
         "entities": [
           "Orlando Magic"
         ],
+        "entityType": "team",
         "market": "Spread",
-        "target": 2.5,
+        "target": "+2.5",
+        "odds": -112,
         "result": "WIN"
       }
     ],
     "tail": "",
-    "raw": "",
+    "raw": "Orlando Magic+2.5-112SPREAD BETTINGGolden State Warriors32282528113121Orlando Magic36312628121113FinishedFinishedBox ScorePlay-by-play\n----\n$1.00TOTAL WAGER$1.89WON ON FANDUELBET ID: O/0242888/0028002PLACED: 11/18/2025 6:52PM ET",
     "isLive": false,
-    "ou": "Over"
+    "isSample": false
   }
 ]

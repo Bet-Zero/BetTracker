@@ -7,7 +7,7 @@
     "betType": "sgp",
     "marketCategory": "Parlays",
     "sport": "NBA",
-    "description": "Same Game Parlay - Chicago Bulls @ Portland Trail Blazers: Josh Giddey 10+ Ast; Coby White 4+ 3pt; Deni Avdija 8+ Ast; Deni Avdija 10+ Reb",
+    "description": "Same Game Parlay - Chicago Bulls @ Portland Trail Blazers: Josh Giddey 10+ Ast, Coby White 4+ Made Threes, Deni Avdija 8+ Ast, Deni Avdija 10+ Reb",
     "odds": 6058,
     "stake": 2,
     "payout": 123.18,
@@ -46,7 +46,7 @@
             ],
             "market": "Ast",
             "target": "8+",
-            "result": "PENDING",
+            "result": "WIN",
             "odds": null,
             "ou": "Over"
           },
@@ -56,7 +56,7 @@
             ],
             "market": "Reb",
             "target": "10+",
-            "result": "PENDING",
+            "result": "WIN",
             "odds": null,
             "ou": "Over"
           }

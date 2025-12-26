@@ -1,4 +1,4 @@
-import { BetResult, LegResult } from "../../../types";
+import { BetLeg, BetResult, LegResult } from "../../../types";
 
 // DEBUG toggle - for local debugging only
 // Check environment flag to prevent console logs from leaking in production
@@ -471,4 +471,157 @@ export const normalizeBetType = (text: string | null | undefined): 'single' | 'p
   if (lower.includes('parlay')) return 'parlay';
   
   return null;
+};
+
+/* -------------------------------------------------------------------------- */
+/*                          LEG DEDUPLICATION                                 */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Normalize target for deduplication.
+ * Treats empty/undefined/null as empty string for comparison.
+ * Treats 0 and "0" as valid non-empty targets.
+ */
+const normalizeTarget = (target: string | number | undefined | null): string => {
+  if (target === undefined || target === null || target === "") {
+    return "";
+  }
+  return String(target).trim();
+};
+
+/**
+ * Result priority for merging: win > loss > push > pending
+ */
+const RESULT_PRIORITY: Record<string, number> = {
+  win: 4,
+  loss: 3,
+  push: 2,
+  pending: 1,
+};
+
+/**
+ * Merge two result values, preferring higher priority.
+ */
+const mergeResults = (
+  result1?: LegResult | BetResult,
+  result2?: LegResult | BetResult
+): LegResult | BetResult | undefined => {
+  const p1 = result1 ? (RESULT_PRIORITY[result1.toLowerCase()] ?? 0) : 0;
+  const p2 = result2 ? (RESULT_PRIORITY[result2.toLowerCase()] ?? 0) : 0;
+  return p1 >= p2 ? result1 : result2;
+};
+
+/**
+ * Merge two odds values, preferring the first non-undefined value.
+ */
+const mergeOdds = (
+  odds1: number | undefined,
+  odds2: number | undefined
+): number | undefined => {
+  if (odds1 !== undefined && odds1 !== 0) return odds1;
+  if (odds2 !== undefined && odds2 !== 0) return odds2;
+  return undefined;
+};
+
+/**
+ * Deduplicate bet legs by entity + market + target + ou.
+ * 
+ * This handles cases where the same leg appears multiple times,
+ * sometimes with and without a target value. When duplicates are found:
+ * - Prefer the leg with a non-empty target
+ * - Merge result using priority (win > loss > push > pending)
+ * - Merge odds (first non-undefined)
+ * - Keep legs with different targets as separate entries
+ * 
+ * @param legs - Array of BetLeg objects to deduplicate
+ * @returns Deduplicated array of BetLeg objects
+ */
+export const dedupeLegs = (legs: BetLeg[]): BetLeg[] => {
+  const seen = new Map<string, BetLeg>();
+  // Map looseKey -> primaryKey for O(1) loose match lookups
+  const looseKeyMap = new Map<string, string>();
+
+  for (const leg of legs) {
+    const normalizedTarget = normalizeTarget(leg.target);
+    const hasTarget = normalizedTarget !== "";
+
+    // Primary key: entity + market + target + ou (exact match)
+    const primaryKey = [
+      (leg.entities?.[0] || "").toLowerCase(),
+      (leg.market || "").toLowerCase(),
+      normalizedTarget,
+      leg.ou ?? "",
+    ].join("|");
+
+    // Loose key: entity + market + ou (ignores target for merge matching)
+    const looseKey = [
+      (leg.entities?.[0] || "").toLowerCase(),
+      (leg.market || "").toLowerCase(),
+      leg.ou ?? "",
+    ].join("|");
+
+    // Check for exact match first
+    if (seen.has(primaryKey)) {
+      // Exact duplicate - merge properties
+      const existing = seen.get(primaryKey)!;
+      const merged: BetLeg = {
+        ...existing,
+        result: mergeResults(leg.result, existing.result),
+        ou: leg.ou || existing.ou,
+        entities: leg.entities?.length ? leg.entities : existing.entities,
+        market: leg.market || existing.market,
+        odds: mergeOdds(leg.odds, existing.odds),
+      };
+      seen.set(primaryKey, merged);
+      continue;
+    }
+
+    // Check for loose match (same entity/market/ou but different target presence)
+    const existingPrimaryKey = looseKeyMap.get(looseKey);
+    let existingLoose: BetLeg | undefined;
+
+    if (existingPrimaryKey) {
+      const existingLeg = seen.get(existingPrimaryKey);
+      if (existingLeg) {
+        const existingNormalizedTarget = normalizeTarget(existingLeg.target);
+        const existingHasTarget = existingNormalizedTarget !== "";
+
+        // Only merge if one has target and other doesn't
+        if (hasTarget !== existingHasTarget) {
+          existingLoose = existingLeg;
+        }
+        // If both have different targets, they're distinct legs - don't merge
+      }
+    }
+
+    if (existingLoose) {
+      // Merge: prefer the leg with a target value
+      const preferredLeg = hasTarget ? leg : existingLoose;
+      const otherLeg = hasTarget ? existingLoose : leg;
+
+      const merged: BetLeg = {
+        ...preferredLeg,
+        target: hasTarget ? leg.target : existingLoose.target,
+        result: mergeResults(leg.result, existingLoose.result),
+        ou: leg.ou || existingLoose.ou,
+        entities: leg.entities?.length ? leg.entities : existingLoose.entities,
+        market: leg.market || existingLoose.market,
+        odds: mergeOdds(leg.odds, existingLoose.odds),
+      };
+
+      // Remove old entry and insert merged with updated key
+      seen.delete(existingPrimaryKey!);
+      const newKey = hasTarget ? primaryKey : existingPrimaryKey!;
+      seen.set(newKey, merged);
+      looseKeyMap.set(looseKey, newKey);
+    } else {
+      // No match found, add new entry
+      seen.set(primaryKey, leg);
+      if (!looseKeyMap.has(looseKey)) {
+        looseKeyMap.set(looseKey, primaryKey);
+      }
+    }
+  }
+
+  return Array.from(seen.values());
 };

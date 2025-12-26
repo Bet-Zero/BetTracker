@@ -9,20 +9,20 @@
     "result": "win",
     "betType": "single",
     "marketCategory": "Main Markets",
+    "isLive": false,
     "sport": "NBA",
     "description": "Spread",
     "name": "PHO Suns",
     "type": "Spread",
     "line": "+2.5",
-    "isLive": false,
     "odds": -112,
     "legs": [
       {
-        "entityType": "team",
         "market": "Spread",
-        "target": "PHO Suns +2.5",
+        "entityType": "team",
+        "odds": -112,
         "result": "win",
-        "odds": -112
+        "target": "PHO Suns +2.5"
       }
     ]
   },
@@ -34,27 +34,29 @@
     "stake": 2,
     "payout": 0,
     "result": "loss",
-    "betType": "parlay",
+    "betType": "sgp",
     "marketCategory": "SGP/SGP+",
     "sport": "NBA",
     "description": "Pts 18+, Ast 9+",
     "odds": 37500,
     "legs": [
       {
-        "entityType": "player",
         "market": "Pts",
-        "target": "18+",
-        "odds": 0,
+        "entityType": "player",
         "result": "loss",
-        "entities": ["Jordan Hawkins"]
+        "entities": [
+          "Jordan Hawkins"
+        ],
+        "target": "18+"
       },
       {
-        "entityType": "player",
         "market": "Ast",
-        "target": "9+",
-        "odds": 0,
+        "entityType": "player",
         "result": "loss",
-        "entities": ["Zion Williamson"]
+        "entities": [
+          "Zion Williamson"
+        ],
+        "target": "9+"
       }
     ]
   },
@@ -73,146 +75,41 @@
     "odds": 39020,
     "legs": [
       {
-        "entityType": "player",
         "market": "Pts",
-        "target": "25+",
-        "odds": 226,
+        "entityType": "player",
         "result": "win",
-        "entities": ["Zach LaVine"]
+        "odds": 226,
+        "entities": [
+          "Zach LaVine"
+        ],
+        "target": "25+"
       },
       {
-        "entityType": "unknown",
-        "isGroupLeg": true,
         "market": "2 Pick SGP",
-        "result": "loss",
-        "odds": 900,
-        "children": [
-          {
-            "entityType": "player",
-            "market": "Ast",
-            "target": "4+",
-            "result": "loss",
-            "odds": 0,
-            "entities": ["Paul George"]
-          },
-          {
-            "entityType": "player",
-            "market": "Ast",
-            "target": "4+",
-            "result": "loss",
-            "odds": 0,
-            "entities": ["Trendon Watford"]
-          }
-        ]
-      },
-      {
         "entityType": "unknown",
-        "isGroupLeg": true,
-        "market": "2 Pick SGP",
         "result": "loss",
         "odds": 1100,
+        "isGroupLeg": true,
         "children": [
           {
+            "market": "Ast",
             "entityType": "player",
-            "market": "3pt",
-            "target": "2+",
             "result": "loss",
-            "odds": 0,
-            "entities": ["Kelly Olynyk"]
+            "entities": [
+              "Paul George"
+            ],
+            "target": "4+"
           },
           {
-            "entityType": "player",
             "market": "Ast",
-            "target": "6+",
+            "entityType": "player",
             "result": "loss",
-            "odds": 0,
-            "entities": ["Kelly Olynyk"]
+            "entities": [
+              "Trendon Watford"
+            ],
+            "target": "4+"
           }
         ]
-      }
-    ]
-  },
-  {
-    "id": "DK638991222873557181",
-    "betId": "DK638991222873557181",
-    "book": "DraftKings",
-    "placedAt": "2025-11-19T04:11:26.000Z",
-    "stake": 1.2,
-    "payout": 2.29,
-    "result": "win",
-    "betType": "single",
-    "marketCategory": "Main Markets",
-    "sport": "NBA",
-    "description": "Total",
-    "name": "Suns",
-    "type": "Total",
-    "line": "235.5",
-    "ou": "Over",
-    "isLive": false,
-    "odds": -110,
-    "legs": [
-      {
-        "entityType": "team",
-        "market": "Total",
-        "target": "Over 235.5",
-        "result": "win",
-        "odds": -110,
-        "entities": ["Suns", "Trail Blazers"]
-      }
-    ]
-  },
-  {
-    "id": "DK638991231027744508",
-    "betId": "DK638991231027744508",
-    "book": "DraftKings",
-    "placedAt": "2025-11-19T04:25:01.000Z",
-    "stake": 0.5,
-    "payout": 0.9,
-    "result": "win",
-    "betType": "single",
-    "marketCategory": "Main Markets",
-    "sport": "NBA",
-    "description": "Spread",
-    "name": "LA Lakers",
-    "type": "Spread",
-    "line": "-5.5",
-    "isLive": true,
-    "odds": -125,
-    "legs": [
-      {
-        "entityType": "team",
-        "market": "Spread",
-        "target": "LA Lakers -5.5",
-        "result": "win",
-        "odds": -125
-      }
-    ]
-  },
-  {
-    "id": "DK639010189651938159",
-    "betId": "DK639010189651938159",
-    "book": "DraftKings",
-    "placedAt": "2025-12-11T03:02:46.000Z",
-    "stake": 3,
-    "payout": 24,
-    "result": "win",
-    "betType": "single",
-    "marketCategory": "Props",
-    "isLive": false,
-    "sport": "NBA",
-    "description": "Marcus Smart Three Pointers Made",
-    "name": "Marcus Smart",
-    "type": "3pt",
-    "line": "3+",
-    "ou": "Over",
-    "odds": 700,
-    "legs": [
-      {
-        "entityType": "player",
-        "market": "Marcus Smart Three Pointers Made",
-        "target": "3+",
-        "result": "win",
-        "odds": 700
       }
     ]
   }

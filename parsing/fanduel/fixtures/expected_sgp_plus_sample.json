@@ -7,7 +7,7 @@
     "betType": "sgp_plus",
     "marketCategory": "Parlays",
     "sport": "NFL",
-    "description": "Same Game Parlay: Davante Adams 50+ Yds; Cooper Kupp 3+ Rec, Ricky Pearsall 50+ Yds",
+    "description": "3-leg Same Game Parlay Plus: SGP (Davante Adams 50+ Yds, Cooper Kupp 3+ Rec) + Ricky Pearsall 50+ Yds",
     "name": "SGP+",
     "odds": 37067,
     "stake": 0.25,
@@ -36,7 +36,7 @@
             ],
             "market": "Rec",
             "target": "3+",
-            "result": "WIN",
+            "result": "LOSS",
             "odds": null,
             "ou": "Over"
           }

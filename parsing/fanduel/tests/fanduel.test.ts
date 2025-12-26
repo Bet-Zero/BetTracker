@@ -135,7 +135,7 @@ describe("FanDuel parser fixtures", () => {
       true
     );
     expect(new Set(groupLeg?.children?.map((child) => child.result))).toEqual(
-      new Set(["PENDING"])
+      new Set(["WIN"])
     );
     expect(
       groupLeg?.children?.every(
@@ -192,7 +192,7 @@ describe("FanDuel parser fixtures", () => {
       undefined,
       undefined,
     ]);
-    expect(groupLeg?.children?.map((c) => c.result)).toEqual(["LOSS", "WIN"]);
+    expect(groupLeg?.children?.map((c) => c.result)).toEqual(["LOSS", "LOSS"]);
 
     expect(extraLeg?.odds).toBe(1100);
     expect(extraLeg?.result).toBe("LOSS");

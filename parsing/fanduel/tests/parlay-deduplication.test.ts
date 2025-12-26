@@ -321,12 +321,12 @@ describe("Parlay leg deduplication with wildcard matching", () => {
       const whitespaceKeys = legKeysLoose(legWithWhitespace);
       const cleanKeys = legKeysLoose(legWithoutWhitespace);
 
-      // Entities are lowercased but not trimmed in legKeysLoose
-      // So whitespace is preserved after lowercasing
-      expect(whitespaceKeys[0]).toBe("  player a  |pts|25.5");
+      // Entities are lowercased and trimmed is legKeysLoose
+      // So whitespace is removed
+      expect(whitespaceKeys[0]).toBe("player a|pts|25.5");
       expect(cleanKeys[0]).toBe("player a|pts|25.5");
-      // They produce different keys because entity trimming isn't done
-      expect(whitespaceKeys).not.toEqual(cleanKeys);
+      // They produce identical keys because entity trimming IS done
+      expect(whitespaceKeys).toEqual(cleanKeys);
     });
 
     it("should handle empty market string", () => {
