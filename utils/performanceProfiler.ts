@@ -32,10 +32,28 @@
  * - PERF_PROFILE env var is set to 'true'
  * 
  * This ensures profiling logs don't appear in production builds.
+ * In browser environments, we check import.meta.env.PROD (Vite) or default to disabled.
  */
-const isDevMode = typeof process !== 'undefined' 
-  ? process.env.NODE_ENV !== 'production' || process.env.PERF_PROFILE === 'true'
-  : true; // In browser, default to enabled for dev builds
+function checkIsDevMode(): boolean {
+  // Node.js environment
+  if (typeof process !== 'undefined' && process.env) {
+    return process.env.NODE_ENV !== 'production' || process.env.PERF_PROFILE === 'true';
+  }
+  
+  // Browser with Vite (import.meta available)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if (typeof (globalThis as any).import?.meta?.env !== 'undefined') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const env = (globalThis as any).import.meta.env;
+    return !env.PROD || env.VITE_PERF_PROFILE === 'true';
+  }
+  
+  // Browser fallback: default to DISABLED in unknown environments
+  // This is safer than accidentally enabling profiling in production
+  return false;
+}
+
+const isDevMode = checkIsDevMode();
 
 /**
  * Threshold in milliseconds above which a "slow operation" warning is logged.
