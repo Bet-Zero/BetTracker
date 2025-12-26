@@ -504,16 +504,6 @@ Follow these steps to add a parser for a new sportsbook:
    - Include: singles, parlays, SGPs, wins, losses, pushes, pending
 
 2. **Create Parser Directory Structure**
-   ```
-   parsing/{sportsbook}/
-   ├── parsers/
-   │   ├── index.ts      # Main parser entry point
-   │   ├── common.ts     # Shared utilities
-   │   ├── single.ts     # Single bet parsing
-   │   └── parlay.ts     # Parlay/SGP parsing
-   ├── fixtures/         # HTML test fixtures
-   └── tests/            # Parser tests
-   ```
 
 3. **Implement Parser Following Contract**
    - Use `parsing/template/templateParser.ts` as starting point
