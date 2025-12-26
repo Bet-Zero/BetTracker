@@ -1,3 +1,5 @@
+# Import System Gap Analysis v2 (Post-Refactor Review)
+
 > ⚠️ **STATUS: SUPERSEDED**
 >
 > This document has been superseded by **Import System Gap Analysis v3 (Foundation Closeout Audit)**.
@@ -5,10 +7,6 @@
 >
 > This document is retained for historical reference only.
 > Do not use as the basis for new work.
-
----
-
-# Import System Gap Analysis v2 (Post-Refactor Review)
 
 **Date:** 2025-12-24  
 **Scope:** Full Import Pipeline (Current State)  
