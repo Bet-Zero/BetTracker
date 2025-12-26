@@ -27,12 +27,15 @@ import {
   getParserUnavailableMessage
 } from '../parserRegistry';
 
+/** Conversion factor for bytes to megabytes */
+const CHARS_PER_MB = 1024 * 1024;
+
 /**
  * Maximum allowed input size in characters.
  * 5MB is generous for page source HTML while preventing memory issues.
  * Typical sportsbook bet history pages are 500KB-2MB.
  */
-export const MAX_INPUT_SIZE_CHARS = 5 * 1024 * 1024; // 5MB in characters
+export const MAX_INPUT_SIZE_CHARS = 5 * CHARS_PER_MB; // 5MB in characters
 
 /**
  * Legacy ParseResult interface for backward compatibility.
@@ -71,8 +74,8 @@ export const processPageResult = (book: SportsbookName, html: string): Result<Be
 
   // SECURITY: Check input size before parsing to prevent memory/performance issues
   if (html.length > MAX_INPUT_SIZE_CHARS) {
-    const sizeMB = (html.length / (1024 * 1024)).toFixed(1);
-    const maxMB = (MAX_INPUT_SIZE_CHARS / (1024 * 1024)).toFixed(0);
+    const sizeMB = (html.length / CHARS_PER_MB).toFixed(1);
+    const maxMB = (MAX_INPUT_SIZE_CHARS / CHARS_PER_MB).toFixed(0);
     return err(createImportError(
       'INPUT_TOO_LARGE',
       getErrorMessage('INPUT_TOO_LARGE'),

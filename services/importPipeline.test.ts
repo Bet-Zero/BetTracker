@@ -644,7 +644,7 @@ describe('Security Guardrails - Pass 12', () => {
       
       expect(bets.length).toBeGreaterThan(0);
       
-      bets.forEach((bet, index) => {
+      bets.forEach((bet) => {
         if (bet.raw) {
           // raw field should contain extracted text, not HTML tags
           expect(bet.raw).not.toMatch(/<\/?[a-z][\s\S]*>/i);
@@ -673,8 +673,7 @@ describe('Security Guardrails - Pass 12', () => {
       const doc = parser.parseFromString(htmlWithScript, 'text/html');
       
       // Scripts should NOT have executed
-      // @ts-ignore - checking window property that shouldn't exist
-      expect(window.EXPLOITED).toBeUndefined();
+      expect((window as unknown as { EXPLOITED?: boolean }).EXPLOITED).toBeUndefined();
       
       // The document is created but scripts are inert
       expect(doc.querySelectorAll('script').length).toBeGreaterThan(0);
