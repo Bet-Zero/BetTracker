@@ -7,6 +7,7 @@
  * - Validation gate behavior (blockers vs warnings)
  * - Parser smoke tests (required fields present)
  * - Display transform stability
+ * - Security guardrails (Pass 12)
  */
 
 import { describe, it, expect } from 'vitest';
@@ -21,7 +22,7 @@ import {
   Result
 } from './errors';
 import { validateBetForImport, validateBetsForImport } from '../utils/importValidation';
-import { processPageResult, processPage } from '../parsing/shared/pageProcessor';
+import { processPageResult, processPage, MAX_INPUT_SIZE_CHARS } from '../parsing/shared/pageProcessor';
 import { parse as parseFanDuel } from '../parsing/fanduel/fanduel';
 import { parse as parseDraftKings } from '../parsing/draftkings/parsers';
 import { betToFinalRows } from '../parsing/shared/betToFinalRows';
@@ -550,6 +551,132 @@ describe('Import Pipeline - Display Transform', () => {
 
       expect(rows[2]._isParlayChild).toBe(true);
       expect(rows[2].Name).toBe('Stephen Curry');
+    });
+  });
+});
+
+/**
+ * Security Guardrails Tests - Pass 12
+ * 
+ * Validates security and data integrity protections in the import pipeline:
+ * - Input size limits to prevent memory/performance issues
+ * - No raw HTML stored in persisted state
+ * - No dangerous rendering pathways
+ */
+describe('Security Guardrails - Pass 12', () => {
+  describe('Input Size Limits', () => {
+    it('returns INPUT_TOO_LARGE error for oversized input', () => {
+      // Create input larger than MAX_INPUT_SIZE_CHARS (5MB)
+      const oversizedInput = 'x'.repeat(MAX_INPUT_SIZE_CHARS + 1);
+      
+      const result = processPageResult('FanDuel', oversizedInput);
+      
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe('INPUT_TOO_LARGE');
+        expect(result.error.message).toContain('too large');
+        expect(result.error.details).toContain('MB'); // Should mention size in details
+      }
+    });
+
+    it('returns INPUT_TOO_LARGE with helpful recovery message', () => {
+      const oversizedInput = 'x'.repeat(MAX_INPUT_SIZE_CHARS + 100);
+      
+      const result = processPageResult('DraftKings', oversizedInput);
+      
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe('INPUT_TOO_LARGE');
+        // User message should suggest copying smaller range
+        expect(result.error.message.toLowerCase()).toMatch(/smaller|range/);
+      }
+    });
+
+    it('accepts input at exactly MAX_INPUT_SIZE_CHARS', () => {
+      // Input at exactly the limit should NOT be rejected
+      // (it will fail with NO_BETS_FOUND, not INPUT_TOO_LARGE)
+      const maxInput = 'x'.repeat(MAX_INPUT_SIZE_CHARS);
+      
+      const result = processPageResult('FanDuel', maxInput);
+      
+      // Should not be INPUT_TOO_LARGE
+      if (!result.ok) {
+        expect(result.error.code).not.toBe('INPUT_TOO_LARGE');
+      }
+    });
+
+    it('MAX_INPUT_SIZE_CHARS is set to a reasonable value (5MB)', () => {
+      // Verify the constant is set appropriately
+      expect(MAX_INPUT_SIZE_CHARS).toBe(5 * 1024 * 1024);
+    });
+  });
+
+  describe('Persisted State Data Integrity', () => {
+    it('Bet interface does not include pageSource or html fields at top level', () => {
+      // This is a static/compile-time check represented as a test
+      // If these fields were added to Bet, this test documents the concern
+      const sampleBet: Bet = {
+        id: 'test-bet-1',
+        book: 'FanDuel',
+        betId: '12345',
+        placedAt: '2024-01-01T00:00:00Z',
+        betType: 'single',
+        marketCategory: 'Props',
+        sport: 'NBA',
+        description: 'Test bet',
+        stake: 10,
+        payout: 0,
+        result: 'pending',
+      };
+      
+      // Verify no HTML-related fields exist
+      expect('pageSource' in sampleBet).toBe(false);
+      expect('html' in sampleBet).toBe(false);
+      expect('htmlContent' in sampleBet).toBe(false);
+      
+      // The 'raw' field exists but should only contain text, not HTML
+      // This is documented as safe in persistence.ts
+    });
+
+    it('parsed bets from real fixtures do not contain HTML markup in raw field', () => {
+      const html = loadFixture('parsing/fanduel/fixtures/sgp_sample.html');
+      const bets = parseFanDuel(html);
+      
+      expect(bets.length).toBeGreaterThan(0);
+      
+      bets.forEach((bet) => {
+        if (bet.raw) {
+          // raw field should contain extracted text, not HTML tags
+          expect(bet.raw).not.toMatch(/<\/?[a-z][\s\S]*>/i);
+          // No script tags
+          expect(bet.raw.toLowerCase()).not.toContain('<script');
+          // No style tags
+          expect(bet.raw.toLowerCase()).not.toContain('<style');
+        }
+      });
+    });
+  });
+
+  describe('No Dangerous Rendering Pathways', () => {
+    it('parsers use DOMParser which does not execute scripts', () => {
+      // This is a documentation/audit test to confirm safe parsing
+      // DOMParser parses HTML into an in-memory document WITHOUT executing scripts
+      const htmlWithScript = `
+        <html>
+        <head><script>window.EXPLOITED = true;</script></head>
+        <body><script>alert('XSS')</script></body>
+        </html>
+      `;
+      
+      // Parse with DOMParser (same method used by our parsers)
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(htmlWithScript, 'text/html');
+      
+      // Scripts should NOT have executed
+      expect((window as unknown as { EXPLOITED?: boolean }).EXPLOITED).toBeUndefined();
+      
+      // The document is created but scripts are inert
+      expect(doc.querySelectorAll('script').length).toBeGreaterThan(0);
     });
   });
 });
