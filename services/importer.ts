@@ -36,7 +36,7 @@ export async function parseBetsResult(
     return err(createImportError(
       'SOURCE_UNAVAILABLE',
       getErrorMessage('SOURCE_UNAVAILABLE'),
-      details
+      `${book}: ${details}`
     ));
   }
 
