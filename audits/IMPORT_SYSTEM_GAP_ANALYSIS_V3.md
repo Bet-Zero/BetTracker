@@ -247,6 +247,18 @@
 
 **No duplicates remain. No deprecated shims remain.**
 
+### 2.7 Persistence & Migration Protocol ✅ COMPLETE
+
+| Feature | Implementation | Notes |
+|---------|----------------|-------|
+| Storage Envelope | `{ version: 1, bets: [...], metadata: {} }` | Unified `bettracker-state` key |
+| Safe Persistence | `services/persistence.ts` | Typed `Result<T>` errors, no silent failures |
+| Migration | Auto-migrates `bettracker-bets` | Legacy key removed after successful migration |
+| Corruption Recovery | Automatic backup + Reset | `bettracker-backup-{reason}-{timestamp}` |
+| Guardrails | Backup on Clear | Manual backup created before clearing data |
+
+**Data is now safe, versioned, and recoverable.**
+
 ---
 
 ## 5. Foundation Complete Criteria
@@ -270,8 +282,11 @@
 | 13 | Reference data has one home | ✅ PASS | `data/referenceData.ts` + documented overlays |
 | 14 | Overlay keys documented | ✅ PASS | `NORMALIZATION_STORAGE_KEYS` exported |
 | 15 | Import button disabled when blockers exist | ✅ PASS | UI enforces validation gate |
+| 16 | Persistence uses versioned envelope | ✅ PASS | `{ version, bets, metadata }` structure |
+| 17 | Auto-migration from legacy key | ✅ PASS | `migrateIfNeeded()` handles update |
+| 18 | Corruption recovery and backups | ✅ PASS | `createBackupInternal` preserves data |
 
-**PASS: 15/15 | PARTIAL: 0/15 | FAIL: 0/15**
+**PASS: 18/18 | PARTIAL: 0/18 | FAIL: 0/18**
 
 ---
 
@@ -279,7 +294,7 @@
 
 ### Immediate (None Required)
 
-The foundation is complete. All 15 criteria now pass.
+The foundation is complete. All 18 criteria now pass.
 
 ### Future Improvements (Optional, Low Priority)
 

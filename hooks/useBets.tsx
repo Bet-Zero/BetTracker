@@ -6,14 +6,20 @@ import React, {
   ReactNode,
   useCallback,
 } from "react";
-import { Bet, BetResult } from "../types";
+import { Bet } from "../types";
 import { useInputs } from "./useInputs";
 import { classifyBet } from "../services/marketClassification";
 import { calculateProfit, recalculatePayout } from "../utils/betCalculations";
-import { isSampleData, migrateBets } from "../utils/migrations";
 import { validateBet } from "../utils/validation";
 import { validateBetForImport } from "../utils/importValidation";
 import { handleStorageError, showStorageError } from "../utils/storageErrorHandler";
+import { 
+  loadState, 
+  saveState, 
+  createManualBackup, 
+  STORAGE_VERSION, 
+  STORAGE_KEY 
+} from "../services/persistence";
 
 interface BetsContextType {
   bets: Bet[];
@@ -33,85 +39,78 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
   const { addPlayer, addTeam } = useInputs();
 
   useEffect(() => {
-    try {
-      const storedBets = localStorage.getItem("bettracker-bets");
-      if (storedBets) {
-        const parsedBets: Bet[] = JSON.parse(storedBets);
-
-        // Check if this is sample data
-        if (isSampleData(parsedBets)) {
-          // Clear sample data from localStorage
-          localStorage.removeItem("bettracker-bets");
-          setBets([]);
-        } else {
-          // Migrate old bets to current format
-          const migratedBets = migrateBets(parsedBets);
+    // Load state using persistence service
+    const processLoad = () => {
+      try {
+        const result = loadState();
+        
+        if (!result.ok) {
+          // Handle errors (including corruption which triggers a backup)
+          console.error("Failed to load bets:", result.error);
+          setBets([]); // Start clean (default state)
           
-          // Save migrated bets back to localStorage if changes were made
-          if (JSON.stringify(parsedBets) !== JSON.stringify(migratedBets)) {
-            try {
-              localStorage.setItem("bettracker-bets", JSON.stringify(migratedBets));
-            } catch (storageError) {
-              console.error("Failed to save migrated bets to localStorage", storageError);
-              // Continue with migrated bets in memory even if save fails
-            }
-          }
-          
-          setBets(migratedBets);
+          // Show user-friendly error
+          showStorageError({
+            message: result.error.message,
+            suggestion: result.error.code === 'STORAGE_CORRUPTED' 
+              ? 'Your previous data was corrupted and has been backed up. The application has been reset to a clean state.' 
+              : 'Please check your browser console for details.'
+          });
+          return;
         }
-      } else {
-        // No bets in storage - start with empty array
+
+        setBets(result.value.bets);
+      } catch (err) {
+        // Defensive catch for unexpected errors during load
+        console.error("Unexpected error in processLoad:", err);
         setBets([]);
+        showStorageError({
+          message: "An unexpected error occurred while loading your bets.",
+          suggestion: "Please refresh the page. If this persists, clear your browser data."
+        });
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      const errorInfo = handleStorageError(error, 'load');
-      console.error("Failed to load bets from localStorage", error);
-      // Show error but don't block app initialization
-      showStorageError(errorInfo);
-    } finally {
-      setLoading(false);
-    }
+    };
+
+    processLoad();
   }, []);
 
   const saveBets = (updatedBets: Bet[]) => {
-    try {
-      localStorage.setItem("bettracker-bets", JSON.stringify(updatedBets));
-      setBets(updatedBets);
-    } catch (error) {
-      const errorInfo = handleStorageError(error, 'save');
+    // Construct the full persisted state
+    const stateToSave = {
+      version: STORAGE_VERSION,
+      updatedAt: new Date().toISOString(),
+      bets: updatedBets,
+    };
+
+    const result = saveState(stateToSave);
+    
+    // Always update React state so UI reflects changes immediately
+    setBets(updatedBets);
+
+    if (!result.ok) {
+      const errorInfo = handleStorageError(result.error.details || result.error.message, 'save');
       showStorageError(errorInfo);
-      // Still update state so UI reflects changes, even if localStorage failed
-      setBets(updatedBets);
     }
   };
 
   const addBets = useCallback(
     (newBets: Bet[]) => {
       // Process entities from legs using entityType set by parsers
-      // This replaces the previous heuristic keyword-based guessing
       newBets.forEach((bet) => {
         bet.legs?.forEach((leg) => {
           if (!leg.entities || !leg.entities.length) return;
 
           leg.entities.forEach((entity) => {
-            // Guard against invalid entity values
-            if (!entity || typeof entity !== 'string' || entity.trim().length === 0) {
-              return;
-            }
+            if (!entity || typeof entity !== 'string' || entity.trim().length === 0) return;
+            if (!bet.sport) return;
             
-            // Guard against missing sport
-            if (!bet.sport) {
-              console.warn(`Bet ${bet.id} missing sport, skipping entity processing`);
-              return;
-            }
-            
-            // Use entityType set by parsers for explicit classification
             if (leg.entityType === 'player') {
               addPlayer(bet.sport, entity);
             } else if (leg.entityType === 'team') {
               addTeam(bet.sport, entity);
             }
-            // entityType === 'unknown' or undefined → skip to avoid polluting lists
           });
         });
       });
@@ -123,7 +122,6 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
           (newBet) => !existingBetIds.has(newBet.id)
         );
 
-        // Validate bets - filter out bets with blockers (critical issues)
         const validBets = trulyNewBets.filter((bet) => {
           const validation = validateBetForImport(bet);
           if (!validation.valid) {
@@ -134,8 +132,6 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
           return validation.valid;
         });
 
-        // Don't re-classify bets - they already have the correct category from the parser
-        // Only classify if category is missing (shouldn't happen, but safety check)
         const classifiedNewBets = validBets.map((bet) => {
           if (!bet.marketCategory) {
             return {
@@ -173,21 +169,15 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
       const originalBet = updatedBets[betIndex];
       const updatedBet = { ...originalBet, ...updates };
 
-      // Validate the updated bet
       const validation = validateBet(updatedBet);
       if (!validation.valid) {
         console.warn(`Bet validation failed: ${validation.errors.join(', ')}`);
-        // For now, we'll still allow the update but log the warning
-        // In the future, this could show a toast notification or prevent the update
-        // TODO: Show validation errors to user via toast/notification system
       }
 
-      // If tail is an empty string, remove the property
       if (updatedBet.tail === "") {
         delete updatedBet.tail;
       }
 
-      // Automatically recalculate payout if a relevant field changed
       const needsPayoutRecalc =
         "stake" in updates || "odds" in updates || "result" in updates;
       if (needsPayoutRecalc) {
@@ -206,10 +196,30 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
 
   const clearBets = useCallback(() => {
     try {
-      console.log("clearBets called - clearing localStorage and state");
+      console.log("clearBets called - creating backup and clearing");
+      
+      // Load current state for backup
+      // We read from localStorage directly via persistence load to ensure we have latest on disk
+      // or use current memory state? Memory state is safer if saving happened recently.
+      // But persistence load is safer if we want to backup EXACTLY what is on disk.
+      // Let's use memory state 'bets' captured in closure? No, stale closure risk if not careful.
+      // Actually, 'bets' from state might be stale in this callback if dependencies are []
+      // But we can use functional update or... wait. 'bets' is not in dependency array.
+      // Better to rely on what's in local storage for the backup essentially.
+      
+      const currentLoad = loadState();
+      
+      if (currentLoad.ok && currentLoad.value.bets.length > 0) {
+         createManualBackup(currentLoad.value, 'clear');
+      }
+
+      // Clear the main key
+      localStorage.removeItem(STORAGE_KEY);
+      // Also clear legacy key just in case
       localStorage.removeItem("bettracker-bets");
+      
       setBets([]);
-      console.log("clearBets completed - bets should now be empty");
+      console.log("clearBets completed");
     } catch (error) {
       const errorInfo = handleStorageError(error, 'clear');
       showStorageError(errorInfo);

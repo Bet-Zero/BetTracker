@@ -28,6 +28,7 @@ export type ImportErrorCode =
   | 'PARSER_NOT_AVAILABLE' // No parser exists for the sportsbook
   | 'VALIDATION_BLOCKED'   // Validation blockers prevent import
   | 'STORAGE_FAILED'       // Failed to write to localStorage
+  | 'STORAGE_CORRUPTED'    // Storage data format is invalid/corrupted
   | 'SOURCE_UNAVAILABLE';  // Could not get page source
 
 /**
@@ -87,6 +88,7 @@ export const ERROR_MESSAGES: Record<ImportErrorCode, string> = {
   PARSER_NOT_AVAILABLE: 'No parser is available for this sportsbook yet.',
   VALIDATION_BLOCKED: 'Some bets have issues that must be fixed before importing.',
   STORAGE_FAILED: 'Failed to save bets. Please try again.',
+  STORAGE_CORRUPTED: 'Saved data was corrupted and has been reset. We attempted to create a backup.',
   SOURCE_UNAVAILABLE: 'Could not retrieve page source.',
 };
 
