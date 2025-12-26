@@ -20,7 +20,7 @@
 │       ↓                                                                     │
 │  ManualPasteSourceProvider → PageSourceProvider interface                   │
 │       ↓                                                                     │
-│  Result<Bet[]> pattern for consistent error handling                        │
+│  Result<Bet[]> pattern (typed success/error, eliminates exception handling) │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     ↓
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -100,7 +100,7 @@
 │  ├── Uses normalizeCategoryForDisplay() from marketClassification.ts ✓      │
 │  ├── Uses abbreviateMarket() from marketClassification.ts ✓                 │
 │  ├── FinalRow has _rawOdds/_rawBet/_rawToWin/_rawNet (no string parsing)   │
-│  ├── Leg deduplication safety net (documented, for DraftKings coverage)     │
+│  ├── Leg deduplication safety net (handles DraftKings parser gap)            │
 │  └── Spreadsheet-style editing with copy/paste                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -220,7 +220,7 @@
 
 ---
 
-### Gap: Test Fixture Drift — UNRELATED TO FOUNDATION
+### Gap F: Test Fixture Drift — UNRELATED TO FOUNDATION
 
 **Status:** Pre-existing, not blocking
 
