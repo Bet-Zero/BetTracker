@@ -3,19 +3,24 @@
  * 
  * Routes HTML to the appropriate parser and returns Bet objects directly.
  * Uses Result<T> pattern for consistent error handling across the pipeline.
+ * 
+ * Parser discovery is now centralized in parserRegistry.ts. To add a new
+ * sportsbook parser, register it there - no changes needed here.
  */
 
 import { SportsbookName, Bet } from '../../types';
-import { parse as parseFanDuel } from '../fanduel/fanduel';
-import { parse as parseDraftKings } from '../draftkings/parsers';
 import { 
   Result, 
-  ImportError, 
   ok, 
   err, 
   createImportError, 
   getErrorMessage 
 } from '../../services/errors';
+import {
+  isParserEnabled,
+  getParser,
+  getParserUnavailableMessage
+} from '../parserRegistry';
 
 /**
  * Legacy ParseResult interface for backward compatibility.
@@ -29,10 +34,13 @@ export interface ParseResult {
 /**
  * Processes HTML from a sportsbook page and returns parsed bets using Result pattern.
  * 
+ * Uses the parser registry to look up parsers, making it easy to add new
+ * sportsbooks without modifying this file.
+ * 
  * Error handling:
  * - EMPTY_HTML: HTML is empty or whitespace-only
  * - NO_BETS_FOUND: Parser ran but found no bets
- * - PARSER_NOT_AVAILABLE: No parser exists for the sportsbook
+ * - PARSER_NOT_AVAILABLE: No parser exists or parser is disabled for the sportsbook
  * - PARSER_FAILED: Parser threw an unexpected error
  * 
  * @param book - The sportsbook name
@@ -48,26 +56,46 @@ export const processPageResult = (book: SportsbookName, html: string): Result<Be
     ));
   }
 
+  // Check if parser is available and enabled
+  if (!isParserEnabled(book)) {
+    const message = getParserUnavailableMessage(book);
+    return err(createImportError(
+      'PARSER_NOT_AVAILABLE',
+      message
+    ));
+  }
+
+  // Get the parser function
+  const parser = getParser(book);
+  if (!parser) {
+    // This shouldn't happen if isParserEnabled returned true, but handle it anyway
+    return err(createImportError(
+      'PARSER_NOT_AVAILABLE',
+      `No parser available for sportsbook: ${book}.`
+    ));
+  }
+
   let parsedBets: Bet[] = [];
   
   try {
-    switch (book) {
-      case 'FanDuel':
-        parsedBets = parseFanDuel(html);
-        break;
-      case 'DraftKings':
-        parsedBets = parseDraftKings(html);
-        break;
-      case 'Other':
-        return err(createImportError(
-          'PARSER_NOT_AVAILABLE',
-          'Parsing for "Other" sportsbooks is not yet implemented.'
-        ));
-      default:
-        return err(createImportError(
-          'PARSER_NOT_AVAILABLE',
-          `No parser available for sportsbook: ${book}.`
-        ));
+    const result = parser(html);
+    
+    // Handle both Result<Bet[]> and Bet[] return types
+    if (Array.isArray(result)) {
+      // Legacy parser returning Bet[]
+      parsedBets = result;
+    } else if ('ok' in result) {
+      // Result pattern parser
+      if (!result.ok) {
+        return result; // Pass through the error
+      }
+      parsedBets = result.value;
+    } else {
+      // Unknown return type
+      return err(createImportError(
+        'PARSER_FAILED',
+        `Parser for ${book} returned an unexpected format.`
+      ));
     }
   } catch (error) {
     const errorDetails = error instanceof Error ? error.message : String(error);
