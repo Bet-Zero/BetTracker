@@ -11,6 +11,10 @@
  * - Input size is validated before parsing to prevent memory/performance issues.
  * - DOMParser is used safely in an in-memory context (scripts are not executed).
  * - Raw HTML is never stored in localStorage or rendered via innerHTML.
+ * 
+ * PERFORMANCE NOTE:
+ * - Parsing performance is instrumented with lightweight timing (dev-only).
+ * - Slow parse warnings trigger at configurable thresholds.
  */
 
 import { SportsbookName, Bet } from '../../types';
@@ -26,6 +30,11 @@ import {
   getParser,
   getParserUnavailableMessage
 } from '../parserRegistry';
+import {
+  perfTimer,
+  slowParseWarning,
+  checkSlowOperation,
+} from '../../utils/performanceProfiler';
 
 /** Conversion factor for bytes to megabytes */
 const CHARS_PER_MB = 1024 * 1024;
@@ -64,8 +73,12 @@ export interface ParseResult {
  * @returns Result<Bet[]> with either parsed bets or an ImportError
  */
 export const processPageResult = (book: SportsbookName, html: string): Result<Bet[]> => {
+  // Start overall timing
+  const totalTimer = perfTimer(`processPage:${book}:total`);
+  
   // Check for empty HTML
   if (!html || !html.trim()) {
+    totalTimer.end();
     return err(createImportError(
       'EMPTY_HTML',
       getErrorMessage('EMPTY_HTML')
@@ -76,6 +89,7 @@ export const processPageResult = (book: SportsbookName, html: string): Result<Be
   if (html.length > MAX_INPUT_SIZE_CHARS) {
     const sizeMB = (html.length / CHARS_PER_MB).toFixed(1);
     const maxMB = (MAX_INPUT_SIZE_CHARS / CHARS_PER_MB).toFixed(0);
+    totalTimer.end();
     return err(createImportError(
       'INPUT_TOO_LARGE',
       getErrorMessage('INPUT_TOO_LARGE'),
@@ -86,6 +100,7 @@ export const processPageResult = (book: SportsbookName, html: string): Result<Be
   // Check if parser is available and enabled
   if (!isParserEnabled(book)) {
     const message = getParserUnavailableMessage(book);
+    totalTimer.end();
     return err(createImportError(
       'PARSER_NOT_AVAILABLE',
       message
@@ -96,6 +111,7 @@ export const processPageResult = (book: SportsbookName, html: string): Result<Be
   const parser = getParser(book);
   if (!parser) {
     // This shouldn't happen if isParserEnabled returned true, but handle it anyway
+    totalTimer.end();
     return err(createImportError(
       'PARSER_NOT_AVAILABLE',
       `No parser available for sportsbook: ${book}.`
@@ -104,6 +120,8 @@ export const processPageResult = (book: SportsbookName, html: string): Result<Be
 
   let parsedBets: Bet[] = [];
   
+  // Time the actual parsing
+  const parseTimer = perfTimer(`processPage:${book}:parse`);
   try {
     const result = parser(html);
     
@@ -114,11 +132,15 @@ export const processPageResult = (book: SportsbookName, html: string): Result<Be
     } else if ('ok' in result) {
       // Result pattern parser
       if (!result.ok) {
+        parseTimer.end();
+        totalTimer.end();
         return result; // Pass through the error
       }
       parsedBets = result.value;
     } else {
       // Unknown return type
+      parseTimer.end();
+      totalTimer.end();
       return err(createImportError(
         'PARSER_FAILED',
         `Parser for ${book} returned an unexpected format.`
@@ -127,20 +149,33 @@ export const processPageResult = (book: SportsbookName, html: string): Result<Be
   } catch (error) {
     const errorDetails = error instanceof Error ? error.message : String(error);
     console.error(`Error parsing data for ${book}:`, error);
+    parseTimer.end();
+    totalTimer.end();
     return err(createImportError(
       'PARSER_FAILED',
       getErrorMessage('PARSER_FAILED'),
       `${book} parser error: ${errorDetails}`
     ));
   }
+  
+  // End parse timing and check for slow parse
+  const parseDuration = parseTimer.end(parsedBets.length);
+  if (parsedBets.length > 0) {
+    slowParseWarning(parseDuration, parsedBets.length);
+  }
 
   // Check for no bets found
   if (parsedBets.length === 0) {
+    totalTimer.end();
     return err(createImportError(
       'NO_BETS_FOUND',
       `${getErrorMessage('NO_BETS_FOUND')} (${book})`
     ));
   }
+
+  // End total timing and check for slow operation
+  const totalDuration = totalTimer.end(parsedBets.length);
+  checkSlowOperation(`processPage:${book}`, totalDuration, 'total');
 
   return ok(parsedBets);
 };

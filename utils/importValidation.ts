@@ -1,4 +1,5 @@
 import { Bet, BetResult } from '../types';
+import { perfTimer, checkSlowOperation } from './performanceProfiler';
 
 /**
  * Import Validation Module
@@ -251,6 +252,8 @@ export const validateBetsForImport = (bets: Bet[]): {
   invalidBets: Bet[];
   validationResults: Map<string, ImportValidationResult>;
 } => {
+  const timer = perfTimer('validateBetsForImport');
+  
   let totalBlockers = 0;
   let totalWarnings = 0;
   let betsWithBlockers = 0;
@@ -277,6 +280,9 @@ export const validateBetsForImport = (bets: Bet[]): {
       betsWithWarnings++;
     }
   }
+  
+  const duration = timer.end(bets.length);
+  checkSlowOperation('validateBetsForImport', duration, 'validate');
   
   return {
     totalBlockers,
