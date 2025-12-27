@@ -6,6 +6,8 @@ import {
   STAKE_ATTRIBUTION_POLICY,
   isDecidedResult,
   isPendingResult,
+  isParlayBetType,
+  getEntityMoneyContribution,
 } from './displaySemantics';
 import { Bet, BetResult } from '../types';
 
@@ -165,6 +167,80 @@ describe('displaySemantics', () => {
 
     it('returns false for push', () => {
       expect(isPendingResult('push')).toBe(false);
+    });
+  });
+
+  // ============================================
+  // LOCK PASS: P4 Parlay Semantics Tests
+  // ============================================
+
+  describe('isParlayBetType', () => {
+    it('returns true for parlay', () => {
+      expect(isParlayBetType('parlay')).toBe(true);
+    });
+
+    it('returns true for sgp', () => {
+      expect(isParlayBetType('sgp')).toBe(true);
+    });
+
+    it('returns true for sgp_plus', () => {
+      expect(isParlayBetType('sgp_plus')).toBe(true);
+    });
+
+    it('returns false for single', () => {
+      expect(isParlayBetType('single')).toBe(false);
+    });
+
+    it('returns false for live', () => {
+      expect(isParlayBetType('live')).toBe(false);
+    });
+
+    it('returns false for other', () => {
+      expect(isParlayBetType('other')).toBe(false);
+    });
+  });
+
+  describe('getEntityMoneyContribution', () => {
+    it('returns {stake: 0, net: 0} for parlay bet type', () => {
+      const bet = createTestBet({ betType: 'parlay', stake: 100, payout: 500, result: 'win' });
+      const result = getEntityMoneyContribution(bet);
+      expect(result.stake).toBe(0);
+      expect(result.net).toBe(0);
+    });
+
+    it('returns {stake: 0, net: 0} for sgp bet type', () => {
+      const bet = createTestBet({ betType: 'sgp', stake: 50, payout: 200, result: 'win' });
+      const result = getEntityMoneyContribution(bet);
+      expect(result.stake).toBe(0);
+      expect(result.net).toBe(0);
+    });
+
+    it('returns {stake: 0, net: 0} for sgp_plus bet type', () => {
+      const bet = createTestBet({ betType: 'sgp_plus', stake: 75, payout: 0, result: 'loss' });
+      const result = getEntityMoneyContribution(bet);
+      expect(result.stake).toBe(0);
+      expect(result.net).toBe(0);
+    });
+
+    it('returns full stake and net for single bet type', () => {
+      const bet = createTestBet({ betType: 'single', stake: 100, payout: 250, result: 'win' });
+      const result = getEntityMoneyContribution(bet);
+      expect(result.stake).toBe(100);
+      expect(result.net).toBe(150); // 250 - 100
+    });
+
+    it('returns full stake and negative net for single loss', () => {
+      const bet = createTestBet({ betType: 'single', stake: 100, payout: 0, result: 'loss' });
+      const result = getEntityMoneyContribution(bet);
+      expect(result.stake).toBe(100);
+      expect(result.net).toBe(-100); // 0 - 100
+    });
+
+    it('returns full stake and zero net for pending single', () => {
+      const bet = createTestBet({ betType: 'single', stake: 100, payout: 0, result: 'pending' });
+      const result = getEntityMoneyContribution(bet);
+      expect(result.stake).toBe(100);
+      expect(result.net).toBe(0); // pending = 0 net
     });
   });
 });

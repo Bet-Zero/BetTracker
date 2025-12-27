@@ -233,6 +233,16 @@ export const validateBetForImport = (bet: Bet): ImportValidationResult => {
     });
   }
   
+  // 5. Check for unknown entityType in legs (LOCK PASS guard)
+  if (bet.legs?.some(leg => !leg.entityType || leg.entityType === 'unknown')) {
+    warnings.push({
+      field: 'entityType',
+      message: 'Some legs have unknown entity type',
+      severity: 'warning',
+      hint: 'Entity type could not be determined - verify player/team classification.',
+    });
+  }
+  
   return {
     valid: blockers.length === 0,
     blockers,

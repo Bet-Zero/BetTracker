@@ -492,7 +492,7 @@ describe('Import Pipeline - Display Transform', () => {
       expect(row.Sport).toBe('NBA');
       expect(row.Name).toBe('LeBron James');
       expect(row.Result).toBe('Win');
-      expect(row.Bet).toBe('10.00');
+      expect(row.Bet).toBe('$10.00');
       expect(row.Net).toBe('9.09'); // win: payout - stake
       
       // Parlay metadata for single should be null/false
@@ -541,7 +541,7 @@ describe('Import Pipeline - Display Transform', () => {
       expect(rows[0]._isParlayHeader).toBe(true);
       expect(rows[0].Name).toContain('Parlay');
       expect(rows[0].Category).toBe('Parlays');
-      expect(rows[0].Bet).toBe('5.00');
+      expect(rows[0].Bet).toBe('$5.00');
       expect(rows[0].Result).toBe('Win');
 
       // Leg rows
