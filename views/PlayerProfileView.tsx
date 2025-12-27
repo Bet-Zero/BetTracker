@@ -18,7 +18,7 @@ import {
   computeStatsByDimension,
   mapToStatsArray,
 } from '../services/aggregationService';
-import { getNetNumeric } from '../services/displaySemantics';
+import { getNetNumeric, getEntityMoneyContribution } from '../services/displaySemantics';
 
 // --- HELPER COMPONENTS ---
 
@@ -229,13 +229,14 @@ const OverUnderBreakdown: React.FC<{ bets: Bet[], selectedPlayer: string | null 
 
         filteredBets.forEach(bet => {
             if (bet.legs?.length) {
+                // P4: Use entity money contribution to exclude parlay money from player stats
+                const moneyContribution = getEntityMoneyContribution(bet);
                 bet.legs.forEach(leg => {
                     if (leg.ou && (!selectedPlayer || leg.entities?.includes(selectedPlayer))) {
                         const ou = leg.ou.toLowerCase() as 'over' | 'under';
-                        const net = getNetNumeric(bet);
                         stats[ou].count++; 
-                        stats[ou].stake += bet.stake; 
-                        stats[ou].net += net;
+                        stats[ou].stake += moneyContribution.stake; // P4: excludes parlays
+                        stats[ou].net += moneyContribution.net; // P4: excludes parlays
                         if (bet.result === 'win') stats[ou].wins++; 
                         if (bet.result === 'loss') stats[ou].losses++;
                     }

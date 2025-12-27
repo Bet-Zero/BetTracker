@@ -272,31 +272,34 @@ There is no shared filter engine, no aggregation service, and no view adapters.
 
 ### Gap 4: Parlay Stake Attribution Unclear for Per-Entity Stats
 
-> [!CHECK] **ADDRESSED (policy documented)** in P3 by `services/displaySemantics.ts`
+> [!CHECK] **ADDRESSED (P4 policy implemented)** in P4 by `services/entityStatsService.ts`
 
-**Current state:**
-- When computing player/team stats from parlay legs, the entire `bet.stake` is attributed to each entity
-- This is now explicitly documented as **"ticket-level" attribution policy**
-- `STAKE_ATTRIBUTION_POLICY = 'ticket-level'` exported from `displaySemantics.ts`
-- Helper `getAttributedStakeAndNet()` encapsulates the policy logic
+**Previous state (P3):**
+- When computing player/team stats from parlay legs, the entire `bet.stake` was attributed to each entity
+- This was documented as **"ticket-level" attribution policy** but caused stake inflation
 
-**Policy documentation (from displaySemantics.ts):**
+**Current state (P4):**
+- **Parlays excluded from entity money attribution**: Parlay bets contribute 0 stake and 0 net to entity breakdowns
+- **Singles only**: Entity money columns (Wagered/Net/ROI) reflect only single bets
+- **Leg accuracy added**: Entity breakdowns include leg-level metrics (legs, legWins, legLosses, legWinRate)
+- `computeEntityStatsMap()` in `services/entityStatsService.ts` implements the P4 policy
+- `getEntityMoneyContribution()` in `services/displaySemantics.ts` returns {stake: 0, net: 0} for parlays
+
+**P4 Policy (from entityStatsService.ts):**
 ```typescript
-// STAKE ATTRIBUTION POLICY:
-// - Parlay/multi-leg bets attribute the FULL ticket stake and net to each
-//   entity/leg when computing per-entity or per-leg statistics.
-// - This is intentional "ticket-level" attribution (known double-count risk).
-// - Rationale: A player appearing in a parlay affects the full ticket outcome.
+// P4 SEMANTICS:
+// - Singles: Money (stake/net) attributed to each entity
+// - Parlays: Zero money; only leg outcomes counted
+// - Leg outcomes tracked independently of ticket result
 ```
 
-**Why ticket-level is intentional:**
-- Answers the question: "What's my P/L on bets involving X?"
-- Full ticket outcome is affected by each participant
-- Split attribution would lose this context
+**Why P4 policy is correct:**
+- Prevents stake inflation: A $10 parlay is ONE $10 ticket, not $10 per entity
+- Provides accurate money KPIs: Entity breakdowns show actual singles performance
+- Still provides parlay insight: Leg accuracy metrics show how entities perform in parlays
+- Leg outcomes independent: A leg can win even if the ticket loses
 
-**Future option:** Policy can be changed to `'split'` if needed
-
-**Risk level:** **ADDRESSED (policy documented)**
+**Risk level:** **ADDRESSED (P4 implemented)**
 
 ---
 

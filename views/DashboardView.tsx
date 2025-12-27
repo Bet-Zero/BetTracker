@@ -41,6 +41,7 @@ import {
   DimensionStats,
 } from "../services/aggregationService";
 import { getNetNumeric } from "../services/displaySemantics";
+import { computeEntityStatsMap, EntityStats } from "../services/entityStatsService";
 
 // --- HELPER FUNCTIONS & COMPONENTS ---
 
@@ -83,6 +84,9 @@ type StatsData = {
   net: number;
   roi: number;
   sport?: string;
+  // P4: Leg accuracy metrics for parlay insight
+  legs?: number;
+  legWinRate?: number;
 };
 interface StatsTableProps {
   data: StatsData[];
@@ -196,7 +200,7 @@ const StatsTable: React.FC<StatsTableProps> = ({
                 className="px-4 py-2 cursor-pointer"
                 onClick={() => requestSort("stake")}
               >
-                Wagered{" "}
+                Singles Wagered{" "}
                 {sortConfig.key === "stake"
                   ? sortConfig.direction === "desc"
                     ? "▼"
@@ -207,7 +211,7 @@ const StatsTable: React.FC<StatsTableProps> = ({
                 className="px-4 py-2 cursor-pointer"
                 onClick={() => requestSort("net")}
               >
-                Net{" "}
+                Singles Net{" "}
                 {sortConfig.key === "net"
                   ? sortConfig.direction === "desc"
                     ? "▼"
@@ -218,13 +222,29 @@ const StatsTable: React.FC<StatsTableProps> = ({
                 className="px-4 py-2 cursor-pointer"
                 onClick={() => requestSort("roi")}
               >
-                ROI{" "}
+                Singles ROI{" "}
                 {sortConfig.key === "roi"
                   ? sortConfig.direction === "desc"
                     ? "▼"
                     : "▲"
                   : "◇"}
               </th>
+              {data.some(item => item.legs !== undefined) && (
+                <>
+                  <th
+                    className="px-4 py-2 cursor-pointer text-center"
+                    onClick={() => requestSort("legs")}
+                  >
+                    Legs{" "}
+                    {sortConfig.key === "legs"
+                      ? sortConfig.direction === "desc"
+                        ? "▼"
+                        : "▲"
+                      : "◇"}
+                  </th>
+                  <th className="px-4 py-2 text-center">Leg Win%</th>
+                </>
+              )}
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
@@ -269,6 +289,20 @@ const StatsTable: React.FC<StatsTableProps> = ({
                   <td className={`px-4 py-2 font-semibold ${netColor}`}>
                     {item.roi.toFixed(1)}%
                   </td>
+                  {item.legs !== undefined && (
+                    <>
+                      <td className="px-4 py-2 text-center">{item.legs}</td>
+                      <td className={`px-4 py-2 text-center font-semibold ${
+                        item.legWinRate && item.legWinRate > 50
+                          ? "text-accent-500"
+                          : item.legWinRate && item.legWinRate < 50 && item.legs > 0
+                          ? "text-danger-500"
+                          : "text-neutral-500"
+                      }`}>
+                        {item.legWinRate !== undefined ? item.legWinRate.toFixed(1) : "0.0"}%
+                      </td>
+                    </>
+                  )}
                 </tr>
               );
             })}
@@ -327,6 +361,9 @@ const OverUnderBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
       under: { count: 0, wins: 0, losses: 0, stake: 0, net: 0 },
     };
 
+    // NOTE: This breakdown uses ticket-level attribution (full ticket stake/net per leg).
+    // This is intentional for overall O/U analysis across all bets, not entity-specific stats.
+    // For entity-specific O/U stats (e.g., player profile), use getEntityMoneyContribution() to exclude parlay money.
     filteredBets.forEach((bet) => {
       if (bet.legs?.length) {
         bet.legs.forEach((leg) => {
@@ -800,27 +837,34 @@ const DashboardView: React.FC = () => {
     const sportMap = computeStatsByDimension(filteredBets, (bet) => bet.sport);
     const tailMap = computeStatsByDimension(filteredBets, (bet) => bet.tail ? bet.tail.trim() : null);
     
-    // Player/Team Stats
-    const playerTeamMap = computeStatsByDimension(filteredBets, (bet) => {
-      if (bet.legs && bet.legs.length > 0) {
-        // Collect entities from all legs
-        const entities = new Set<string>();
-        bet.legs.forEach(leg => {
-          leg.entities?.forEach(e => entities.add(e));
-        });
-        return Array.from(entities);
-      } else if (bet.name) {
-        return bet.name;
+    // Player/Team Stats (P4: Use entity stats service for parlay-aware attribution)
+    const playerTeamMap = computeEntityStatsMap(filteredBets, (leg, bet) => {
+      if (leg.entities && leg.entities.length > 0) {
+        return leg.entities;
       }
       return null;
     });
 
-    // Convert maps to sorted arrays
+    // Convert EntityStats map to StatsData array
+    const playerTeamStats: StatsData[] = Array.from(playerTeamMap.entries())
+      .map(([name, stats]: [string, EntityStats]) => ({
+        name,
+        count: stats.tickets, // Total tickets (singles + parlays)
+        wins: 0, // Not tracked at entity level for mixed singles/parlays
+        losses: 0, // Not tracked at entity level for mixed singles/parlays
+        stake: stats.stakeSingles, // Singles only
+        net: stats.netSingles, // Singles only
+        roi: stats.roiSingles, // Singles only
+        legs: stats.legs,
+        legWinRate: stats.legWinRate,
+      }))
+      .sort((a, b) => b.net - a.net);
+
+    // Convert other maps to sorted arrays
     const profitByBook = mapToStatsArray(bookMap).sort((a, b) => b.net - a.net);
     const marketCategoryStats = mapToStatsArray(categoryMap).sort((a, b) => b.count - a.count);
     const sportStats = mapToStatsArray(sportMap).sort((a, b) => b.net - a.net);
     const tailStats = mapToStatsArray(tailMap).sort((a, b) => b.net - a.net);
-    const playerTeamStats = mapToStatsArray(playerTeamMap).sort((a, b) => b.net - a.net);
     
     // Apply entity type filter to playerTeamStats
     let filteredPlayerTeamStats = playerTeamStats;

@@ -76,10 +76,11 @@ useEffect(() => {
 |--------|-----------|---------|
 | **Filter Engine** | `utils/filterPredicates.ts` | Centralized filter predicates (Date, Sport, Book, Type) |
 | **Aggregation Service** | `services/aggregationService.ts` | Centralized KPI formulas (Net, ROI, Win Rate) |
-| **Display Semantics** | `services/displaySemantics.ts` | Semantic policies (Pending net, Stake attribution) |
+| **Display Semantics** | `services/displaySemantics.ts` | Semantic policies (Pending net, Parlay-aware attribution) |
+| **Entity Stats Service** | `services/entityStatsService.ts` | P4: Entity breakdowns with parlay exclusion + leg accuracy |
 | **Formatting** | `utils/formatters.ts` | Centralized formatting (Dates, Odds, Currency) |
 
-### Semantics Policy (P3)
+### Semantics Policy (P3 + P4)
 
 The `services/displaySemantics.ts` module codifies semantic rules for bet data interpretation:
 
@@ -87,7 +88,18 @@ The `services/displaySemantics.ts` module codifies semantic rules for bet data i
 |--------|------|----------------|
 | **Pending Net (Numeric)** | Pending bets contribute **0** to net profit | `getNetNumeric(bet)` returns 0 for pending |
 | **Pending Net (Display)** | Pending bets show **blank** in tables | `getNetDisplay(bet)` returns "" for pending |
-| **Stake Attribution** | Ticket-level: full stake to each leg/entity | `STAKE_ATTRIBUTION_POLICY = 'ticket-level'` |
+| **Stake Attribution (Legacy)** | Ticket-level: full stake to each leg/entity | `STAKE_ATTRIBUTION_POLICY = 'ticket-level'` (for O/U breakdowns) |
+
+**P4 Policy (Entity Breakdowns):**
+
+The `services/entityStatsService.ts` module implements P4 parlay semantics:
+
+| Policy | Rule | Implementation |
+|--------|------|----------------|
+| **Entity Money (Singles)** | Singles contribute full stake/net to entity | `getEntityMoneyContribution(bet)` returns full stake/net for singles |
+| **Entity Money (Parlays)** | Parlays contribute **0** stake/net to entity | `getEntityMoneyContribution(bet)` returns {stake: 0, net: 0} for parlays |
+| **Leg Accuracy** | Track leg outcomes independently of ticket result | `getLegOutcome(leg, bet)` extracts leg.result; returns 'unknown' if missing |
+| **Leg Win Rate** | Calculated from legWins / (legWins + legLosses), excluding unknown/pending/push | `EntityStats.legWinRate` computed in `computeEntityStatsMap()` |
 
 These policies ensure consistent behavior across all views and KPI calculations.
 

@@ -18,6 +18,7 @@ import {
   DimensionStats,
 } from '../services/aggregationService';
 import { getNetNumeric } from '../services/displaySemantics';
+import { computeEntityStatsMap, EntityStats } from '../services/entityStatsService';
 
 // --- HELPER FUNCTIONS & COMPONENTS ---
 
@@ -70,7 +71,19 @@ const StatCard: React.FC<{ title: string; value: string; icon: React.ReactNode; 
 };
 
 
-type StatsData = { name: string; count: number; wins: number; losses: number; stake: number; net: number; roi: number; sport?: string };
+type StatsData = { 
+  name: string; 
+  count: number; 
+  wins: number; 
+  losses: number; 
+  stake: number; 
+  net: number; 
+  roi: number; 
+  sport?: string;
+  // P4: Leg accuracy metrics for parlay insight
+  legs?: number;
+  legWinRate?: number;
+};
 interface StatsTableProps {
     data: StatsData[];
     title: string;
@@ -127,14 +140,22 @@ const StatsTable: React.FC<StatsTableProps> = ({ data, title, searchPlaceholder,
                             <th className="px-4 py-2 cursor-pointer text-center" onClick={() => requestSort('losses')}>Loss {sortConfig.key === 'losses' ? (sortConfig.direction === 'desc' ? '▼' : '▲') : '◇'}</th>
                             <th className="px-4 py-2 text-center">Win %</th>
                             <th className="px-4 py-2 cursor-pointer" onClick={() => requestSort('stake')}>
-                                Wagered {sortConfig.key === 'stake' ? (sortConfig.direction === 'desc' ? '▼' : '▲') : '◇'}
+                                Singles Wagered {sortConfig.key === 'stake' ? (sortConfig.direction === 'desc' ? '▼' : '▲') : '◇'}
                             </th>
                             <th className="px-4 py-2 cursor-pointer" onClick={() => requestSort('net')}>
-                                Net {sortConfig.key === 'net' ? (sortConfig.direction === 'desc' ? '▼' : '▲') : '◇'}
+                                Singles Net {sortConfig.key === 'net' ? (sortConfig.direction === 'desc' ? '▼' : '▲') : '◇'}
                             </th>
                             <th className="px-4 py-2 cursor-pointer" onClick={() => requestSort('roi')}>
-                                ROI {sortConfig.key === 'roi' ? (sortConfig.direction === 'desc' ? '▼' : '▲') : '◇'}
+                                Singles ROI {sortConfig.key === 'roi' ? (sortConfig.direction === 'desc' ? '▼' : '▲') : '◇'}
                             </th>
+                            {data.some(item => item.legs !== undefined) && (
+                                <>
+                                    <th className="px-4 py-2 cursor-pointer text-center" onClick={() => requestSort('legs')}>
+                                        Legs {sortConfig.key === 'legs' ? (sortConfig.direction === 'desc' ? '▼' : '▲') : '◇'}
+                                    </th>
+                                    <th className="px-4 py-2 text-center">Leg Win%</th>
+                                </>
+                            )}
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
@@ -153,6 +174,20 @@ const StatsTable: React.FC<StatsTableProps> = ({ data, title, searchPlaceholder,
                                     <td className="px-4 py-2">${item.stake.toFixed(2)}</td>
                                     <td className={`px-4 py-2 font-semibold ${netColor}`}>{item.net.toFixed(2)}</td>
                                     <td className={`px-4 py-2 font-semibold ${netColor}`}>{item.roi.toFixed(1)}%</td>
+                                    {item.legs !== undefined && (
+                                        <>
+                                            <td className="px-4 py-2 text-center">{item.legs}</td>
+                                            <td className={`px-4 py-2 text-center font-semibold ${
+                                                item.legWinRate && item.legWinRate > 50
+                                                    ? 'text-accent-500'
+                                                    : item.legWinRate && item.legWinRate < 50 && item.legs > 0
+                                                    ? 'text-danger-500'
+                                                    : 'text-neutral-500'
+                                            }`}>
+                                                {item.legWinRate !== undefined ? item.legWinRate.toFixed(1) : '0.0'}%
+                                            </td>
+                                        </>
+                                    )}
                                 </tr>
                             )
                         })}
@@ -439,21 +474,32 @@ const BySportView: React.FC = () => {
             return null; 
         });
         
-        // Player/Team Stats
-        const playerTeamMap = computeStatsByDimension(filteredBets, (bet) => {
-            if (bet.legs?.length) {
-                const entities = new Set<string>();
-                bet.legs.forEach(leg => leg.entities?.forEach(e => entities.add(e)));
-                return Array.from(entities);
+        // Player/Team Stats (P4: Use entity stats service for parlay-aware attribution)
+        const playerTeamMap = computeEntityStatsMap(filteredBets, (leg, bet) => {
+            if (leg.entities && leg.entities.length > 0) {
+                return leg.entities;
             }
-            return bet.name ? bet.name : null;
+            return null;
         });
 
         // Tail Stats
         const tailMap = computeStatsByDimension(filteredBets, (bet) => bet.tail ? bet.tail.trim() : null);
 
+        // Convert EntityStats map to StatsData array
+        let playerTeamStats: StatsData[] = Array.from(playerTeamMap.entries())
+            .map(([name, stats]: [string, EntityStats]) => ({
+                name,
+                count: stats.tickets, // Total tickets (singles + parlays)
+                wins: 0, // Not tracked at entity level for mixed singles/parlays
+                losses: 0, // Not tracked at entity level for mixed singles/parlays
+                stake: stats.stakeSingles, // Singles only
+                net: stats.netSingles, // Singles only
+                roi: stats.roiSingles, // Singles only
+                legs: stats.legs,
+                legWinRate: stats.legWinRate,
+            }));
+
         // Filter Player/Team Stats
-        let playerTeamStats = mapToStatsArray(playerTeamMap);
         if (entityType === 'player') {
             playerTeamStats = playerTeamStats.filter(item => allPlayers.has(item.name));
         } else if (entityType === 'team') {

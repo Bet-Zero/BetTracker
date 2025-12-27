@@ -3,6 +3,8 @@ import { Bet, Sportsbook, MarketCategory, BetLeg } from "../types";
 import { X, AlertTriangle, CheckCircle2, Wifi, XCircle, Info } from "./icons";
 import { classifyLeg } from "../services/marketClassification";
 import { validateBetsForImport } from "../utils/importValidation";
+import { normalizeTeamNameWithMeta, NormalizationResult, isKnownTeam } from "../services/normalizationService";
+import { TeamData } from "../services/normalizationService";
 
 // Export summary type for parent components
 export interface ImportSummary {
@@ -24,6 +26,7 @@ interface ImportConfirmationModalProps {
   sportsbooks: Sportsbook[];
   onAddPlayer: (sport: string, playerName: string) => void;
   onAddSport: (sport: string) => void;
+  onAddTeam?: (team: TeamData) => boolean;
 }
 
 // Helper functions for formatting
@@ -143,6 +146,22 @@ const getVisibleLegs = (bet: Bet): VisibleLeg[] => {
   return visible;
 };
 
+// Helper function to check for cross-sport player name collisions
+const checkCrossSportCollision = (
+  sport: string,
+  playerName: string,
+  availablePlayers: Record<string, string[]>
+): string[] => {
+  const normalizedName = playerName.toLowerCase().trim();
+  const collisions: string[] = [];
+  for (const [otherSport, players] of Object.entries(availablePlayers)) {
+    if (otherSport !== sport && players.some(p => p.toLowerCase() === normalizedName)) {
+      collisions.push(otherSport);
+    }
+  }
+  return collisions;
+};
+
 export const ImportConfirmationModal: React.FC<
   ImportConfirmationModalProps
 > = ({
@@ -156,10 +175,12 @@ export const ImportConfirmationModal: React.FC<
   sportsbooks,
   onAddPlayer,
   onAddSport,
+  onAddTeam,
 }) => {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingLegIndex, setEditingLegIndex] = useState<number | null>(null);
   const [expandedBets, setExpandedBets] = useState<Set<string>>(new Set());
+  const [collisionWarning, setCollisionWarning] = useState<string | null>(null);
 
   // Map sportsbook names to abbreviations
   const siteShortNameMap = useMemo(() => {
@@ -239,8 +260,8 @@ export const ImportConfirmationModal: React.FC<
   const getBetIssues = (
     bet: Bet,
     legIndex?: number
-  ): { field: string; message: string }[] => {
-    const issues: { field: string; message: string }[] = [];
+  ): { field: string; message: string; collision?: NormalizationResult["collision"] }[] => {
+    const issues: { field: string; message: string; collision?: NormalizationResult["collision"] }[] = [];
     const visibleLegs = getVisibleLegs(bet);
 
     if (!bet.sport || bet.sport.trim() === "") {
@@ -268,12 +289,35 @@ export const ImportConfirmationModal: React.FC<
 
       const legName = leg.entities?.[0] || "";
       if (legName && legName.trim()) {
-        const sportPlayers = availablePlayers[bet.sport] || [];
-        if (!sportPlayers.includes(legName)) {
-          issues.push({
-            field: "Name",
-            message: `Player "${legName}" not in database`,
-          });
+        // Check if it's a team (main markets) or player (props)
+        const isTeamEntity = legCategory === "Main Markets" || leg.market?.toLowerCase() === "spread" || leg.market?.toLowerCase() === "total" || leg.market?.toLowerCase() === "moneyline";
+        
+        if (isTeamEntity) {
+          // Check team normalization and collisions
+          const normResult = normalizeTeamNameWithMeta(legName);
+          if (!isKnownTeam(legName) && normResult.canonical === legName.trim()) {
+            // Unknown team
+            issues.push({
+              field: "Name",
+              message: `Team "${legName}" not in database`,
+            });
+          } else if (normResult.collision) {
+            // Collision detected
+            issues.push({
+              field: "Name",
+              message: `Ambiguous team alias "${normResult.collision.input}" matched multiple teams: ${normResult.collision.candidates.join(', ')}. Using "${normResult.canonical}".`,
+              collision: normResult.collision,
+            });
+          }
+        } else {
+          // Player check
+          const sportPlayers = availablePlayers[bet.sport] || [];
+          if (!sportPlayers.includes(legName)) {
+            issues.push({
+              field: "Name",
+              message: `Player "${legName}" not in database`,
+            });
+          }
         }
       }
 
@@ -289,12 +333,35 @@ export const ImportConfirmationModal: React.FC<
           bet.legs?.[0]?.entities?.[0] ||
           "";
         if (betName && betName.trim()) {
-          const sportPlayers = availablePlayers[bet.sport] || [];
-          if (!sportPlayers.includes(betName)) {
-            issues.push({
-              field: "Name",
-              message: `Player "${betName}" not in database`,
-            });
+          const legCategory = classifyLeg(visibleLegs[0]?.leg.market || bet.type || "", bet.sport);
+          const isTeamEntity = legCategory === "Main Markets" || bet.marketCategory?.toLowerCase().includes("main");
+          
+          if (isTeamEntity) {
+            // Check team normalization and collisions
+            const normResult = normalizeTeamNameWithMeta(betName);
+            if (!isKnownTeam(betName) && normResult.canonical === betName.trim()) {
+              // Unknown team
+              issues.push({
+                field: "Name",
+                message: `Team "${betName}" not in database`,
+              });
+            } else if (normResult.collision) {
+              // Collision detected
+              issues.push({
+                field: "Name",
+                message: `Ambiguous team alias "${normResult.collision.input}" matched multiple teams: ${normResult.collision.candidates.join(', ')}. Using "${normResult.canonical}".`,
+                collision: normResult.collision,
+              });
+            }
+          } else {
+            // Player check
+            const sportPlayers = availablePlayers[bet.sport] || [];
+            if (!sportPlayers.includes(betName)) {
+              issues.push({
+                field: "Name",
+                message: `Player "${betName}" not in database`,
+              });
+            }
           }
         }
 
@@ -309,6 +376,15 @@ export const ImportConfirmationModal: React.FC<
 
   const handleAddPlayer = (sport: string, playerName: string) => {
     if (sport && playerName) {
+      // Check for cross-sport collisions
+      const collisions = checkCrossSportCollision(sport, playerName, availablePlayers);
+      if (collisions.length > 0) {
+        const warningMsg = `Name also exists in: ${collisions.join(', ')}. Confirm sport is correct.`;
+        setCollisionWarning(warningMsg);
+        // Clear warning after 5 seconds
+        setTimeout(() => setCollisionWarning(null), 5000);
+      }
+      // Still allow the add (non-blocking)
       onAddPlayer(sport, playerName);
     }
   };
@@ -316,6 +392,18 @@ export const ImportConfirmationModal: React.FC<
   const handleAddSport = (sport: string) => {
     if (sport) {
       onAddSport(sport);
+    }
+  };
+
+  const handleAddTeam = (sport: string, teamName: string) => {
+    if (sport && teamName && onAddTeam) {
+      const teamData: TeamData = {
+        canonical: teamName.trim(),
+        sport: sport as any, // Type assertion needed since Sport is a union type
+        aliases: [teamName.trim()],
+        abbreviations: [],
+      };
+      onAddTeam(teamData);
     }
   };
 
@@ -525,6 +613,20 @@ export const ImportConfirmationModal: React.FC<
             <X className="w-6 h-6" />
           </button>
         </div>
+        
+        {/* Cross-sport collision warning */}
+        {collisionWarning && (
+          <div className="px-6 py-3 bg-yellow-50 dark:bg-yellow-900/20 border-b border-yellow-200 dark:border-yellow-800 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
+            <span className="text-sm text-yellow-800 dark:text-yellow-300">{collisionWarning}</span>
+            <button
+              onClick={() => setCollisionWarning(null)}
+              className="ml-auto text-yellow-600 dark:text-yellow-400 hover:text-yellow-800 dark:hover:text-yellow-200"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
         
         {/* "What Will Happen" Summary - updates live */}
         <div className="px-6 py-4 bg-neutral-50 dark:bg-neutral-800/50 border-b border-neutral-200 dark:border-neutral-800">
@@ -930,21 +1032,36 @@ export const ImportConfirmationModal: React.FC<
                                     className="flex-1 p-1 text-sm border rounded bg-white dark:bg-neutral-800"
                                     placeholder="Player/Team name only"
                                   />
-                                  {name &&
-                                    sport &&
-                                    !(availablePlayers[sport] || []).includes(
-                                      name
-                                    ) && (
-                                      <button
-                                        onClick={() =>
-                                          handleAddPlayer(sport, name)
-                                        }
-                                        className="px-1 py-0.5 text-xs bg-primary-600 text-white rounded hover:bg-primary-700"
-                                        title="Add Player"
-                                      >
-                                        +
-                                      </button>
-                                    )}
+                                  {name && sport && (() => {
+                                    const legCategory = classifyLeg(visibleLegs[0]?.leg.market || bet.type || "", bet.sport);
+                                    const isTeamEntity = legCategory === "Main Markets" || bet.marketCategory?.toLowerCase().includes("main");
+                                    const isUnknownPlayer = !isTeamEntity && !(availablePlayers[sport] || []).includes(name);
+                                    const isUnknownTeam = isTeamEntity && !isKnownTeam(name);
+                                    
+                                    if (isUnknownPlayer) {
+                                      return (
+                                        <button
+                                          onClick={() => handleAddPlayer(sport, name)}
+                                          className="px-1 py-0.5 text-xs bg-primary-600 text-white rounded hover:bg-primary-700"
+                                          title="Add Player"
+                                        >
+                                          +
+                                        </button>
+                                      );
+                                    }
+                                    if (isUnknownTeam && onAddTeam) {
+                                      return (
+                                        <button
+                                          onClick={() => handleAddTeam(sport, name)}
+                                          className="px-1 py-0.5 text-xs bg-primary-600 text-white rounded hover:bg-primary-700"
+                                          title="Add Team"
+                                        >
+                                          +
+                                        </button>
+                                      );
+                                    }
+                                    return null;
+                                  })()}
                                 </div>
                               ) : (
                                 <div className="flex items-center gap-1">
@@ -964,33 +1081,53 @@ export const ImportConfirmationModal: React.FC<
                                   {betIssues.find(
                                     (i) => i.field === "Name"
                                   ) && (
-                                    <button
-                                      onClick={() => {
-                                        const issue = betIssues.find(
-                                          (i) => i.field === "Name"
-                                        );
-                                        if (
-                                          issue?.message.includes(
-                                            "not in database"
-                                          ) &&
-                                          name &&
-                                          sport
-                                        ) {
-                                          handleAddPlayer(sport, name);
-                                        } else {
-                                          setEditingIndex(betIndex);
-                                          setEditingLegIndex(null);
+                                    <>
+                                      {betIssues.find(
+                                        (i) => i.field === "Name" && i.collision
+                                      ) && (
+                                        <span className="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 px-1.5 py-0.5 rounded" title={
+                                          betIssues.find(
+                                            (i) => i.field === "Name"
+                                          )?.message
+                                        }>
+                                          Collision
+                                        </span>
+                                      )}
+                                      <button
+                                        onClick={() => {
+                                          const issue = betIssues.find(
+                                            (i) => i.field === "Name"
+                                          );
+                                          const legCategory = classifyLeg(visibleLegs[0]?.leg.market || bet.type || "", bet.sport);
+                                          const isTeamEntity = legCategory === "Main Markets" || bet.marketCategory?.toLowerCase().includes("main");
+                                          
+                                          if (
+                                            issue?.message.includes(
+                                              "not in database"
+                                            ) &&
+                                            name &&
+                                            sport
+                                          ) {
+                                            if (isTeamEntity && onAddTeam) {
+                                              handleAddTeam(sport, name);
+                                            } else if (!isTeamEntity) {
+                                              handleAddPlayer(sport, name);
+                                            }
+                                          } else {
+                                            setEditingIndex(betIndex);
+                                            setEditingLegIndex(null);
+                                          }
+                                        }}
+                                        className="flex-shrink-0"
+                                        title={
+                                          betIssues.find(
+                                            (i) => i.field === "Name"
+                                          )?.message
                                         }
-                                      }}
-                                      className="flex-shrink-0"
-                                      title={
-                                        betIssues.find(
-                                          (i) => i.field === "Name"
-                                        )?.message
-                                      }
-                                    >
-                                      <AlertTriangle className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
-                                    </button>
+                                      >
+                                        <AlertTriangle className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+                                      </button>
+                                    </>
                                   )}
                                 </div>
                               )}
@@ -1268,24 +1405,35 @@ export const ImportConfirmationModal: React.FC<
                                                 className="flex-1 p-1 text-xs border rounded bg-white dark:bg-neutral-800"
                                                 placeholder="Player/Team name"
                                               />
-                                              {legName &&
-                                                sport &&
-                                                !(
-                                                  availablePlayers[sport] || []
-                                                ).includes(legName) && (
-                                                  <button
-                                                    onClick={() =>
-                                                      handleAddPlayer(
-                                                        sport,
-                                                        legName
-                                                      )
-                                                    }
-                                                    className="px-1 py-0.5 text-xs bg-primary-600 text-white rounded hover:bg-primary-700"
-                                                    title="Add Player"
-                                                  >
-                                                    +
-                                                  </button>
-                                                )}
+                                              {legName && sport && (() => {
+                                                const isTeamEntity = legCategory === "Main Markets";
+                                                const isUnknownPlayer = !isTeamEntity && !(availablePlayers[sport] || []).includes(legName);
+                                                const isUnknownTeam = isTeamEntity && !isKnownTeam(legName);
+                                                
+                                                if (isUnknownPlayer) {
+                                                  return (
+                                                    <button
+                                                      onClick={() => handleAddPlayer(sport, legName)}
+                                                      className="px-1 py-0.5 text-xs bg-primary-600 text-white rounded hover:bg-primary-700"
+                                                      title="Add Player"
+                                                    >
+                                                      +
+                                                    </button>
+                                                  );
+                                                }
+                                                if (isUnknownTeam && onAddTeam) {
+                                                  return (
+                                                    <button
+                                                      onClick={() => handleAddTeam(sport, legName)}
+                                                      className="px-1 py-0.5 text-xs bg-primary-600 text-white rounded hover:bg-primary-700"
+                                                      title="Add Team"
+                                                    >
+                                                      +
+                                                    </button>
+                                                  );
+                                                }
+                                                return null;
+                                              })()}
                                             </div>
                                           ) : (
                                             <div className="flex items-center gap-1">
@@ -1306,40 +1454,56 @@ export const ImportConfirmationModal: React.FC<
                                               {legIssues.find(
                                                 (i) => i.field === "Name"
                                               ) && (
-                                                <button
-                                                  onClick={() => {
-                                                    const issue =
+                                                <>
+                                                  {legIssues.find(
+                                                    (i) => i.field === "Name" && i.collision
+                                                  ) && (
+                                                    <span className="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 px-1.5 py-0.5 rounded" title={
                                                       legIssues.find(
-                                                        (i) =>
-                                                          i.field === "Name"
-                                                      );
-                                                    if (
-                                                      issue?.message.includes(
-                                                        "not in database"
-                                                      ) &&
-                                                      legName &&
-                                                      sport
-                                                    ) {
-                                                      handleAddPlayer(
-                                                        sport,
-                                                        legName
-                                                      );
-                                                    } else {
-                                                      setEditingIndex(betIndex);
-                                                      setEditingLegIndex(
-                                                        legIndex
-                                                      );
+                                                        (i) => i.field === "Name"
+                                                      )?.message
+                                                    }>
+                                                      Collision
+                                                    </span>
+                                                  )}
+                                                  <button
+                                                    onClick={() => {
+                                                      const issue =
+                                                        legIssues.find(
+                                                          (i) =>
+                                                            i.field === "Name"
+                                                        );
+                                                      const isTeamEntity = legCategory === "Main Markets";
+                                                      
+                                                      if (
+                                                        issue?.message.includes(
+                                                          "not in database"
+                                                        ) &&
+                                                        legName &&
+                                                        sport
+                                                      ) {
+                                                        if (isTeamEntity && onAddTeam) {
+                                                          handleAddTeam(sport, legName);
+                                                        } else if (!isTeamEntity) {
+                                                          handleAddPlayer(sport, legName);
+                                                        }
+                                                      } else {
+                                                        setEditingIndex(betIndex);
+                                                        setEditingLegIndex(
+                                                          legIndex
+                                                        );
+                                                      }
+                                                    }}
+                                                    className="flex-shrink-0"
+                                                    title={
+                                                      legIssues.find(
+                                                        (i) => i.field === "Name"
+                                                      )?.message
                                                     }
-                                                  }}
-                                                  className="flex-shrink-0"
-                                                  title={
-                                                    legIssues.find(
-                                                      (i) => i.field === "Name"
-                                                    )?.message
-                                                  }
-                                                >
-                                                  <AlertTriangle className="w-3 h-3 text-yellow-600 dark:text-yellow-400" />
-                                                </button>
+                                                  >
+                                                    <AlertTriangle className="w-3 h-3 text-yellow-600 dark:text-yellow-400" />
+                                                  </button>
+                                                </>
                                               )}
                                             </div>
                                           )}

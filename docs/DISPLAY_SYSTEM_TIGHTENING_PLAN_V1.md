@@ -411,4 +411,89 @@ Lock in semantic rules that were previously inconsistent or undocumented:
 | Gap 4 (Parlay Stake Attribution) | ✅ ADDRESSED - Policy documented |
 | Gap 8 (O/U Breakdown Attribution) | ✅ ADDRESSED - Policy documented |
 
+---
+
+## P4: Parlay Semantics Fix (NO Double-Count Money + Add Leg-Accuracy Rollups)
+
+> [!SUCCESS] **P4 Milestones Completed**
+
+### Goal
+Fix entity breakdown semantics so parlays do NOT inflate Wagered/Net/ROI per entity. Provide leg-accuracy metrics (legs, legWinRate) for parlay insight while keeping money attribution correct.
+
+### P4 Policy (Locked In)
+
+**A) Money semantics:**
+- Overall KPIs: stake/net computed at ticket level (unchanged)
+- Pending bets contribute 0 to net numeric (already implemented in P3)
+
+**B) Entity breakdown semantics:**
+- Singles: entity money columns reflect stake/net as before
+- Parlays: entity money contribution MUST be 0 (prevents stake inflation)
+- Parlays: entity breakdown MUST include leg-accuracy metrics (legs, legWins, legLosses, legWinRate)
+- Leg outcomes independent: If a parlay ticket loses but a specific leg wins, that entity's leg stats reflect the leg win
+
+**C) Unknown leg outcomes:**
+- Count as "unknown" and exclude from win% denominator
+- Still count the leg in total legs for transparency
+
+### Implementation
+
+#### Extended Module: `services/displaySemantics.ts`
+
+| Export | Purpose |
+|--------|---------|
+| `isParlayBetType(betType)` | Returns true for sgp, sgp_plus, parlay |
+| `getEntityMoneyContribution(bet)` | Returns {stake: 0, net: 0} for parlays; full stake/net for singles |
+| `getLegOutcome(leg, bet)` | Extracts leg outcome; returns 'unknown' if missing (never infers from ticket) |
+| `getEntityLegContribution(leg, bet)` | Returns leg count and outcome-specific counts |
+
+#### New Module: `services/entityStatsService.ts`
+
+| Export | Purpose |
+|--------|---------|
+| `EntityStats` interface | Combines singles money + parlay leg accuracy |
+| `computeEntityStatsMap(bets, keyExtractor)` | Computes per-entity stats with P4 semantics |
+
+#### Files Modified
+
+| File | Change |
+|------|--------|
+| `services/displaySemantics.ts` | Added parlay-aware helpers (isParlayBetType, getEntityMoneyContribution, getLegOutcome) |
+| `services/entityStatsService.ts` | NEW - Entity stats service with P4 policy |
+| `services/entityStatsService.test.ts` | NEW - Tests for single+parlay scenarios |
+| `views/DashboardView.tsx` | Replaced computeStatsByDimension with computeEntityStatsMap for playerTeamStats |
+| `views/BySportView.tsx` | Replaced computeStatsByDimension with computeEntityStatsMap for playerTeamStats |
+
+#### UI Changes
+
+- Column labels updated: "Wagered" → "Singles Wagered", "Net" → "Singles Net", "ROI" → "Singles ROI"
+- New columns added: "Legs" and "Leg Win%" (shown only for entity tables)
+- StatsData type extended with optional `legs` and `legWinRate` fields
+
+#### Behavioral Change
+
+**Entity breakdowns now exclude parlay stake/net**, preventing double-counting. A $10 parlay with LeBron and Celtics:
+- Before: Both entities showed $10 wagered (incorrect inflation)
+- After: Both entities show $0 wagered from parlay, but leg stats show LeBron's leg performance
+
+### Tests Run & Results
+
+- **Unit Tests:**
+  - `services/entityStatsService.test.ts`: **PASS** (7 test scenarios)
+    - Single bet money attribution
+    - Parlay exclusion from money
+    - Combined single+parlay contributions
+    - Unknown leg outcome handling
+    - SGP/SGP+ bet type handling
+    - Legacy format handling
+    - Multiple entities per leg
+
+### Gaps Status After P4
+
+| Gap | Status |
+|-----|--------|
+| Gap 3 (Pending Net Semantics) | ✅ ADDRESSED - Policy codified |
+| Gap 4 (Parlay Stake Attribution) | ✅ ADDRESSED - P4 policy implemented (parlays excluded from entity money) |
+| Gap 8 (O/U Breakdown Attribution) | ✅ ADDRESSED - Policy documented (separate from entity breakdowns) |
+
 *End of Display System Tightening Plan v1*

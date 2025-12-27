@@ -138,6 +138,17 @@ export interface StatTypeData {
 }
 
 /**
+ * Result of team normalization with collision metadata.
+ */
+export interface NormalizationResult {
+  canonical: string;
+  collision?: {
+    input: string;
+    candidates: string[];  // All canonical names that matched
+  };
+}
+
+/**
  * Snapshot of current reference data for consumers.
  * Use this instead of copying arrays directly to prevent drift.
  */
@@ -158,6 +169,9 @@ const REFERENCE_DATA_VERSION = '1.0.0';
 let teamLookupMap = new Map<string, TeamData>();
 let statTypeLookupMap = new Map<string, StatTypeData>();
 let initialized = false;
+
+// Track team collisions: key -> array of canonical names that match this key
+let teamCollisionMap = new Map<string, string[]>();
 
 // Cache the merged data for getReferenceDataSnapshot
 let cachedTeams: TeamData[] = [];
@@ -301,14 +315,24 @@ function loadStatTypes(): StatTypeData[] {
  * Builds lookup map for teams from the provided data.
  * Detects and logs collisions when multiple teams share the same key.
  * Policy: Keep the first entry, skip subsequent overrides.
+ * Also builds collision map to track all candidates for each key.
  */
 function buildTeamLookupMap(teams: TeamData[]): Map<string, TeamData> {
   const map = new Map<string, TeamData>();
+  const collisionMap = new Map<string, string[]>();
   
   const addEntry = (key: string, team: TeamData, keyType: string) => {
     const lowerKey = key.toLowerCase();
     const existing = map.get(lowerKey);
     if (existing && existing.canonical !== team.canonical) {
+      // Collision detected - track all candidates
+      if (!collisionMap.has(lowerKey)) {
+        collisionMap.set(lowerKey, [existing.canonical]);
+      }
+      const candidates = collisionMap.get(lowerKey)!;
+      if (!candidates.includes(team.canonical)) {
+        candidates.push(team.canonical);
+      }
       console.warn(
         `[normalizationService] Team lookup collision: key "${key}" (${keyType}) ` +
         `maps to both "${existing.canonical}" and "${team.canonical}". ` +
@@ -328,6 +352,9 @@ function buildTeamLookupMap(teams: TeamData[]): Map<string, TeamData> {
       addEntry(abbr, team, 'abbreviation');
     }
   }
+  
+  // Store collision map in module-level variable
+  teamCollisionMap = collisionMap;
   
   return map;
 }
@@ -485,6 +512,87 @@ export function normalizeTeamName(teamName: string): string {
   
   // Return original if no match found
   return normalized;
+}
+
+/**
+ * Normalizes a team name to its canonical form with collision metadata.
+ * Returns information about ambiguous matches (multiple teams with same alias/abbreviation).
+ * 
+ * @param teamName - The team name as it appears in the sportsbook data
+ * @returns NormalizationResult with canonical name and optional collision info
+ */
+export function normalizeTeamNameWithMeta(teamName: string): NormalizationResult {
+  if (!teamName) {
+    return { canonical: teamName };
+  }
+  
+  ensureInitialized();
+  
+  const normalized = teamName.trim();
+  const lowerSearch = normalized.toLowerCase();
+  
+  // Try exact match using lookup map (O(1) performance)
+  const teamInfo = teamLookupMap.get(lowerSearch);
+  if (teamInfo) {
+    const canonical = teamInfo.canonical;
+    // Check if there's a collision for this key
+    const collisions = teamCollisionMap.get(lowerSearch);
+    if (collisions && collisions.length > 1) {
+      return {
+        canonical,
+        collision: {
+          input: normalized,
+          candidates: collisions,
+        },
+      };
+    }
+    return { canonical };
+  }
+  
+  // If no exact match, try partial matching for compound names
+  // e.g., "PHO Suns" should match "Phoenix Suns"
+  const uniqueTeams = Array.from(new Map(
+    Array.from(teamLookupMap.values()).map(t => [t.canonical, t])
+  ).values());
+  
+  for (const team of uniqueTeams) {
+    // Check if the input contains a team abbreviation + nickname pattern
+    for (const abbr of team.abbreviations) {
+      const pattern1 = new RegExp(`^${abbr}\\s+`, 'i'); // "PHO Suns"
+      const pattern2 = new RegExp(`\\s+${abbr}$`, 'i'); // "Suns PHO"
+      
+      if (pattern1.test(normalized) || pattern2.test(normalized)) {
+        // Extract the nickname part
+        const parts = normalized.split(/\s+/);
+        for (const part of parts) {
+          if (part.toLowerCase() !== abbr.toLowerCase()) {
+            // Check if this part matches one of the team's aliases
+            for (const alias of team.aliases) {
+              if (alias.toLowerCase().includes(part.toLowerCase()) || 
+                  part.toLowerCase().includes(alias.toLowerCase())) {
+                // Check for collisions on the abbreviation
+                const abbrLower = abbr.toLowerCase();
+                const collisions = teamCollisionMap.get(abbrLower);
+                if (collisions && collisions.length > 1) {
+                  return {
+                    canonical: team.canonical,
+                    collision: {
+                      input: normalized,
+                      candidates: collisions,
+                    },
+                  };
+                }
+                return { canonical: team.canonical };
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  // Return original if no match found
+  return { canonical: normalized };
 }
 
 /**

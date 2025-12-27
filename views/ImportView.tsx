@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useBets } from '../hooks/useBets';
 import { useInputs } from '../hooks/useInputs';
+import { useNormalizationData } from '../hooks/useNormalizationData';
 import { SportsbookName, Bet } from '../types';
 import { AlertTriangle, CheckCircle2, ExternalLink, Loader, Info, XCircle } from '../components/icons';
 import { ManualPasteSourceProvider } from '../services/pageSourceProvider';
@@ -25,6 +26,7 @@ interface ImportResult {
 const ImportView: React.FC = () => {
   const { bets, addBets } = useBets();
   const { sportsbooks, sports, players, addPlayer, addSport } = useInputs();
+  const { addTeam: addNormalizationTeam } = useNormalizationData();
   const [selectedBook, setSelectedBook] = useState<SportsbookName>(sportsbooks[0]?.name || '');
   const [pageHtml, setPageHtml] = useState('');
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
@@ -228,6 +230,7 @@ const ImportView: React.FC = () => {
           sportsbooks={sportsbooks}
           onAddPlayer={addPlayer}
           onAddSport={addSport}
+          onAddTeam={addNormalizationTeam}
         />
       )}
       <header className="flex-shrink-0">

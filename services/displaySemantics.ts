@@ -25,7 +25,7 @@
  * @see docs/DISPLAY_SYSTEM_GAP_ANALYSIS_V1.md - Gaps 3, 4, 8
  */
 
-import { Bet, BetResult } from '../types';
+import { Bet, BetResult, BetType, BetLeg, LegResult } from '../types';
 import { formatNet } from '../utils/formatters';
 
 // =============================================================================
@@ -180,5 +180,114 @@ export function isDecidedResult(result: BetResult): boolean {
  */
 export function isPendingResult(result: BetResult): boolean {
   return result === 'pending';
+}
+
+// =============================================================================
+// PARLAY-AWARE ENTITY ATTRIBUTION (P4)
+// =============================================================================
+
+/**
+ * Leg outcome type for entity-level leg accuracy tracking.
+ * 'unknown' means leg.result was not present in data.
+ */
+export type LegOutcomeType = 'win' | 'loss' | 'push' | 'pending' | 'unknown';
+
+/**
+ * Checks if a bet type is a parlay variant.
+ * 
+ * P4 POLICY: Parlays (sgp, sgp_plus, parlay) should NOT contribute
+ * stake/net to entity breakdowns. Only singles contribute money.
+ *
+ * @param betType - The bet type to check
+ * @returns true if betType is a parlay variant
+ */
+export function isParlayBetType(betType: BetType): boolean {
+  return betType === 'sgp' || betType === 'sgp_plus' || betType === 'parlay';
+}
+
+/**
+ * Returns the money contribution (stake/net) for entity breakdowns.
+ *
+ * P4 POLICY:
+ * - Singles: Full stake and net attributed to entity
+ * - Parlays: Zero stake and net (prevents double-counting)
+ *
+ * @param bet - The bet to get money contribution from
+ * @returns Object with stake and net to attribute to entity
+ */
+export function getEntityMoneyContribution(bet: Bet): { stake: number; net: number } {
+  if (isParlayBetType(bet.betType)) {
+    // Parlays contribute 0 to entity money breakdowns
+    return { stake: 0, net: 0 };
+  }
+  // Singles contribute full stake and net
+  return {
+    stake: bet.stake,
+    net: getNetNumeric(bet),
+  };
+}
+
+/**
+ * Gets the leg outcome for leg-accuracy tracking.
+ *
+ * P4 POLICY:
+ * - Prefer leg.result if present (may be LegResult or BetResult)
+ * - If leg.result is missing, return 'unknown' (DO NOT infer from ticket result)
+ * - Unknown legs are excluded from win% denominator but counted in total legs
+ *
+ * @param leg - The bet leg to get outcome for
+ * @param bet - The parent bet (for context, but NOT used to infer leg outcome)
+ * @returns Leg outcome type
+ */
+export function getLegOutcome(leg: BetLeg, bet: Bet): LegOutcomeType {
+  if (!leg.result) {
+    return 'unknown';
+  }
+  
+  // Normalize to lowercase for comparison (leg.result can be LegResult or BetResult)
+  const result = typeof leg.result === 'string' ? leg.result.toLowerCase() : '';
+  
+  if (result === 'win') return 'win';
+  if (result === 'loss') return 'loss';
+  if (result === 'push') return 'push';
+  if (result === 'pending') return 'pending';
+  
+  // Fallback to unknown if result doesn't match expected values
+  return 'unknown';
+}
+
+/**
+ * Returns leg contribution counts for entity stats.
+ * Used to increment leg counters per entity.
+ *
+ * @param leg - The bet leg
+ * @param bet - The parent bet
+ * @returns Object with leg count and outcome-specific counts
+ */
+export function getEntityLegContribution(leg: BetLeg, bet: Bet): {
+  legs: 1;
+  win?: 1;
+  loss?: 1;
+  push?: 1;
+  pending?: 1;
+  unknown?: 1;
+} {
+  const outcome = getLegOutcome(leg, bet);
+  const contribution: {
+    legs: 1;
+    win?: 1;
+    loss?: 1;
+    push?: 1;
+    pending?: 1;
+    unknown?: 1;
+  } = { legs: 1 };
+  
+  if (outcome === 'win') contribution.win = 1;
+  else if (outcome === 'loss') contribution.loss = 1;
+  else if (outcome === 'push') contribution.push = 1;
+  else if (outcome === 'pending') contribution.pending = 1;
+  else if (outcome === 'unknown') contribution.unknown = 1;
+  
+  return contribution;
 }
 
