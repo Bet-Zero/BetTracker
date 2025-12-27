@@ -20,6 +20,7 @@ import { calculateProfit } from "../utils/betCalculations";
 import { betToFinalRows } from "../parsing/shared/betToFinalRows";
 import { abbreviateMarket, normalizeCategoryForDisplay } from "../services/marketClassification";
 import { formatDateShort, formatOdds } from "../utils/formatters";
+import { useDebouncedValue } from "../hooks/useDebouncedValue";
 
 // --- Fixed column widths (deterministic spreadsheet layout) ---
 const COL_W: Record<string, string> = {
@@ -458,7 +459,6 @@ const BetTableView: React.FC = () => {
     addTeam,
   } = useInputs();
   const [searchTerm, setSearchTerm] = useState("");
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [filters, setFilters] = useState<{
     sport: string | "all";
     type: string | "all";
@@ -497,12 +497,7 @@ const BetTableView: React.FC = () => {
   );
 
   // Debounce search term (200ms delay) - P2-4
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchTerm(searchTerm);
-    }, 200);
-    return () => clearTimeout(timer);
-  }, [searchTerm]);
+  const debouncedSearchTerm = useDebouncedValue(searchTerm, 200);
 
   // Save expanded parlays to localStorage
   useEffect(() => {

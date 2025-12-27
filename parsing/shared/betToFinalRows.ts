@@ -37,7 +37,7 @@ import {
   calculateFormattedNet,
 } from "./finalRowValidators";
 import { classifyLeg, determineType, normalizeCategoryForDisplay } from "../../services/marketClassification";
-import { formatDateExport } from "../../utils/formatters";
+import { formatDateShortWithYear } from "../../utils/formatters";
 
 // ============================================================================
 // CONSTANTS
@@ -410,8 +410,8 @@ function createFinalRow(
   },
   categoryAndType?: CategoryAndType
 ): FinalRow {
-  // Format date to MM/DD/YY (formatDateExport handles null/invalid input safely)
-  const date = formatDateExport(bet.placedAt);
+  // Format date to MM/DD/YY (formatDateShortWithYear handles null/invalid input safely)
+  const date = formatDateShortWithYear(bet.placedAt);
 
   // Site abbreviation or full name
   const site = bet.book;

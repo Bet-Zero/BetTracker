@@ -13,6 +13,11 @@ import {
   FormattedNet,
 } from "../../types";
 import { createLogger } from "./logger";
+import {
+  formatOdds as formatOddsShared,
+  formatCurrency,
+  formatNet as formatNetShared,
+} from "../../utils/formatters";
 
 const logger = createLogger("finalRowValidators");
 
@@ -102,17 +107,12 @@ export function isValidSingleFlag(value: string): value is SingleFlag {
  * @returns Formatted string with sign (e.g., "+360", "-120") or empty string
  */
 export function formatOdds(odds: number | undefined | null): FormattedOdds {
-  if (odds === undefined || odds === null || odds === 0) {
-    return "" as FormattedOdds;
+  const formatted = formatOddsShared(odds);
+  if (isValidFormattedOdds(formatted)) {
+    return formatted;
   }
-
-  // Ensure integer odds
-  const intOdds = Math.round(odds);
-
-  if (intOdds > 0) {
-    return `+${intOdds}` as FormattedOdds;
-  }
-  return `${intOdds}` as FormattedOdds; // Negative odds already have "-"
+  logger.warn("formatOdds produced invalid output", { odds, formatted });
+  return "" as FormattedOdds;
 }
 
 /**
@@ -155,13 +155,20 @@ export function parseFormattedOdds(
  * @param amount - The amount to format
  * @returns Formatted string (e.g., "1.00", "3.60") or empty string
  */
+/**
+ * Formats a monetary amount to FormattedAmount.
+ * Now uses shared formatCurrency which adds currency symbol and commas.
+ * @param amount - The amount to format
+ * @returns Formatted string (e.g., "$1,234.56") or empty string
+ */
 export function formatAmount(
   amount: number | undefined | null
 ): FormattedAmount {
   if (amount === undefined || amount === null || isNaN(amount)) {
     return "" as FormattedAmount;
   }
-  return amount.toFixed(2) as FormattedAmount;
+  // Use shared formatter which adds $ and commas
+  return formatCurrency(amount) as FormattedAmount;
 }
 
 /**
@@ -205,10 +212,12 @@ export function parseFormattedAmount(
  * @returns Formatted string (e.g., "-1.00", "0.00", "3.60") or empty string
  */
 export function formatNet(net: number | undefined | null): FormattedNet {
-  if (net === undefined || net === null || isNaN(net)) {
-    return "" as FormattedNet;
+  const formatted = formatNetShared(net);
+  if (isValidFormattedNet(formatted)) {
+    return formatted;
   }
-  return net.toFixed(2) as FormattedNet;
+  logger.warn("formatNet produced invalid output", { net, formatted });
+  return "" as FormattedNet;
 }
 
 /**

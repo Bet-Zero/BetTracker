@@ -4,7 +4,7 @@
  * Pure functions for consistent date, odds, currency, and percentage formatting
  * across the BetTracker application.
  *
- * These are thin wrappers around existing logic, centralized for consistency.
+ * This module is the single source of truth for display formatting.
  */
 
 // =============================================================================
@@ -56,7 +56,7 @@ export function formatDateChartKey(isoOrDateLike: string | Date | null | undefin
  * @param isoOrDateLike - ISO string or Date-like value
  * @returns "MM/DD/YY" format string, or "" for invalid input
  */
-export function formatDateExport(isoOrDateLike: string | Date | null | undefined): string {
+export function formatDateShortWithYear(isoOrDateLike: string | Date | null | undefined): string {
   if (!isoOrDateLike) return "";
 
   try {
@@ -71,6 +71,11 @@ export function formatDateExport(isoOrDateLike: string | Date | null | undefined
     return "";
   }
 }
+
+/**
+ * @deprecated Use formatDateShortWithYear instead. Kept for backward compatibility during refactor.
+ */
+export const formatDateExport = formatDateShortWithYear;
 
 // =============================================================================
 // ODDS FORMATTER
@@ -101,15 +106,19 @@ export function formatOdds(odds: number | string | null | undefined): string {
 // =============================================================================
 
 /**
- * Formats a monetary amount to 2 decimal places.
+ * Formats a monetary amount to currency style ($1,234.56).
  * @param amount - The amount to format
- * @returns Formatted string (e.g., "10.50") or "" for invalid input
+ * @returns Formatted string (e.g., "$1,234.56") or "" for invalid input
  */
 export function formatCurrency(amount: number | null | undefined): string {
   if (amount === null || amount === undefined || isNaN(amount)) {
     return "";
   }
-  return amount.toFixed(2);
+  const isNegative = amount < 0;
+  const absAmount = Math.abs(amount);
+  const formatted = absAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  
+  return isNegative ? `-$${formatted}` : `$${formatted}`;
 }
 
 // =============================================================================
@@ -119,7 +128,7 @@ export function formatCurrency(amount: number | null | undefined): string {
 /**
  * Formats a percentage value with % suffix.
  * @param value - The percentage value (e.g., 55.5 for 55.5%)
- * @returns Formatted string (e.g., "55.5%") or "" for invalid input
+ * @returns Formatted string (e.g., "65.5%") or "" for invalid input
  */
 export function formatPercentage(value: number | null | undefined): string {
   if (value === null || value === undefined || isNaN(value)) {
@@ -133,8 +142,8 @@ export function formatPercentage(value: number | null | undefined): string {
 // =============================================================================
 
 /**
- * Formats net profit/loss to 2 decimal places.
- * Preserves sign for negative values.
+ * Formats net profit/loss to consistent string format.
+ * Currently matches existing validation logic (2 decimal places, no currency symbol yet).
  * @param amount - The net amount to format
  * @returns Formatted string (e.g., "100.50", "-50.00") or "" for invalid input
  */

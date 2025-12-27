@@ -5,6 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { TrendingUp, TrendingDown, Scale, BarChart2, User } from '../components/icons';
 import { Bet } from '../types';
 import { filterByBetType, filterByDateRange, CustomDateRange } from '../utils/filterPredicates';
+import { formatDateShort } from '../utils/formatters';
 import {
   calculateRoi,
   computeProfitOverTime,
@@ -170,7 +171,7 @@ const RecentBetsTable: React.FC<{ bets: Bet[] }> = ({ bets }) => (
             const netColor = net > 0 ? 'text-accent-500' : net < 0 ? 'text-danger-500' : '';
             return (
               <tr key={bet.id} className="border-b border-neutral-200 dark:border-neutral-800 odd:bg-white dark:odd:bg-neutral-900 even:bg-neutral-50 dark:even:bg-neutral-800/50">
-                <td className="p-2 whitespace-nowrap">{new Date(bet.placedAt).toLocaleDateString()}</td>
+                <td className="p-2 whitespace-nowrap">{formatDateShort(bet.placedAt)}</td>
                 <td className="p-2">{bet.description}</td>
                 <td className="p-2 text-right">${bet.stake.toFixed(2)}</td>
                 <td className={`p-2 text-right font-semibold ${netColor}`}>{net.toFixed(2)}</td>
