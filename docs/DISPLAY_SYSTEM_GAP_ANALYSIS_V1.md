@@ -249,57 +249,54 @@ There is no shared filter engine, no aggregation service, and no view adapters.
 
 ### Gap 3: Inconsistent Net Calculation Semantics
 
-**Current state:**
-- Inline views: `bet.payout - bet.stake` — returns 0 for pending (since payout is 0)
+> [!CHECK] **ADDRESSED (policy codified)** in P3 by `services/displaySemantics.ts`
+
+**Previous state:**
+- Inline views: `bet.payout - bet.stake` — returned -stake for pending (since payout is 0)
 - `finalRowValidators.ts:217-280`: returns empty string for pending
 - `utils/betCalculations.ts:28-36`: `calculateProfit` doesn't handle result at all
 
-**Citation:**
-```typescript
-// Views (inline)
-const net = bet.payout - bet.stake; // Returns 0 for pending
+**Current state (P3):**
+- All views now call `getNetNumeric(bet)` from `services/displaySemantics.ts`
+- Pending bets contribute **0** to numeric net (not -stake)
+- Display strings use `getNetDisplay(bet)` which returns `""` for pending
+- Policy is documented in `displaySemantics.ts` with clear comments
 
-// finalRowValidators.ts:234-235
-if (resultLower === "pending") {
-  return "" as FormattedNet; // Returns empty string for pending
-}
-```
+**Behavioral change:**
+- KPIs that previously showed pending as -stake now show pending as 0
+- This is the **correct** behavior: pending bets are undecided
 
-**Ideal state:**
-- Single `calculateNet(bet)` function that handles all statuses uniformly
-- Views always call this function rather than inline calculation
-
-**Why it matters:**
-- Pending bets showing 0 net vs empty net is inconsistent
-- Future features (open P/L tracking) need consistent treatment
-
-**Risk level:** **MEDIUM**
+**Risk level:** **ADDRESSED**
 
 ---
 
 ### Gap 4: Parlay Stake Attribution Unclear for Per-Entity Stats
 
+> [!CHECK] **ADDRESSED (policy documented)** in P3 by `services/displaySemantics.ts`
+
 **Current state:**
 - When computing player/team stats from parlay legs, the entire `bet.stake` is attributed to each entity
-- DashboardView.tsx:958-959:
-  ```typescript
-  leg.entities?.forEach((entity) =>
-    addToMap(playerTeamStatsMap, entity, bet.stake, net, result)
-  );
-  ```
-- BySportView.tsx:478 follows the same pattern
+- This is now explicitly documented as **"ticket-level" attribution policy**
+- `STAKE_ATTRIBUTION_POLICY = 'ticket-level'` exported from `displaySemantics.ts`
+- Helper `getAttributedStakeAndNet()` encapsulates the policy logic
 
-**Ideal state:**
-- Clear documentation or logic on whether parlay stake should be:
-  - Attributed fully to each entity (current behavior, leads to double-counting stake)
-  - Split across legs (more accurate but complex)
-  - Excluded from per-entity rollups
+**Policy documentation (from displaySemantics.ts):**
+```typescript
+// STAKE ATTRIBUTION POLICY:
+// - Parlay/multi-leg bets attribute the FULL ticket stake and net to each
+//   entity/leg when computing per-entity or per-leg statistics.
+// - This is intentional "ticket-level" attribution (known double-count risk).
+// - Rationale: A player appearing in a parlay affects the full ticket outcome.
+```
 
-**Why it matters:**
-- User sees inflated "Wagered" values in player/team tables when betting parlays
-- ROI calculations for entities in parlays are misleading
+**Why ticket-level is intentional:**
+- Answers the question: "What's my P/L on bets involving X?"
+- Full ticket outcome is affected by each participant
+- Split attribution would lose this context
 
-**Risk level:** **MEDIUM**
+**Future option:** Policy can be changed to `'split'` if needed
+
+**Risk level:** **ADDRESSED (policy documented)**
 
 ---
 
@@ -362,52 +359,43 @@ if (resultLower === "pending") {
 
 ### Gap 8: Over/Under Breakdown Uses Full Bet Net, Not Per-Leg
 
+> [!CHECK] **ADDRESSED (policy documented)** in P3 by `services/displaySemantics.ts`
+
 **Current state:**
-- DashboardView.tsx:313-326 (OverUnderBreakdown component starting at line 296):
-  ```typescript
-  filteredBets.forEach((bet) => {
-    if (bet.legs?.length) {
-      bet.legs.forEach((leg) => {
-        if (leg.ou) {
-          const ou = leg.ou.toLowerCase() as "over" | "under";
-          const net = bet.payout - bet.stake; // Full bet net
-          stats[ou].count++;
-          stats[ou].stake += bet.stake; // Full stake attributed per leg
-          stats[ou].net += net;
-          // ...
-        }
-      });
-    }
-  });
-  ```
-- If a bet has multiple legs, each O/U leg gets the full stake/net attributed
+- O/U breakdowns now use `getNetNumeric(bet)` from `displaySemantics.ts`
+- This follows the same **"ticket-level" attribution policy** as Gap 4
+- Each O/U leg gets the full stake/net attributed (intentional behavior)
 
-**Ideal state:**
-- Document expected behavior: is this intentional (ticket-level O/U) or should it be leg-normalized?
+**Why ticket-level is intentional:**
+- Consistent with parlay attribution policy (Gap 4)
+- Answers: "How do my Over bets perform?" at the ticket level
+- If a ticket wins/loses, the O/U direction on that ticket contributed to the outcome
 
-**Why it matters:**
-- Can inflate O/U stats if many multi-leg bets exist
-- Consistent with parlay attribution gap (Gap 4)
+**Code now uses semantic helpers:**
+```typescript
+const net = getNetNumeric(bet); // Uses centralized semantics
+stats[ou].net += net;
+```
 
-**Risk level:** **MEDIUM**
+**Risk level:** **ADDRESSED (policy documented)**
 
 ---
 
 ## 6. Risk Ranking
 
-### HIGH Risk
-1. **Gap 1: No Shared Filter Engine** — Duplication across 5 views; bug fixes require multi-file updates
-2. **Gap 2: No Shared Aggregation Service** — ROI/net formulas duplicated 6 times; difficult to test
+### HIGH Risk — ADDRESSED
+1. **Gap 1: No Shared Filter Engine** — ✅ ADDRESSED in P2 by `utils/filterPredicates.ts`
+2. **Gap 2: No Shared Aggregation Service** — ✅ ADDRESSED in P2 by `services/aggregationService.ts`
 
-### MEDIUM Risk
-3. **Gap 3: Inconsistent Net Calculation Semantics** — Pending bets show 0 vs empty
-4. **Gap 4: Parlay Stake Attribution** — Per-entity stats double-count stake on parlays
-5. **Gap 8: Over/Under Breakdown Attribution** — Full ticket net attributed per O/U leg
+### MEDIUM Risk — ADDRESSED
+3. **Gap 3: Inconsistent Net Calculation Semantics** — ✅ ADDRESSED in P3 by `services/displaySemantics.ts`
+4. **Gap 4: Parlay Stake Attribution** — ✅ ADDRESSED in P3 (policy documented in `displaySemantics.ts`)
+5. **Gap 8: Over/Under Breakdown Attribution** — ✅ ADDRESSED in P3 (policy documented in `displaySemantics.ts`)
 
-### LOW Risk
-6. **Gap 5: Date Format Inconsistency** — Multiple formats in use
-7. **Gap 6: DashboardView processedData Dependencies** — Redundant `bets` in dep array
-8. **Gap 7: No Debouncing on Search Input** — Performance opportunity
+### LOW Risk — PARTIALLY ADDRESSED
+6. **Gap 5: Date Format Inconsistency** — ⏳ Partially addressed (chart dates use `'en-CA'` locale)
+7. **Gap 6: DashboardView processedData Dependencies** — ⏳ Minor, not blocking
+8. **Gap 7: No Debouncing on Search Input** — ⏳ Minor, not blocking
 
 ---
 

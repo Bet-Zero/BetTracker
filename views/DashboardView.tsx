@@ -40,6 +40,7 @@ import {
   mapToStatsArray,
   DimensionStats,
 } from "../services/aggregationService";
+import { getNetNumeric } from "../services/displaySemantics";
 
 // --- HELPER FUNCTIONS & COMPONENTS ---
 
@@ -331,7 +332,7 @@ const OverUnderBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
         bet.legs.forEach((leg) => {
           if (leg.ou) {
             const ou = leg.ou.toLowerCase() as "over" | "under";
-            const net = bet.payout - bet.stake;
+            const net = getNetNumeric(bet);
             stats[ou].count++;
             stats[ou].stake += bet.stake;
             stats[ou].net += net;
@@ -485,7 +486,7 @@ const LiveVsPreMatchBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
 
     filteredBets.forEach((bet) => {
       const result = bet.result;
-      const net = bet.payout - bet.stake;
+      const net = getNetNumeric(bet);
       const liveTarget = bet.isLive ? stats.live : stats.preMatch;
       liveTarget.count++;
       liveTarget.stake += bet.stake;
@@ -765,7 +766,7 @@ const DashboardView: React.FC = () => {
     const calculateNetForPeriod = (startDate: Date) => {
       return bets
         .filter((bet) => new Date(bet.placedAt) >= startDate)
-        .reduce((sum, bet) => sum + (bet.payout - bet.stake), 0);
+        .reduce((sum, bet) => sum + getNetNumeric(bet), 0);
     };
     const quickNetStats = {
       net1d: calculateNetForPeriod(

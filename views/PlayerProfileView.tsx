@@ -18,6 +18,7 @@ import {
   computeStatsByDimension,
   mapToStatsArray,
 } from '../services/aggregationService';
+import { getNetNumeric } from '../services/displaySemantics';
 
 // --- HELPER COMPONENTS ---
 
@@ -175,7 +176,7 @@ const RecentBetsTable: React.FC<{ bets: Bet[] }> = ({ bets }) => (
         </thead>
         <tbody>
           {bets.map((bet, index) => {
-            const net = bet.payout - bet.stake;
+            const net = getNetNumeric(bet);
             const netColor = net > 0 ? 'text-accent-500' : net < 0 ? 'text-danger-500' : '';
             return (
               <tr key={bet.id} className="border-b border-neutral-200 dark:border-neutral-800 odd:bg-white dark:odd:bg-neutral-900 even:bg-neutral-50 dark:even:bg-neutral-800/50">
@@ -231,7 +232,7 @@ const OverUnderBreakdown: React.FC<{ bets: Bet[], selectedPlayer: string | null 
                 bet.legs.forEach(leg => {
                     if (leg.ou && (!selectedPlayer || leg.entities?.includes(selectedPlayer))) {
                         const ou = leg.ou.toLowerCase() as 'over' | 'under';
-                        const net = bet.payout - bet.stake;
+                        const net = getNetNumeric(bet);
                         stats[ou].count++; 
                         stats[ou].stake += bet.stake; 
                         stats[ou].net += net;

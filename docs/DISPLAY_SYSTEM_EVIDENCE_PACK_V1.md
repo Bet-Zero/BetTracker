@@ -76,7 +76,20 @@ useEffect(() => {
 |--------|-----------|---------|
 | **Filter Engine** | `utils/filterPredicates.ts` | Centralized filter predicates (Date, Sport, Book, Type) |
 | **Aggregation Service** | `services/aggregationService.ts` | Centralized KPI formulas (Net, ROI, Win Rate) |
+| **Display Semantics** | `services/displaySemantics.ts` | Semantic policies (Pending net, Stake attribution) |
 | **Formatting** | `utils/formatters.ts` | Centralized formatting (Dates, Odds, Currency) |
+
+### Semantics Policy (P3)
+
+The `services/displaySemantics.ts` module codifies semantic rules for bet data interpretation:
+
+| Policy | Rule | Implementation |
+|--------|------|----------------|
+| **Pending Net (Numeric)** | Pending bets contribute **0** to net profit | `getNetNumeric(bet)` returns 0 for pending |
+| **Pending Net (Display)** | Pending bets show **blank** in tables | `getNetDisplay(bet)` returns "" for pending |
+| **Stake Attribution** | Ticket-level: full stake to each leg/entity | `STAKE_ATTRIBUTION_POLICY = 'ticket-level'` |
+
+These policies ensure consistent behavior across all views and KPI calculations.
 
 ---
 

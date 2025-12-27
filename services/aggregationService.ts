@@ -3,9 +3,13 @@
  * 
  * Provides aggregation functions for KPI calculations across all display views.
  * Extracted from DashboardView, BySportView, SportsbookBreakdownView, PlayerProfileView.
+ *
+ * Net calculations use displaySemantics.getNetNumeric() to ensure consistent
+ * handling of pending bets (pending = 0, not -stake).
  */
 
 import { Bet, BetResult } from '../types';
+import { getNetNumeric } from './displaySemantics';
 
 // --- Types ---
 
@@ -94,7 +98,7 @@ export function computeOverallStats(bets: Bet[]): OverallStats {
   }
 
   for (const bet of bets) {
-    const net = bet.payout - bet.stake;
+    const net = getNetNumeric(bet);
     stats.totalWagered += bet.stake;
     stats.netProfit += net;
     
@@ -138,7 +142,7 @@ export function computeProfitOverTime(bets: Bet[]): ProfitDataPoint[] {
 
   let cumulativeProfit = 0;
   return sortedBets.map(bet => {
-    cumulativeProfit += bet.payout - bet.stake;
+    cumulativeProfit += getNetNumeric(bet);
     return {
       date: new Date(bet.placedAt).toLocaleDateString('en-CA'),
       profit: cumulativeProfit,
@@ -164,7 +168,7 @@ export function computeStatsByDimension(
     if (!keys) continue;
 
     const keyList = Array.isArray(keys) ? keys : [keys];
-    const net = bet.payout - bet.stake;
+    const net = getNetNumeric(bet);
 
     for (const key of keyList) {
       if (key) {

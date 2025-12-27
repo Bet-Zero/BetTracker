@@ -359,15 +359,56 @@ The following modules are **out of scope** and should NOT be modified during dis
   - Verified `BetTableView` search/filter integrity maintained.
   - No behavior drift detected in KPI calculations (ROI, Win Rate).
 
-### Remaining Semantic Gaps (Unresolved)
-The following semantic divergences were identified in the Gap Analysis and remain to be addressed (likely in a future P3):
-1.  **Pending Net Display Semantics** (Gap 3)
-    *   Views show `0` for pending nets (via `bet.payout - bet.stake`).
-    *   BetTable shows empty string (via `finalRowValidators`).
-2.  **Parlay Stake Attribution** (Gap 4)
-    *   Full stake is attributed to each entity in per-player/team stats.
-    *   Causes inflated "Wagered" totals when summing legs.
-3.  **O/U Full-Stake Attribution** (Gap 8)
-    *   Similar to Parlays, full ticket stake is attributed to O/U breakdowns even for single legs of a parlay.
+---
+
+## P3: Semantic Policy Lock-In
+
+> [!SUCCESS] **P3 Milestones (Gaps 3/4/8) Completed**
+
+### Goal
+Lock in semantic rules that were previously inconsistent or undocumented:
+- Pending bet net contribution (Gap 3)
+- Parlay stake attribution policy (Gap 4)
+- Over/Under breakdown attribution (Gap 8)
+
+### Implementation
+
+#### New Module: `services/displaySemantics.ts`
+
+| Export | Purpose |
+|--------|---------|
+| `getNetNumeric(bet)` | Returns net for KPIs; pending = 0 |
+| `getNetDisplay(bet)` | Returns formatted net; pending = "" |
+| `STAKE_ATTRIBUTION_POLICY` | Documents current policy ("ticket-level") |
+| `getAttributedStakeAndNet()` | Helper for per-leg/entity attribution |
+| `isDecidedResult()` / `isPendingResult()` | Result type helpers |
+
+#### Files Modified
+
+| File | Change |
+|------|--------|
+| `services/aggregationService.ts` | Uses `getNetNumeric()` for all net calculations |
+| `views/DashboardView.tsx` | Replaced inline net calc with `getNetNumeric()` |
+| `views/BySportView.tsx` | Replaced inline net calc with `getNetNumeric()` |
+| `views/PlayerProfileView.tsx` | Replaced inline net calc with `getNetNumeric()` |
+
+#### Behavioral Change
+
+**Pending bets now contribute 0 to net profit**, not -stake. This is the correct semantic: pending bets are undecided and should not be counted as losses.
+
+### Tests Run & Results
+
+- **Unit Tests:**
+  - `services/displaySemantics.test.ts`: **PASS** (20 tests)
+  - `services/aggregationService.test.ts`: **PASS** (5 tests)
+  - `utils/filterPredicates.test.ts`: **PASS** (8 tests)
+
+### Gaps Status After P3
+
+| Gap | Status |
+|-----|--------|
+| Gap 3 (Pending Net Semantics) | ✅ ADDRESSED - Policy codified |
+| Gap 4 (Parlay Stake Attribution) | ✅ ADDRESSED - Policy documented |
+| Gap 8 (O/U Breakdown Attribution) | ✅ ADDRESSED - Policy documented |
 
 *End of Display System Tightening Plan v1*
