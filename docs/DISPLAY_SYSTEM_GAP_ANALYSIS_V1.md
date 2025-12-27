@@ -130,9 +130,9 @@ There is no shared filter engine, no aggregation service, and no view adapters.
 |---------------------|-------|---------|
 | **Filtering** | DashboardView:718, BetTableView:750, SportsbookBreakdownView:94, BySportView:404, PlayerProfileView:354 | ❌ No |
 | **Net Calculation** | Inline in all views: `bet.payout - bet.stake` | ❌ Duplicated |
-| **ROI Calculation** | DashboardView:848, 329, 970; SportsbookBreakdownView:180; BySportView:448, 493; PlayerProfileView:417 | ❌ Duplicated |
+| **ROI Calculation** | DashboardView:848, 329-330, 481-482, 970; SportsbookBreakdownView:180; BySportView:448, 493; PlayerProfileView:417 | ❌ Duplicated |
 | **Win Rate** | DashboardView:852; SportsbookBreakdownView:181; BySportView:447; PlayerProfileView:418 | ❌ Duplicated |
-| **Cumulative Profit** | DashboardView:857-867; SportsbookBreakdownView:151-157; BySportView:451-455; PlayerProfileView:421-425 | ❌ Duplicated |
+| **Cumulative Profit** | DashboardView:857-867; SportsbookBreakdownView:153-157; BySportView:451-455; PlayerProfileView:421-425 | ❌ Duplicated |
 | **Date Formatting** | BetTableView:83-90 (MM/DD), betToFinalRows:719-733 (MM/DD/YY), various toLocaleDateString calls | ❌ Inconsistent |
 | **Parlay Flattening** | `parsing/shared/betToFinalRows.ts:269-286` | ✓ Centralized |
 
@@ -167,12 +167,13 @@ There is no shared filter engine, no aggregation service, and no view adapters.
 **Net Profit Calculation (4 locations):**
 - `utils/betCalculations.ts:28-36` — `calculateProfit(stake, odds)` 
 - `parsing/shared/finalRowValidators.ts:217-280` — `calculateFormattedNet(result, stake, odds, payout)`
-- `parsing/shared/betToFinalRows.ts:641-685` — `computeNetNumeric()` (imports finalRowValidators)
+- `parsing/shared/betToFinalRows.ts:642-685` — `computeNetNumeric()` (imports finalRowValidators)
 - Inline in all views: `bet.payout - bet.stake`
 
 **ROI Formula (6 locations):**
 - DashboardView.tsx:848-851 — `(netProfit / totalWagered) * 100`
-- DashboardView.tsx:329-330 — `(s.net / s.stake) * 100`
+- DashboardView.tsx:329-330 — `(s.net / s.stake) * 100` (OverUnderBreakdown calculateRoi)
+- DashboardView.tsx:481-482 — `(s.net / s.stake) * 100` (LiveVsPreMatchBreakdown calculateRoi)
 - DashboardView.tsx:970-971 — `(s.net / s.stake) * 100`
 - SportsbookBreakdownView.tsx:180 — `(netProfit / totalWagered) * 100`
 - BySportView.tsx:448, 493 — `(s.net / s.stake) * 100`
@@ -303,8 +304,8 @@ if (resultLower === "pending") {
 **Current state:**
 - BetTableView.tsx:83-90: `MM/DD` format (no year)
 - betToFinalRows.ts:719-733: `MM/DD/YY` format
-- DashboardView.tsx:864, BySportView.tsx:454, PlayerProfileView.tsx:424: `toLocaleDateString()` (locale-dependent)
-- SportsbookBreakdownView.tsx:156: `toLocaleDateString('en-CA')` (YYYY-MM-DD)
+- DashboardView.tsx:864, BySportView.tsx:454: `toLocaleDateString()` (locale-dependent, defaults to system locale)
+- SportsbookBreakdownView.tsx:156, PlayerProfileView.tsx:424: `toLocaleDateString('en-CA')` (YYYY-MM-DD)
 
 **Ideal state:**
 - Single `formatDate(isoString, format)` utility used everywhere
@@ -358,15 +359,20 @@ if (resultLower === "pending") {
 ### Gap 8: Over/Under Breakdown Uses Full Bet Net, Not Per-Leg
 
 **Current state:**
-- DashboardView.tsx:313-325 (OverUnderBreakdown):
+- DashboardView.tsx:313-326 (OverUnderBreakdown component starting at line 296):
   ```typescript
-  bet.legs.forEach((leg) => {
-    if (leg.ou) {
-      const ou = leg.ou.toLowerCase() as "over" | "under";
-      const net = bet.payout - bet.stake; // Full bet net
-      stats[ou].count++;
-      stats[ou].stake += bet.stake; // Full stake attributed per leg
-      stats[ou].net += net;
+  filteredBets.forEach((bet) => {
+    if (bet.legs?.length) {
+      bet.legs.forEach((leg) => {
+        if (leg.ou) {
+          const ou = leg.ou.toLowerCase() as "over" | "under";
+          const net = bet.payout - bet.stake; // Full bet net
+          stats[ou].count++;
+          stats[ou].stake += bet.stake; // Full stake attributed per leg
+          stats[ou].net += net;
+          // ...
+        }
+      });
     }
   });
   ```
@@ -401,55 +407,7 @@ if (resultLower === "pending") {
 
 ---
 
-## 7. Initial Fix Direction (NO CODE YET)
-
-### High-Level Consolidation Strategy
-
-1. **Create `utils/filterPredicates.ts`**
-   - Extract date range filter logic from DashboardView.tsx:751-778
-   - Export `createDateRangeFilter(range, customRange)` returning `(bet) => boolean`
-   - Export `createCategoryFilter(category)`, `createBetTypeFilter(betType)`, etc.
-   - All views import and compose these predicates
-
-2. **Create `services/aggregationService.ts`**
-   - Move `calculateRoi`, `addToMap` helpers from views
-   - Export `computeOverallStats(bets)`, `computeProfitOverTime(bets)`, `groupByDimension(bets, dimension)`
-   - Views call service instead of inline computation
-
-3. **Unify Net Calculation**
-   - Standardize on `bet.payout - bet.stake` for numeric net
-   - Create wrapper `getNetDisplay(bet)` that returns formatted string with pending handling
-   - Update `finalRowValidators.ts` to use the same logic
-
-4. **Document Parlay Attribution Semantics**
-   - Add to evidence pack: "Per-entity stats use ticket-level stake (intentional double-count for parlays)"
-   - Or refactor to split stake / exclude parlays from entity stats
-
-5. **Create `utils/formatters.ts`**
-   - Consolidate `formatDate`, `formatCurrency`, `formatOdds`, `formatPercentage`
-   - Migrate all inline formatting to use these utilities
-
-### What Should Become Single-Source-of-Truth
-
-| Concern | New Location | Replaces |
-|---------|--------------|----------|
-| Filter predicates | `utils/filterPredicates.ts` | 5 inline implementations |
-| KPI calculations | `services/aggregationService.ts` | 4 view-local processedData blocks |
-| Net calculation | `utils/betCalculations.ts` (expand) | Inline `payout - stake` + finalRowValidators |
-| Date formatting | `utils/formatters.ts` | 4+ inline formatDate implementations |
-| Category display | `services/marketClassification.ts` (already done) | N/A |
-
-### What Should NOT Be Touched
-
-1. **Import system** — Complete and locked per requirements
-2. **Persistence layer** — `services/persistence.ts` is stable and versioned
-3. **Parlay flattening** — `betToFinalRows.ts` is already centralized
-4. **Market classification** — `services/marketClassification.ts` is already centralized
-5. **BetsContext/InputsContext** — Core state management is sound
-
----
-
-## 8. Verdict
+## 7. Verdict
 
 ### Is the Display Foundation Solid?
 
@@ -502,15 +460,42 @@ Each uses subtly different predicate implementations. A single bug fix (e.g., ti
    - **Citation:** DashboardView.tsx:958-959, BySportView.tsx:478
 
 3. **BetType filter (singles vs parlays):**
-   - DashboardView.tsx:721-724: includes `betType === 'sgp' || betType === 'parlay'` for parlays
-   - PlayerProfileView.tsx:395-401: includes `betType === 'sgp' || betType === 'sgp_plus' || betType === 'parlay'` for parlays
-   - **Citation:** DashboardView.tsx:721-724 vs PlayerProfileView.tsx:395-401 (SGP+ handling differs)
+   
+   **DashboardView.tsx:721-724:**
+   ```typescript
+   // L721: if (betTypeFilter === "singles") {
+   // L722:   if (bet.betType !== "single") return false;
+   // L723: } else if (betTypeFilter === "parlays") {
+   // L724:   if (bet.betType !== "sgp" && bet.betType !== "parlay") return false;
+   // L725: }
+   ```
+   > ✓ Logic is correct: `!== "sgp" && !== "parlay"` means "if NOT sgp AND NOT parlay, reject" — effectively allowing only sgp OR parlay bets.
+   
+   **PlayerProfileView.tsx:392-401:**
+   ```typescript
+   if (betTypeFilter === "singles") {
+     filtered = filtered.filter(bet => bet.betType === "single");
+   } else if (betTypeFilter === "parlays") {
+     filtered = filtered.filter(
+       bet =>
+         bet.betType === "sgp" ||
+         bet.betType === "sgp_plus" ||
+         bet.betType === "parlay"
+     );
+   }
+   ```
+   > ✓ Also correct, using positive matching with `||`.
+   
+   **Semantic Divergence:** PlayerProfileView includes `sgp_plus` in the parlays filter; DashboardView excludes it. This is a **semantic alignment issue**, not a logic bug.
 
 4. **Time bucketing:**
    - All views use per-bet cumulative (no calendar bucketing)
    - Date formatting varies: `toLocaleDateString()` vs `toLocaleDateString('en-CA')`
-   - **Citation:** SportsbookBreakdownView.tsx:156 uses 'en-CA' locale; others use default locale
+   - **Citation:** SportsbookBreakdownView.tsx:156 and PlayerProfileView.tsx:424 use 'en-CA' locale; DashboardView.tsx:864 and BySportView.tsx:454 use default locale
 
 ---
+
+> [!NOTE]
+> **Remediation planning has been moved to:** [DISPLAY_SYSTEM_REMEDIATION_PLAN_V1.md](./DISPLAY_SYSTEM_REMEDIATION_PLAN_V1.md)
 
 <!-- End of Dashboard & Display System Gap Analysis v1 -->

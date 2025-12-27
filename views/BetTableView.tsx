@@ -19,6 +19,7 @@ import { Wifi } from "../components/icons";
 import { calculateProfit } from "../utils/betCalculations";
 import { betToFinalRows } from "../parsing/shared/betToFinalRows";
 import { abbreviateMarket, normalizeCategoryForDisplay } from "../services/marketClassification";
+import { formatDateShort, formatOdds } from "../utils/formatters";
 
 // --- Fixed column widths (deterministic spreadsheet layout) ---
 const COL_W: Record<string, string> = {
@@ -79,15 +80,7 @@ interface FlatBet {
   _isParlayChild?: boolean;
 }
 
-// --- Formatting Helpers ---
-const formatDate = (isoString: string) => {
-  const date = new Date(isoString);
-  if (isNaN(date.getTime())) return "Invalid";
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  // Compact format without year to save horizontal space
-  return `${month}/${day}`;
-};
+// NOTE: formatDate moved to utils/formatters.ts as formatDateShort
 
 // NOTE: abbreviateMarket and normalizeCategoryForDisplay have been moved to 
 // services/marketClassification.ts for centralization.
@@ -465,6 +458,7 @@ const BetTableView: React.FC = () => {
     addTeam,
   } = useInputs();
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [filters, setFilters] = useState<{
     sport: string | "all";
     type: string | "all";
@@ -501,6 +495,14 @@ const BetTableView: React.FC = () => {
   const cellRefs = useRef<Map<string, React.RefObject<HTMLInputElement>>>(
     new Map()
   );
+
+  // Debounce search term (200ms delay) - P2-4
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   // Save expanded parlays to localStorage
   useEffect(() => {
@@ -756,14 +758,14 @@ const BetTableView: React.FC = () => {
           bet.result === filters.result ||
           bet.overallResult === filters.result) &&
         (filters.category === "all" || bet.category === filters.category) &&
-        (searchTerm === "" ||
-          bet.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          bet.name2?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          bet.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          bet.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          bet.tail?.toLowerCase().includes(searchTerm.toLowerCase()))
+        (debouncedSearchTerm === "" ||
+          bet.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+          bet.name2?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+          bet.type.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+          bet.category.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+          bet.tail?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()))
     );
-  }, [flattenedBets, filters, searchTerm]);
+  }, [flattenedBets, filters, debouncedSearchTerm]);
 
   const sortedBets = useMemo(() => {
     let sortableBets = [...filteredBets];
@@ -906,11 +908,7 @@ const BetTableView: React.FC = () => {
     { key: "tail", label: "Tail", style: {} },
   ];
 
-  const formatOdds = (odds: number | undefined): string => {
-    if (odds === undefined) return "";
-    if (odds > 0) return `+${odds}`;
-    return odds.toString();
-  };
+  // NOTE: formatOdds is now imported from utils/formatters.ts
 
   // Helper: Get editable columns (exclude readonly columns)
   const editableColumns = useMemo(() => {
@@ -1787,7 +1785,7 @@ const BetTableView: React.FC = () => {
                           )}
                           <span className="min-w-0">
                             {!row._isParlayChild || row._isParlayHeader
-                              ? formatDate(row.date)
+                              ? formatDateShort(row.date)
                               : ""}
                           </span>
                         </div>

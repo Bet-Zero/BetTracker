@@ -2,6 +2,17 @@ import React, { useMemo, useState } from 'react';
 import { useBets } from '../hooks/useBets';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Cell } from 'recharts';
 import { TrendingUp, TrendingDown, Scale, BarChart2, ChevronDown } from '../components/icons';
+import {
+  filterByDateRange,
+  filterByBook,
+  DateRange,
+  CustomDateRange,
+} from '../utils/filterPredicates';
+import {
+  calculateRoi,
+  computeOverallStats,
+  computeProfitOverTime,
+} from '../services/aggregationService';
 
 // --- HELPER COMPONENTS ---
 
@@ -92,93 +103,35 @@ const SportsbookBreakdownView: React.FC = () => {
     }, [bets, loading]);
 
     const filteredBets = useMemo(() => {
-        let betsToFilter = bets;
-
-        if (selectedBook !== 'all') {
-            // FIX: This comparison is now valid (string === string) because selectedBook's type is corrected.
-            betsToFilter = betsToFilter.filter(b => b.book === selectedBook);
-        }
-        
-        if (dateRange === 'all') {
-            return betsToFilter;
-        }
-
-        if (dateRange === 'custom') {
-            const customStart = customDateRange.start ? new Date(`${customDateRange.start}T00:00:00.000Z`) : null;
-            const customEnd = customDateRange.end ? new Date(`${customDateRange.end}T23:59:59.999Z`) : null;
-            
-            return betsToFilter.filter(bet => {
-                const betDate = new Date(bet.placedAt);
-                if (customStart && betDate < customStart) return false;
-                if (customEnd && betDate > customEnd) return false;
-                return true;
-            });
-        }
-
-        let startDate: Date;
-        const now = new Date();
-
-        switch (dateRange) {
-            case '1d':
-                startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-                break;
-            case '3d':
-                startDate = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
-                break;
-            case '1w':
-                startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-                break;
-            case '1m':
-                const oneMonthAgo = new Date();
-                oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-                startDate = oneMonthAgo;
-                break;
-            case '1y':
-                const oneYearAgo = new Date();
-                oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-                startDate = oneYearAgo;
-                break;
-            default:
-                return betsToFilter;
-        }
-        
-        return betsToFilter.filter(bet => new Date(bet.placedAt) >= startDate);
+        // Apply book filter first, then date range filter
+        let result = filterByBook(bets, selectedBook);
+        result = filterByDateRange(result, dateRange as DateRange, customDateRange as CustomDateRange);
+        return result;
     }, [bets, selectedBook, dateRange, customDateRange]);
 
     const processedData = useMemo(() => {
         if (filteredBets.length === 0) return null;
 
-        const sortedBets = [...filteredBets].sort((a, b) => new Date(a.placedAt).getTime() - new Date(b.placedAt).getTime());
+        // Use imported computeProfitOverTime
+        const profitOverTime = computeProfitOverTime(filteredBets);
 
-        let cumulativeProfit = 0;
-        const profitOverTime = sortedBets.map(bet => {
-            cumulativeProfit += (bet.payout - bet.stake);
-            return { date: new Date(bet.placedAt).toLocaleDateString('en-CA'), profit: cumulativeProfit };
-        });
-
+        // Use imported computeOverallStats for basic stats
+        const overallStats = computeOverallStats(filteredBets);
         const stats = {
-            totalBets: filteredBets.length,
-            totalWagered: 0,
-            netProfit: 0,
-            wins: 0,
-            losses: 0,
-            winRate: 0,
-            roi: 0
+            totalBets: overallStats.totalBets,
+            totalWagered: overallStats.totalWagered,
+            netProfit: overallStats.netProfit,
+            wins: overallStats.wins,
+            losses: overallStats.losses,
+            winRate: overallStats.winRate,
+            roi: overallStats.roi
         };
         const profitBySport = new Map<string, number>();
 
         for (const bet of filteredBets) {
             const net = bet.payout - bet.stake;
-            stats.totalWagered += bet.stake;
-            stats.netProfit += net;
-            if (bet.result === 'win') stats.wins++;
-            if (bet.result === 'loss') stats.losses++;
-
             profitBySport.set(bet.sport, (profitBySport.get(bet.sport) || 0) + net);
         }
-
-        stats.roi = stats.totalWagered > 0 ? (stats.netProfit / stats.totalWagered) * 100 : 0;
-        stats.winRate = (stats.wins + stats.losses) > 0 ? (stats.wins / (stats.wins + stats.losses)) * 100 : 0;
         
         const profitBySportData = Array.from(profitBySport.entries()).map(([name, profit]) => ({ name, profit })).sort((a,b) => b.profit - a.profit);
 

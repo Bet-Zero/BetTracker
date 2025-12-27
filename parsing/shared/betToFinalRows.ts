@@ -37,6 +37,7 @@ import {
   calculateFormattedNet,
 } from "./finalRowValidators";
 import { classifyLeg, determineType, normalizeCategoryForDisplay } from "../../services/marketClassification";
+import { formatDateExport } from "../../utils/formatters";
 
 // ============================================================================
 // CONSTANTS
@@ -409,8 +410,8 @@ function createFinalRow(
   },
   categoryAndType?: CategoryAndType
 ): FinalRow {
-  // Format date to MM/DD/YY
-  const date = formatDate(bet.placedAt);
+  // Format date to MM/DD/YY (formatDateExport handles null/invalid input safely)
+  const date = formatDateExport(bet.placedAt);
 
   // Site abbreviation or full name
   const site = bet.book;
@@ -713,25 +714,7 @@ function calculateRawNet(
   return computeNetNumeric(result, stake, odds, payout);
 }
 
-/**
- * Formats date to MM/DD/YY.
- */
-function formatDate(isoString: string): string {
-  if (!isoString) return "";
 
-  try {
-    const date = new Date(isoString);
-    if (isNaN(date.getTime())) return "";
-
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    const year = String(date.getFullYear()).slice(-2);
-
-    return `${month}/${day}/${year}`;
-  } catch {
-    return "";
-  }
-}
 
 /**
  * Capitalizes first letter of a string.

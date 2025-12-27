@@ -24,6 +24,22 @@ import {
   BarChart2,
 } from "../components/icons";
 import { Bet } from "../types";
+import { formatDateChartKey } from "../utils/formatters";
+import {
+  filterByBetType,
+  filterByDateRange,
+  filterByCategory,
+  DateRange,
+  CustomDateRange,
+} from "../utils/filterPredicates";
+import {
+  calculateRoi,
+  computeOverallStats,
+  computeProfitOverTime,
+  addToMap,
+  mapToStatsArray,
+  DimensionStats,
+} from "../services/aggregationService";
 
 // --- HELPER FUNCTIONS & COMPONENTS ---
 
@@ -478,12 +494,11 @@ const LiveVsPreMatchBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
       if (result === "loss") liveTarget.losses++;
     });
 
-    const calculateRoi = (s: { stake: number; net: number }) =>
-      s.stake > 0 ? (s.net / s.stake) * 100 : 0;
+    // Using imported calculateRoi from aggregationService
 
     return {
-      live: { ...stats.live, roi: calculateRoi(stats.live) },
-      preMatch: { ...stats.preMatch, roi: calculateRoi(stats.preMatch) },
+      live: { ...stats.live, roi: calculateRoi(stats.live.net, stats.live.stake) },
+      preMatch: { ...stats.preMatch, roi: calculateRoi(stats.preMatch.net, stats.preMatch.stake) },
     };
   }, [bets, filter]);
 
@@ -606,7 +621,7 @@ const LiveVsPreMatchBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
   );
 };
 
-type DateRange = "all" | "1d" | "3d" | "1w" | "1m" | "1y" | "custom";
+// DateRange type is imported from filterPredicates
 
 const DateRangeButton: React.FC<{
   range: DateRange;
@@ -716,69 +731,11 @@ const DashboardView: React.FC = () => {
   const allTeams = useMemo(() => new Set(Object.values(teams).flat()), [teams]);
 
   const filteredBets = useMemo(() => {
-    let betsToFilter = bets.filter((bet) => {
-      // Filter by betType
-      if (betTypeFilter === "singles") {
-        if (bet.betType !== "single") return false;
-      } else if (betTypeFilter === "parlays") {
-        if (bet.betType !== "sgp" && bet.betType !== "parlay") return false;
-      }
-      // "all" includes everything, no filter needed
-      
-      if (
-        selectedMarketCategory !== "all" &&
-        bet.marketCategory !== selectedMarketCategory
-      )
-        return false;
-      return true;
-    });
-
-    if (dateRange !== "all") {
-      if (dateRange === "custom") {
-        const customStart = customDateRange.start
-          ? new Date(`${customDateRange.start}T00:00:00.000Z`)
-          : null;
-        const customEnd = customDateRange.end
-          ? new Date(`${customDateRange.end}T23:59:59.999Z`)
-          : null;
-
-        betsToFilter = betsToFilter.filter((bet) => {
-          const betDate = new Date(bet.placedAt);
-          if (customStart && betDate < customStart) return false;
-          if (customEnd && betDate > customEnd) return false;
-          return true;
-        });
-      } else {
-        let startDate: Date;
-        const now = new Date();
-
-        switch (dateRange) {
-          case "1d":
-            startDate = new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000);
-            break;
-          case "3d":
-            startDate = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
-            break;
-          case "1w":
-            startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-            break;
-          case "1m":
-            startDate = new Date(new Date().setMonth(now.getMonth() - 1));
-            break;
-          case "1y":
-            startDate = new Date(new Date().setFullYear(now.getFullYear() - 1));
-            break;
-          default:
-            startDate = new Date(0);
-        }
-
-        betsToFilter = betsToFilter.filter(
-          (bet) => new Date(bet.placedAt) >= startDate
-        );
-      }
-    }
-
-    return betsToFilter;
+    // Apply filters using shared filter predicates
+    let result = filterByBetType(bets, betTypeFilter);
+    result = filterByCategory(result, selectedMarketCategory);
+    result = filterByDateRange(result, dateRange, customDateRange as CustomDateRange);
+    return result;
   }, [bets, selectedMarketCategory, dateRange, customDateRange, betTypeFilter]);
 
   const processedData = useMemo(() => {
@@ -861,7 +818,7 @@ const DashboardView: React.FC = () => {
     const profitOverTime = sortedBets.map((bet) => {
       cumulativeProfit += bet.payout - bet.stake;
       return {
-        date: new Date(bet.placedAt).toLocaleDateString(),
+        date: formatDateChartKey(bet.placedAt),
         profit: cumulativeProfit,
       };
     });
@@ -878,64 +835,12 @@ const DashboardView: React.FC = () => {
       ([name, profit]) => ({ name, profit })
     );
 
-    const marketCategoryStatsMap = new Map<
-      string,
-      {
-        count: number;
-        stake: number;
-        net: number;
-        wins: number;
-        losses: number;
-      }
-    >();
-    const sportStatsMap = new Map<
-      string,
-      {
-        count: number;
-        stake: number;
-        net: number;
-        wins: number;
-        losses: number;
-      }
-    >();
-    const playerTeamStatsMap = new Map<
-      string,
-      {
-        count: number;
-        stake: number;
-        net: number;
-        wins: number;
-        losses: number;
-      }
-    >();
-    const tailStatsMap = new Map<
-      string,
-      {
-        count: number;
-        stake: number;
-        net: number;
-        wins: number;
-        losses: number;
-      }
-    >();
+    const marketCategoryStatsMap = new Map<string, DimensionStats>();
+    const sportStatsMap = new Map<string, DimensionStats>();
+    const playerTeamStatsMap = new Map<string, DimensionStats>();
+    const tailStatsMap = new Map<string, DimensionStats>();
 
-    const addToMap = (
-      map: Map<string, any>,
-      key: string,
-      stake: number,
-      net: number,
-      result: Bet["result"]
-    ) => {
-      if (!key) return;
-      if (!map.has(key))
-        map.set(key, { count: 0, stake: 0, net: 0, wins: 0, losses: 0 });
-      const stats = map.get(key)!;
-      stats.count++;
-      stats.stake += stake;
-      stats.net += net;
-      if (result === "win") stats.wins++;
-      if (result === "loss") stats.losses++;
-    };
+    // Using imported addToMap from aggregationService
 
     filteredBets.forEach((bet) => {
       const net = bet.payout - bet.stake;
@@ -967,11 +872,10 @@ const DashboardView: React.FC = () => {
       }
     });
 
-    const calculateRoi = (s: { stake: number; net: number }) =>
-      s.stake > 0 ? (s.net / s.stake) * 100 : 0;
+    // Using imported calculateRoi from aggregationService
 
     let playerTeamStats = Array.from(playerTeamStatsMap.entries()).map(
-      ([name, stats]) => ({ name, ...stats, roi: calculateRoi(stats) })
+      ([name, stats]) => ({ name, ...stats, roi: calculateRoi(stats.net, stats.stake) })
     );
     if (entityType === "player") {
       playerTeamStats = playerTeamStats.filter((item) =>
@@ -989,20 +893,21 @@ const DashboardView: React.FC = () => {
       quickNetStats,
       overallStats,
       marketCategoryStats: Array.from(marketCategoryStatsMap.entries()).map(
-        ([name, stats]) => ({ name, ...stats, roi: calculateRoi(stats) })
+        ([name, stats]) => ({ name, ...stats, roi: calculateRoi(stats.net, stats.stake) })
       ),
       sportStats: Array.from(sportStatsMap.entries()).map(([name, stats]) => ({
         name,
         ...stats,
-        roi: calculateRoi(stats),
+        roi: calculateRoi(stats.net, stats.stake),
       })),
       playerTeamStats,
       tailStats: Array.from(tailStatsMap.entries()).map(([name, stats]) => ({
         name,
         ...stats,
-        roi: calculateRoi(stats),
+        roi: calculateRoi(stats.net, stats.stake),
       })),
     };
+    // `bets` is required because quickNetStats (lines 805-826) calculates period totals from the unfiltered bets array
   }, [bets, filteredBets, allPlayers, allTeams, entityType]);
 
   const hasData = processedData.profitOverTime.length > 0;

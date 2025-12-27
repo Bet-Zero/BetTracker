@@ -4,6 +4,11 @@ import { useInputs } from '../hooks/useInputs';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Sector } from 'recharts';
 import { TrendingUp, TrendingDown, Scale, BarChart2, User } from '../components/icons';
 import { Bet } from '../types';
+import { filterByBetType, filterByDateRange, CustomDateRange } from '../utils/filterPredicates';
+import {
+  calculateRoi,
+  computeProfitOverTime,
+} from '../services/aggregationService';
 
 // --- HELPER COMPONENTS ---
 
@@ -228,11 +233,11 @@ const OverUnderBreakdown: React.FC<{ bets: Bet[], selectedPlayer: string | null 
             }
         });
 
-        const calculateRoi = (s: { stake: number, net: number }) => s.stake > 0 ? (s.net / s.stake) * 100 : 0;
+        // Using imported calculateRoi from aggregationService
         
         return { 
-            over: {...stats.over, roi: calculateRoi(stats.over)}, 
-            under: {...stats.under, roi: calculateRoi(stats.under)}
+            over: {...stats.over, roi: calculateRoi(stats.over.net, stats.over.stake)}, 
+            under: {...stats.under, roi: calculateRoi(stats.under.net, stats.under.stake)}
         };
     }, [bets, filter, selectedPlayer]);
 
@@ -354,52 +359,16 @@ const PlayerProfileView: React.FC<PlayerProfileViewProps> = ({ selectedPlayer, s
     const playerBets = useMemo(() => {
          if (!selectedPlayer) return [];
 
-        let dateFilteredBets = bets;
+        // Apply date range filter using shared filterByDateRange
+        let dateFilteredBets = filterByDateRange(bets, dateRange, customDateRange as CustomDateRange);
 
-        if (dateRange !== 'all') {
-            if (dateRange === 'custom') {
-                const customStart = customDateRange.start ? new Date(`${customDateRange.start}T00:00:00.000Z`) : null;
-                const customEnd = customDateRange.end ? new Date(`${customDateRange.end}T23:59:59.999Z`) : null;
-                
-                dateFilteredBets = bets.filter(bet => {
-                    const betDate = new Date(bet.placedAt);
-                    if (customStart && betDate < customStart) return false;
-                    if (customEnd && betDate > customEnd) return false;
-                    return true;
-                });
-            } else {
-                let startDate: Date;
-                const now = new Date();
-    
-                switch (dateRange) {
-                    case '1d': startDate = new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000); break;
-                    case '3d': startDate = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000); break;
-                    case '1w': startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000); break;
-                    case '1m': startDate = new Date(new Date().setMonth(now.getMonth() - 1)); break;
-                    case '1y': startDate = new Date(new Date().setFullYear(now.getFullYear() - 1)); break;
-                    default: startDate = new Date(0);
-                }
-                
-                dateFilteredBets = bets.filter(bet => new Date(bet.placedAt) >= startDate);
-            }
-        }
-
+        // Filter to only bets involving the selected player
         let filtered = dateFilteredBets.filter(bet =>
             bet.legs?.some(leg => leg.entities?.includes(selectedPlayer))
         );
         
-        // Filter by betType
-        if (betTypeFilter === "singles") {
-            filtered = filtered.filter(bet => bet.betType === "single");
-        } else if (betTypeFilter === "parlays") {
-            filtered = filtered.filter(
-              bet =>
-                bet.betType === "sgp" ||
-                bet.betType === "sgp_plus" ||
-                bet.betType === "parlay"
-            );
-        }
-        // "all" includes everything, no additional filter needed
+        // Filter by betType using shared filterByBetType
+        filtered = filterByBetType(filtered, betTypeFilter);
         
         return filtered;
     }, [bets, selectedPlayer, dateRange, customDateRange, betTypeFilter]);
@@ -418,11 +387,8 @@ const PlayerProfileView: React.FC<PlayerProfileViewProps> = ({ selectedPlayer, s
         const winRate = (wins + losses) > 0 ? (wins / (wins + losses)) * 100 : 0;
         const overallStats = { totalBets: sortedBets.length, totalWagered, netProfit, roi, winRate, record: `${wins}-${losses}-${pushes}` };
 
-        let cumulativeProfit = 0;
-        const profitOverTime = sortedBets.map(bet => {
-            cumulativeProfit += (bet.payout - bet.stake);
-            return { date: new Date(bet.placedAt).toLocaleDateString('en-CA'), profit: cumulativeProfit };
-        });
+        // Use imported computeProfitOverTime
+        const profitOverTime = computeProfitOverTime(sortedBets);
 
         const marketStatsMap = new Map();
 
@@ -443,8 +409,8 @@ const PlayerProfileView: React.FC<PlayerProfileViewProps> = ({ selectedPlayer, s
             });
         });
 
-        const calculateStats = (s: any) => ({ ...s, roi: s.stake > 0 ? (s.net / s.stake) * 100 : 0 });
-        const marketStats = Array.from(marketStatsMap.entries()).map(([name, stats]) => ({ name, ...calculateStats(stats) }));
+        // Using imported calculateRoi from aggregationService
+        const marketStats = Array.from(marketStatsMap.entries()).map(([name, stats]: [string, any]) => ({ name, ...stats, roi: calculateRoi(stats.net, stats.stake) }));
 
         return {
             overallStats, profitOverTime, marketStats,
