@@ -3,8 +3,8 @@ import { useBets } from '../hooks/useBets';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Cell } from 'recharts';
 import { TrendingUp, TrendingDown, Scale, BarChart2, ChevronDown } from '../components/icons';
 import {
-  filterByDateRange,
-  filterByBook,
+  createDateRangePredicate,
+  createBookPredicate,
   DateRange,
   CustomDateRange,
 } from '../utils/filterPredicates';
@@ -12,6 +12,8 @@ import {
   calculateRoi,
   computeOverallStats,
   computeProfitOverTime,
+  computeStatsByDimension,
+  mapToStatsArray,
 } from '../services/aggregationService';
 
 // --- HELPER COMPONENTS ---
@@ -64,7 +66,7 @@ const StatCard: React.FC<{ title: string; value: string; icon: React.ReactNode; 
     );
 };
 
-type DateRange = 'all' | '1d' | '3d' | '1w' | '1m' | '1y' | 'custom';
+
 
 const DateRangeButton: React.FC<{
   range: DateRange;
@@ -89,7 +91,6 @@ const DateRangeButton: React.FC<{
 
 const SportsbookBreakdownView: React.FC = () => {
     const { bets, loading } = useBets();
-    // FIX: The selected book is a string (the sportsbook name) or 'all', not a Sportsbook object.
     const [selectedBook, setSelectedBook] = useState<string | 'all'>('all');
     const [dateRange, setDateRange] = useState<DateRange>('all');
     const [customDateRange, setCustomDateRange] = useState<{ start: string; end: string }>({ start: '', end: '' });
@@ -98,44 +99,30 @@ const SportsbookBreakdownView: React.FC = () => {
     const availableBooks = useMemo(() => {
         if (loading) return [];
         const books = new Set(bets.map(b => b.book));
-        // FIX: The list of available books is an array of strings. The incorrect cast to `Sportsbook[]` is removed.
         return ['all', ...Array.from(books).sort()];
     }, [bets, loading]);
 
     const filteredBets = useMemo(() => {
-        // Apply book filter first, then date range filter
-        let result = filterByBook(bets, selectedBook);
-        result = filterByDateRange(result, dateRange as DateRange, customDateRange as CustomDateRange);
-        return result;
+        const bookPredicate = createBookPredicate(selectedBook);
+        const datePredicate = createDateRangePredicate(dateRange, customDateRange);
+        
+        return bets.filter(bet => bookPredicate(bet) && datePredicate(bet));
     }, [bets, selectedBook, dateRange, customDateRange]);
 
     const processedData = useMemo(() => {
         if (filteredBets.length === 0) return null;
 
-        // Use imported computeProfitOverTime
         const profitOverTime = computeProfitOverTime(filteredBets);
-
-        // Use imported computeOverallStats for basic stats
         const overallStats = computeOverallStats(filteredBets);
-        const stats = {
-            totalBets: overallStats.totalBets,
-            totalWagered: overallStats.totalWagered,
-            netProfit: overallStats.netProfit,
-            wins: overallStats.wins,
-            losses: overallStats.losses,
-            winRate: overallStats.winRate,
-            roi: overallStats.roi
-        };
-        const profitBySport = new Map<string, number>();
-
-        for (const bet of filteredBets) {
-            const net = bet.payout - bet.stake;
-            profitBySport.set(bet.sport, (profitBySport.get(bet.sport) || 0) + net);
-        }
         
-        const profitBySportData = Array.from(profitBySport.entries()).map(([name, profit]) => ({ name, profit })).sort((a,b) => b.profit - a.profit);
+        // Profit by Sport
+        const sportMap = computeStatsByDimension(filteredBets, (bet) => bet.sport);
+        // View expects { name, profit } for the BarChart
+        const profitBySportData = mapToStatsArray(sportMap)
+            .map(s => ({ name: s.name, profit: s.net }))
+            .sort((a,b) => b.profit - a.profit);
 
-        return { stats, profitOverTime, profitBySportData };
+        return { stats: overallStats, profitOverTime, profitBySportData };
     }, [filteredBets]);
 
     if (loading) return <div className="p-6 text-center">Loading breakdown...</div>;

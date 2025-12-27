@@ -5,15 +5,21 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { TrendingUp, TrendingDown, Scale, BarChart2, Trophy } from '../components/icons';
 import { Bet, BetResult } from '../types';
 import {
-  filterByDateRange,
+  createDateRangePredicate,
   DateRange,
   CustomDateRange,
 } from '../utils/filterPredicates';
 import {
   calculateRoi,
+  computeOverallStats,
   computeProfitOverTime,
-  addToMap,
+  computeStatsByDimension,
+  mapToStatsArray,
   DimensionStats,
+  computeStatsByDimension,
+  mapToStatsArray,
+  DimensionStats,
+} from '../services/aggregationService';
 } from '../services/aggregationService';
 
 // --- HELPER FUNCTIONS & COMPONENTS ---
@@ -367,7 +373,7 @@ const LiveVsPreMatchBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
     );
 }
 
-type DateRange = 'all' | '1d' | '3d' | '1w' | '1m' | '1y' | 'custom';
+
 
 const DateRangeButton: React.FC<{
   range: DateRange;
@@ -414,71 +420,56 @@ const BySportView: React.FC = () => {
 
     const filteredBets = useMemo(() => {
         // First filter by sport, then apply date range filter
-        const sportBets = bets.filter(bet => bet.sport === selectedSport);
-        return filterByDateRange(sportBets, dateRange as DateRange, customDateRange as CustomDateRange);
+        // Note: Sport is filtered manually here because createSportPredicate handles 'all', but here we select specific sport from list.
+        // Actually, we can use simple equality or createSportPredicate.
+        // Let's use clean manual filter for strict equality as before, then composed date predicate.
+        // Or createSportPredicate(selectedSport).
+        const datePredicate = createDateRangePredicate(dateRange, customDateRange as CustomDateRange);
+        
+        return bets.filter(bet => bet.sport === selectedSport && datePredicate(bet));
     }, [bets, selectedSport, dateRange, customDateRange]);
 
     const processedData = useMemo(() => {
         if (filteredBets.length === 0) return null;
 
-        const sortedBets = [...filteredBets].sort((a, b) => new Date(a.placedAt).getTime() - new Date(b.placedAt).getTime());
+        const overallStats = computeOverallStats(filteredBets);
+        const profitOverTime = computeProfitOverTime(filteredBets);
+
+        // Breakdowns
+        // Market Stats: group by market name (since sport is constant)
+        const marketMap = computeStatsByDimension(filteredBets, (bet) => {
+            if (bet.legs?.length) return bet.legs.map(leg => leg.market);
+            return null; 
+        });
         
-        const overallStats = {
-            totalBets: sortedBets.length,
-            totalWagered: sortedBets.reduce((sum, b) => sum + b.stake, 0),
-            netProfit: sortedBets.reduce((sum, b) => sum + (b.payout - b.stake), 0),
-            wins: sortedBets.filter(b => b.result === 'win').length,
-            losses: sortedBets.filter(b => b.result === 'loss').length,
-            pushes: sortedBets.filter(b => b.result === 'push').length,
-            get winRate() { return (this.wins + this.losses) > 0 ? (this.wins / (this.wins + this.losses)) * 100 : 0 },
-            get roi() { return this.totalWagered > 0 ? (this.netProfit / this.totalWagered) * 100 : 0 }
-        };
-
-        // Use imported computeProfitOverTime
-        const profitOverTime = computeProfitOverTime(sortedBets);
-
-        const playerTeamStatsMap = new Map<string, DimensionStats>();
-        const marketStatsMap = new Map<string, { name: string; sport: string; count: number; stake: number; net: number; wins: number; losses: number; }>();
-        const tailStatsMap = new Map<string, DimensionStats>();
-        
-        // Using imported addToMap from aggregationService
-
-        filteredBets.forEach(bet => {
-            const net = bet.payout - bet.stake;
-            const result = bet.result;
-            if (bet.tail) addToMap(tailStatsMap, bet.tail.trim(), bet.stake, net, result);
-            
+        // Player/Team Stats
+        const playerTeamMap = computeStatsByDimension(filteredBets, (bet) => {
             if (bet.legs?.length) {
-                bet.legs.forEach(leg => {
-                    leg.entities?.forEach(entity => addToMap(playerTeamStatsMap, entity, bet.stake, net, result));
-                    const key = `${bet.sport}-${leg.market}`;
-                    if (!marketStatsMap.has(key)) marketStatsMap.set(key, { name: leg.market, sport: bet.sport, count: 0, stake: 0, net: 0, wins: 0, losses: 0 });
-                    const mStats = marketStatsMap.get(key)!;
-                    mStats.count++; mStats.stake += bet.stake; mStats.net += net;
-                    if (result === 'win') mStats.wins++; if (result === 'loss') mStats.losses++;
-                });
-            } else {
-                // Use bet.name only - never derive from description
-                if (bet.name) {
-                    addToMap(playerTeamStatsMap, bet.name, bet.stake, net, result);
-                }
+                const entities = new Set<string>();
+                bet.legs.forEach(leg => leg.entities?.forEach(e => entities.add(e)));
+                return Array.from(entities);
             }
+            return bet.name ? bet.name : null;
         });
 
-        // Using imported calculateRoi from aggregationService
-        
-        let playerTeamStats = Array.from(playerTeamStatsMap.entries()).map(([name, stats]) => ({ name, ...stats, roi: calculateRoi(stats.net, stats.stake) }));
+        // Tail Stats
+        const tailMap = computeStatsByDimension(filteredBets, (bet) => bet.tail ? bet.tail.trim() : null);
+
+        // Filter Player/Team Stats
+        let playerTeamStats = mapToStatsArray(playerTeamMap);
         if (entityType === 'player') {
             playerTeamStats = playerTeamStats.filter(item => allPlayers.has(item.name));
         } else if (entityType === 'team') {
             playerTeamStats = playerTeamStats.filter(item => allTeams.has(item.name));
         }
+        playerTeamStats.sort((a,b) => b.net - a.net);
 
         return {
-            overallStats, profitOverTime,
+            overallStats,
+            profitOverTime,
             playerTeamStats,
-            marketStats: Array.from(marketStatsMap.values()).map(stats => ({...stats, roi: calculateRoi(stats.net, stats.stake)})),
-            tailStats: Array.from(tailStatsMap.entries()).map(([name, stats]) => ({ name, ...stats, roi: calculateRoi(stats.net, stats.stake) })),
+            marketStats: mapToStatsArray(marketMap).sort((a,b) => b.net - a.net),
+            tailStats: mapToStatsArray(tailMap).sort((a,b) => b.net - a.net),
         };
     }, [filteredBets, entityType, allPlayers, allTeams]);
 

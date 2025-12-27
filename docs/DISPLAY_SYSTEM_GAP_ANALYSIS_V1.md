@@ -194,7 +194,9 @@ There is no shared filter engine, no aggregation service, and no view adapters.
 
 ## 5. The Gaps
 
-### Gap 1: No Shared Filter Engine
+### Gap 1: No Shared Filter Engine (ADDRESSED)
+
+> [!CHECK] **Addressed in P2** by `utils/filterPredicates.ts`
 
 **Current state:**
 - Each view implements its own date range, category, and betType filtering
@@ -219,7 +221,9 @@ There is no shared filter engine, no aggregation service, and no view adapters.
 
 ---
 
-### Gap 2: No Shared Aggregation Service
+### Gap 2: No Shared Aggregation Service (ADDRESSED)
+
+> [!CHECK] **Addressed in P2** by `services/aggregationService.ts`
 
 **Current state:**
 - Each view computes totals, wins, losses, net, ROI in its own `processedData` useMemo

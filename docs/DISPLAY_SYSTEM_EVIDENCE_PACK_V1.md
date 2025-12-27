@@ -69,6 +69,14 @@ useEffect(() => {
 | `BetsContext` | `hooks/useBets.tsx:32` | Primary bet data store |
 | `InputsContext` | `hooks/useInputs.tsx:37` | Reference data (sportsbooks, sports, categories, players, teams) |
 | `PersistedState` | `services/persistence.ts:30-39` | On-disk envelope containing `version`, `updatedAt`, `bets[]` |
+ 
+### Shared Logic Modules (Single Source of Truth)
+ 
+| Module | File Path | Purpose |
+|--------|-----------|---------|
+| **Filter Engine** | `utils/filterPredicates.ts` | Centralized filter predicates (Date, Sport, Book, Type) |
+| **Aggregation Service** | `services/aggregationService.ts` | Centralized KPI formulas (Net, ROI, Win Rate) |
+| **Formatting** | `utils/formatters.ts` | Centralized formatting (Dates, Odds, Currency) |
 
 ---
 

@@ -4,11 +4,19 @@ import { useInputs } from '../hooks/useInputs';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Sector } from 'recharts';
 import { TrendingUp, TrendingDown, Scale, BarChart2, User } from '../components/icons';
 import { Bet } from '../types';
-import { filterByBetType, filterByDateRange, CustomDateRange } from '../utils/filterPredicates';
+import {
+  createBetTypePredicate,
+  createDateRangePredicate,
+  DateRange,
+  CustomDateRange
+} from '../utils/filterPredicates';
 import { formatDateShort } from '../utils/formatters';
 import {
   calculateRoi,
+  computeOverallStats,
   computeProfitOverTime,
+  computeStatsByDimension,
+  mapToStatsArray,
 } from '../services/aggregationService';
 
 // --- HELPER COMPONENTS ---
@@ -295,7 +303,7 @@ const OverUnderBreakdown: React.FC<{ bets: Bet[], selectedPlayer: string | null 
 
 // --- MAIN VIEW ---
 
-type DateRange = 'all' | '1d' | '3d' | '1w' | '1m' | '1y' | 'custom';
+
 
 const DateRangeButton: React.FC<{
   range: DateRange;
@@ -360,61 +368,53 @@ const PlayerProfileView: React.FC<PlayerProfileViewProps> = ({ selectedPlayer, s
     const playerBets = useMemo(() => {
          if (!selectedPlayer) return [];
 
-        // Apply date range filter using shared filterByDateRange
-        let dateFilteredBets = filterByDateRange(bets, dateRange, customDateRange as CustomDateRange);
-
+        const datePredicate = createDateRangePredicate(dateRange, customDateRange as CustomDateRange);
+        const typePredicate = createBetTypePredicate(betTypeFilter);
+        
         // Filter to only bets involving the selected player
-        let filtered = dateFilteredBets.filter(bet =>
-            bet.legs?.some(leg => leg.entities?.includes(selectedPlayer))
+        const playerPredicate = (bet: Bet) => bet.legs?.some(leg => leg.entities?.includes(selectedPlayer)) ?? false;
+
+        return bets.filter(bet => 
+            datePredicate(bet) && playerPredicate(bet) && typePredicate(bet)
         );
-        
-        // Filter by betType using shared filterByBetType
-        filtered = filterByBetType(filtered, betTypeFilter);
-        
-        return filtered;
     }, [bets, selectedPlayer, dateRange, customDateRange, betTypeFilter]);
 
     const processedData = useMemo(() => {
         if (!selectedPlayer || playerBets.length === 0) return null;
 
-        const sortedBets = [...playerBets].sort((a, b) => new Date(a.placedAt).getTime() - new Date(b.placedAt).getTime());
+        const overallStatsData = computeOverallStats(playerBets);
+        const profitOverTime = computeProfitOverTime(playerBets);
 
-        const totalWagered = sortedBets.reduce((sum, bet) => sum + bet.stake, 0);
-        const netProfit = sortedBets.reduce((sum, bet) => sum + (bet.payout - bet.stake), 0);
-        const wins = sortedBets.filter(b => b.result === 'win').length;
-        const losses = sortedBets.filter(b => b.result === 'loss').length;
-        const pushes = sortedBets.filter(b => b.result === 'push').length;
-        const roi = totalWagered > 0 ? (netProfit / totalWagered) * 100 : 0;
-        const winRate = (wins + losses) > 0 ? (wins / (wins + losses)) * 100 : 0;
-        const overallStats = { totalBets: sortedBets.length, totalWagered, netProfit, roi, winRate, record: `${wins}-${losses}-${pushes}` };
+        // Compute overallStats object for UI
+        // UI expects 'record' string "wins-losses-pushes"
+        const overallStats = {
+            totalBets: overallStatsData.totalBets,
+            totalWagered: overallStatsData.totalWagered,
+            netProfit: overallStatsData.netProfit,
+            roi: overallStatsData.roi,
+            winRate: overallStatsData.winRate,
+            record: `${overallStatsData.wins}-${overallStatsData.losses}-${overallStatsData.pushes}`
+        };
 
-        // Use imported computeProfitOverTime
-        const profitOverTime = computeProfitOverTime(sortedBets);
-
-        const marketStatsMap = new Map();
-
-        sortedBets.forEach(bet => {
-            const net = bet.payout - bet.stake;
-            bet.legs?.forEach(leg => {
-                if (leg.entities?.includes(selectedPlayer)) {
-                    if (!marketStatsMap.has(leg.market)) {
-                        marketStatsMap.set(leg.market, { count: 0, wins: 0, losses: 0, stake: 0, net: 0 });
-                    }
-                    const market = marketStatsMap.get(leg.market);
-                    market.count++;
-                    market.stake += bet.stake;
-                    market.net += net;
-                    if (bet.result === 'win') market.wins++;
-                    if (bet.result === 'loss') market.losses++;
-                }
-            });
+        // Market Stats: only for markets where selectedPlayer was involved
+        const marketMap = computeStatsByDimension(playerBets, (bet) => {
+             if (bet.legs) {
+                 return bet.legs
+                    .filter(leg => leg.entities?.includes(selectedPlayer))
+                    .map(leg => leg.market);
+             }
+             return null;
         });
 
-        // Using imported calculateRoi from aggregationService
-        const marketStats = Array.from(marketStatsMap.entries()).map(([name, stats]: [string, any]) => ({ name, ...stats, roi: calculateRoi(stats.net, stats.stake) }));
+        const marketStats = mapToStatsArray(marketMap).sort((a,b) => b.count - a.count);
+
+        // Sort for recent bets
+        const sortedBets = [...playerBets].sort((a, b) => new Date(a.placedAt).getTime() - new Date(b.placedAt).getTime());
 
         return {
-            overallStats, profitOverTime, marketStats,
+            overallStats,
+            profitOverTime,
+            marketStats,
             recentBets: sortedBets.slice(-10).reverse()
         };
     }, [playerBets, selectedPlayer]);

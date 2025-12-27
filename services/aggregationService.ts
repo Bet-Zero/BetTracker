@@ -32,6 +32,7 @@ export interface DimensionStats {
   net: number;
   wins: number;
   losses: number;
+  pushes: number;
 }
 
 // --- Core Functions ---
@@ -39,38 +40,41 @@ export interface DimensionStats {
 /**
  * Calculate ROI percentage.
  * Handles zero stake by returning 0.
- * 
- * Formula: (netProfit / totalWagered) * 100
- * 
- * Mirrors logic used in:
- * - DashboardView (lines 481-482, 848-851, 970-971)
- * - BySportView (lines 214, 300, 447-448, 493)
- * - SportsbookBreakdownView (line 180)
- * - PlayerProfileView (lines 231, 417, 446)
  */
 export function calculateRoi(net: number, stake: number): number {
   return stake > 0 ? (net / stake) * 100 : 0;
 }
 
 /**
+ * Add bet stats to a dimension map.
+ * Used for grouping stats by a dimension (sport, category, player, etc.).
+ * Mutates the provided map.
+ */
+export function addToMap(
+  map: Map<string, DimensionStats>,
+  key: string,
+  stake: number,
+  net: number,
+  result: BetResult
+): void {
+  if (!key) return;
+  
+  if (!map.has(key)) {
+    map.set(key, { count: 0, stake: 0, net: 0, wins: 0, losses: 0, pushes: 0 });
+  }
+  
+  const stats = map.get(key)!;
+  stats.count++;
+  stats.stake += stake;
+  stats.net += net;
+  
+  if (result === 'win') stats.wins++;
+  if (result === 'loss') stats.losses++;
+  if (result === 'push') stats.pushes = (stats.pushes || 0) + 1;
+}
+
+/**
  * Compute overall statistics for a set of bets.
- * 
- * Returns:
- * - totalBets: Count of bets
- * - totalWagered: Sum of stakes
- * - netProfit: Sum of (payout - stake)
- * - wins/losses/pushes/pending: Counts by result
- * - winRate: wins / (wins + losses) * 100
- * - roi: calculateRoi(netProfit, totalWagered)
- * 
- * Note: Pending bets contribute net = 0 (payout === 0 for pending bets in most imports).
- * This matches existing view behavior where pending bets don't affect netProfit calculations.
- * 
- * Mirrors logic from:
- * - DashboardView (lines 830-855)
- * - BySportView (lines 440-448)
- * - SportsbookBreakdownView (lines 159-181)
- * - PlayerProfileView (lines 412-418)
  */
 export function computeOverallStats(bets: Bet[]): OverallStats {
   const stats: OverallStats = {
@@ -120,17 +124,7 @@ export function computeOverallStats(bets: Bet[]): OverallStats {
 
 /**
  * Compute cumulative profit over time.
- * 
- * Returns an array of data points sorted chronologically by placedAt,
- * with each point showing the cumulative profit up to that bet.
- * 
- * Date format uses 'en-CA' locale (YYYY-MM-DD) as established in P1.
- * 
- * Mirrors logic from:
- * - DashboardView (lines 857-867)
- * - BySportView (lines 451-455)
- * - SportsbookBreakdownView (lines 153-157)
- * - PlayerProfileView (lines 421-425)
+ * Returns an array of data points sorted chronologically.
  */
 export function computeProfitOverTime(bets: Bet[]): ProfitDataPoint[] {
   if (bets.length === 0) {
@@ -153,47 +147,37 @@ export function computeProfitOverTime(bets: Bet[]): ProfitDataPoint[] {
 }
 
 /**
- * Add bet stats to a dimension map.
- * Used for grouping stats by a dimension (sport, category, player, etc.).
+ * Compute stats grouped by a dynamic dimension derived from each bet.
+ * Returns a Map where keys are the dimension values.
  * 
- * If the key doesn't exist, creates a new entry with zeroed stats.
- * Accumulates count, stake, net, and win/loss counts.
- * 
- * Note: This mutates the provided map.
- * 
- * Mirrors logic from:
- * - DashboardView (lines 922-938)
- * - BySportView (lines 461-469)
+ * @param bets List of bets to aggregate
+ * @param keyFn Function to derive the grouping key(s) from a bet. Can return a single key or array of keys.
  */
-export function addToMap(
-  map: Map<string, DimensionStats>,
-  key: string,
-  stake: number,
-  net: number,
-  result: BetResult
-): void {
-  if (!key) return;
-  
-  if (!map.has(key)) {
-    map.set(key, { count: 0, stake: 0, net: 0, wins: 0, losses: 0 });
+export function computeStatsByDimension(
+  bets: Bet[], 
+  keyFn: (bet: Bet) => string | string[] | null | undefined
+): Map<string, DimensionStats> {
+  const map = new Map<string, DimensionStats>();
+
+  for (const bet of bets) {
+    const keys = keyFn(bet);
+    if (!keys) continue;
+
+    const keyList = Array.isArray(keys) ? keys : [keys];
+    const net = bet.payout - bet.stake;
+
+    for (const key of keyList) {
+      if (key) {
+        addToMap(map, key, bet.stake, net, bet.result);
+      }
+    }
   }
-  
-  const stats = map.get(key)!;
-  stats.count++;
-  stats.stake += stake;
-  stats.net += net;
-  
-  if (result === 'win') stats.wins++;
-  if (result === 'loss') stats.losses++;
+
+  return map;
 }
 
 /**
  * Convert a dimension stats map to an array with ROI calculated.
- * 
- * Returns an array of stats objects with:
- * - name: The map key
- * - All DimensionStats fields
- * - roi: Calculated from net/stake
  */
 export function mapToStatsArray(
   map: Map<string, DimensionStats>
@@ -204,8 +188,3 @@ export function mapToStatsArray(
     roi: calculateRoi(stats.net, stats.stake),
   }));
 }
-
-/**
- * Convenience type for stats array entries.
- */
-export type StatsArrayEntry = DimensionStats & { name: string; roi: number };

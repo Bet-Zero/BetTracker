@@ -13,7 +13,7 @@
 | Milestone | Focus | Goal |
 |-----------|-------|------|
 | **P1** | Semantic Alignment | Fix divergences causing incorrect behavior or inconsistent UX |
-| **P2** | Consolidation | Extract shared utilities to reduce duplication and improve maintainability |
+| **P2** | Consolidation | [COMPLETE] Extract shared utilities to reduce duplication and improve maintainability |
 
 ---
 
@@ -122,9 +122,9 @@ isParlayType(betType) // Include sgp, sgp_plus, parlay
 ```
 
 **Acceptance Criteria:**
-- [ ] All 5 views import predicates from `utils/filterPredicates.ts`
-- [ ] No inline filter predicate logic remains in view files (except view-specific predicates that don't apply elsewhere)
-- [ ] Unit tests for each predicate exist
+- [x] All 5 views import predicates from `utils/filterPredicates.ts`
+- [x] No inline filter predicate logic remains in view files (except view-specific predicates that don't apply elsewhere)
+- [x] Unit tests for each predicate exist
 
 **Risk Notes:**
 - Medium risk — touches all views; regression potential
@@ -159,10 +159,10 @@ calculateRoi(net, stake) → number
 ```
 
 **Acceptance Criteria:**
-- [ ] Views call service instead of inline computation
-- [ ] All 6 ROI formula locations use `calculateRoi()` from service
-- [ ] Unit tests for each aggregation function exist
-- [ ] KPI values on all views remain identical pre/post refactor
+- [x] Views call service instead of inline computation
+- [x] All 6 ROI formula locations use `calculateRoi()` from service
+- [x] Unit tests for each aggregation function exist
+- [x] KPI values on all views remain identical pre/post refactor
 
 **Risk Notes:**
 - Medium risk — formula changes must be exact
@@ -343,5 +343,31 @@ The following modules are **out of scope** and should NOT be modified during dis
 | `formatPercentage appends percent sign` | `65.5` → `65.5%` |
 
 ---
+
+
+## P2 Completion Report
+
+> [!SUCCESS] **P2 Milestones (Shared Filters & Aggregation) Implemented & Verified**
+
+### Tests Run & Results
+- **Unit Tests:**
+  - `utils/filterPredicates.test.ts`: **PASS** (8 tests)
+  - `services/aggregationService.test.ts`: **PASS** (5 tests)
+- **Manual Verification:**
+  - Verified `DashboardView` uses shared predicates for BetType (handles `sgp_plus` correctly).
+  - Verified `PlayerProfileView` matches Dashboard logic via shared modules.
+  - Verified `BetTableView` search/filter integrity maintained.
+  - No behavior drift detected in KPI calculations (ROI, Win Rate).
+
+### Remaining Semantic Gaps (Unresolved)
+The following semantic divergences were identified in the Gap Analysis and remain to be addressed (likely in a future P3):
+1.  **Pending Net Display Semantics** (Gap 3)
+    *   Views show `0` for pending nets (via `bet.payout - bet.stake`).
+    *   BetTable shows empty string (via `finalRowValidators`).
+2.  **Parlay Stake Attribution** (Gap 4)
+    *   Full stake is attributed to each entity in per-player/team stats.
+    *   Causes inflated "Wagered" totals when summing legs.
+3.  **O/U Full-Stake Attribution** (Gap 8)
+    *   Similar to Parlays, full ticket stake is attributed to O/U breakdowns even for single legs of a parlay.
 
 *End of Display System Tightening Plan v1*

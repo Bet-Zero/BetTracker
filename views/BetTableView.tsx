@@ -20,6 +20,7 @@ import { calculateProfit } from "../utils/betCalculations";
 import { betToFinalRows } from "../parsing/shared/betToFinalRows";
 import { abbreviateMarket, normalizeCategoryForDisplay } from "../services/marketClassification";
 import { formatDateShort, formatOdds } from "../utils/formatters";
+import { createBetTableFilterPredicate } from "../utils/filterPredicates";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
 
 // --- Fixed column widths (deterministic spreadsheet layout) ---
@@ -745,21 +746,8 @@ const BetTableView: React.FC = () => {
   );
 
   const filteredBets = useMemo(() => {
-    return flattenedBets.filter(
-      (bet) =>
-        (filters.sport === "all" || bet.sport === filters.sport) &&
-        (filters.type === "all" || bet.type === filters.type) &&
-        (filters.result === "all" ||
-          bet.result === filters.result ||
-          bet.overallResult === filters.result) &&
-        (filters.category === "all" || bet.category === filters.category) &&
-        (debouncedSearchTerm === "" ||
-          bet.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-          bet.name2?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-          bet.type.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-          bet.category.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-          bet.tail?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()))
-    );
+    const tablePredicate = createBetTableFilterPredicate(filters, debouncedSearchTerm, ['name', 'name2', 'sport', 'type', 'category', 'tail']);
+    return flattenedBets.filter(tablePredicate);
   }, [flattenedBets, filters, debouncedSearchTerm]);
 
   const sortedBets = useMemo(() => {
