@@ -294,7 +294,12 @@ const OverUnderBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
     return (
         <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-md p-6 h-full flex flex-col">
             <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold text-neutral-800 dark:text-neutral-200">Over vs. Under</h2>
+                <div>
+                    <h2 className="text-xl font-semibold text-neutral-800 dark:text-neutral-200">Over / Under — Leg Exposure</h2>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+                        Counts tickets that include Over or Under legs. A single ticket may appear in both.
+                    </p>
+                </div>
                 <div className="flex items-center space-x-1 flex-wrap gap-y-2 bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-lg">
                     <ToggleButton value="props" label="Props" currentValue={filter} onClick={(v) => setFilter(v as any)} />
                     <ToggleButton value="totals" label="Totals" currentValue={filter} onClick={(v) => setFilter(v as any)} />
