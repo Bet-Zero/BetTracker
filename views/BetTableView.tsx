@@ -476,6 +476,21 @@ const BetTableView: React.FC = () => {
     direction: "asc" | "desc";
   } | null>({ key: "date", direction: "desc" });
 
+  // Consolidate categories for display: remove SGP/SGP+ as they are covered by Parlays
+  // Consolidate categories for display: remove SGP/SGP+ as they are covered by Parlays
+  const displayCategories = useMemo(() => {
+    return categories.filter((c) => {
+      const lower = c.toLowerCase();
+      // "Parlays" is the canonical category for all these
+      return (
+        lower !== "sgp" &&
+        lower !== "sgp+" &&
+        lower !== "sgp_plus" &&
+        lower !== "sgp/sgp+"
+      );
+    });
+  }, [categories]);
+
   // Spreadsheet state management
   const [focusedCell, setFocusedCell] = useState<CellCoordinate | null>(null);
   const [selectionRange, setSelectionRange] = useState<SelectionRange>(null);
@@ -734,7 +749,7 @@ const BetTableView: React.FC = () => {
     () => ({
       sports: sports,
       sites: availableSites,
-      categories: categories,
+      categories: displayCategories,
       types: (sport: string) => {
         const types = betTypes[sport] || [];
         return types.map((type) => abbreviateMarket(type));
@@ -742,7 +757,7 @@ const BetTableView: React.FC = () => {
       players: (sport: string) => players[sport] || [],
       teams: (sport: string) => teams[sport] || [],
     }),
-    [sports, availableSites, categories, betTypes, players, teams]
+    [sports, availableSites, displayCategories, betTypes, players, teams]
   );
 
   const filteredBets = useMemo(() => {
@@ -1551,7 +1566,7 @@ const BetTableView: React.FC = () => {
             onChange={(e) =>
               setFilters({ ...filters, category: e.target.value as any })
             }
-            options={categories}
+            options={displayCategories}
           />
           <FilterControl
             label="Type"

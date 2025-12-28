@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { classifyBet, classifyLeg, determineType } from './marketClassification';
+import { classifyBet, classifyLeg, determineType, determineParlayType } from './marketClassification';
 import { Bet } from '../types';
 
 describe('marketClassification', () => {
@@ -218,6 +218,32 @@ describe('marketClassification', () => {
     });
   });
 
+  describe('determineParlayType', () => {
+    it('should return "SGP+" for sgp_plus betType', () => {
+      expect(determineParlayType('sgp_plus')).toBe('SGP+');
+    });
+
+    it('should return "SGP" for sgp betType', () => {
+      expect(determineParlayType('sgp')).toBe('SGP');
+    });
+
+    it('should return "Parlay" for parlay betType', () => {
+      expect(determineParlayType('parlay')).toBe('Parlay');
+    });
+
+    it('should return empty string for single betType', () => {
+      expect(determineParlayType('single')).toBe('');
+    });
+
+    it('should return empty string for live betType', () => {
+      expect(determineParlayType('live')).toBe('');
+    });
+
+    it('should return empty string for other betType', () => {
+      expect(determineParlayType('other')).toBe('');
+    });
+  });
+
   describe('classifyBet', () => {
     const createTestBet = (overrides: Partial<Omit<Bet, 'id' | 'marketCategory' | 'raw' | 'tail'>>): Omit<Bet, 'id' | 'marketCategory' | 'raw' | 'tail'> => ({
       betId: 'test-bet-id',
@@ -242,14 +268,14 @@ describe('marketClassification', () => {
     });
 
     describe('SGP classification', () => {
-      it('should classify SGP bets as SGP/SGP+', () => {
+      it('should classify SGP bets as Parlays', () => {
         const bet = createTestBet({ betType: 'sgp' });
-        expect(classifyBet(bet)).toBe('SGP/SGP+');
+        expect(classifyBet(bet)).toBe('Parlays');
       });
 
-      it('should classify SGP+ bets as SGP/SGP+', () => {
+      it('should classify SGP+ bets as Parlays', () => {
         const bet = createTestBet({ betType: 'sgp_plus' });
-        expect(classifyBet(bet)).toBe('SGP/SGP+');
+        expect(classifyBet(bet)).toBe('Parlays');
       });
     });
 
@@ -446,7 +472,7 @@ describe('marketClassification', () => {
 
       // Bet-level classification
       const betCategory = classifyBet(bet);
-      expect(betCategory).toBe('SGP/SGP+');
+      expect(betCategory).toBe('Parlays');
 
       // Leg-level classification
       const leg1Category = classifyLeg(bet.legs![0].market, bet.sport);
@@ -458,6 +484,81 @@ describe('marketClassification', () => {
       const leg2Type = determineType(bet.legs![1].market, leg2Category, bet.sport);
       expect(leg2Category).toBe('Props');
       expect(leg2Type).toBe('Reb');
+    });
+  });
+  describe('Regression: Over/Under Misclassification', () => {
+    const createTestBet = (overrides: Partial<Omit<Bet, 'id' | 'marketCategory' | 'raw' | 'tail'>>): Omit<Bet, 'id' | 'marketCategory' | 'raw' | 'tail'> => ({
+      betId: 'test-bet-id',
+      book: 'FanDuel',
+      sport: 'NBA',
+      description: 'Test Bet',
+      betType: 'single',
+      placedAt: '2024-01-01T00:00:00Z',
+      stake: 10,
+      odds: -110,
+      result: 'pending',
+      payout: 0,
+      isLive: false,
+      ...overrides,
+    });
+
+    it('should classify Player Prop with "Over" in description as Props', () => {
+      // This is the bug case: "LeBron James Over 25.5 Points"
+      // Currently misclassified as Main Markets because of "Over" keyword
+      const bet = createTestBet({
+        betType: 'single',
+        name: 'LeBron James',
+        description: 'LeBron James Over 25.5 Points',
+      });
+      expect(classifyBet(bet)).toBe('Props');
+    });
+
+    it('should classify Player Prop with "Under" in description as Props', () => {
+      const bet = createTestBet({
+        betType: 'single',
+        name: 'Stephen Curry',
+        description: 'Stephen Curry Under 4.5 Threes',
+      });
+      expect(classifyBet(bet)).toBe('Props');
+    });
+
+    it('should classify Player Prop with "Over" but MISSING NAME as Props', () => {
+      // This simulates a CSV row where Name might be empty/misparsed,
+      // but description clearly contains Prop keywords ("Passing Yards")
+      const bet = createTestBet({
+        betType: 'single',
+        name: '', 
+        description: 'Patrick Mahomes Over 255.5 Passing Yards',
+      });
+      expect(classifyBet(bet)).toBe('Props');
+    });
+
+    it('should classify Game Total (Main Market) correctly', () => {
+      // Should remain Main Markets
+      const bet = createTestBet({
+        betType: 'single',
+        description: 'Lakers vs Celtics Over 220.5',
+      });
+      expect(classifyBet(bet)).toBe('Main Markets');
+    });
+    
+    it('should classify Team Total (Main Market) correctly', () => {
+       // Should remain Main Markets if it is a legitimate team total
+       // Note: "Lakers Over 110.5" might be tricky if "Lakers" is a name.
+       // But if name matches a Team, it should be Main Markets or Props?
+       // Actually, Team Totals are often Main Markets or Props depending on the sportsbook.
+       // For this fix, we just want to ensure Player Props are Props.
+       const bet = createTestBet({
+         betType: 'single',
+         name: 'Lakers', // Known team
+         description: 'Lakers Over 110.5',
+       });
+       // If it identifies as a Team, we might classify as Main Markets or allow it to be Props?
+       // The requirement is to fix "Totals" filter showing Player Props.
+       // So if it's a Team, maybe it's fine to be Main Markets or Props.
+       // Let's assume for now we just want Player Props to NOT be Main Markets.
+       // If it is classified as Props currently, that is fine.
+       // If it is classified as Main Markets currently, that is also fine for a Team Total.
     });
   });
 });

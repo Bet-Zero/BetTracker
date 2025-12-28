@@ -9,7 +9,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "test:fanduel": "npx tsx parsing/fanduel/tests/test-fanduel-fixture.ts && npx tsx parsing/fanduel/fixtures/fanduelSgpSampleChecker.ts",
     "test:draftkings": "npx tsx parsing/draftkings/tests/test-draftkings-fixture.ts"
   },

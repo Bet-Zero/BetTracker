@@ -47,7 +47,6 @@ export type MarketCategory =
   | "Props"
   | "Main Markets"
   | "Futures"
-  | "SGP/SGP+"
   | "Parlays";
 
 export interface Sportsbook {

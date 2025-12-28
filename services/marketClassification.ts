@@ -15,7 +15,7 @@
  * for market classification. NO callers should re-interpret or override results.
  */
 
-import { Bet, MarketCategory } from '../types';
+import { Bet, BetType, MarketCategory } from '../types';
 import {
   FUTURES_KEYWORDS,
   MAIN_MARKET_KEYWORDS,
@@ -25,6 +25,7 @@ import {
   FUTURES_TYPES,
   BASKETBALL_SPORTS,
 } from './marketClassification.config';
+import { getTeamInfo } from './normalizationService';
 
 // ============================================================================
 // CACHED REGEX PATTERNS (for performance)
@@ -86,7 +87,7 @@ function hasAnyPattern(text: string, patterns: RegExp[]): boolean {
  * This is the primary function for bet-level classification.
  * 
  * @param bet - Bet object to classify (without id, marketCategory, raw, tail fields)
- * @returns MarketCategory - One of: 'Props', 'Main Markets', 'Futures', 'SGP/SGP+', 'Parlays'
+ * @returns MarketCategory - One of: 'Props', 'Main Markets', 'Futures', 'Parlays'
  */
 export function classifyBet(bet: Omit<Bet, 'id' | 'marketCategory' | 'raw' | 'tail'>): MarketCategory {
   // Input validation
@@ -99,13 +100,9 @@ export function classifyBet(bet: Omit<Bet, 'id' | 'marketCategory' | 'raw' | 'ta
     console.warn(`[classifyBet] Missing betType for bet ${bet.betId || 'unknown'}`);
   }
 
-  // SGP/SGP+ classification based on bet type
-  if (bet.betType === 'sgp' || bet.betType === 'sgp_plus') {
-    return 'SGP/SGP+';
-  }
-  
-  // Parlay classification based on bet type
-  if (bet.betType === 'parlay') {
+  // All parlay types (parlay, SGP, SGP+) are categorized as 'Parlays'
+  // The individual legs are not relevant toward a parlay's market category
+  if (bet.betType === 'parlay' || bet.betType === 'sgp' || bet.betType === 'sgp_plus') {
     return 'Parlays';
   }
   
@@ -250,6 +247,29 @@ export function determineType(market: string, category: string, sport: string): 
 }
 
 /**
+ * Determines the parlay type for display in the Type column.
+ * 
+ * This function is used to distinguish between different parlay forms
+ * when the Category is "Parlays". It provides granularity for analysis
+ * without cluttering the Category filter.
+ * 
+ * @param betType - The betType field from the Bet object
+ * @returns Type string - "SGP+", "SGP", "Parlay", or empty string for non-parlays
+ * 
+ * @example
+ * determineParlayType('sgp_plus') // returns 'SGP+'
+ * determineParlayType('sgp') // returns 'SGP'
+ * determineParlayType('parlay') // returns 'Parlay'
+ * determineParlayType('single') // returns ''
+ */
+export function determineParlayType(betType: BetType): string {
+  if (betType === 'sgp_plus') return 'SGP+';
+  if (betType === 'sgp') return 'SGP';
+  if (betType === 'parlay') return 'Parlay';
+  return '';
+}
+
+/**
  * Determines type for Props category with early returns.
  * @internal
  */
@@ -367,6 +387,35 @@ function isBetProp(bet: Omit<Bet, 'id' | 'marketCategory' | 'raw' | 'tail'>): bo
  * @internal
  */
 function isBetMainMarket(bet: Omit<Bet, 'id' | 'marketCategory' | 'raw' | 'tail'>): boolean {
+  // AMBIGUITY CHECK:
+  // If we have a Name, and that Name is NOT a known Team, it's likely a Player Prop.
+  // In that case, we should NOT classify as Main Market here, but let it fall through to Props.
+  // This prevents "LeBron James Over 25.5" from matching "Over" in MAIN_MARKET_KEYWORDS.
+  if (bet.name && !getTeamInfo(bet.name)) {
+    return false;
+  }
+
+  // Check for "Strong" Prop Keywords (non-ambiguous ones).
+  // Ambiguous ones like "points", "runs", "goals" could be Game Totals.
+  // Specific ones like "rebounds", "assists", "yards" are definitely Props.
+  // This prevents "Over 25.5 Passing Yards" from being misclassified as Main Market "Over".
+  
+  const ambiguousKeywords = ['points', 'pts', 'runs', 'goals', 'score', 'total', 'over', 'under'];
+  
+  // Check if any PROP_KEYWORDS match, excluding the ambiguous ones
+  const hasStrongProp = PROP_KEYWORDS.some(keyword => {
+    if (ambiguousKeywords.includes(keyword)) return false;
+    // We need to construct regex here since we don't have access to the cached patterns 
+    // mapped by index easily, and we need to filter first.
+    const pattern = new RegExp(`\\b${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+    return pattern.test(bet.description);
+  });
+  
+  // If it has strong prop keywords (e.g. "Passing Yards"), it is NOT a Main Market.
+  if (hasStrongProp) {
+    return false;
+  }
+
   // Use cached patterns for keyword matching
   if (hasAnyPattern(bet.description, MAIN_MARKET_KEYWORD_PATTERNS)) {
     return true;
@@ -377,7 +426,8 @@ function isBetMainMarket(bet: Omit<Bet, 'id' | 'marketCategory' | 'raw' | 'tail'
     return true;
   }
   
-  // Check for totals patterns
+  // Check for totals patterns (redundant with MAIN_MARKET_KEYWORDS but kept for safety/explicit patterns)
+  // Ensure we don't double count if removed from keywords list in future
   if (/\b(Total|Over|Under)\b/i.test(bet.description)) {
     return true;
   }
@@ -442,15 +492,17 @@ function isMarketProp(lowerMarket: string, sport: string): boolean {
  * All UI layers must use this function to ensure consistent category display.
  * 
  * Returns compact category names optimized for UI display:
- * - 'Props' for prop bets, SGP/SGP+, and parlays
+ * - 'Parlays' for SGP, SGP+, and parlay bets
+ * - 'Props' for prop bets
  * - 'Main' for main market bets (moneylines, spreads, totals)
  * - 'Futures' for future/outright bets
  * 
  * @param marketCategory - The raw marketCategory value from a Bet or classification
- * @returns Normalized category string for display ('Props', 'Main', 'Futures')
+ * @returns Normalized category string for display ('Parlays', 'Props', 'Main', 'Futures')
  * 
  * @example
- * normalizeCategoryForDisplay('SGP/SGP+') // returns 'Props'
+ * normalizeCategoryForDisplay('SGP/SGP+') // returns 'Parlays'
+ * normalizeCategoryForDisplay('Parlays') // returns 'Parlays'
  * normalizeCategoryForDisplay('Main Markets') // returns 'Main'
  * normalizeCategoryForDisplay('Props') // returns 'Props'
  */
@@ -459,10 +511,11 @@ export function normalizeCategoryForDisplay(marketCategory: string): string {
   
   const lower = marketCategory.toLowerCase();
 
+  // Check for parlay/SGP types first - these should display as "Parlays"
+  if (lower.includes('parlay') || lower.includes('sgp')) return 'Parlays';
   if (lower.includes('prop')) return 'Props';
   if (lower.includes('main')) return 'Main';
   if (lower.includes('future')) return 'Futures';
-  if (lower.includes('parlay') || lower.includes('sgp')) return 'Props'; // SGP/SGP+ and Parlays default to Props in display
 
   // Default to Props if unclear
   return 'Props';

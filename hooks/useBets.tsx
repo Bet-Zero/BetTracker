@@ -59,7 +59,39 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
           return;
         }
 
-        setBets(result.value.bets);
+        
+        // Self-healing: Fix misclassified Main Markets bets (e.g. Player Props with "Over" keywords)
+        // This addresses the regression where "LeBron Over 25.5" was classified as Main Markets
+        let betsToSet = result.value.bets;
+        let hasChanges = false;
+        
+        const healedBets = betsToSet.map(bet => {
+          // Only re-check Main Markets to be efficient/safe
+          if (bet.marketCategory === 'Main Markets') {
+            const correctCategory = classifyBet(bet);
+            if (correctCategory !== 'Main Markets') {
+              hasChanges = true;
+              return { ...bet, marketCategory: correctCategory };
+            }
+          }
+          return bet;
+        });
+
+        if (hasChanges) {
+          console.log('[useBets] Self-healing: Corrected misclassified bets', 
+            healedBets.filter((b, i) => b !== betsToSet[i]).length
+          );
+          betsToSet = healedBets;
+          
+          // Persist the correction immediately
+          saveState({
+             ...result.value,
+             bets: healedBets,
+             updatedAt: new Date().toISOString() 
+          });
+        }
+
+        setBets(betsToSet);
       } catch (err) {
         // Defensive catch for unexpected errors during load
         console.error("Unexpected error in processLoad:", err);

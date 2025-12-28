@@ -195,8 +195,8 @@ export type LegOutcomeType = 'win' | 'loss' | 'push' | 'pending' | 'unknown';
 /**
  * Checks if a bet type is a parlay variant.
  * 
- * P4 POLICY: Parlays (sgp, sgp_plus, parlay) should NOT contribute
- * stake/net to entity breakdowns. Only singles contribute money.
+ * POLICY: Parlays (sgp, sgp_plus, parlay) should NOT contribute
+ * stake/net to entity breakdowns. Only non-parlay bets contribute money.
  *
  * @param betType - The bet type to check
  * @returns true if betType is a parlay variant
@@ -208,8 +208,8 @@ export function isParlayBetType(betType: BetType): boolean {
 /**
  * Returns the money contribution (stake/net) for entity breakdowns.
  *
- * P4 POLICY:
- * - Singles: Full stake and net attributed to entity
+ * POLICY:
+ * - Non-parlays: Full stake and net attributed to entity
  * - Parlays: Zero stake and net (prevents double-counting)
  *
  * @param bet - The bet to get money contribution from
@@ -220,7 +220,7 @@ export function getEntityMoneyContribution(bet: Bet): { stake: number; net: numb
     // Parlays contribute 0 to entity money breakdowns
     return { stake: 0, net: 0 };
   }
-  // Singles contribute full stake and net
+  // Non-parlays contribute full stake and net
   return {
     stake: bet.stake,
     net: getNetNumeric(bet),

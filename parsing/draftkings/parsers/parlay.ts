@@ -84,7 +84,7 @@ const MAX_DEPTH_MARKET = "__MAX_DEPTH__";
 // Fallback literals centralized for maintenance
 const UNKNOWN_SPORT = "Unknown";
 const UNKNOWN_MARKET = "Unknown Market";
-const MARKET_CATEGORY_SGP = "SGP/SGP+";
+// All parlay types (parlay, SGP, SGP+) use the same market category
 const MARKET_CATEGORY_PARLAY = "Parlays";
 
 // Main market types for entityType detection (lowercase for case-insensitive matching)
@@ -552,12 +552,8 @@ export const parseParlayBet = (ctx: ParlayBetContext): Bet => {
     : UNKNOWN_SPORT;
 
   // Determine market category
-  // For DraftKings, check if it's a same-game parlay (SGP or SGP+)
-  const isSameGameParlay =
-    computedBetType === "sgp" || computedBetType === "sgp_plus";
-  const marketCategory = isSameGameParlay
-    ? MARKET_CATEGORY_SGP
-    : MARKET_CATEGORY_PARLAY;
+  // All parlay bet types (parlay, SGP, SGP+) are categorized as 'Parlays'
+  const marketCategory = MARKET_CATEGORY_PARLAY;
 
   return {
     id: header.betId,

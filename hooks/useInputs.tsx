@@ -98,7 +98,6 @@ const defaultCategories: string[] = [
   "Props",
   "Main Markets",
   "Futures",
-  "SGP/SGP+",
   "Parlays",
 ];
 const defaultBetTypes: ItemsBySport = {

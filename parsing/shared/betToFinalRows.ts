@@ -36,7 +36,7 @@ import {
   formatNet,
   calculateFormattedNet,
 } from "./finalRowValidators";
-import { classifyLeg, determineType, normalizeCategoryForDisplay } from "../../services/marketClassification";
+import { classifyLeg, determineType, determineParlayType, normalizeCategoryForDisplay } from "../../services/marketClassification";
 import { formatDateShortWithYear } from "../../utils/formatters";
 
 // ============================================================================
@@ -348,7 +348,7 @@ export function betToFinalRows(bet: Bet): FinalRow[] {
         },
         {
           category: "Parlays",
-          type: "",
+          type: determineParlayType(bet.betType),
         }
       );
       rows.push(headerRow);

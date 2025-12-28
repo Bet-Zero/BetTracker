@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useBets } from '../hooks/useBets';
-import { useInputs } from '../hooks/useInputs';
+import { getTeamInfo, normalizeTeamName } from '../services/normalizationService';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Sector } from 'recharts';
 import { TrendingUp, TrendingDown, Scale, BarChart2, User } from '../components/icons';
 import { Bet } from '../types';
@@ -45,7 +45,15 @@ const ChartContainer: React.FC<{ title: string; children: React.ReactNode }> = (
     </div>
 );
 
-const StatCard: React.FC<{ title: string; value: string; icon: React.ReactNode; change?: string; }> = ({ title, value, icon, change }) => {
+const StatCard: React.FC<{
+    title: string;
+    value: string;
+    icon: React.ReactNode;
+    subtitle?: string; // Static text (no arrows)
+    subtitleClassName?: string; // Explicit color for subtitle
+    change?: string; // Trend with arrows (auto-colored)
+    valueClassName?: string; // Explicit color for main value
+}> = ({ title, value, icon, subtitle, subtitleClassName, change, valueClassName }) => {
     const isPositive = change && parseFloat(change) > 0;
     const isNegative = change && parseFloat(change) < 0;
     const changeColor = isPositive ? 'text-accent-500' : isNegative ? 'text-danger-500' : 'text-neutral-500 dark:text-neutral-400';
@@ -54,7 +62,14 @@ const StatCard: React.FC<{ title: string; value: string; icon: React.ReactNode; 
         <div className="bg-white dark:bg-neutral-900 p-6 rounded-lg shadow-md flex items-start justify-between">
             <div>
                 <p className="text-sm font-medium text-neutral-500 dark:text-neutral-400 uppercase">{title}</p>
-                <p className="text-3xl font-bold text-neutral-900 dark:text-white mt-1">{value}</p>
+                <p className={`text-3xl font-bold mt-1 ${valueClassName || "text-neutral-900 dark:text-white"}`}>
+                    {value}
+                </p>
+                {subtitle && (
+                    <p className={`text-sm font-semibold mt-2 ${subtitleClassName || "text-neutral-500 dark:text-neutral-400"}`}>
+                        {subtitle}
+                    </p>
+                )}
                 {change && (
                     <p className={`text-sm font-semibold flex items-center mt-2 ${changeColor}`}>
                         {isPositive && <TrendingUp className="w-4 h-4 mr-1" />}
@@ -232,7 +247,7 @@ const OverUnderBreakdown: React.FC<{ bets: Bet[], selectedPlayer: string | null 
                 // P4: Use entity money contribution to exclude parlay money from player stats
                 const moneyContribution = getEntityMoneyContribution(bet);
                 bet.legs.forEach(leg => {
-                    if (leg.ou && (!selectedPlayer || leg.entities?.includes(selectedPlayer))) {
+                    if (leg.ou && (!selectedPlayer || leg.entities?.some(e => normalizeTeamName(e) === selectedPlayer))) {
                         const ou = leg.ou.toLowerCase() as 'over' | 'under';
                         stats[ou].count++; 
                         stats[ou].stake += moneyContribution.stake; // P4: excludes parlays
@@ -259,7 +274,6 @@ const OverUnderBreakdown: React.FC<{ bets: Bet[], selectedPlayer: string | null 
 
     const StatCard = ({ title, stats }: { title: string, stats: any }) => {
         const netColor = stats.net > 0 ? 'text-accent-500' : stats.net < 0 ? 'text-danger-500' : '';
-        const NetIcon = stats.net > 0 ? TrendingUp : TrendingDown;
         const winPct = stats.wins + stats.losses > 0 ? (stats.wins / (stats.wins + stats.losses)) * 100 : 0;
         return (
             <div className="p-4 rounded-lg bg-neutral-100 dark:bg-neutral-800/50 flex-1">
@@ -268,7 +282,7 @@ const OverUnderBreakdown: React.FC<{ bets: Bet[], selectedPlayer: string | null 
                     <p><b>Bets:</b> {stats.count}</p>
                     <p><b>Win/Loss:</b> {stats.wins}-{stats.losses}</p>
                     <p><b>Win %:</b> {winPct.toFixed(1)}%</p>
-                    <p className={`flex items-center ${netColor}`}><b>Net:</b><NetIcon className="w-4 h-4 mx-1"/> ${stats.net.toFixed(2)}</p>
+                    <p className={netColor}><b>Net:</b> ${stats.net.toFixed(2)}</p>
                     <p className={netColor}><b>ROI:</b> {stats.roi.toFixed(1)}%</p>
                 </div>
             </div>
@@ -332,20 +346,46 @@ interface PlayerProfileViewProps {
 
 const PlayerProfileView: React.FC<PlayerProfileViewProps> = ({ selectedPlayer, setSelectedPlayer }) => {
     const { bets, loading } = useBets();
-    const { players } = useInputs();
     const [searchTerm, setSearchTerm] = useState(selectedPlayer || '');
     const [isSearchFocused, setIsSearchFocused] = useState(false);
     const [dateRange, setDateRange] = useState<DateRange>('all');
     const [customDateRange, setCustomDateRange] = useState<{ start: string; end: string }>({ start: '', end: '' });
-    const [betTypeFilter, setBetTypeFilter] = useState<"singles" | "parlays" | "all">("singles");
+    const [betTypeFilter, setBetTypeFilter] = useState<"non-parlays" | "parlays" | "all">("all");
 
     useEffect(() => {
         setSearchTerm(selectedPlayer || '');
     }, [selectedPlayer]);
 
+    // Extract players from bet data using leg.entityType and normalization service
+    // This ensures players appear even if not manually added to localStorage
     const allPlayers = useMemo(() => {
-        return Array.from(new Set(Object.values(players).flat())).sort();
-    }, [players]);
+        const players = new Set<string>();
+        
+        for (const bet of bets) {
+            if (!bet.legs) continue;
+            for (const leg of bet.legs) {
+                if (!leg.entities) continue;
+                for (const entity of leg.entities) {
+                    const normalizedEntity = normalizeTeamName(entity);
+                    // Determine if this is a player using leg.entityType or fallback to team lookup
+                    if (leg.entityType === 'player') {
+                        players.add(normalizedEntity);
+                    } else if (leg.entityType === 'team') {
+                        // Skip teams
+                        continue;
+                    } else {
+                        // Fallback: if not a known team, assume it's a player
+                        const teamInfo = getTeamInfo(entity);
+                        if (!teamInfo) {
+                            players.add(normalizedEntity);
+                        }
+                    }
+                }
+            }
+        }
+        
+        return Array.from(players).sort();
+    }, [bets]);
 
     const filteredPlayers = useMemo(() => {
         if (!searchTerm) return [];
@@ -374,7 +414,8 @@ const PlayerProfileView: React.FC<PlayerProfileViewProps> = ({ selectedPlayer, s
         const typePredicate = createBetTypePredicate(betTypeFilter);
         
         // Filter to only bets involving the selected player
-        const playerPredicate = (bet: Bet) => bet.legs?.some(leg => leg.entities?.includes(selectedPlayer)) ?? false;
+        // Normalize entities to ensure aliases (e.g., "Magic") match the selected player ("Orlando Magic")
+        const playerPredicate = (bet: Bet) => bet.legs?.some(leg => leg.entities?.some(e => normalizeTeamName(e) === selectedPlayer)) ?? false;
 
         return bets.filter(bet => 
             datePredicate(bet) && playerPredicate(bet) && typePredicate(bet)
@@ -402,7 +443,7 @@ const PlayerProfileView: React.FC<PlayerProfileViewProps> = ({ selectedPlayer, s
         const marketMap = computeStatsByDimension(playerBets, (bet) => {
              if (bet.legs) {
                  return bet.legs
-                    .filter(leg => leg.entities?.includes(selectedPlayer))
+                    .filter(leg => leg.entities?.some(e => normalizeTeamName(e) === selectedPlayer))
                     .map(leg => leg.market);
              }
              return null;
@@ -489,14 +530,14 @@ const PlayerProfileView: React.FC<PlayerProfileViewProps> = ({ selectedPlayer, s
                                 <div className="flex flex-col sm:flex-row gap-2">
                                     <div className="flex items-center space-x-1 flex-wrap gap-y-2 bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-lg">
                                         <button
-                                            onClick={() => setBetTypeFilter("singles")}
+                                            onClick={() => setBetTypeFilter("all")}
                                             className={`px-3 py-1.5 rounded-md font-medium text-xs transition-colors ${
-                                                betTypeFilter === "singles"
+                                                betTypeFilter === "all"
                                                     ? "bg-primary-600 text-white shadow"
                                                     : "text-neutral-600 dark:text-neutral-300 hover:bg-white dark:hover:bg-neutral-700"
                                             }`}
                                         >
-                                            Singles Only
+                                            All Bets
                                         </button>
                                         <button
                                             onClick={() => setBetTypeFilter("parlays")}
@@ -509,14 +550,14 @@ const PlayerProfileView: React.FC<PlayerProfileViewProps> = ({ selectedPlayer, s
                                             Parlays Only
                                         </button>
                                         <button
-                                            onClick={() => setBetTypeFilter("all")}
+                                            onClick={() => setBetTypeFilter("non-parlays")}
                                             className={`px-3 py-1.5 rounded-md font-medium text-xs transition-colors ${
-                                                betTypeFilter === "all"
+                                                betTypeFilter === "non-parlays"
                                                     ? "bg-primary-600 text-white shadow"
                                                     : "text-neutral-600 dark:text-neutral-300 hover:bg-white dark:hover:bg-neutral-700"
                                             }`}
                                         >
-                                            All Bets
+                                            Non-Parlays
                                         </button>
                                     </div>
                                     <div className="flex items-center space-x-1 flex-wrap gap-y-2 bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-lg">
@@ -567,10 +608,22 @@ const PlayerProfileView: React.FC<PlayerProfileViewProps> = ({ selectedPlayer, s
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 border-t border-neutral-200 dark:border-neutral-800 pt-6">
-                                <StatCard title="Net Profit" value={`${processedData.overallStats.netProfit >= 0 ? '$' : '-$'}${Math.abs(processedData.overallStats.netProfit).toFixed(2)}`} icon={<Scale className="w-6 h-6"/>} change={`${processedData.overallStats.roi.toFixed(1)}% ROI`}/>
+                                <StatCard 
+                                    title="Net Profit" 
+                                    value={`${processedData.overallStats.netProfit >= 0 ? '$' : '-$'}${Math.abs(processedData.overallStats.netProfit).toFixed(2)}`} 
+                                    icon={<Scale className="w-6 h-6"/>} 
+                                    subtitle={`${processedData.overallStats.roi.toFixed(1)}% ROI`}
+                                    subtitleClassName={processedData.overallStats.roi > 0 ? "text-accent-500" : processedData.overallStats.roi < 0 ? "text-danger-500" : undefined}
+                                />
                                 <StatCard title="Total Wagered" value={`$${processedData.overallStats.totalWagered.toFixed(2)}`} icon={<BarChart2 className="w-6 h-6"/>} />
                                 <StatCard title="Total Bets" value={processedData.overallStats.totalBets.toString()} icon={<BarChart2 className="w-6 h-6"/>} />
-                                <StatCard title="Win/Loss/Push" value={processedData.overallStats.record} icon={<BarChart2 className="w-6 h-6"/>} change={`${processedData.overallStats.winRate.toFixed(1)}% Win Rate`} />
+                                <StatCard 
+                                    title="Win/Loss/Push" 
+                                    value={processedData.overallStats.record} 
+                                    icon={<BarChart2 className="w-6 h-6"/>} 
+                                    subtitle={`${processedData.overallStats.winRate.toFixed(1)}% Win Rate`} 
+                                    subtitleClassName={processedData.overallStats.winRate > 50 ? "text-accent-500" : processedData.overallStats.winRate < 50 ? "text-danger-500" : undefined}
+                                />
                             </div>
                         )}
                     </div>

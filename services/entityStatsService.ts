@@ -1,12 +1,11 @@
 /**
  * Entity Stats Service
  *
- * Computes per-entity statistics with P4 parlay semantics:
- * - Singles: Money (stake/net) attributed to entities
- * - Parlays: Zero money attribution; leg-accuracy metrics only
+ * Computes per-entity statistics with parlay-aware semantics:
+ * - Non-parlays: Money (stake/net) attributed to entities
+ * - Parlays: Zero money attribution (parlays count as one bet, not per-leg)
  *
- * This service replaces the previous "ticket-level" attribution for entity breakdowns,
- * preventing parlay stake inflation while still providing leg-level insight.
+ * This service prevents parlay stake inflation in entity breakdowns.
  *
  * @see docs/DISPLAY_SYSTEM_TIGHTENING_PLAN_V1.md - P4 section
  */
@@ -15,40 +14,28 @@ import { Bet, BetLeg } from '../types';
 import {
   isParlayBetType,
   getEntityMoneyContribution,
-  getEntityLegContribution,
 } from './displaySemantics';
 import { calculateRoi } from './aggregationService';
 
 /**
- * Entity-level statistics combining singles money and parlay leg accuracy.
+ * Entity-level statistics for bet tracking.
+ * All metrics are for STRAIGHT BETS ONLY (parlays excluded).
  */
 export interface EntityStats {
-  /** Total tickets this entity appeared on */
+  /** Total straight bets this entity appeared on */
   tickets: number;
-  /** Count of single bets */
-  singles: number;
-  /** Count of parlay bets */
+  /** Count of parlay bets (informational only, not included in other stats) */
   parlays: number;
-  /** Sum of stake from singles only (parlays excluded) */
-  stakeSingles: number;
-  /** Sum of net from singles only (parlays excluded) */
-  netSingles: number;
-  /** Total leg appearances across all bets */
-  legs: number;
-  /** Leg wins */
-  legWins: number;
-  /** Leg losses */
-  legLosses: number;
-  /** Leg pushes */
-  legPushes: number;
-  /** Leg pending */
-  legPending: number;
-  /** Leg unknown (missing result data) */
-  legUnknown: number;
-  /** Leg win rate: legWins / (legWins + legLosses), excluding pending/push/unknown */
-  legWinRate: number;
-  /** ROI on singles only: netSingles / stakeSingles * 100 */
-  roiSingles: number;
+  /** Wins from straight bets */
+  wins: number;
+  /** Losses from straight bets */
+  losses: number;
+  /** Sum of stake from straight bets */
+  stake: number;
+  /** Sum of net from straight bets */
+  net: number;
+  /** ROI: net / stake * 100 */
+  roi: number;
 }
 
 /**
@@ -60,10 +47,10 @@ export type EntityKeyExtractor = (leg: BetLeg, bet: Bet) => string[] | null;
 /**
  * Computes entity statistics map from bets.
  *
- * P4 SEMANTICS:
- * - Singles: Money (stake/net) attributed to each entity
- * - Parlays: Zero money; only leg outcomes counted
- * - Leg outcomes tracked independently of ticket result
+ * SEMANTICS:
+ * - Non-parlays: Money (stake/net) attributed to each entity
+ * - Parlays: Zero money attribution (counted as one bet, not per-leg)
+ * - All metrics are bet-level, not leg-level
  *
  * @param bets - Array of bets to process
  * @param keyExtractor - Function to extract entity keys from a leg
@@ -77,9 +64,16 @@ export function computeEntityStatsMap(
 
   for (const bet of bets) {
     const isParlay = isParlayBetType(bet.betType);
+    
+    // Skip parlays entirely - we don't attribute money to entities from parlays
+    // This prevents empty entries in the map for parlay-only entities
+    if (isParlay) {
+      continue;
+    }
+    
     const moneyContribution = getEntityMoneyContribution(bet);
 
-    // Collect all unique entities in this bet (for ticket counting)
+    // Collect all unique entities in this bet
     const entitiesInBet = new Set<string>();
 
     // Process legs if present
@@ -88,99 +82,51 @@ export function computeEntityStatsMap(
         const entityKeys = keyExtractor(leg, bet);
         if (!entityKeys || entityKeys.length === 0) continue;
 
-        const legContribution = getEntityLegContribution(leg, bet);
-
         for (const entityKey of entityKeys) {
           if (!entityKey) continue;
-          
-          // Track entity for ticket counting
           entitiesInBet.add(entityKey);
-
-          // Initialize stats if needed
-          if (!map.has(entityKey)) {
-            map.set(entityKey, {
-              tickets: 0,
-              singles: 0,
-              parlays: 0,
-              stakeSingles: 0,
-              netSingles: 0,
-              legs: 0,
-              legWins: 0,
-              legLosses: 0,
-              legPushes: 0,
-              legPending: 0,
-              legUnknown: 0,
-              legWinRate: 0,
-              roiSingles: 0,
-            });
-          }
-
-          const stats = map.get(entityKey)!;
-
-          // Count bet type (only once per bet, but we'll handle this after loop)
-          // Attribute money (only for singles, and only once per bet per entity)
-          // We'll handle bet type counting after collecting all entities
-
-          // Count leg outcomes
-          stats.legs += legContribution.legs;
-          if (legContribution.win) stats.legWins += legContribution.win;
-          if (legContribution.loss) stats.legLosses += legContribution.loss;
-          if (legContribution.push) stats.legPushes += legContribution.push;
-          if (legContribution.pending) stats.legPending += legContribution.pending;
-          if (legContribution.unknown) stats.legUnknown += legContribution.unknown;
         }
       }
     } else if (bet.name) {
-      // Handle single-leg bets without legs array (legacy or simple bets)
+      // Handle bets without legs array (legacy or simple bets)
       entitiesInBet.add(bet.name);
     }
 
-    // Now process bet-level attributes once per entity
+    // Process bet-level attributes once per entity (straight bets only)
     for (const entityKey of entitiesInBet) {
       if (!map.has(entityKey)) {
         map.set(entityKey, {
           tickets: 0,
-          singles: 0,
           parlays: 0,
-          stakeSingles: 0,
-          netSingles: 0,
-          legs: 0,
-          legWins: 0,
-          legLosses: 0,
-          legPushes: 0,
-          legPending: 0,
-          legUnknown: 0,
-          legWinRate: 0,
-          roiSingles: 0,
+          wins: 0,
+          losses: 0,
+          stake: 0,
+          net: 0,
+          roi: 0,
         });
       }
 
       const stats = map.get(entityKey)!;
 
-      // Count ticket (once per bet per entity)
+      // For straight bets: count ticket, wins/losses, and money
       stats.tickets++;
-
-      // Count bet type (once per bet per entity)
-      if (isParlay) {
-        stats.parlays++;
-      } else {
-        stats.singles++;
+      
+      if (bet.result === 'win') {
+        stats.wins++;
+      } else if (bet.result === 'loss') {
+        stats.losses++;
       }
+      // Push/pending/cashout don't count as win or loss
 
-      // Attribute money (only for singles, once per bet per entity)
-      stats.stakeSingles += moneyContribution.stake;
-      stats.netSingles += moneyContribution.net;
+      stats.stake += moneyContribution.stake;
+      stats.net += moneyContribution.net;
     }
   }
 
   // Calculate derived metrics
   for (const [entityKey, stats] of map.entries()) {
-    // Leg win rate: legWins / (legWins + legLosses), excluding pending/push/unknown
-    const decidedLegs = stats.legWins + stats.legLosses;
-    stats.legWinRate = decidedLegs > 0 ? (stats.legWins / decidedLegs) * 100 : 0;
-
-    // ROI on singles: netSingles / stakeSingles * 100
-    stats.roiSingles = calculateRoi(stats.netSingles, stats.stakeSingles);
+    // ROI: net / stake * 100
+    stats.roi = calculateRoi(stats.net, stats.stake);
   }
 
   return map;

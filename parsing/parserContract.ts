@@ -92,7 +92,7 @@ export const REQUIRED_BET_FIELDS: readonly RequiredBetField[] = [
   'betId',        // Sportsbook's bet identifier
   'placedAt',     // ISO 8601 timestamp
   'betType',      // "single" | "parlay" | "sgp" | "sgp_plus" | "live" | "other"
-  'marketCategory', // "Props" | "Main Markets" | "Futures" | "SGP/SGP+" | "Parlays"
+  'marketCategory', // "Props" | "Main Markets" | "Futures" | "Parlays"
   'sport',        // Sport name (e.g., "NBA", "NFL")
   'description',  // Human-readable bet description
   'odds',         // American odds (number, can be null for certain bet types)
@@ -119,7 +119,6 @@ export const VALID_MARKET_CATEGORIES: MarketCategory[] = [
   'Props',
   'Main Markets', 
   'Futures',
-  'SGP/SGP+',
   'Parlays'
 ];
 
@@ -186,8 +185,7 @@ export type EntityType = typeof VALID_ENTITY_TYPES[number];
  *      - Single player prop → "Props"
  *      - Spread/Total/ML → "Main Markets"
  *      - Season-long → "Futures"
- *      - SGP/SGP+ → "SGP/SGP+"
- *      - Multi-game parlay → "Parlays"
+ *      - All parlay types (parlay/SGP/SGP+) → "Parlays"
  * 
  * 4. DATE NORMALIZATION
  *    - Parse sportsbook date formats to ISO 8601

@@ -294,11 +294,8 @@ function inferBetType(legs: BetLeg[]): BetType {
  * @returns MarketCategory
  */
 function inferMarketCategory(betType: BetType, legs: BetLeg[]): MarketCategory {
-  if (betType === 'sgp' || betType === 'sgp_plus') {
-    return 'SGP/SGP+';
-  }
-  
-  if (betType === 'parlay') {
+  // All parlay types (parlay, SGP, SGP+) are categorized as 'Parlays'
+  if (betType === 'parlay' || betType === 'sgp' || betType === 'sgp_plus') {
     return 'Parlays';
   }
   

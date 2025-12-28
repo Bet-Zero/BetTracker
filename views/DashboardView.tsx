@@ -40,8 +40,9 @@ import {
   mapToStatsArray,
   DimensionStats,
 } from "../services/aggregationService";
-import { getNetNumeric } from "../services/displaySemantics";
+import { getNetNumeric, isParlayBetType } from "../services/displaySemantics";
 import { computeEntityStatsMap, EntityStats } from "../services/entityStatsService";
+import { normalizeTeamName, getTeamInfo } from "../services/normalizationService";
 
 // --- HELPER FUNCTIONS & COMPONENTS ---
 
@@ -84,9 +85,6 @@ type StatsData = {
   net: number;
   roi: number;
   sport?: string;
-  // P4: Leg accuracy metrics for parlay insight
-  legs?: number;
-  legWinRate?: number;
 };
 interface StatsTableProps {
   data: StatsData[];
@@ -200,7 +198,7 @@ const StatsTable: React.FC<StatsTableProps> = ({
                 className="px-4 py-2 cursor-pointer"
                 onClick={() => requestSort("stake")}
               >
-                Singles Wagered{" "}
+                Wagered{" "}
                 {sortConfig.key === "stake"
                   ? sortConfig.direction === "desc"
                     ? "▼"
@@ -211,7 +209,7 @@ const StatsTable: React.FC<StatsTableProps> = ({
                 className="px-4 py-2 cursor-pointer"
                 onClick={() => requestSort("net")}
               >
-                Singles Net{" "}
+                Net{" "}
                 {sortConfig.key === "net"
                   ? sortConfig.direction === "desc"
                     ? "▼"
@@ -222,29 +220,13 @@ const StatsTable: React.FC<StatsTableProps> = ({
                 className="px-4 py-2 cursor-pointer"
                 onClick={() => requestSort("roi")}
               >
-                Singles ROI{" "}
+                ROI{" "}
                 {sortConfig.key === "roi"
                   ? sortConfig.direction === "desc"
                     ? "▼"
                     : "▲"
                   : "◇"}
               </th>
-              {data.some(item => item.legs !== undefined) && (
-                <>
-                  <th
-                    className="px-4 py-2 cursor-pointer text-center"
-                    onClick={() => requestSort("legs")}
-                  >
-                    Legs{" "}
-                    {sortConfig.key === "legs"
-                      ? sortConfig.direction === "desc"
-                        ? "▼"
-                        : "▲"
-                      : "◇"}
-                  </th>
-                  <th className="px-4 py-2 text-center">Leg Win%</th>
-                </>
-              )}
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
@@ -289,20 +271,6 @@ const StatsTable: React.FC<StatsTableProps> = ({
                   <td className={`px-4 py-2 font-semibold ${netColor}`}>
                     {item.roi.toFixed(1)}%
                   </td>
-                  {item.legs !== undefined && (
-                    <>
-                      <td className="px-4 py-2 text-center">{item.legs}</td>
-                      <td className={`px-4 py-2 text-center font-semibold ${
-                        item.legWinRate && item.legWinRate > 50
-                          ? "text-accent-500"
-                          : item.legWinRate && item.legWinRate < 50 && item.legs > 0
-                          ? "text-danger-500"
-                          : "text-neutral-500"
-                      }`}>
-                        {item.legWinRate !== undefined ? item.legWinRate.toFixed(1) : "0.0"}%
-                      </td>
-                    </>
-                  )}
                 </tr>
               );
             })}
@@ -365,6 +333,9 @@ const OverUnderBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
     // This is intentional for overall O/U analysis across all bets, not entity-specific stats.
     // For entity-specific O/U stats (e.g., player profile), use getEntityMoneyContribution() to exclude parlay money.
     filteredBets.forEach((bet) => {
+      // Skip parlays - only count straight bets for O/U leg analysis
+      if (isParlayBetType(bet.betType)) return;
+
       if (bet.legs?.length) {
         bet.legs.forEach((leg) => {
           if (leg.ou) {
@@ -446,11 +417,9 @@ const OverUnderBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
       <div className="flex justify-between items-center mb-4">
         <div>
           <h2 className="text-xl font-semibold text-neutral-800 dark:text-neutral-200">
-            Over / Under — Leg Exposure
+            Over / Under
           </h2>
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-            Counts tickets that include Over or Under legs. A single ticket may appear in both.
-          </p>
+
         </div>
         <div className="flex items-center space-x-1 flex-wrap gap-y-2 bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-lg">
           <ToggleButton
@@ -714,8 +683,12 @@ const StatCard: React.FC<{
   title: string;
   value: string;
   icon: React.ReactNode;
-  change?: string;
-}> = ({ title, value, icon, change }) => {
+  subtitle?: string; // Static text (no arrows)
+  subtitleClassName?: string; // Explicit color for subtitle
+  change?: string; // Trend with arrows (auto-colored)
+  valueClassName?: string; // Explicit color for main value
+}> = ({ title, value, icon, subtitle, subtitleClassName, change, valueClassName }) => {
+  // Change: colored with arrows (actual trend comparison)
   const isPositive = change && parseFloat(change) > 0;
   const isNegative = change && parseFloat(change) < 0;
   const changeColor = isPositive
@@ -730,9 +703,14 @@ const StatCard: React.FC<{
         <p className="text-sm font-medium text-neutral-500 dark:text-neutral-400 uppercase">
           {title}
         </p>
-        <p className="text-3xl font-bold text-neutral-900 dark:text-white mt-1">
+        <p className={`text-3xl font-bold mt-1 ${valueClassName || "text-neutral-900 dark:text-white"}`}>
           {value}
         </p>
+        {subtitle && (
+          <p className={`text-sm font-semibold mt-2 ${subtitleClassName || "text-neutral-500 dark:text-neutral-400"}`}>
+            {subtitle}
+          </p>
+        )}
         {change && (
           <p
             className={`text-sm font-semibold flex items-center mt-2 ${changeColor}`}
@@ -750,11 +728,12 @@ const StatCard: React.FC<{
   );
 };
 
+
 // --- MAIN DASHBOARD VIEW ---
 
 const DashboardView: React.FC = () => {
   const { bets, loading } = useBets();
-  const { players, teams, categories } = useInputs();
+  const { categories } = useInputs();
   const [selectedMarketCategory, setSelectedMarketCategory] =
     useState<string>("all");
   const [dateRange, setDateRange] = useState<DateRange>("all");
@@ -765,13 +744,41 @@ const DashboardView: React.FC = () => {
   const [entityType, setEntityType] = useState<"all" | "player" | "team">(
     "all"
   );
-  const [betTypeFilter, setBetTypeFilter] = useState<"singles" | "parlays" | "all">("singles");
+  const [betTypeFilter, setBetTypeFilter] = useState<"non-parlays" | "parlays" | "all">("all");
 
-  const allPlayers = useMemo(
-    () => new Set(Object.values(players).flat()),
-    [players]
-  );
-  const allTeams = useMemo(() => new Set(Object.values(teams).flat()), [teams]);
+  // Extract players and teams from bet data using leg.entityType and normalization service
+  // This ensures entities appear even if not manually added to localStorage
+  const { allPlayers, allTeams } = useMemo(() => {
+    const players = new Set<string>();
+    const teams = new Set<string>();
+    
+    for (const bet of bets) {
+      if (!bet.legs) continue;
+      for (const leg of bet.legs) {
+        if (!leg.entities) continue;
+        for (const entity of leg.entities) {
+          const normalizedEntity = normalizeTeamName(entity);
+          // Determine entity type using leg.entityType or fallback to team lookup
+          if (leg.entityType === 'player') {
+            players.add(normalizedEntity);
+          } else if (leg.entityType === 'team') {
+            teams.add(normalizedEntity);
+          } else {
+            // Fallback: check if entity is a known team via normalization service
+            const teamInfo = getTeamInfo(entity);
+            if (teamInfo) {
+              teams.add(normalizedEntity);
+            } else {
+              // Assume player if not a known team
+              players.add(normalizedEntity);
+            }
+          }
+        }
+      }
+    }
+    
+    return { allPlayers: players, allTeams: teams };
+  }, [bets]);
 
   const filteredBets = useMemo(() => {
     // Apply filters using shared filter predicates
@@ -843,9 +850,10 @@ const DashboardView: React.FC = () => {
     const tailMap = computeStatsByDimension(filteredBets, (bet) => bet.tail ? bet.tail.trim() : null);
     
     // Player/Team Stats (P4: Use entity stats service for parlay-aware attribution)
+    // Normalize team names so aliases like "Magic" are grouped with "Orlando Magic"
     const playerTeamMap = computeEntityStatsMap(filteredBets, (leg, bet) => {
       if (leg.entities && leg.entities.length > 0) {
-        return leg.entities;
+        return leg.entities.map(entity => normalizeTeamName(entity));
       }
       return null;
     });
@@ -854,14 +862,12 @@ const DashboardView: React.FC = () => {
     const playerTeamStats: StatsData[] = Array.from(playerTeamMap.entries())
       .map(([name, stats]: [string, EntityStats]) => ({
         name,
-        count: stats.tickets, // Total tickets (singles + parlays)
-        wins: 0, // Not tracked at entity level for mixed singles/parlays
-        losses: 0, // Not tracked at entity level for mixed singles/parlays
-        stake: stats.stakeSingles, // Singles only
-        net: stats.netSingles, // Singles only
-        roi: stats.roiSingles, // Singles only
-        legs: stats.legs,
-        legWinRate: stats.legWinRate,
+        count: stats.tickets, // Total straight bets involving this entity
+        wins: stats.wins, // Wins from straight bets
+        losses: stats.losses, // Losses from straight bets
+        stake: stats.stake, // Non-parlay bets only
+        net: stats.net, // Non-parlay bets only
+        roi: stats.roi, // ROI on non-parlay bets
       }))
       .sort((a, b) => b.net - a.net);
 
@@ -965,9 +971,9 @@ const DashboardView: React.FC = () => {
                   : "text-neutral-600 dark:text-neutral-300 hover:bg-white dark:hover:bg-neutral-700"
               }`}
             >
-              All Categories
+              All
             </button>
-            {categories.map((cat) => (
+            {["Main Markets", "Props", "Parlays", "Futures"].map((cat) => (
               <button
                 key={cat}
                 onClick={() => setSelectedMarketCategory(cat)}
@@ -983,14 +989,24 @@ const DashboardView: React.FC = () => {
           </div>
           <div className="flex items-center space-x-1 flex-wrap gap-y-2 bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-lg">
             <button
-              onClick={() => setBetTypeFilter("singles")}
+              onClick={() => setBetTypeFilter("all")}
               className={`px-3 py-1.5 rounded-md font-medium text-xs transition-colors ${
-                betTypeFilter === "singles"
+                betTypeFilter === "all"
                   ? "bg-primary-600 text-white shadow"
                   : "text-neutral-600 dark:text-neutral-300 hover:bg-white dark:hover:bg-neutral-700"
               }`}
             >
-              Singles Only
+              All
+            </button>
+            <button
+              onClick={() => setBetTypeFilter("non-parlays")}
+              className={`px-3 py-1.5 rounded-md font-medium text-xs transition-colors ${
+                betTypeFilter === "non-parlays"
+                  ? "bg-primary-600 text-white shadow"
+                  : "text-neutral-600 dark:text-neutral-300 hover:bg-white dark:hover:bg-neutral-700"
+              }`}
+            >
+              Singles
             </button>
             <button
               onClick={() => setBetTypeFilter("parlays")}
@@ -1000,23 +1016,13 @@ const DashboardView: React.FC = () => {
                   : "text-neutral-600 dark:text-neutral-300 hover:bg-white dark:hover:bg-neutral-700"
               }`}
             >
-              Parlays Only
-            </button>
-            <button
-              onClick={() => setBetTypeFilter("all")}
-              className={`px-3 py-1.5 rounded-md font-medium text-xs transition-colors ${
-                betTypeFilter === "all"
-                  ? "bg-primary-600 text-white shadow"
-                  : "text-neutral-600 dark:text-neutral-300 hover:bg-white dark:hover:bg-neutral-700"
-              }`}
-            >
-              All Bets
+              Parlays
             </button>
           </div>
           <div className="flex items-center space-x-1 flex-wrap gap-y-2 bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-lg">
             <DateRangeButton
               range="all"
-              label="All Time"
+              label="All"
               currentRange={dateRange}
               onClick={setDateRange}
             />
@@ -1113,7 +1119,8 @@ const DashboardView: React.FC = () => {
                   processedData.overallStats.netProfit >= 0 ? "$" : "-$"
                 }${Math.abs(processedData.overallStats.netProfit).toFixed(2)}`}
                 icon={<Scale className="w-6 h-6" />}
-                change={`${processedData.overallStats.roi.toFixed(1)}% ROI`}
+                subtitle={`${processedData.overallStats.roi.toFixed(1)}% ROI`}
+                subtitleClassName={processedData.overallStats.roi > 0 ? "text-accent-500" : processedData.overallStats.roi < 0 ? "text-danger-500" : undefined}
               />
               <StatCard
                 title="Total Wagered"
@@ -1129,7 +1136,8 @@ const DashboardView: React.FC = () => {
                 title="Win Rate"
                 value={`${processedData.overallStats.winRate.toFixed(1)}%`}
                 icon={<BarChart2 className="w-6 h-6" />}
-                change={`${processedData.overallStats.wins}-${processedData.overallStats.losses}`}
+                valueClassName={processedData.overallStats.winRate > 50 ? "text-accent-500" : processedData.overallStats.winRate < 50 ? "text-danger-500" : undefined}
+                subtitle={`${processedData.overallStats.wins}-${processedData.overallStats.losses}`}
               />
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

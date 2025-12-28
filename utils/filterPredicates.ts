@@ -27,14 +27,14 @@ export function isParlayType(betType: BetType): boolean {
 }
 
 /**
- * Create a predicate to filter bets by bet type (singles, parlays, or all).
+ * Create a predicate to filter bets by bet type (non-parlays, parlays, or all).
  */
 export function createBetTypePredicate(
-  betTypeFilter: 'singles' | 'parlays' | 'all'
+  betTypeFilter: 'non-parlays' | 'parlays' | 'all'
 ): (bet: Bet) => boolean {
   return (bet: Bet) => {
     if (betTypeFilter === 'all') return true;
-    if (betTypeFilter === 'singles') return bet.betType === 'single';
+    if (betTypeFilter === 'non-parlays') return !isParlayType(bet.betType);
     // parlays
     return isParlayType(bet.betType);
   };

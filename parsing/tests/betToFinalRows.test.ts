@@ -195,7 +195,7 @@ describe("betToFinalRows", () => {
         betId: "SGP123",
         placedAt: "2024-11-18T19:00:00.000Z",
         betType: "sgp",
-        marketCategory: "SGP/SGP+",
+        marketCategory: "Parlays",
         sport: "NBA",
         description: "SGP: Player A 3pt / Player B Pts",
         odds: 500,
@@ -226,7 +226,7 @@ describe("betToFinalRows", () => {
       // Header row
       expect(rows[0].Name).toBe("SGP (2)");
       expect(rows[0].Category).toBe("Parlays");
-      expect(rows[0].Type).toBe("");
+      expect(rows[0].Type).toBe("SGP");
       expect(rows[0]._parlayGroupId).toBe("sgp-1");
       expect(rows[0]._legIndex).toBeNull();
       expect(rows[0]._legCount).toBe(2);
@@ -283,7 +283,7 @@ describe("betToFinalRows", () => {
         betId: "SGP456",
         placedAt: "2024-11-18T19:00:00.000Z",
         betType: "sgp",
-        marketCategory: "SGP/SGP+",
+        marketCategory: "Parlays",
         sport: "NBA",
         description: "SGP with mixed leg results",
         odds: 500,
@@ -812,7 +812,7 @@ describe("betToFinalRows", () => {
         betId: "ABC138",
         placedAt: "2024-11-18T19:00:00.000Z",
         betType: "sgp",
-        marketCategory: "SGP/SGP+",
+        marketCategory: "Parlays",
         sport: "NBA",
         description: "SGP",
         odds: 500,
@@ -873,7 +873,7 @@ describe("betToFinalRows", () => {
         betId: "PARLAY123",
         placedAt: "2024-11-18T19:00:00.000Z",
         betType: "parlay",
-        marketCategory: "SGP/SGP+",
+        marketCategory: "Parlays",
         sport: "NBA",
         description: "2-leg parlay",
         odds: 300,
@@ -910,7 +910,7 @@ describe("betToFinalRows", () => {
       expect(rows[0]._isParlayChild).toBe(false);
       expect(rows[0].Name).toBe("Parlay (2)");
       expect(rows[0].Category).toBe("Parlays");
-      expect(rows[0].Type).toBe("");
+      expect(rows[0].Type).toBe("Parlay");
       expect(rows[0].Odds).toBe("+300");
       expect(rows[0].Bet).toBe("$20.00");
       expect(rows[0]["To Win"]).toBe("$80.00");
@@ -951,7 +951,7 @@ describe("betToFinalRows", () => {
         betId: "PARLAY456",
         placedAt: "2024-11-18T19:00:00.000Z",
         betType: "sgp",
-        marketCategory: "SGP/SGP+",
+        marketCategory: "Parlays",
         sport: "NBA",
         description: "4-leg SGP",
         odds: 1500,
@@ -1005,7 +1005,7 @@ describe("betToFinalRows", () => {
       expect(rows[0]._isParlayChild).toBe(false);
       expect(rows[0].Name).toBe("SGP (4)");
       expect(rows[0].Category).toBe("Parlays");
-      expect(rows[0].Type).toBe("");
+      expect(rows[0].Type).toBe("SGP");
       expect(rows[0].Odds).toBe("+1500");
       expect(rows[0].Bet).toBe("$5.00");
       expect(rows[0].Result).toBe("Loss"); // bet.result
@@ -1043,7 +1043,7 @@ describe("betToFinalRows", () => {
         betId: "CONSISTENT",
         placedAt: "2024-11-18T19:00:00.000Z",
         betType: "parlay",
-        marketCategory: "SGP/SGP+",
+        marketCategory: "Parlays",
         sport: "NBA",
         description: "3-leg parlay",
         odds: 500,

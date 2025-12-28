@@ -42,8 +42,8 @@ describe('filterPredicates', () => {
   });
 
   describe('createBetTypePredicate', () => {
-    it('filters singles', () => {
-      const predicate = createBetTypePredicate('singles');
+    it('filters non-parlays', () => {
+      const predicate = createBetTypePredicate('non-parlays');
       expect(mockBets.filter(predicate).map(b => b.id)).toEqual(['1']);
     });
     it('filters parlays', () => {
