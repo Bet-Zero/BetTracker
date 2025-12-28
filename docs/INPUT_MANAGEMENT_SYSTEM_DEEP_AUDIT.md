@@ -271,6 +271,171 @@ id: `${FANDUEL_BOOK}:${betId}:${placedAtISO}`
 // addBets() uses bet.id for deduplication via Set comparison
 ```
 
+### 3.7 UI Architecture: Where Entries Live, How They're Wired
+
+This section documents the complete UI flow for managing canonical entries.
+
+#### 3.7.1 Entry Management Locations
+
+| Entry Type | UI Location | Storage Key | Add Method | Edit Method |
+|------------|-------------|-------------|------------|-------------|
+| **Teams** | `InputManagementView` → "Teams with Aliases" accordion | `bettracker-normalization-teams` | `TeamAliasManager` UI form | Edit icon → inline form |
+| **Stat Types** | `InputManagementView` → "Stat Types with Aliases" accordion | `bettracker-normalization-stattypes` | `StatTypeAliasManager` UI form | Edit icon → inline form |
+| **Sports** | `InputManagementView` → "Sports" accordion | `bettracker-sports` | Text input + Add button | N/A (add/remove only) |
+| **Categories** | `InputManagementView` → "Categories" accordion | `bettracker-categories` | Text input + Add button | N/A (add/remove only) |
+| **Players** | `InputManagementView` → "Players" accordion | `bettracker-players` | Auto-populated on import | Remove only |
+| **Sportsbooks** | `InputManagementView` → "Sportsbooks" accordion | `bettracker-sportsbooks` | Form with name/abbr/url | N/A (add/remove only) |
+
+#### 3.7.2 Stat Type Wiring Example: "3pt"
+
+Here's how a canonical stat type like "3pt" is fully wired:
+
+**Definition (`data/referenceData.ts:452-457`):**
+```typescript
+{
+  canonical: '3pt',           // ← Official data point name
+  sport: 'NBA',               // ← Sport is locked to NBA
+  description: 'Made Threes',
+  aliases: [
+    '3pt', '3PT', '3-pt',     // ← All these resolve to "3pt"
+    'Made Threes', 'MADE THREES',
+    'Threes', '3-Pointers',
+    '3 Pointers', 'Three Pointers'
+  ]
+}
+```
+
+**Single Source of Truth Bindings:**
+| Property | Value | Locked By |
+|----------|-------|-----------|
+| Type code | `3pt` | `canonical` field |
+| Sport | `NBA` | `sport` field |
+| Category | `Props` | Determined by `classifyLeg()` when market contains stat type |
+| Aliases | All variations | `aliases[]` array |
+
+**Import-Time Resolution:**
+1. Parser extracts market text "MADE THREES"
+2. `normalizeStatType('MADE THREES')` → returns `'3pt'`
+3. Sport inferred from stat type → `'NBA'`
+4. Classification → `'Props'` (because it's a player stat)
+
+#### 3.7.3 Manual Entry via InputManagementView
+
+**Adding a New Stat Type:**
+
+Path: `InputManagementView` → "Stat Types with Aliases" → `StatTypeAliasManager`
+
+```tsx
+// views/StatTypeAliasManager.tsx:77-88
+<button
+  onClick={() => {
+    setIsAdding(true);
+    setFormData({ canonical: '', sport: 'NBA', description: '', aliases: [] });
+  }}
+  className="..."
+>
+  <Plus className="w-4 h-4" />
+  <span>Add Stat Type</span>
+</button>
+```
+
+**Form Fields:**
+- **Canonical Code** (required): e.g., "3pt", "Pts", "Reb"
+- **Sport** (required): Dropdown locked to available sports
+- **Description**: Human-readable name
+- **Aliases**: List of all variations to resolve to this canonical
+
+**Wiring Effect:**
+When saved, the stat type is:
+1. Added to `bettracker-normalization-stattypes` localStorage
+2. `refreshLookupMaps()` called → rebuilds O(1) lookup table
+3. Future imports resolve any alias to the canonical code
+
+#### 3.7.4 Import-Time Entry via ImportConfirmationModal
+
+**During Import (`components/ImportConfirmationModal.tsx`):**
+
+1. **Parser extracts entities** from HTML
+2. **Modal displays** all parsed bets with warnings for unknown entities
+3. **User can add missing entities** via "+" buttons
+
+**Adding a Player During Import:**
+```tsx
+// ImportConfirmationModal.tsx (simplified)
+<button onClick={() => onAddPlayer(bet.sport, playerName)}>
+  <Plus className="w-4 h-4" />
+</button>
+```
+
+**Adding a Team During Import:**
+```tsx
+// Uses normalization system, not legacy storage
+onAddTeam?.({
+  canonical: teamName,
+  sport: bet.sport,
+  abbreviations: [],
+  aliases: [teamName]
+})
+```
+
+**Auto-Add on Import Confirmation:**
+```typescript
+// hooks/useBets.tsx:100-116
+// When import confirmed, entities are auto-added to appropriate collections
+if (leg.entityType === 'player') {
+  addPlayer(bet.sport, entity);  // → bettracker-players
+} else if (leg.entityType === 'team') {
+  addTeam(bet.sport, entity);    // → normalization system
+}
+```
+
+#### 3.7.5 Single Source of Truth Wiring
+
+The system ensures each data point has ONE canonical source:
+
+```
+┌────────────────────────────────────────────────────────────────────────────┐
+│                     SINGLE SOURCE OF TRUTH WIRING                           │
+└────────────────────────────────────────────────────────────────────────────┘
+
+Canonical Stat Type: "3pt"
+│
+├── Aliases: ['3pt', 'MADE THREES', 'Threes', '3-Pointers', ...]
+│   └── Source: data/referenceData.ts → STAT_TYPES[].aliases
+│
+├── Sport Binding: "NBA"
+│   └── Source: data/referenceData.ts → STAT_TYPES[].sport
+│   └── Effect: Sport field auto-locked when "3pt" detected
+│
+├── Category Binding: "Props"
+│   └── Source: services/marketClassification.ts → classifyLeg()
+│   └── Effect: Market category auto-assigned based on stat type detection
+│
+└── UI Edit Location: InputManagementView → Stat Types with Aliases
+    └── Source: hooks/useNormalizationData.tsx
+    └── Storage: bettracker-normalization-stattypes
+```
+
+**Example Resolution Chain:**
+```
+Import: "LeBron James MADE THREES Over 2.5"
+         │
+         ▼
+Parser: entities = ["LeBron James"], market = "MADE THREES", target = "2.5"
+         │
+         ▼
+Normalization: normalizeStatType("MADE THREES") → "3pt"
+         │
+         ▼
+Sport Inference: getStatTypeInfo("3pt").sport → "NBA"
+         │
+         ▼
+Classification: classifyLeg("MADE THREES", "NBA") → "Props"
+         │
+         ▼
+Stored Bet: { type: "3pt", sport: "NBA", marketCategory: "Props", ... }
+```
+
 ---
 
 ## 4. Canonicalization Reality Check
@@ -469,31 +634,38 @@ if (leg.entityType === 'player') {
 - Classification detects intent, normalization provides canonical form
 - Single source of truth for what "PRA" means
 
-### 5.4 Gap: Parlay Leg Attribution in Analytics
+### 5.4 Design Decision: Parlay Leg Analytics Separation
+
+**IMPORTANT CLARIFICATION:** This is an **intentional design decision**, not a gap.
 
 **What Happens Today:**
 - `entityStatsService.ts:66-72` explicitly **excludes parlays** from entity stats
 - Parlay stakes not attributed to individual leg entities
+- Parlay totals count as top-level bets (wager, ROI, net win/loss)
+- Parlay totals ARE included in dashboard breakdown by Market Category
 
 **Evidence:**
 ```typescript
 // entityStatsService.ts:66-72
 if (isParlay) {
-  continue;  // Skip parlays entirely
+  continue;  // Skip parlays entirely - INTENTIONAL
 }
 ```
 
-**Why This Is Correct But Limiting:**
-- Prevents stake inflation (correct)
-- But loses visibility into entity performance within parlays
-- User can't see "How does LeBron perform in my SGPs?"
+**Why This Is Correct:**
+- Prevents stake inflation (assigning $10 parlay stake to 5 players = $50 false attribution)
+- Avoids distorting single bet analytics with complex parlay math
+- Keeps single bet breakdowns clean and meaningful
+- Parlay legs are fundamentally different from single bets (correlated, combined odds)
 
-**Current Workaround:** None - parlay entity performance is invisible.
+**Current State:**
+- Parlay totals: ✅ Included in top-level bet counts, wagers, ROI, dashboard breakdowns
+- Parlay legs: ❌ Not evaluated in single bet entity breakdowns (intentional)
 
-**Recommended Enhancement:**
-- Add separate `parlayAppearances` stat to EntityStats
-- Count leg outcomes (W/L) without money attribution
-- Enables "LeBron: 5 SGP legs, 4 wins" analysis
+**Future Plan:**
+- Create a **separate parlay analysis table** for leg performance
+- This avoids mixing parlay legs with single bet analytics
+- Enables dedicated SGP/parlay insights without distorting existing views
 
 ### 5.5 Gap: Inconsistent Sport Inference
 
@@ -735,29 +907,26 @@ function determinePropsType(market: string, sport: string): string {
 
 ---
 
-#### P2.2 Entity Performance in Parlays
+#### P2.2 Parlay Analysis Table (Future Feature)
 
-**Problem:** Parlay legs invisible in entity stats.
+**Context:** This is a **planned future feature**, not a gap fix. Parlay legs are intentionally excluded from single bet analytics to prevent distortion.
 
-**Location to Change:**
-- `services/entityStatsService.ts:66-72`
-- `services/entityStatsService.ts:27-39` (EntityStats interface)
+**Goal:** Create a **separate dedicated view** for parlay leg analysis.
 
-**What to Change:**
-```typescript
-interface EntityStats {
-  tickets: number;
-  parlays: number;
-  parlayLegs: number;     // NEW: count of parlay leg appearances
-  parlayWins: number;     // NEW: parlay legs that hit
-  parlayLosses: number;   // NEW: parlay legs that missed
-  // ... existing fields
-}
-```
+**Location:**
+- New: `views/ParlayAnalysisView.tsx`
+- New: `services/parlayStatsService.ts`
 
-**Why It Matters:** Visibility into "Does this player hit in SGPs?"
+**What to Build:**
+- Separate table showing entity performance within parlays
+- Track appearances, win rate by leg (not stake attribution)
+- Filter by SGP vs traditional parlay
+- Does NOT mix with single bet analytics
 
-**Risks:** May mislead users about actual profit. Clear labeling required.
+**Why Separate:** Mixing parlay legs with singles would:
+- Inflate stake attribution (one $10 parlay → $10 to each of 5 players)
+- Distort ROI calculations (combined odds ≠ individual expected value)
+- Confuse the analytics story
 
 ---
 
