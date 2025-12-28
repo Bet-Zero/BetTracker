@@ -250,6 +250,108 @@ location.reload()
 
 ---
 
+## Symptom: Cross-Sport Collisions
+
+### Likely Causes
+1. Team abbreviations match multiple teams across sports (e.g., "ATL" = Atlanta Hawks NBA + Atlanta Falcons NFL)
+2. Player names exist in multiple sports (rare but possible)
+3. Sport context missing or incorrect during import
+
+### Known Collisions
+
+The following collisions are known to occur when sport context is unavailable or ambiguous:
+
+**Team Abbreviations:**
+- **ATL**: Atlanta Hawks (NBA) vs Atlanta Falcons (NFL)
+- **NY**: New York Knicks (NBA) vs New York Giants (NFL) vs New York Yankees (MLB) vs New York Rangers (NHL)
+- **LAL**: Los Angeles Lakers (NBA) vs Los Angeles Rams (NFL)
+- **BOS**: Boston Celtics (NBA) vs Boston Red Sox (MLB) vs New England Patriots (NFL - uses "NE" but "Boston" may appear)
+- **CHI**: Chicago Bulls (NBA) vs Chicago Bears (NFL) vs Chicago Cubs (MLB) vs Chicago Blackhawks (NHL)
+
+**Resolution Behavior:**
+- When sport context is available, the correct team is matched automatically
+- When sport context is missing, the first match in the reference data wins (typically alphabetically first)
+- The `ImportConfirmationModal` displays a collision warning when ambiguous matches are detected
+
+### Where to Look
+| Location | What to Check |
+|----------|---------------|
+| `components/ImportConfirmationModal.tsx` | Collision warning banner (yellow alert) |
+| `services/normalizationService.ts` | `normalizeTeamNameWithMeta()` collision detection |
+| Bet confirmation table | "Collision" badge on affected rows |
+| `data/referenceData.ts` | Team alias definitions |
+
+### Fix Steps
+
+**Step 1: Identify the Collision**
+1. Look for the yellow collision warning banner at the top of the import confirmation modal
+2. Check bet rows for "Collision" badges (yellow badge with tooltip)
+3. Hover over the collision badge to see which teams matched
+
+**Step 2: Verify Sport Context**
+1. Check the "Sport" column for the affected bet
+2. Ensure the sport is correctly set (e.g., "NBA" for Hawks, "NFL" for Falcons)
+3. If sport is missing or wrong, click "Edit" on the bet row
+
+**Step 3: Manual Correction (if needed)**
+1. Click "Edit" on the bet row with the collision
+2. Verify the "Sport" field is correct
+3. If sport is correct but collision persists:
+   - Click the "+" button next to the team name to add it explicitly
+   - Or manually edit the "Name" field to use the full team name (e.g., "Atlanta Hawks" instead of "ATL")
+4. Click "Done" to save changes
+5. The collision warning should clear once the correct team is identified
+
+**Step 4: Add Missing Sport (if sport is missing)**
+1. If the sport dropdown shows "(missing)" or the sport is not in the list:
+2. Click the "+" button next to the sport dropdown to add it
+3. Select the correct sport from the dropdown
+4. The normalization service will re-evaluate the team match with the correct sport context
+
+**Step 5: Verify Resolution**
+1. The collision badge should disappear after correction
+2. The yellow warning banner will clear when all collisions are resolved
+3. Proceed with import once all issues are fixed
+
+### Prevention Tips
+
+- **Always set sport before importing:** Ensure the correct sportsbook is selected (sport is often inferred from sportsbook context)
+- **Review team names in confirmation modal:** Check for collision badges before importing
+- **Use full team names when ambiguous:** If you know a collision exists, use the full team name in the bet description
+- **Add team aliases proactively:** Add common abbreviations to the normalization data with sport-specific aliases
+
+### Example Workflow
+
+**Scenario:** Importing a bet with "ATL -5.5" where sport context is missing.
+
+1. **Detection:** Import confirmation modal shows:
+   - Yellow warning banner: "Ambiguous team alias 'ATL' matched multiple teams: Atlanta Hawks, Atlanta Falcons. Using 'Atlanta Hawks'."
+   - Bet row shows "Collision" badge
+
+2. **Investigation:** 
+   - Check bet description: "ATL -5.5 Spread Betting"
+   - Check sport column: "(missing)" or wrong sport
+
+3. **Correction:**
+   - Click "Edit" on the bet row
+   - Set "Sport" to "NFL" (if it's a Falcons bet) or "NBA" (if it's a Hawks bet)
+   - Click "Done"
+
+4. **Verification:**
+   - Collision badge disappears
+   - Team name resolves correctly
+   - Import proceeds normally
+
+### Code References
+
+- Collision detection: `services/normalizationService.ts` - `normalizeTeamNameWithMeta()`
+- UI warning: `components/ImportConfirmationModal.tsx` - Collision warning banner (marked with `COLLISION_WARNING_BANNER_START/END` comments) displayed above the bet confirmation table when cross-sport collisions are detected
+- Collision badge: `components/ImportConfirmationModal.tsx` - Collision badge (marked with `COLLISION_BADGE_START/END` comments) displayed in the "Name" column of bet rows and parlay leg rows when ambiguous team matches are detected
+
+> **Note:** For historical reference, these UI elements were located at lines 617-629 (warning banner) and 1087-1095 (collision badge) as of the initial implementation. Use the marker comments or semantic descriptions above to locate them in the current codebase.
+
+---
+
 ## Related Documentation
 
 - [IMPORT_OPERATOR_GUIDE.md](./IMPORT_OPERATOR_GUIDE.md) — Daily operations

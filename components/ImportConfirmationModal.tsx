@@ -614,7 +614,7 @@ export const ImportConfirmationModal: React.FC<
           </button>
         </div>
         
-        {/* Cross-sport collision warning */}
+        {/* COLLISION_WARNING_BANNER_START - Cross-sport collision warning banner */}
         {collisionWarning && (
           <div className="px-6 py-3 bg-yellow-50 dark:bg-yellow-900/20 border-b border-yellow-200 dark:border-yellow-800 flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
@@ -627,6 +627,7 @@ export const ImportConfirmationModal: React.FC<
             </button>
           </div>
         )}
+        {/* COLLISION_WARNING_BANNER_END */}
         
         {/* "What Will Happen" Summary - updates live */}
         <div className="px-6 py-4 bg-neutral-50 dark:bg-neutral-800/50 border-b border-neutral-200 dark:border-neutral-800">
@@ -1082,6 +1083,7 @@ export const ImportConfirmationModal: React.FC<
                                     (i) => i.field === "Name"
                                   ) && (
                                     <>
+                                      {/* COLLISION_BADGE_START - Collision badge displayed on bet rows with ambiguous team matches */}
                                       {betIssues.find(
                                         (i) => i.field === "Name" && i.collision
                                       ) && (
@@ -1093,6 +1095,7 @@ export const ImportConfirmationModal: React.FC<
                                           Collision
                                         </span>
                                       )}
+                                      {/* COLLISION_BADGE_END */}
                                       <button
                                         onClick={() => {
                                           const issue = betIssues.find(
@@ -1455,6 +1458,7 @@ export const ImportConfirmationModal: React.FC<
                                                 (i) => i.field === "Name"
                                               ) && (
                                                 <>
+                                                  {/* COLLISION_BADGE_START - Collision badge displayed on parlay leg rows with ambiguous team matches */}
                                                   {legIssues.find(
                                                     (i) => i.field === "Name" && i.collision
                                                   ) && (
@@ -1466,6 +1470,7 @@ export const ImportConfirmationModal: React.FC<
                                                       Collision
                                                     </span>
                                                   )}
+                                                  {/* COLLISION_BADGE_END */}
                                                   <button
                                                     onClick={() => {
                                                       const issue =

@@ -15,17 +15,20 @@ A web application for tracking sports bets from multiple sportsbooks. Parse HTML
 ### Data Flow
 
 **HTML Import:**
+
 1. Paste HTML from your sportsbook's settled bets page
 2. Parser extracts bet information (odds, stake, payout, legs, etc.)
 3. Bets are stored as `Bet` objects internally
 4. For display, bets are converted to `FinalRow` format (spreadsheet columns)
 
 **CSV Import:**
+
 1. Upload a CSV file matching the spreadsheet format
 2. CSV is parsed into `FinalRow[]` format
 3. `FinalRow[]` is converted to `Bet[]` for storage
 
 **Storage & Display:**
+
 - Bets are stored internally as `Bet` objects with structured data (legs, entities, etc.)
 - For the table view, `Bet` objects are converted to `FinalRow[]` (one row per leg for multi-leg bets)
 - All data is stored in browser localStorage
@@ -35,6 +38,7 @@ A web application for tracking sports bets from multiple sportsbooks. Parse HTML
 **Name**: Subject only (player or team name), not the full market text
 
 **Type**: Depends on Category:
+
 - **Props** → Stat type code (Pts, Ast, 3pt, Reb, PRA, etc.)
 - **Main** → {Spread, Total, Moneyline}
 - **Futures** → {Win Total, NBA Finals, Super Bowl, Make Playoffs, etc.}
@@ -53,11 +57,13 @@ A web application for tracking sports bets from multiple sportsbooks. Parse HTML
 **Prerequisites:** Node.js
 
 1. Install dependencies:
+
    ```bash
    npm install
    ```
 
 2. Run the app:
+
    ```bash
    npm run dev
    ```
@@ -77,5 +83,11 @@ A web application for tracking sports bets from multiple sportsbooks. Parse HTML
 ## Documentation
 
 See `docs/` for detailed documentation:
+
 - `ARCHITECTURE.md` - Parsing architecture and data flow
 - `PARSERS.md` - Parser requirements and implementation guide
+- `DATA_MODEL_NOTES.md` - Data model semantics (BetType vs isLive, entityType handling, result conventions, parlay attribution)
+
+### Architecture Notes
+
+- **Entity Statistics**: Entity stats (player/team breakdowns) exclude parlay bets from stake and net calculations—only single bets count toward money totals. Parlay legs still contribute to leg-accuracy metrics (win/loss records). See [DATA_MODEL_NOTES.md](./docs/DATA_MODEL_NOTES.md#parlay-leg-attribution-semantics) for attribution semantics details.
