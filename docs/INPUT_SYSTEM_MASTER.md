@@ -215,3 +215,75 @@ Import HTML → Parser → Bets + Entities
 npm test                    # Run full test suite
 npm run test:watch          # Watch mode for development
 ```
+
+---
+
+## Phase 3.2 — Alias Normalization Hardening (Preflight)
+
+**Status:** Preflight Complete (December 29, 2024)  
+**Full Report:** [PHASE_3_2_PREFLIGHT_REPORT.md](./PHASE_3_2_PREFLIGHT_REPORT.md)
+
+### Problem Statement
+
+Occasional "looks-the-same-but-doesn't-resolve" cases caused by inconsistent string normalization between:
+
+- Building lookup maps (players/teams/stattypes)
+- Resolving raw imports
+- Grouping unresolved queue items
+
+### Key Findings
+
+1. **No single shared normalization function** — Multiple ad-hoc patterns scattered:
+
+   - `.toLowerCase()` only (map-build for teams/stats)
+   - `.toLowerCase().trim()` (queue grouping, player map keys)
+   - `.trim().toLowerCase()` (resolve functions)
+   - `normalizePlayerNameBasic()` → `.trim().replace(/\s+/g, " ")` then `.toLowerCase()` (player lookups)
+
+2. **Team/Stat map keys don't trim** — `buildTeamLookupMap` uses `key.toLowerCase()` without trimming, but resolve uses `.trim().toLowerCase()`. Dirty aliases with whitespace won't match.
+
+3. **Queue grouping doesn't collapse spaces** — Players use space-collapse but queue grouping doesn't, potentially showing duplicate groups for whitespace variants.
+
+4. **Alias save path has no normalization** — Raw values saved as-is, preserving any whitespace issues.
+
+### Normalization Consistency Matrix
+
+| Entity Type | Map-Build                                  | Resolve                 | Queue Grouping          | Mismatch? |
+| ----------- | ------------------------------------------ | ----------------------- | ----------------------- | --------- |
+| Team        | `.toLowerCase()`                           | `.trim().toLowerCase()` | `.toLowerCase().trim()` | **Y**     |
+| Stat Type   | `.toLowerCase()`                           | `.trim().toLowerCase()` | `.toLowerCase().trim()` | **Y**     |
+| Player      | `normalizePlayerNameBasic().toLowerCase()` | Same                    | `.toLowerCase().trim()` | **Y**     |
+
+### Recommended Fix
+
+Create single shared `toLookupKey()` function:
+
+```typescript
+export function toLookupKey(raw: string): string {
+  if (!raw) return "";
+  return raw.trim().replace(/\s+/g, " ").toLowerCase();
+}
+```
+
+Use everywhere: map-build, resolve, queue grouping, alias save validation.
+
+### Execution Scope (If Approved)
+
+| File                               | Changes                                                         |
+| ---------------------------------- | --------------------------------------------------------------- |
+| `services/normalizationService.ts` | Add `toLookupKey()`, update all map-build and resolve functions |
+| `services/unresolvedQueue.ts`      | Use `toLookupKey()` in ID generation                            |
+| `views/UnresolvedQueueManager.tsx` | Use `toLookupKey()` in group key generation                     |
+
+### Risk Assessment
+
+- **Low risk** — Whitespace collapse is safe (no real names differ by space count)
+- **No fuzzy matching** — Pure deterministic transformation
+- **Backward compatible** — Existing clean aliases match as before
+
+### Deferred to Phase 3.3
+
+- Unicode NFKC normalization
+- Smart quote → ASCII conversion
+- Em-dash → hyphen conversion
+- Alias deduplication on save
