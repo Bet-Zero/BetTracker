@@ -1,0 +1,217 @@
+# Input System Master Documentation
+
+This document serves as the canonical reference for the BetTracker Input Management System, covering the normalization pipeline, unresolved queue, and entity resolution mechanisms.
+
+## System Overview
+
+The Input Management System handles the normalization and resolution of entities (teams, players, stat types) from various sportsbooks during bet import. It ensures consistent naming across different sportsbook formats.
+
+### Core Components
+
+1. **Normalization Service** (`services/normalizationService.ts`)
+
+   - Canonical data storage and lookup maps
+   - Team/Player/StatType resolution
+   - localStorage persistence
+
+2. **Resolver** (`services/resolver.ts`)
+
+   - Single chokepoint for all entity resolution
+   - Collision detection and handling
+   - Sport-scoped lookups
+
+3. **Unresolved Queue** (`services/unresolvedQueue.ts`)
+
+   - Stores entities that couldn't be resolved
+   - Prevents duplicates
+   - Persists across sessions
+
+4. **UI Components**
+   - `UnresolvedQueueManager` - Review and resolve queue items
+   - `InputManagementView` - Manage reference data
+   - `ImportConfirmationModal` - Preview imports with resolution status
+
+## Storage Keys
+
+| Key                                  | Purpose                            |
+| ------------------------------------ | ---------------------------------- |
+| `bettracker-normalization-teams`     | Team canonical data + aliases      |
+| `bettracker-normalization-stattypes` | Stat type canonical data + aliases |
+| `bettracker-normalization-players`   | Player canonical data + aliases    |
+| `bettracker-unresolved-queue`        | Pending unresolved entities        |
+
+---
+
+## Phase 3.1 — UX Polish (December 2024)
+
+### Goals
+
+Phase 3.1 focused on three UX improvements:
+
+1. **Grouped Queue Display** - Reduce noise by grouping identical raw values
+2. **Players List Visibility** - Show stored players in Input Management
+3. **Import Modal Live Refresh** - Update entity names after Map/Create without re-import
+
+### What Changed
+
+#### 1. Grouped Queue Display
+
+**Files Modified:**
+
+- [views/UnresolvedQueueManager.tsx](../views/UnresolvedQueueManager.tsx)
+- [components/MapToExistingModal.tsx](../components/MapToExistingModal.tsx)
+- [components/CreateCanonicalModal.tsx](../components/CreateCanonicalModal.tsx)
+
+**Implementation:**
+
+- Queue items are now grouped by `${entityType}::${sport ?? 'Unknown'}::${rawValue.toLowerCase().trim()}`
+- Each group shows:
+  - Raw value (original casing from first encounter)
+  - Entity type badge
+  - Sport
+  - **Count badge** (number of items in group)
+  - Last seen timestamp
+  - Expandable context preview (book, market)
+- Actions (Map/Create/Ignore) apply to **entire groups**:
+  - Clicking "Ignore" removes ALL queue items in that group
+  - Mapping/Creating adds alias once, then removes all matching items
+
+**New Types:**
+
+```typescript
+interface GroupedQueueItem {
+  groupKey: string;
+  entityType: UnresolvedEntityType;
+  sport?: string;
+  rawValue: string;
+  count: number;
+  lastSeenAt: string;
+  sampleContexts: SampleContext[];
+  itemIds: string[];
+  collisionCandidates: string[];
+}
+```
+
+**Storage:** No changes to `bettracker-unresolved-queue` schema. Grouping is pure UI layer.
+
+#### 2. Players List in Input Management
+
+**Files Created:**
+
+- [views/PlayerAliasManager.tsx](../views/PlayerAliasManager.tsx)
+
+**Files Modified:**
+
+- [views/InputManagementView.tsx](../views/InputManagementView.tsx)
+- [components/icons.tsx](../components/icons.tsx) - Added `Search` icon
+
+**Implementation:**
+
+- New `PlayerAliasManager` component mirrors `TeamAliasManager` pattern
+- Shows players grouped by sport with:
+  - Canonical name
+  - Team (optional)
+  - Alias count with expandable list
+  - Edit/Delete actions
+- Search and sport filter functionality
+- Full CRUD support via `useNormalizationData` hook
+
+**Storage:** Uses existing `bettracker-normalization-players` key.
+
+#### 3. Import Modal Live Refresh
+
+**Files Modified:**
+
+- [services/normalizationService.ts](../services/normalizationService.ts)
+- [hooks/useNormalizationData.tsx](../hooks/useNormalizationData.tsx)
+- [components/ImportConfirmationModal.tsx](../components/ImportConfirmationModal.tsx)
+
+**Implementation:**
+
+- Added `resolverVersion` counter to normalization service
+- `refreshLookupMaps()` now increments version
+- `useNormalizationData` hook exposes `resolverVersion`
+- `ImportConfirmationModal` uses `resolverVersion` as dependency for:
+  - `validationSummary` useMemo
+  - `hasAnyIssues` useMemo
+- When Map/Create updates normalization data, version increments, triggering re-render
+
+**New Exports:**
+
+```typescript
+// normalizationService.ts
+export function getResolverVersion(): number;
+```
+
+### How to Test
+
+1. **Grouped Queue:**
+
+   - Import a sample HTML with multiple bets containing the same unknown player
+   - Verify queue shows single row with count badge
+   - Click Map/Create and confirm all items removed
+
+2. **Players List:**
+
+   - Open Input Management → "Players (Canonical + Aliases)"
+   - Verify stored players are visible
+   - Add/Edit/Delete a player and confirm persistence
+
+3. **Modal Live Refresh:**
+   - Import bets with unknown entity
+   - Keep ImportConfirmationModal open
+   - Open Unresolved Queue, Map the entity
+   - Return to modal - entity should show as resolved
+
+### Manual Validation Checklist
+
+- [ ] Clear queue, import sample HTML
+- [ ] Verify grouped rows with counts
+- [ ] Map one player alias
+- [ ] Confirm queue count decreases (entire group removed)
+- [ ] Confirm `bettracker-normalization-players` updated in localStorage
+- [ ] Open "Players (Canonical + Aliases)" - new player visible
+- [ ] Open modal with unknown entity, map via queue, modal updates
+
+### Known Limitations / Future Work
+
+- **Context Preview:** Limited to 3 sample contexts per group. Full list not shown.
+- **Cross-Component Modal:** Map/Create modals don't open side-by-side with Import modal. User must switch between views.
+- **Bulk Edit:** No way to edit multiple groups at once from queue.
+- **Player Search:** Basic substring search; no fuzzy matching.
+- **Undo:** No undo for Ignore/Map/Create actions.
+
+---
+
+## Architecture Notes
+
+### Write Boundaries
+
+- **Render:** NO writes. All data access is read-only.
+- **User Actions:** Writes occur ONLY on explicit button clicks (Map/Create/Ignore/Confirm Import).
+
+### Data Flow
+
+```
+Import HTML → Parser → Bets + Entities
+                           ↓
+                    Resolver (pure)
+                           ↓
+              ┌─ resolved → display canonical
+              └─ unresolved → queue + display raw
+                                    ↓
+                           User action (Map/Create)
+                                    ↓
+                           refreshLookupMaps()
+                                    ↓
+                           resolverVersion++
+                                    ↓
+                           UI re-renders with updated data
+```
+
+### Testing Commands
+
+```bash
+npm test                    # Run full test suite
+npm run test:watch          # Watch mode for development
+```

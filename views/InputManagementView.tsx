@@ -1,8 +1,11 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { useInputs, ItemsBySport } from "../hooks/useInputs";
-import { Trash2, ChevronDown } from "../components/icons";
+import { Trash2, ChevronDown, AlertTriangle } from "../components/icons";
 import TeamAliasManager from "./TeamAliasManager";
 import StatTypeAliasManager from "./StatTypeAliasManager";
+import PlayerAliasManager from "./PlayerAliasManager";
+import UnresolvedQueueManager from "./UnresolvedQueueManager";
+import { getUnresolvedQueueCount } from "../services/unresolvedQueue";
 
 const Accordion: React.FC<{
   title: string;
@@ -416,11 +419,83 @@ const SportFilteredListManager: React.FC<{
   );
 };
 
+// Accordion with count badge for unresolved queue
+const QueueAccordion: React.FC<{
+  title: string;
+  description: string;
+  count: number;
+  children: React.ReactNode;
+}> = ({ title, description, count, children }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div
+      className={`bg-white dark:bg-neutral-900 rounded-lg shadow-md transition-all duration-300 ${
+        count > 0 ? "ring-2 ring-yellow-400 dark:ring-yellow-600" : ""
+      }`}
+    >
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex justify-between items-center p-6 text-left"
+        aria-expanded={isOpen}
+        aria-controls={`accordion-content-${title.replace(/\s/g, "-")}`}
+      >
+        <div className="flex items-center gap-3">
+          {count > 0 && (
+            <AlertTriangle className="w-5 h-5 text-yellow-500 dark:text-yellow-400" />
+          )}
+          <div>
+            <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">
+              {title}
+              {count > 0 && (
+                <span className="ml-2 px-2 py-0.5 text-sm font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 rounded-full">
+                  {count}
+                </span>
+              )}
+            </h3>
+            <p className="text-neutral-500 dark:text-neutral-400 mt-1 text-sm">
+              {description}
+            </p>
+          </div>
+        </div>
+        <ChevronDown
+          className={`w-6 h-6 text-neutral-500 transform transition-transform duration-300 ${
+            isOpen ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+      {isOpen && (
+        <div
+          id={`accordion-content-${title.replace(/\s/g, "-")}`}
+          className="bg-neutral-50 dark:bg-neutral-900/50 p-6 rounded-b-lg border-t border-neutral-200 dark:border-neutral-800"
+        >
+          {children}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const InputManagementSection: React.FC = () => {
   const inputs = useInputs();
+  const [queueCount, setQueueCount] = useState(() => getUnresolvedQueueCount());
+
+  // Refresh queue count when queue changes
+  const handleQueueChange = useCallback(() => {
+    setQueueCount(getUnresolvedQueueCount());
+  }, []);
 
   return (
     <div className="space-y-4">
+      {/* Unresolved Queue - shown first with highlight when items exist */}
+      <QueueAccordion
+        title="Unresolved Queue"
+        description="Review and resolve unknown entities from imports."
+        count={queueCount}
+      >
+        <UnresolvedQueueManager onQueueChange={handleQueueChange} />
+      </QueueAccordion>
+
       <SportsbooksManager />
       <ListManager
         title="Sports"
@@ -443,6 +518,12 @@ const InputManagementSection: React.FC = () => {
         description="Manage teams and their alias mappings for cross-sportsbook normalization."
       >
         <TeamAliasManager />
+      </Accordion>
+      <Accordion
+        title="Players (Canonical + Aliases)"
+        description="Manage players and their alias mappings for cross-sportsbook normalization."
+      >
+        <PlayerAliasManager />
       </Accordion>
       <Accordion
         title="Stat Types with Aliases"

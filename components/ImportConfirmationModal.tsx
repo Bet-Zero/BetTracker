@@ -3,12 +3,26 @@ import { Bet, Sportsbook, MarketCategory, BetLeg } from "../types";
 import { X, AlertTriangle, CheckCircle2, Wifi, XCircle, Info } from "./icons";
 import { classifyLeg } from "../services/marketClassification";
 import { validateBetsForImport } from "../utils/importValidation";
-import { normalizeTeamNameWithMeta, NormalizationResult, isKnownTeam } from "../services/normalizationService";
+import {
+  normalizeTeamNameWithMeta,
+  NormalizationResult,
+  isKnownTeam,
+} from "../services/normalizationService";
 import { TeamData } from "../services/normalizationService";
 // Phase 1: Resolver and Unresolved Queue imports
 // Phase 2: Extended with player resolution
-import { resolveTeam, resolvePlayer, ResolverResult } from "../services/resolver";
-import { addToUnresolvedQueue, UnresolvedItem, generateUnresolvedItemId } from "../services/unresolvedQueue";
+import {
+  resolveTeam,
+  resolvePlayer,
+  ResolverResult,
+} from "../services/resolver";
+import {
+  addToUnresolvedQueue,
+  UnresolvedItem,
+  generateUnresolvedItemId,
+} from "../services/unresolvedQueue";
+// Phase 3.1: Import useNormalizationData for live refresh after Map/Create
+import { useNormalizationData } from "../hooks/useNormalizationData";
 
 // Export summary type for parent components
 export interface ImportSummary {
@@ -159,7 +173,10 @@ const checkCrossSportCollision = (
   const normalizedName = playerName.toLowerCase().trim();
   const collisions: string[] = [];
   for (const [otherSport, players] of Object.entries(availablePlayers)) {
-    if (otherSport !== sport && players.some(p => p.toLowerCase() === normalizedName)) {
+    if (
+      otherSport !== sport &&
+      players.some((p) => p.toLowerCase() === normalizedName)
+    ) {
       collisions.push(otherSport);
     }
   }
@@ -186,6 +203,10 @@ export const ImportConfirmationModal: React.FC<
   const [expandedBets, setExpandedBets] = useState<Set<string>>(new Set());
   const [collisionWarning, setCollisionWarning] = useState<string | null>(null);
 
+  // Phase 3.1: Use normalization data hook to trigger re-render when data changes
+  // The resolverVersion changes after Map/Create actions, causing re-computation of getBetIssues
+  const { resolverVersion } = useNormalizationData();
+
   // Map sportsbook names to abbreviations
   const siteShortNameMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -196,15 +217,17 @@ export const ImportConfirmationModal: React.FC<
   }, [sportsbooks]);
 
   // Compute import validation summary (blockers vs warnings)
+  // Phase 3.1: Added resolverVersion dependency to re-compute when normalization changes
   const validationSummary = useMemo(() => {
     return validateBetsForImport(bets);
-  }, [bets]);
-  
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bets, resolverVersion]);
+
   // Compute duplicate count based on existingBetIds
   const duplicateCount = useMemo(() => {
-    return bets.filter(bet => existingBetIds.has(bet.id)).length;
+    return bets.filter((bet) => existingBetIds.has(bet.id)).length;
   }, [bets, existingBetIds]);
-  
+
   // Compute the full import summary for the "What Will Happen" section
   const importSummary: ImportSummary = useMemo(() => {
     const totalParsed = bets.length;
@@ -212,7 +235,7 @@ export const ImportConfirmationModal: React.FC<
     const duplicates = duplicateCount;
     // Net-new = total - duplicates - blocked
     const netNew = Math.max(0, totalParsed - duplicates - blockers);
-    
+
     return {
       totalParsed,
       blockers,
@@ -224,12 +247,12 @@ export const ImportConfirmationModal: React.FC<
 
   const hasBlockers = validationSummary.totalBlockers > 0;
   const hasWarnings = validationSummary.totalWarnings > 0;
-  
+
   // Get warning hints for tooltip display
   const getWarningHints = (): string => {
     const hints: string[] = [];
     const seenFields = new Set<string>();
-    
+
     // Collect unique warning hints from all bets
     for (const [_, result] of validationSummary.validationResults) {
       for (const warning of result.warnings) {
@@ -241,10 +264,10 @@ export const ImportConfirmationModal: React.FC<
       // Limit to top 4 warning types
       if (hints.length >= 4) break;
     }
-    
-    return hints.length > 0 
-      ? `Common warnings:\n${hints.join('\n')}`
-      : 'Review warnings before importing';
+
+    return hints.length > 0
+      ? `Common warnings:\n${hints.join("\n")}`
+      : "Review warnings before importing";
   };
 
   // Toggle expansion for a parlay bet
@@ -264,8 +287,16 @@ export const ImportConfirmationModal: React.FC<
   const getBetIssues = (
     bet: Bet,
     legIndex?: number
-  ): { field: string; message: string; collision?: NormalizationResult["collision"] }[] => {
-    const issues: { field: string; message: string; collision?: NormalizationResult["collision"] }[] = [];
+  ): {
+    field: string;
+    message: string;
+    collision?: NormalizationResult["collision"];
+  }[] => {
+    const issues: {
+      field: string;
+      message: string;
+      collision?: NormalizationResult["collision"];
+    }[] = [];
     const visibleLegs = getVisibleLegs(bet);
 
     if (!bet.sport || bet.sport.trim() === "") {
@@ -294,22 +325,33 @@ export const ImportConfirmationModal: React.FC<
       const legName = leg.entities?.[0] || "";
       if (legName && legName.trim()) {
         // Check if it's a team (main markets) or player (props)
-        const isTeamEntity = legCategory === "Main Markets" || leg.market?.toLowerCase() === "spread" || leg.market?.toLowerCase() === "total" || leg.market?.toLowerCase() === "moneyline";
-        
+        const isTeamEntity =
+          legCategory === "Main Markets" ||
+          leg.market?.toLowerCase() === "spread" ||
+          leg.market?.toLowerCase() === "total" ||
+          leg.market?.toLowerCase() === "moneyline";
+
         if (isTeamEntity) {
           // Phase 1: Use resolver chokepoint for team detection
           const resolverResult = resolveTeam(legName);
-          if (resolverResult.status === 'unresolved') {
+          if (resolverResult.status === "unresolved") {
             // Unknown team
             issues.push({
               field: "Name",
               message: `Team "${legName}" not in database`,
             });
-          } else if (resolverResult.status === 'ambiguous' && resolverResult.collision) {
+          } else if (
+            resolverResult.status === "ambiguous" &&
+            resolverResult.collision
+          ) {
             // Collision detected
             issues.push({
               field: "Name",
-              message: `Ambiguous team alias "${resolverResult.collision.input}" matched multiple teams: ${resolverResult.collision.candidates.join(', ')}. Using "${resolverResult.canonical}".`,
+              message: `Ambiguous team alias "${
+                resolverResult.collision.input
+              }" matched multiple teams: ${resolverResult.collision.candidates.join(
+                ", "
+              )}. Using "${resolverResult.canonical}".`,
               collision: resolverResult.collision,
             });
           }
@@ -337,23 +379,35 @@ export const ImportConfirmationModal: React.FC<
           bet.legs?.[0]?.entities?.[0] ||
           "";
         if (betName && betName.trim()) {
-          const legCategory = classifyLeg(visibleLegs[0]?.leg.market || bet.type || "", bet.sport);
-          const isTeamEntity = legCategory === "Main Markets" || bet.marketCategory?.toLowerCase().includes("main");
-          
+          const legCategory = classifyLeg(
+            visibleLegs[0]?.leg.market || bet.type || "",
+            bet.sport
+          );
+          const isTeamEntity =
+            legCategory === "Main Markets" ||
+            bet.marketCategory?.toLowerCase().includes("main");
+
           if (isTeamEntity) {
             // Phase 1: Use resolver chokepoint for team detection
             const resolverResult = resolveTeam(betName);
-            if (resolverResult.status === 'unresolved') {
+            if (resolverResult.status === "unresolved") {
               // Unknown team
               issues.push({
                 field: "Name",
                 message: `Team "${betName}" not in database`,
               });
-            } else if (resolverResult.status === 'ambiguous' && resolverResult.collision) {
+            } else if (
+              resolverResult.status === "ambiguous" &&
+              resolverResult.collision
+            ) {
               // Collision detected
               issues.push({
                 field: "Name",
-                message: `Ambiguous team alias "${resolverResult.collision.input}" matched multiple teams: ${resolverResult.collision.candidates.join(', ')}. Using "${resolverResult.canonical}".`,
+                message: `Ambiguous team alias "${
+                  resolverResult.collision.input
+                }" matched multiple teams: ${resolverResult.collision.candidates.join(
+                  ", "
+                )}. Using "${resolverResult.canonical}".`,
                 collision: resolverResult.collision,
               });
             }
@@ -381,9 +435,15 @@ export const ImportConfirmationModal: React.FC<
   const handleAddPlayer = (sport: string, playerName: string) => {
     if (sport && playerName) {
       // Check for cross-sport collisions
-      const collisions = checkCrossSportCollision(sport, playerName, availablePlayers);
+      const collisions = checkCrossSportCollision(
+        sport,
+        playerName,
+        availablePlayers
+      );
       if (collisions.length > 0) {
-        const warningMsg = `Name also exists in: ${collisions.join(', ')}. Confirm sport is correct.`;
+        const warningMsg = `Name also exists in: ${collisions.join(
+          ", "
+        )}. Confirm sport is correct.`;
         setCollisionWarning(warningMsg);
         // Clear warning after 5 seconds
         setTimeout(() => setCollisionWarning(null), 5000);
@@ -412,6 +472,7 @@ export const ImportConfirmationModal: React.FC<
   };
 
   // Check if any bets have issues
+  // Phase 3.1: Added resolverVersion dependency to re-compute when normalization changes
   const hasAnyIssues = useMemo(() => {
     return bets.some((bet) => {
       const isParlay =
@@ -431,7 +492,8 @@ export const ImportConfirmationModal: React.FC<
         return getBetIssues(bet).length > 0;
       }
     });
-  }, [bets, availableSports, availablePlayers]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bets, availableSports, availablePlayers, resolverVersion]);
 
   // Handle editing a bet field or leg field
   const handleEditBet = (
@@ -606,8 +668,8 @@ export const ImportConfirmationModal: React.FC<
               <span className="font-semibold text-neutral-900 dark:text-white">
                 {bets.length}
               </span>{" "}
-              bet{bets.length !== 1 ? "s" : ""} parsed. Review and fix
-              any issues before importing.
+              bet{bets.length !== 1 ? "s" : ""} parsed. Review and fix any
+              issues before importing.
             </p>
           </div>
           <button
@@ -617,12 +679,14 @@ export const ImportConfirmationModal: React.FC<
             <X className="w-6 h-6" />
           </button>
         </div>
-        
+
         {/* COLLISION_WARNING_BANNER_START - Cross-sport collision warning banner */}
         {collisionWarning && (
           <div className="px-6 py-3 bg-yellow-50 dark:bg-yellow-900/20 border-b border-yellow-200 dark:border-yellow-800 flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
-            <span className="text-sm text-yellow-800 dark:text-yellow-300">{collisionWarning}</span>
+            <span className="text-sm text-yellow-800 dark:text-yellow-300">
+              {collisionWarning}
+            </span>
             <button
               onClick={() => setCollisionWarning(null)}
               className="ml-auto text-yellow-600 dark:text-yellow-400 hover:text-yellow-800 dark:hover:text-yellow-200"
@@ -632,95 +696,137 @@ export const ImportConfirmationModal: React.FC<
           </div>
         )}
         {/* COLLISION_WARNING_BANNER_END */}
-        
+
         {/* "What Will Happen" Summary - updates live */}
         <div className="px-6 py-4 bg-neutral-50 dark:bg-neutral-800/50 border-b border-neutral-200 dark:border-neutral-800">
           <div className="flex items-center gap-2 mb-3">
             <Info className="w-4 h-4 text-primary-600 dark:text-primary-400" />
-            <h3 className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">What Will Happen</h3>
+            <h3 className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">
+              What Will Happen
+            </h3>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
             {/* Total Parsed */}
             <div className="bg-white dark:bg-neutral-900 rounded-lg p-3 border border-neutral-200 dark:border-neutral-700">
-              <div className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">Total Parsed</div>
-              <div className="text-xl font-bold text-neutral-900 dark:text-white">{importSummary.totalParsed}</div>
+              <div className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
+                Total Parsed
+              </div>
+              <div className="text-xl font-bold text-neutral-900 dark:text-white">
+                {importSummary.totalParsed}
+              </div>
             </div>
-            
+
             {/* Blockers */}
-            <div className={`rounded-lg p-3 border ${
-              importSummary.blockers > 0 
-                ? 'bg-danger-50 dark:bg-danger-900/20 border-danger-200 dark:border-danger-800' 
-                : 'bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700'
-            }`}>
+            <div
+              className={`rounded-lg p-3 border ${
+                importSummary.blockers > 0
+                  ? "bg-danger-50 dark:bg-danger-900/20 border-danger-200 dark:border-danger-800"
+                  : "bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700"
+              }`}
+            >
               <div className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide flex items-center gap-1">
                 Blockers
-                {importSummary.blockers > 0 && <XCircle className="w-3 h-3 text-danger-500" />}
+                {importSummary.blockers > 0 && (
+                  <XCircle className="w-3 h-3 text-danger-500" />
+                )}
               </div>
-              <div className={`text-xl font-bold ${
-                importSummary.blockers > 0 ? 'text-danger-600 dark:text-danger-400' : 'text-neutral-900 dark:text-white'
-              }`}>
+              <div
+                className={`text-xl font-bold ${
+                  importSummary.blockers > 0
+                    ? "text-danger-600 dark:text-danger-400"
+                    : "text-neutral-900 dark:text-white"
+                }`}
+              >
                 {importSummary.blockers}
               </div>
               {importSummary.blockers > 0 && (
-                <div className="text-xs text-danger-600 dark:text-danger-400 mt-1">Must be 0 to import</div>
+                <div className="text-xs text-danger-600 dark:text-danger-400 mt-1">
+                  Must be 0 to import
+                </div>
               )}
             </div>
-            
+
             {/* Warnings */}
-            <div 
+            <div
               className={`rounded-lg p-3 border ${
-                importSummary.warnings > 0 
-                  ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800' 
-                  : 'bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700'
+                importSummary.warnings > 0
+                  ? "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800"
+                  : "bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700"
               }`}
               title={importSummary.warnings > 0 ? getWarningHints() : undefined}
             >
               <div className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide flex items-center gap-1">
                 Warnings
-                {importSummary.warnings > 0 && <AlertTriangle className="w-3 h-3 text-yellow-500" />}
+                {importSummary.warnings > 0 && (
+                  <AlertTriangle className="w-3 h-3 text-yellow-500" />
+                )}
               </div>
-              <div className={`text-xl font-bold ${
-                importSummary.warnings > 0 ? 'text-yellow-600 dark:text-yellow-400' : 'text-neutral-900 dark:text-white'
-              }`}>
+              <div
+                className={`text-xl font-bold ${
+                  importSummary.warnings > 0
+                    ? "text-yellow-600 dark:text-yellow-400"
+                    : "text-neutral-900 dark:text-white"
+                }`}
+              >
                 {importSummary.warnings}
               </div>
               {importSummary.warnings > 0 && (
                 <div className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
                   Won't block import
-                  <span className="text-neutral-500 dark:text-neutral-400 ml-1">(hover for details)</span>
+                  <span className="text-neutral-500 dark:text-neutral-400 ml-1">
+                    (hover for details)
+                  </span>
                 </div>
               )}
             </div>
-            
+
             {/* Duplicates */}
-            <div className={`rounded-lg p-3 border ${
-              importSummary.duplicates > 0 
-                ? 'bg-neutral-100 dark:bg-neutral-800 border-neutral-300 dark:border-neutral-600' 
-                : 'bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700'
-            }`}>
-              <div className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">Duplicates</div>
-              <div className="text-xl font-bold text-neutral-600 dark:text-neutral-300">{importSummary.duplicates}</div>
+            <div
+              className={`rounded-lg p-3 border ${
+                importSummary.duplicates > 0
+                  ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-300 dark:border-neutral-600"
+                  : "bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700"
+              }`}
+            >
+              <div className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
+                Duplicates
+              </div>
+              <div className="text-xl font-bold text-neutral-600 dark:text-neutral-300">
+                {importSummary.duplicates}
+              </div>
               {importSummary.duplicates > 0 && (
-                <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">Already in database</div>
+                <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+                  Already in database
+                </div>
               )}
             </div>
-            
+
             {/* Net New */}
-            <div className={`rounded-lg p-3 border ${
-              importSummary.netNew > 0 
-                ? 'bg-accent-50 dark:bg-accent-900/20 border-accent-200 dark:border-accent-800' 
-                : 'bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700'
-            }`}>
+            <div
+              className={`rounded-lg p-3 border ${
+                importSummary.netNew > 0
+                  ? "bg-accent-50 dark:bg-accent-900/20 border-accent-200 dark:border-accent-800"
+                  : "bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700"
+              }`}
+            >
               <div className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide flex items-center gap-1">
                 Will Import
-                {importSummary.netNew > 0 && <CheckCircle2 className="w-3 h-3 text-accent-500" />}
+                {importSummary.netNew > 0 && (
+                  <CheckCircle2 className="w-3 h-3 text-accent-500" />
+                )}
               </div>
-              <div className={`text-xl font-bold ${
-                importSummary.netNew > 0 ? 'text-accent-600 dark:text-accent-400' : 'text-neutral-900 dark:text-white'
-              }`}>
+              <div
+                className={`text-xl font-bold ${
+                  importSummary.netNew > 0
+                    ? "text-accent-600 dark:text-accent-400"
+                    : "text-neutral-900 dark:text-white"
+                }`}
+              >
                 {importSummary.netNew}
               </div>
-              <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">Net-new bets</div>
+              <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+                Net-new bets
+              </div>
             </div>
           </div>
         </div>
@@ -775,7 +881,10 @@ export const ImportConfirmationModal: React.FC<
                   const type = isParlayBet ? "—" : bet.type || "";
                   // For Total bets with two entities, show "Team1 / Team2"
                   const isTotalBet = type.toLowerCase() === "total";
-                  const entities = visibleLegs[0]?.leg.entities || bet.legs?.[0]?.entities || [];
+                  const entities =
+                    visibleLegs[0]?.leg.entities ||
+                    bet.legs?.[0]?.entities ||
+                    [];
                   const name = isParlayBet
                     ? `${getParlayLabel(bet)} (${visibleLegs.length}) ${
                         isExpanded ? "▾" : "▸"
@@ -827,7 +936,10 @@ export const ImportConfirmationModal: React.FC<
                         <td className="px-2 py-3 whitespace-nowrap">
                           <div className="flex items-center gap-1">
                             {isDuplicate && (
-                              <span className="text-xs bg-neutral-400 dark:bg-neutral-600 text-white px-1.5 py-0.5 rounded" title="Already in database">
+                              <span
+                                className="text-xs bg-neutral-400 dark:bg-neutral-600 text-white px-1.5 py-0.5 rounded"
+                                title="Already in database"
+                              >
                                 DUP
                               </span>
                             )}
@@ -1037,36 +1149,56 @@ export const ImportConfirmationModal: React.FC<
                                     className="flex-1 p-1 text-sm border rounded bg-white dark:bg-neutral-800"
                                     placeholder="Player/Team name only"
                                   />
-                                  {name && sport && (() => {
-                                    const legCategory = classifyLeg(visibleLegs[0]?.leg.market || bet.type || "", bet.sport);
-                                    const isTeamEntity = legCategory === "Main Markets" || bet.marketCategory?.toLowerCase().includes("main");
-                                    const isUnknownPlayer = !isTeamEntity && !(availablePlayers[sport] || []).includes(name);
-                                    const isUnknownTeam = isTeamEntity && !isKnownTeam(name);
-                                    
-                                    if (isUnknownPlayer) {
-                                      return (
-                                        <button
-                                          onClick={() => handleAddPlayer(sport, name)}
-                                          className="px-1 py-0.5 text-xs bg-primary-600 text-white rounded hover:bg-primary-700"
-                                          title="Add Player"
-                                        >
-                                          +
-                                        </button>
+                                  {name &&
+                                    sport &&
+                                    (() => {
+                                      const legCategory = classifyLeg(
+                                        visibleLegs[0]?.leg.market ||
+                                          bet.type ||
+                                          "",
+                                        bet.sport
                                       );
-                                    }
-                                    if (isUnknownTeam && onAddTeam) {
-                                      return (
-                                        <button
-                                          onClick={() => handleAddTeam(sport, name)}
-                                          className="px-1 py-0.5 text-xs bg-primary-600 text-white rounded hover:bg-primary-700"
-                                          title="Add Team"
-                                        >
-                                          +
-                                        </button>
-                                      );
-                                    }
-                                    return null;
-                                  })()}
+                                      const isTeamEntity =
+                                        legCategory === "Main Markets" ||
+                                        bet.marketCategory
+                                          ?.toLowerCase()
+                                          .includes("main");
+                                      const isUnknownPlayer =
+                                        !isTeamEntity &&
+                                        !(
+                                          availablePlayers[sport] || []
+                                        ).includes(name);
+                                      const isUnknownTeam =
+                                        isTeamEntity && !isKnownTeam(name);
+
+                                      if (isUnknownPlayer) {
+                                        return (
+                                          <button
+                                            onClick={() =>
+                                              handleAddPlayer(sport, name)
+                                            }
+                                            className="px-1 py-0.5 text-xs bg-primary-600 text-white rounded hover:bg-primary-700"
+                                            title="Add Player"
+                                          >
+                                            +
+                                          </button>
+                                        );
+                                      }
+                                      if (isUnknownTeam && onAddTeam) {
+                                        return (
+                                          <button
+                                            onClick={() =>
+                                              handleAddTeam(sport, name)
+                                            }
+                                            className="px-1 py-0.5 text-xs bg-primary-600 text-white rounded hover:bg-primary-700"
+                                            title="Add Team"
+                                          >
+                                            +
+                                          </button>
+                                        );
+                                      }
+                                      return null;
+                                    })()}
                                 </div>
                               ) : (
                                 <div className="flex items-center gap-1">
@@ -1091,11 +1223,14 @@ export const ImportConfirmationModal: React.FC<
                                       {betIssues.find(
                                         (i) => i.field === "Name" && i.collision
                                       ) && (
-                                        <span className="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 px-1.5 py-0.5 rounded" title={
-                                          betIssues.find(
-                                            (i) => i.field === "Name"
-                                          )?.message
-                                        }>
+                                        <span
+                                          className="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 px-1.5 py-0.5 rounded"
+                                          title={
+                                            betIssues.find(
+                                              (i) => i.field === "Name"
+                                            )?.message
+                                          }
+                                        >
                                           Collision
                                         </span>
                                       )}
@@ -1105,9 +1240,18 @@ export const ImportConfirmationModal: React.FC<
                                           const issue = betIssues.find(
                                             (i) => i.field === "Name"
                                           );
-                                          const legCategory = classifyLeg(visibleLegs[0]?.leg.market || bet.type || "", bet.sport);
-                                          const isTeamEntity = legCategory === "Main Markets" || bet.marketCategory?.toLowerCase().includes("main");
-                                          
+                                          const legCategory = classifyLeg(
+                                            visibleLegs[0]?.leg.market ||
+                                              bet.type ||
+                                              "",
+                                            bet.sport
+                                          );
+                                          const isTeamEntity =
+                                            legCategory === "Main Markets" ||
+                                            bet.marketCategory
+                                              ?.toLowerCase()
+                                              .includes("main");
+
                                           if (
                                             issue?.message.includes(
                                               "not in database"
@@ -1234,14 +1378,20 @@ export const ImportConfirmationModal: React.FC<
                         >
                           {netDisplay}
                         </td>
-                        <td 
+                        <td
                           className="px-2 py-3 text-center whitespace-nowrap cursor-pointer hover:bg-neutral-200 dark:hover:bg-neutral-700"
-                          onClick={() => handleEditBet(betIndex, "isLive", (!bet.isLive).toString())}
+                          onClick={() =>
+                            handleEditBet(
+                              betIndex,
+                              "isLive",
+                              (!bet.isLive).toString()
+                            )
+                          }
                         >
                           {bet.isLive ? (
-                             <Wifi className="w-5 h-5 text-primary-500 mx-auto" />
+                            <Wifi className="w-5 h-5 text-primary-500 mx-auto" />
                           ) : (
-                             <div className="w-5 h-5 mx-auto" />
+                            <div className="w-5 h-5 mx-auto" />
                           )}
                         </td>
                         <td className="px-2 py-3 text-center whitespace-nowrap">
@@ -1329,11 +1479,14 @@ export const ImportConfirmationModal: React.FC<
                                     const isEditingLeg =
                                       editingIndex === betIndex &&
                                       editingLegIndex === legIndex;
-                                    const isLegTotal = (leg.market || "").toLowerCase() === "total";
+                                    const isLegTotal =
+                                      (leg.market || "").toLowerCase() ===
+                                      "total";
                                     const legEntities = leg.entities || [];
-                                    const legName = isLegTotal && legEntities.length >= 2
-                                      ? `${legEntities[0]} / ${legEntities[1]}`
-                                      : legEntities[0] || "";
+                                    const legName =
+                                      isLegTotal && legEntities.length >= 2
+                                        ? `${legEntities[0]} / ${legEntities[1]}`
+                                        : legEntities[0] || "";
                                     const legCategory = classifyLeg(
                                       leg.market,
                                       sport
@@ -1412,35 +1565,59 @@ export const ImportConfirmationModal: React.FC<
                                                 className="flex-1 p-1 text-xs border rounded bg-white dark:bg-neutral-800"
                                                 placeholder="Player/Team name"
                                               />
-                                              {legName && sport && (() => {
-                                                const isTeamEntity = legCategory === "Main Markets";
-                                                const isUnknownPlayer = !isTeamEntity && !(availablePlayers[sport] || []).includes(legName);
-                                                const isUnknownTeam = isTeamEntity && !isKnownTeam(legName);
-                                                
-                                                if (isUnknownPlayer) {
-                                                  return (
-                                                    <button
-                                                      onClick={() => handleAddPlayer(sport, legName)}
-                                                      className="px-1 py-0.5 text-xs bg-primary-600 text-white rounded hover:bg-primary-700"
-                                                      title="Add Player"
-                                                    >
-                                                      +
-                                                    </button>
-                                                  );
-                                                }
-                                                if (isUnknownTeam && onAddTeam) {
-                                                  return (
-                                                    <button
-                                                      onClick={() => handleAddTeam(sport, legName)}
-                                                      className="px-1 py-0.5 text-xs bg-primary-600 text-white rounded hover:bg-primary-700"
-                                                      title="Add Team"
-                                                    >
-                                                      +
-                                                    </button>
-                                                  );
-                                                }
-                                                return null;
-                                              })()}
+                                              {legName &&
+                                                sport &&
+                                                (() => {
+                                                  const isTeamEntity =
+                                                    legCategory ===
+                                                    "Main Markets";
+                                                  const isUnknownPlayer =
+                                                    !isTeamEntity &&
+                                                    !(
+                                                      availablePlayers[sport] ||
+                                                      []
+                                                    ).includes(legName);
+                                                  const isUnknownTeam =
+                                                    isTeamEntity &&
+                                                    !isKnownTeam(legName);
+
+                                                  if (isUnknownPlayer) {
+                                                    return (
+                                                      <button
+                                                        onClick={() =>
+                                                          handleAddPlayer(
+                                                            sport,
+                                                            legName
+                                                          )
+                                                        }
+                                                        className="px-1 py-0.5 text-xs bg-primary-600 text-white rounded hover:bg-primary-700"
+                                                        title="Add Player"
+                                                      >
+                                                        +
+                                                      </button>
+                                                    );
+                                                  }
+                                                  if (
+                                                    isUnknownTeam &&
+                                                    onAddTeam
+                                                  ) {
+                                                    return (
+                                                      <button
+                                                        onClick={() =>
+                                                          handleAddTeam(
+                                                            sport,
+                                                            legName
+                                                          )
+                                                        }
+                                                        className="px-1 py-0.5 text-xs bg-primary-600 text-white rounded hover:bg-primary-700"
+                                                        title="Add Team"
+                                                      >
+                                                        +
+                                                      </button>
+                                                    );
+                                                  }
+                                                  return null;
+                                                })()}
                                             </div>
                                           ) : (
                                             <div className="flex items-center gap-1">
@@ -1464,13 +1641,19 @@ export const ImportConfirmationModal: React.FC<
                                                 <>
                                                   {/* COLLISION_BADGE_START - Collision badge displayed on parlay leg rows with ambiguous team matches */}
                                                   {legIssues.find(
-                                                    (i) => i.field === "Name" && i.collision
+                                                    (i) =>
+                                                      i.field === "Name" &&
+                                                      i.collision
                                                   ) && (
-                                                    <span className="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 px-1.5 py-0.5 rounded" title={
-                                                      legIssues.find(
-                                                        (i) => i.field === "Name"
-                                                      )?.message
-                                                    }>
+                                                    <span
+                                                      className="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 px-1.5 py-0.5 rounded"
+                                                      title={
+                                                        legIssues.find(
+                                                          (i) =>
+                                                            i.field === "Name"
+                                                        )?.message
+                                                      }
+                                                    >
                                                       Collision
                                                     </span>
                                                   )}
@@ -1482,8 +1665,10 @@ export const ImportConfirmationModal: React.FC<
                                                           (i) =>
                                                             i.field === "Name"
                                                         );
-                                                      const isTeamEntity = legCategory === "Main Markets";
-                                                      
+                                                      const isTeamEntity =
+                                                        legCategory ===
+                                                        "Main Markets";
+
                                                       if (
                                                         issue?.message.includes(
                                                           "not in database"
@@ -1491,13 +1676,26 @@ export const ImportConfirmationModal: React.FC<
                                                         legName &&
                                                         sport
                                                       ) {
-                                                        if (isTeamEntity && onAddTeam) {
-                                                          handleAddTeam(sport, legName);
-                                                        } else if (!isTeamEntity) {
-                                                          handleAddPlayer(sport, legName);
+                                                        if (
+                                                          isTeamEntity &&
+                                                          onAddTeam
+                                                        ) {
+                                                          handleAddTeam(
+                                                            sport,
+                                                            legName
+                                                          );
+                                                        } else if (
+                                                          !isTeamEntity
+                                                        ) {
+                                                          handleAddPlayer(
+                                                            sport,
+                                                            legName
+                                                          );
                                                         }
                                                       } else {
-                                                        setEditingIndex(betIndex);
+                                                        setEditingIndex(
+                                                          betIndex
+                                                        );
                                                         setEditingLegIndex(
                                                           legIndex
                                                         );
@@ -1506,7 +1704,8 @@ export const ImportConfirmationModal: React.FC<
                                                     className="flex-shrink-0"
                                                     title={
                                                       legIssues.find(
-                                                        (i) => i.field === "Name"
+                                                        (i) =>
+                                                          i.field === "Name"
                                                       )?.message
                                                     }
                                                   >
@@ -1707,10 +1906,13 @@ export const ImportConfirmationModal: React.FC<
               <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
                 <XCircle className="w-4 h-4" />
                 <span className="font-medium">
-                  {validationSummary.betsWithBlockers} bet{validationSummary.betsWithBlockers !== 1 ? 's' : ''} cannot be imported
+                  {validationSummary.betsWithBlockers} bet
+                  {validationSummary.betsWithBlockers !== 1 ? "s" : ""} cannot
+                  be imported
                 </span>
                 <span className="text-neutral-500 dark:text-neutral-400 text-xs">
-                  ({validationSummary.totalBlockers} blocking issue{validationSummary.totalBlockers !== 1 ? 's' : ''})
+                  ({validationSummary.totalBlockers} blocking issue
+                  {validationSummary.totalBlockers !== 1 ? "s" : ""})
                 </span>
               </div>
             )}
@@ -1719,7 +1921,9 @@ export const ImportConfirmationModal: React.FC<
               <div className="flex items-center gap-2 text-yellow-600 dark:text-yellow-400">
                 <AlertTriangle className="w-4 h-4" />
                 <span>
-                  {validationSummary.totalWarnings} warning{validationSummary.totalWarnings !== 1 ? 's' : ''} (can still import)
+                  {validationSummary.totalWarnings} warning
+                  {validationSummary.totalWarnings !== 1 ? "s" : ""} (can still
+                  import)
                 </span>
               </div>
             )}
@@ -1735,7 +1939,8 @@ export const ImportConfirmationModal: React.FC<
               <div className="flex items-center gap-2 text-neutral-600 dark:text-neutral-400 mt-1">
                 <Info className="w-4 h-4" />
                 <span>
-                  {duplicateCount} duplicate{duplicateCount !== 1 ? 's' : ''} will be skipped
+                  {duplicateCount} duplicate{duplicateCount !== 1 ? "s" : ""}{" "}
+                  will be skipped
                 </span>
               </div>
             )}
@@ -1752,66 +1957,87 @@ export const ImportConfirmationModal: React.FC<
                 // Phase 1: Queue unresolved entities before confirming import
                 const unresolvedItems: UnresolvedItem[] = [];
                 const now = new Date().toISOString();
-                
+
                 bets.forEach((bet) => {
                   if (!bet.legs) return;
-                  
+
                   bet.legs.forEach((leg, legIndex) => {
                     if (!leg.entities) return;
-                    
+
                     leg.entities.forEach((entity) => {
                       if (!entity || !entity.trim()) return;
-                      
+
                       // Check if entity type is team (for team resolution)
                       const legCategory = classifyLeg(leg.market, bet.sport);
-                      const isTeamEntity = legCategory === 'Main Markets' || 
-                        leg.market?.toLowerCase() === 'spread' || 
-                        leg.market?.toLowerCase() === 'total' || 
-                        leg.market?.toLowerCase() === 'moneyline';
-                      
+                      const isTeamEntity =
+                        legCategory === "Main Markets" ||
+                        leg.market?.toLowerCase() === "spread" ||
+                        leg.market?.toLowerCase() === "total" ||
+                        leg.market?.toLowerCase() === "moneyline";
+
                       if (isTeamEntity) {
                         const result = resolveTeam(entity);
-                        if (result.status === 'unresolved' || result.status === 'ambiguous') {
+                        if (
+                          result.status === "unresolved" ||
+                          result.status === "ambiguous"
+                        ) {
                           unresolvedItems.push({
-                            id: generateUnresolvedItemId(entity, bet.id, legIndex),
+                            id: generateUnresolvedItemId(
+                              entity,
+                              bet.id,
+                              legIndex
+                            ),
                             rawValue: entity,
-                            entityType: 'team',
+                            entityType: "team",
                             encounteredAt: now,
                             book: bet.book,
                             betId: bet.id,
                             legIndex: legIndex,
                             market: leg.market,
                             sport: bet.sport,
-                            context: `${bet.book} - ${leg.market || 'Unknown market'}`,
+                            context: `${bet.book} - ${
+                              leg.market || "Unknown market"
+                            }`,
                           });
                         }
                       } else {
                         // Phase 2: Player resolution
-                        const result = resolvePlayer(entity, { sport: bet.sport as any });
-                        if (result.status === 'unresolved' || result.status === 'ambiguous') {
+                        const result = resolvePlayer(entity, {
+                          sport: bet.sport as any,
+                        });
+                        if (
+                          result.status === "unresolved" ||
+                          result.status === "ambiguous"
+                        ) {
                           unresolvedItems.push({
-                            id: generateUnresolvedItemId(entity, bet.id, legIndex),
+                            id: generateUnresolvedItemId(
+                              entity,
+                              bet.id,
+                              legIndex
+                            ),
                             rawValue: entity,
-                            entityType: 'player',
+                            entityType: "player",
                             encounteredAt: now,
                             book: bet.book,
                             betId: bet.id,
                             legIndex: legIndex,
                             market: leg.market,
                             sport: bet.sport,
-                            context: `${bet.book} - ${leg.market || 'Unknown market'}`,
+                            context: `${bet.book} - ${
+                              leg.market || "Unknown market"
+                            }`,
                           });
                         }
                       }
                     });
                   });
                 });
-                
+
                 // Queue unresolved items (duplicates are handled internally)
                 if (unresolvedItems.length > 0) {
                   addToUnresolvedQueue(unresolvedItems);
                 }
-                
+
                 // Proceed with import
                 onConfirm(importSummary);
               }}
@@ -1819,23 +2045,24 @@ export const ImportConfirmationModal: React.FC<
               type="button"
               className={`px-4 py-2 rounded-lg ${
                 hasBlockers || importSummary.netNew === 0
-                  ? 'bg-neutral-400 text-neutral-200 cursor-not-allowed'
-                  : 'bg-primary-600 text-white hover:bg-primary-700'
+                  ? "bg-neutral-400 text-neutral-200 cursor-not-allowed"
+                  : "bg-primary-600 text-white hover:bg-primary-700"
               }`}
               title={
-                hasBlockers 
-                  ? 'Fix blocking issues before importing' 
-                  : importSummary.netNew === 0 
-                  ? 'No new bets to import' 
+                hasBlockers
+                  ? "Fix blocking issues before importing"
+                  : importSummary.netNew === 0
+                  ? "No new bets to import"
                   : undefined
               }
             >
               {hasBlockers
                 ? `Cannot Import (${validationSummary.betsWithBlockers} blocked)`
                 : importSummary.netNew === 0
-                ? 'No New Bets'
-                : `Import ${importSummary.netNew} Bet${importSummary.netNew !== 1 ? 's' : ''}`
-              }
+                ? "No New Bets"
+                : `Import ${importSummary.netNew} Bet${
+                    importSummary.netNew !== 1 ? "s" : ""
+                  }`}
             </button>
           </div>
         </div>
