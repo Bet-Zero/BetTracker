@@ -1,10 +1,13 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { Bet, Sportsbook, MarketCategory, BetLeg } from "../types";
 import { X, AlertTriangle, CheckCircle2, Wifi, XCircle, Info } from "./icons";
 import { classifyLeg } from "../services/marketClassification";
 import { validateBetsForImport } from "../utils/importValidation";
 import { normalizeTeamNameWithMeta, NormalizationResult, isKnownTeam } from "../services/normalizationService";
 import { TeamData } from "../services/normalizationService";
+// Phase 1: Resolver and Unresolved Queue imports
+import { resolveTeam, ResolverResult } from "../services/resolver";
+import { addToUnresolvedQueue, UnresolvedItem, generateUnresolvedItemId } from "../services/unresolvedQueue";
 
 // Export summary type for parent components
 export interface ImportSummary {
@@ -293,20 +296,20 @@ export const ImportConfirmationModal: React.FC<
         const isTeamEntity = legCategory === "Main Markets" || leg.market?.toLowerCase() === "spread" || leg.market?.toLowerCase() === "total" || leg.market?.toLowerCase() === "moneyline";
         
         if (isTeamEntity) {
-          // Check team normalization and collisions
-          const normResult = normalizeTeamNameWithMeta(legName);
-          if (!isKnownTeam(legName) && normResult.canonical === legName.trim()) {
+          // Phase 1: Use resolver chokepoint for team detection
+          const resolverResult = resolveTeam(legName);
+          if (resolverResult.status === 'unresolved') {
             // Unknown team
             issues.push({
               field: "Name",
               message: `Team "${legName}" not in database`,
             });
-          } else if (normResult.collision) {
+          } else if (resolverResult.status === 'ambiguous' && resolverResult.collision) {
             // Collision detected
             issues.push({
               field: "Name",
-              message: `Ambiguous team alias "${normResult.collision.input}" matched multiple teams: ${normResult.collision.candidates.join(', ')}. Using "${normResult.canonical}".`,
-              collision: normResult.collision,
+              message: `Ambiguous team alias "${resolverResult.collision.input}" matched multiple teams: ${resolverResult.collision.candidates.join(', ')}. Using "${resolverResult.canonical}".`,
+              collision: resolverResult.collision,
             });
           }
         } else {
@@ -337,20 +340,20 @@ export const ImportConfirmationModal: React.FC<
           const isTeamEntity = legCategory === "Main Markets" || bet.marketCategory?.toLowerCase().includes("main");
           
           if (isTeamEntity) {
-            // Check team normalization and collisions
-            const normResult = normalizeTeamNameWithMeta(betName);
-            if (!isKnownTeam(betName) && normResult.canonical === betName.trim()) {
+            // Phase 1: Use resolver chokepoint for team detection
+            const resolverResult = resolveTeam(betName);
+            if (resolverResult.status === 'unresolved') {
               // Unknown team
               issues.push({
                 field: "Name",
                 message: `Team "${betName}" not in database`,
               });
-            } else if (normResult.collision) {
+            } else if (resolverResult.status === 'ambiguous' && resolverResult.collision) {
               // Collision detected
               issues.push({
                 field: "Name",
-                message: `Ambiguous team alias "${normResult.collision.input}" matched multiple teams: ${normResult.collision.candidates.join(', ')}. Using "${normResult.canonical}".`,
-                collision: normResult.collision,
+                message: `Ambiguous team alias "${resolverResult.collision.input}" matched multiple teams: ${resolverResult.collision.candidates.join(', ')}. Using "${resolverResult.canonical}".`,
+                collision: resolverResult.collision,
               });
             }
           } else {
@@ -1744,7 +1747,57 @@ export const ImportConfirmationModal: React.FC<
               Cancel
             </button>
             <button
-              onClick={() => onConfirm(importSummary)}
+              onClick={() => {
+                // Phase 1: Queue unresolved entities before confirming import
+                const unresolvedItems: UnresolvedItem[] = [];
+                const now = new Date().toISOString();
+                
+                bets.forEach((bet) => {
+                  if (!bet.legs) return;
+                  
+                  bet.legs.forEach((leg, legIndex) => {
+                    if (!leg.entities) return;
+                    
+                    leg.entities.forEach((entity) => {
+                      if (!entity || !entity.trim()) return;
+                      
+                      // Check if entity type is team (for team resolution)
+                      const legCategory = classifyLeg(leg.market, bet.sport);
+                      const isTeamEntity = legCategory === 'Main Markets' || 
+                        leg.market?.toLowerCase() === 'spread' || 
+                        leg.market?.toLowerCase() === 'total' || 
+                        leg.market?.toLowerCase() === 'moneyline';
+                      
+                      if (isTeamEntity) {
+                        const result = resolveTeam(entity);
+                        if (result.status === 'unresolved' || result.status === 'ambiguous') {
+                          unresolvedItems.push({
+                            id: generateUnresolvedItemId(entity, bet.id, legIndex),
+                            rawValue: entity,
+                            entityType: 'team',
+                            encounteredAt: now,
+                            book: bet.book,
+                            betId: bet.id,
+                            legIndex: legIndex,
+                            market: leg.market,
+                            sport: bet.sport,
+                            context: `${bet.book} - ${leg.market || 'Unknown market'}`,
+                          });
+                        }
+                      }
+                      // Note: Player resolution is Phase 2 scope
+                    });
+                  });
+                });
+                
+                // Queue unresolved items (duplicates are handled internally)
+                if (unresolvedItems.length > 0) {
+                  addToUnresolvedQueue(unresolvedItems);
+                }
+                
+                // Proceed with import
+                onConfirm(importSummary);
+              }}
               disabled={hasBlockers || importSummary.netNew === 0}
               type="button"
               className={`px-4 py-2 rounded-lg ${

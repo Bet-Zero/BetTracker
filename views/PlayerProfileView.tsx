@@ -1,6 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useBets } from '../hooks/useBets';
 import { getTeamInfo, normalizeTeamName } from '../services/normalizationService';
+// Phase 1: Resolver for aggregation
+import { getTeamAggregationKey } from '../services/resolver';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Sector } from 'recharts';
 import { TrendingUp, TrendingDown, Scale, BarChart2, User } from '../components/icons';
 import { Bet } from '../types';
@@ -247,7 +249,8 @@ const OverUnderBreakdown: React.FC<{ bets: Bet[], selectedPlayer: string | null 
                 // P4: Use entity money contribution to exclude parlay money from player stats
                 const moneyContribution = getEntityMoneyContribution(bet);
                 bet.legs.forEach(leg => {
-                    if (leg.ou && (!selectedPlayer || leg.entities?.some(e => normalizeTeamName(e) === selectedPlayer))) {
+                    // Phase 1: Use resolver for entity matching
+                    if (leg.ou && (!selectedPlayer || leg.entities?.some(e => getTeamAggregationKey(e, '[Unresolved]') === selectedPlayer))) {
                         const ou = leg.ou.toLowerCase() as 'over' | 'under';
                         stats[ou].count++; 
                         stats[ou].stake += moneyContribution.stake; // P4: excludes parlays
@@ -366,10 +369,11 @@ const PlayerProfileView: React.FC<PlayerProfileViewProps> = ({ selectedPlayer, s
             for (const leg of bet.legs) {
                 if (!leg.entities) continue;
                 for (const entity of leg.entities) {
-                    const normalizedEntity = normalizeTeamName(entity);
+                    // Phase 1: Use resolver to get aggregation key
+                    const aggregationKey = getTeamAggregationKey(entity, '[Unresolved]');
                     // Determine if this is a player using leg.entityType or fallback to team lookup
                     if (leg.entityType === 'player') {
-                        players.add(normalizedEntity);
+                        players.add(aggregationKey);
                     } else if (leg.entityType === 'team') {
                         // Skip teams
                         continue;
@@ -377,7 +381,7 @@ const PlayerProfileView: React.FC<PlayerProfileViewProps> = ({ selectedPlayer, s
                         // Fallback: if not a known team, assume it's a player
                         const teamInfo = getTeamInfo(entity);
                         if (!teamInfo) {
-                            players.add(normalizedEntity);
+                            players.add(aggregationKey);
                         }
                     }
                 }
@@ -414,8 +418,8 @@ const PlayerProfileView: React.FC<PlayerProfileViewProps> = ({ selectedPlayer, s
         const typePredicate = createBetTypePredicate(betTypeFilter);
         
         // Filter to only bets involving the selected player
-        // Normalize entities to ensure aliases (e.g., "Magic") match the selected player ("Orlando Magic")
-        const playerPredicate = (bet: Bet) => bet.legs?.some(leg => leg.entities?.some(e => normalizeTeamName(e) === selectedPlayer)) ?? false;
+        // Phase 1: Use resolver to ensure aliases match via aggregation key
+        const playerPredicate = (bet: Bet) => bet.legs?.some(leg => leg.entities?.some(e => getTeamAggregationKey(e, '[Unresolved]') === selectedPlayer)) ?? false;
 
         return bets.filter(bet => 
             datePredicate(bet) && playerPredicate(bet) && typePredicate(bet)
@@ -443,7 +447,7 @@ const PlayerProfileView: React.FC<PlayerProfileViewProps> = ({ selectedPlayer, s
         const marketMap = computeStatsByDimension(playerBets, (bet) => {
              if (bet.legs) {
                  return bet.legs
-                    .filter(leg => leg.entities?.some(e => normalizeTeamName(e) === selectedPlayer))
+                    .filter(leg => leg.entities?.some(e => getTeamAggregationKey(e, '[Unresolved]') === selectedPlayer))
                     .map(leg => leg.market);
              }
              return null;

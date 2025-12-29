@@ -43,6 +43,8 @@ import {
 import { getNetNumeric, isParlayBetType } from "../services/displaySemantics";
 import { computeEntityStatsMap, EntityStats } from "../services/entityStatsService";
 import { normalizeTeamName, getTeamInfo } from "../services/normalizationService";
+// Phase 1: Resolver for aggregation
+import { resolveTeam, getTeamAggregationKey } from "../services/resolver";
 
 // --- HELPER FUNCTIONS & COMPONENTS ---
 
@@ -757,20 +759,21 @@ const DashboardView: React.FC = () => {
       for (const leg of bet.legs) {
         if (!leg.entities) continue;
         for (const entity of leg.entities) {
-          const normalizedEntity = normalizeTeamName(entity);
+          // Phase 1: Use resolver to get aggregation key
+          const aggregationKey = getTeamAggregationKey(entity, '[Unresolved]');
           // Determine entity type using leg.entityType or fallback to team lookup
           if (leg.entityType === 'player') {
-            players.add(normalizedEntity);
+            players.add(aggregationKey);
           } else if (leg.entityType === 'team') {
-            teams.add(normalizedEntity);
+            teams.add(aggregationKey);
           } else {
             // Fallback: check if entity is a known team via normalization service
             const teamInfo = getTeamInfo(entity);
             if (teamInfo) {
-              teams.add(normalizedEntity);
+              teams.add(aggregationKey);
             } else {
               // Assume player if not a known team
-              players.add(normalizedEntity);
+              players.add(aggregationKey);
             }
           }
         }
@@ -850,10 +853,10 @@ const DashboardView: React.FC = () => {
     const tailMap = computeStatsByDimension(filteredBets, (bet) => bet.tail ? bet.tail.trim() : null);
     
     // Player/Team Stats (P4: Use entity stats service for parlay-aware attribution)
-    // Normalize team names so aliases like "Magic" are grouped with "Orlando Magic"
+    // Phase 1: Use resolver to get aggregation keys, bucketing unresolved under '[Unresolved]'
     const playerTeamMap = computeEntityStatsMap(filteredBets, (leg, bet) => {
       if (leg.entities && leg.entities.length > 0) {
-        return leg.entities.map(entity => normalizeTeamName(entity));
+        return leg.entities.map(entity => getTeamAggregationKey(entity, '[Unresolved]'));
       }
       return null;
     });

@@ -58,7 +58,7 @@ describe('entityStatsService', () => {
       expect(lebronStats!.roi).toBe(150); // (15 / 10) * 100
     });
 
-    it('excludes parlay stake/net from entity money attribution', () => {
+    it('excludes parlays entirely from entity stats (not in map)', () => {
       const bets: Bet[] = [
         createTestBet({
           betType: 'parlay',
@@ -80,22 +80,19 @@ describe('entityStatsService', () => {
 
       const map = computeEntityStatsMap(bets, (leg) => leg.entities || null);
 
+      // Parlay-only entities should NOT appear in entity stats at all
+      // This is the intentional behavior: entity stats are for straight bets only
       const lebronStats = map.get('LeBron');
-      expect(lebronStats).toBeDefined();
-      expect(lebronStats!.tickets).toBe(1);
-      expect(lebronStats!.parlays).toBe(1);
-      expect(lebronStats!.stake).toBe(0); // Parlay excluded
-      expect(lebronStats!.net).toBe(0); // Parlay excluded
+      expect(lebronStats).toBeUndefined();
 
       const celticsStats = map.get('Celtics');
-      expect(celticsStats).toBeDefined();
-      expect(celticsStats!.tickets).toBe(1);
-      expect(celticsStats!.parlays).toBe(1);
-      expect(celticsStats!.stake).toBe(0); // Parlay excluded
-      expect(celticsStats!.net).toBe(0); // Parlay excluded
+      expect(celticsStats).toBeUndefined();
+
+      // Map should be empty since all bets are parlays
+      expect(map.size).toBe(0);
     });
 
-    it('combines non-parlay and parlay contributions correctly', () => {
+    it('only counts straight bets for entities (parlays ignored)', () => {
       const bets: Bet[] = [
         // Non-parlay bet: $10 win, LeBron
         createTestBet({
@@ -110,7 +107,7 @@ describe('entityStatsService', () => {
             }),
           ],
         }),
-        // Parlay bet: $10 ticket loss, LeBron leg wins, Celtics leg loses
+        // Parlay bet: completely ignored, even though LeBron appears here too
         createTestBet({
           betType: 'parlay',
           stake: 10,
@@ -131,23 +128,21 @@ describe('entityStatsService', () => {
 
       const map = computeEntityStatsMap(bets, (leg) => leg.entities || null);
 
+      // LeBron: only the single bet counts, parlay is completely excluded
       const lebronStats = map.get('LeBron');
       expect(lebronStats).toBeDefined();
-      expect(lebronStats!.tickets).toBe(2); // Non-parlay + parlay
-      expect(lebronStats!.parlays).toBe(1);
-      expect(lebronStats!.stake).toBe(10); // Only from non-parlay
-      expect(lebronStats!.net).toBe(15); // Only from non-parlay (25 - 10)
+      expect(lebronStats!.tickets).toBe(1); // Only from straight bet (parlay ignored)
+      expect(lebronStats!.parlays).toBe(0); // Parlays don't increment counters
+      expect(lebronStats!.stake).toBe(10); // Only from straight bet
+      expect(lebronStats!.net).toBe(15); // Only from straight bet (25 - 10)
       expect(lebronStats!.roi).toBe(150); // (15 / 10) * 100
 
+      // Celtics only appeared in parlay, so they're not in the map at all
       const celticsStats = map.get('Celtics');
-      expect(celticsStats).toBeDefined();
-      expect(celticsStats!.tickets).toBe(1); // Only parlay
-      expect(celticsStats!.parlays).toBe(1);
-      expect(celticsStats!.stake).toBe(0); // No non-parlays
-      expect(celticsStats!.net).toBe(0); // No non-parlays
+      expect(celticsStats).toBeUndefined();
     });
 
-    it('handles SGP and SGP+ bet types as parlays', () => {
+    it('excludes SGP and SGP+ bet types entirely (same as parlays)', () => {
       const bets: Bet[] = [
         createTestBet({
           betType: 'sgp',
@@ -177,15 +172,15 @@ describe('entityStatsService', () => {
 
       const map = computeEntityStatsMap(bets, (leg) => leg.entities || null);
 
+      // SGP and SGP+ are treated as parlays and completely excluded
       const lebronStats = map.get('LeBron');
-      expect(lebronStats).toBeDefined();
-      expect(lebronStats!.stake).toBe(0); // SGP excluded
-      expect(lebronStats!.parlays).toBe(1);
+      expect(lebronStats).toBeUndefined(); // SGP excluded entirely
 
       const celticsStats = map.get('Celtics');
-      expect(celticsStats).toBeDefined();
-      expect(celticsStats!.stake).toBe(0); // SGP+ excluded
-      expect(celticsStats!.parlays).toBe(1);
+      expect(celticsStats).toBeUndefined(); // SGP+ excluded entirely
+
+      // Map should be empty since all bets are parlay types
+      expect(map.size).toBe(0);
     });
 
     it('handles bets without legs array (legacy format)', () => {
@@ -239,7 +234,7 @@ describe('entityStatsService', () => {
       expect(celticsStats!.stake).toBe(10);
     });
 
-    it('counts parlay as one bet regardless of leg count', () => {
+    it('excludes multi-leg parlays entirely from entity stats', () => {
       const bets: Bet[] = [
         createTestBet({
           betType: 'parlay',
@@ -256,14 +251,79 @@ describe('entityStatsService', () => {
 
       const map = computeEntityStatsMap(bets, (leg) => leg.entities || null);
 
+      // Parlay bets are completely excluded from entity stats regardless of leg count
       const lebronStats = map.get('LeBron');
-      expect(lebronStats).toBeDefined();
-      // Even though LeBron appears in 3 legs, it's still just 1 bet
-      expect(lebronStats!.tickets).toBe(1);
-      expect(lebronStats!.parlays).toBe(1);
-      // Parlay money is excluded
-      expect(lebronStats!.stake).toBe(0);
-      expect(lebronStats!.net).toBe(0);
+      expect(lebronStats).toBeUndefined();
+
+      // Map should be empty
+      expect(map.size).toBe(0);
+    });
+
+    /**
+     * INTENT ASSERTION TEST
+     * This test explicitly documents and locks in the intended behavior:
+     * - Given one single bet + one parlay containing the same entity,
+     * - entityStatsService only counts the single bet for that entity.
+     * 
+     * This prevents future regressions where someone might "fix" the code
+     * to include parlays in entity stats.
+     */
+    it('INTENT: single bets count, parlays do not - regression prevention', () => {
+      const bets: Bet[] = [
+        // Single bet on Jokic - should count
+        createTestBet({
+          id: 'single-1',
+          betType: 'single',
+          stake: 100,
+          payout: 200,
+          result: 'win',
+          legs: [
+            createTestLeg({
+              entities: ['Jokic'],
+              result: 'win',
+            }),
+          ],
+        }),
+        // Parlay with Jokic - should NOT count toward Jokic stats
+        createTestBet({
+          id: 'parlay-1',
+          betType: 'parlay',
+          stake: 50,
+          payout: 0,
+          result: 'loss',
+          legs: [
+            createTestLeg({
+              entities: ['Jokic'],
+              result: 'win',
+            }),
+            createTestLeg({
+              entities: ['Murray'],
+              result: 'loss',
+            }),
+          ],
+        }),
+      ];
+
+      const map = computeEntityStatsMap(bets, (leg) => leg.entities || null);
+
+      // === JOKIC: Only single bet counts ===
+      const jokicStats = map.get('Jokic');
+      expect(jokicStats).toBeDefined();
+      expect(jokicStats!.tickets).toBe(1);    // Only from single, NOT 2 (single+parlay)
+      expect(jokicStats!.parlays).toBe(0);    // Parlays don't increment counter
+      expect(jokicStats!.wins).toBe(1);       // Only from single
+      expect(jokicStats!.losses).toBe(0);     // Single was a win
+      expect(jokicStats!.stake).toBe(100);    // Only from single (NOT 100+50=150)
+      expect(jokicStats!.net).toBe(100);      // Payout(200) - stake(100) = 100
+      expect(jokicStats!.roi).toBe(100);      // 100/100 * 100 = 100%
+
+      // === MURRAY: Only in parlay, so NOT in map at all ===
+      const murrayStats = map.get('Murray');
+      expect(murrayStats).toBeUndefined();    // NOT toBeDefined with stake=0
+
+      // === Map should only contain Jokic ===
+      expect(map.size).toBe(1);
+      expect(Array.from(map.keys())).toEqual(['Jokic']);
     });
   });
 });
