@@ -6,7 +6,8 @@ import { validateBetsForImport } from "../utils/importValidation";
 import { normalizeTeamNameWithMeta, NormalizationResult, isKnownTeam } from "../services/normalizationService";
 import { TeamData } from "../services/normalizationService";
 // Phase 1: Resolver and Unresolved Queue imports
-import { resolveTeam, ResolverResult } from "../services/resolver";
+// Phase 2: Extended with player resolution
+import { resolveTeam, resolvePlayer, ResolverResult } from "../services/resolver";
 import { addToUnresolvedQueue, UnresolvedItem, generateUnresolvedItemId } from "../services/unresolvedQueue";
 
 // Export summary type for parent components
@@ -1784,8 +1785,24 @@ export const ImportConfirmationModal: React.FC<
                             context: `${bet.book} - ${leg.market || 'Unknown market'}`,
                           });
                         }
+                      } else {
+                        // Phase 2: Player resolution
+                        const result = resolvePlayer(entity, { sport: bet.sport as any });
+                        if (result.status === 'unresolved' || result.status === 'ambiguous') {
+                          unresolvedItems.push({
+                            id: generateUnresolvedItemId(entity, bet.id, legIndex),
+                            rawValue: entity,
+                            entityType: 'player',
+                            encounteredAt: now,
+                            book: bet.book,
+                            betId: bet.id,
+                            legIndex: legIndex,
+                            market: leg.market,
+                            sport: bet.sport,
+                            context: `${bet.book} - ${leg.market || 'Unknown market'}`,
+                          });
+                        }
                       }
-                      // Note: Player resolution is Phase 2 scope
                     });
                   });
                 });

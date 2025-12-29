@@ -1,8 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useBets } from '../hooks/useBets';
 import { getTeamInfo, normalizeTeamName } from '../services/normalizationService';
-// Phase 1: Resolver for aggregation
-import { getTeamAggregationKey } from '../services/resolver';
+// Phase 1: Resolver for team aggregation
+// Phase 2: Extended with player aggregation
+import { getTeamAggregationKey, getPlayerAggregationKey } from '../services/resolver';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Sector } from 'recharts';
 import { TrendingUp, TrendingDown, Scale, BarChart2, User } from '../components/icons';
 import { Bet } from '../types';
@@ -250,7 +251,7 @@ const OverUnderBreakdown: React.FC<{ bets: Bet[], selectedPlayer: string | null 
                 const moneyContribution = getEntityMoneyContribution(bet);
                 bet.legs.forEach(leg => {
                     // Phase 1: Use resolver for entity matching
-                    if (leg.ou && (!selectedPlayer || leg.entities?.some(e => getTeamAggregationKey(e, '[Unresolved]') === selectedPlayer))) {
+                    if (leg.ou && (!selectedPlayer || leg.entities?.some(e => getPlayerAggregationKey(e, '[Unresolved]', { sport: bet.sport as any }) === selectedPlayer))) {
                         const ou = leg.ou.toLowerCase() as 'over' | 'under';
                         stats[ou].count++; 
                         stats[ou].stake += moneyContribution.stake; // P4: excludes parlays
@@ -369,22 +370,27 @@ const PlayerProfileView: React.FC<PlayerProfileViewProps> = ({ selectedPlayer, s
             for (const leg of bet.legs) {
                 if (!leg.entities) continue;
                 for (const entity of leg.entities) {
-                    // Phase 1: Use resolver to get aggregation key
-                    const aggregationKey = getTeamAggregationKey(entity, '[Unresolved]');
-                    // Determine if this is a player using leg.entityType or fallback to team lookup
-                    if (leg.entityType === 'player') {
-                        players.add(aggregationKey);
-                    } else if (leg.entityType === 'team') {
-                        // Skip teams
-                        continue;
-                    } else {
-                        // Fallback: if not a known team, assume it's a player
-                        const teamInfo = getTeamInfo(entity);
-                        if (!teamInfo) {
-                            players.add(aggregationKey);
-                        }
-                    }
-                }
+          // Determine entity type using leg.entityType or fallback to team lookup
+          if (leg.entityType === 'player') {
+            // Phase 2: Use player aggregation key for player entities
+            const aggregationKey = getPlayerAggregationKey(entity, '[Unresolved]', { sport: bet.sport as any });
+            players.add(aggregationKey);
+          } else if (leg.entityType === 'team') {
+            const aggregationKey = getTeamAggregationKey(entity, '[Unresolved]');
+            players.add(aggregationKey);
+          } else {
+            // Fallback: check if entity is a known team via normalization service
+            const teamInfo = getTeamInfo(entity);
+            if (teamInfo) {
+              const aggregationKey = getTeamAggregationKey(entity, '[Unresolved]');
+              players.add(aggregationKey);
+            } else {
+              // Assume player if not a known team - use player aggregation
+              const aggregationKey = getPlayerAggregationKey(entity, '[Unresolved]', { sport: bet.sport as any });
+              players.add(aggregationKey);
+            }
+          }
+        }
             }
         }
         
@@ -418,8 +424,8 @@ const PlayerProfileView: React.FC<PlayerProfileViewProps> = ({ selectedPlayer, s
         const typePredicate = createBetTypePredicate(betTypeFilter);
         
         // Filter to only bets involving the selected player
-        // Phase 1: Use resolver to ensure aliases match via aggregation key
-        const playerPredicate = (bet: Bet) => bet.legs?.some(leg => leg.entities?.some(e => getTeamAggregationKey(e, '[Unresolved]') === selectedPlayer)) ?? false;
+        // Phase 2: Use player aggregation key to ensure aliases match
+        const playerPredicate = (bet: Bet) => bet.legs?.some(leg => leg.entities?.some(e => getPlayerAggregationKey(e, '[Unresolved]', { sport: bet.sport as any }) === selectedPlayer)) ?? false;
 
         return bets.filter(bet => 
             datePredicate(bet) && playerPredicate(bet) && typePredicate(bet)
@@ -446,8 +452,8 @@ const PlayerProfileView: React.FC<PlayerProfileViewProps> = ({ selectedPlayer, s
         // Market Stats: only for markets where selectedPlayer was involved
         const marketMap = computeStatsByDimension(playerBets, (bet) => {
              if (bet.legs) {
-                 return bet.legs
-                    .filter(leg => leg.entities?.some(e => getTeamAggregationKey(e, '[Unresolved]') === selectedPlayer))
+                     return bet.legs
+                    .filter(leg => leg.entities?.some(e => getPlayerAggregationKey(e, '[Unresolved]', { sport: bet.sport as any }) === selectedPlayer))
                     .map(leg => leg.market);
              }
              return null;

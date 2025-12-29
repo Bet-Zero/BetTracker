@@ -43,8 +43,9 @@ import {
 import { getNetNumeric, isParlayBetType } from "../services/displaySemantics";
 import { computeEntityStatsMap, EntityStats } from "../services/entityStatsService";
 import { normalizeTeamName, getTeamInfo } from "../services/normalizationService";
-// Phase 1: Resolver for aggregation
-import { resolveTeam, getTeamAggregationKey } from "../services/resolver";
+// Phase 1: Resolver for team aggregation
+// Phase 2: Extended with player aggregation
+import { resolveTeam, getTeamAggregationKey, getPlayerAggregationKey } from "../services/resolver";
 
 // --- HELPER FUNCTIONS & COMPONENTS ---
 
@@ -759,20 +760,23 @@ const DashboardView: React.FC = () => {
       for (const leg of bet.legs) {
         if (!leg.entities) continue;
         for (const entity of leg.entities) {
-          // Phase 1: Use resolver to get aggregation key
-          const aggregationKey = getTeamAggregationKey(entity, '[Unresolved]');
           // Determine entity type using leg.entityType or fallback to team lookup
           if (leg.entityType === 'player') {
+            // Phase 2: Use player aggregation key for player entities
+            const aggregationKey = getPlayerAggregationKey(entity, '[Unresolved]', { sport: bet.sport as any });
             players.add(aggregationKey);
           } else if (leg.entityType === 'team') {
+            const aggregationKey = getTeamAggregationKey(entity, '[Unresolved]');
             teams.add(aggregationKey);
           } else {
             // Fallback: check if entity is a known team via normalization service
             const teamInfo = getTeamInfo(entity);
             if (teamInfo) {
+              const aggregationKey = getTeamAggregationKey(entity, '[Unresolved]');
               teams.add(aggregationKey);
             } else {
-              // Assume player if not a known team
+              // Assume player if not a known team - use player aggregation
+              const aggregationKey = getPlayerAggregationKey(entity, '[Unresolved]', { sport: bet.sport as any });
               players.add(aggregationKey);
             }
           }
@@ -853,10 +857,24 @@ const DashboardView: React.FC = () => {
     const tailMap = computeStatsByDimension(filteredBets, (bet) => bet.tail ? bet.tail.trim() : null);
     
     // Player/Team Stats (P4: Use entity stats service for parlay-aware attribution)
-    // Phase 1: Use resolver to get aggregation keys, bucketing unresolved under '[Unresolved]'
+    // Phase 1/2: Use resolver to get aggregation keys, using player or team key based on leg.entityType
     const playerTeamMap = computeEntityStatsMap(filteredBets, (leg, bet) => {
       if (leg.entities && leg.entities.length > 0) {
-        return leg.entities.map(entity => getTeamAggregationKey(entity, '[Unresolved]'));
+        return leg.entities.map(entity => {
+          // Use appropriate aggregation key based on entity type
+          if (leg.entityType === 'player') {
+            return getPlayerAggregationKey(entity, '[Unresolved]', { sport: bet.sport as any });
+          } else if (leg.entityType === 'team') {
+            return getTeamAggregationKey(entity, '[Unresolved]');
+          } else {
+            // Fallback: check if known team, otherwise treat as player
+            const teamInfo = getTeamInfo(entity);
+            if (teamInfo) {
+              return getTeamAggregationKey(entity, '[Unresolved]');
+            }
+            return getPlayerAggregationKey(entity, '[Unresolved]', { sport: bet.sport as any });
+          }
+        });
       }
       return null;
     });

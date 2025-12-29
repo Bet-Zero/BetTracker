@@ -24,7 +24,7 @@ export const UNRESOLVED_QUEUE_KEY = 'bettracker-unresolved-queue' as const;
 /**
  * Type of unresolved entity.
  */
-export type UnresolvedEntityType = 'team' | 'stat' | 'unknown';
+export type UnresolvedEntityType = 'team' | 'stat' | 'player' | 'unknown';
 
 /**
  * An item in the unresolved queue.
@@ -92,7 +92,7 @@ function isValidUnresolvedItem(item: unknown): item is UnresolvedItem {
     typeof obj.id === 'string' &&
     typeof obj.rawValue === 'string' &&
     typeof obj.entityType === 'string' &&
-    ['team', 'stat', 'unknown'].includes(obj.entityType as string) &&
+    ['team', 'stat', 'player', 'unknown'].includes(obj.entityType as string) &&
     typeof obj.encounteredAt === 'string' &&
     typeof obj.book === 'string' &&
     typeof obj.betId === 'string'

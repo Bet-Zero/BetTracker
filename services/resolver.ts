@@ -1,8 +1,9 @@
 /**
  * Phase 1: Resolver Chokepoint for Teams and Stat Types
+ * Phase 2: Extended for Players
  * 
  * This module provides a single resolver interface that wraps existing normalization logic.
- * All team/stat resolution should go through these functions to enforce the chokepoint.
+ * All team/stat/player resolution should go through these functions to enforce the chokepoint.
  * 
  * Resolution outcomes:
  * - 'resolved': Canonical reference found
@@ -17,6 +18,10 @@ import {
   normalizeStatType,
   isKnownTeam,
   isKnownStatType,
+  getPlayerInfo,
+  getPlayerCollision,
+  isKnownPlayer,
+  normalizePlayerNameBasic,
 } from './normalizationService';
 
 // ============================================================================
@@ -187,4 +192,102 @@ export function resolveStatType(rawStatType: string, sport?: Sport): ResolverRes
 export function isStatTypeResolved(rawStatType: string, sport?: Sport): boolean {
   const result = resolveStatType(rawStatType, sport);
   return result.status === 'resolved';
+}
+
+// ============================================================================
+// PLAYER RESOLUTION (Phase 2)
+// ============================================================================
+
+/**
+ * Phase 2: Resolve a player name through the chokepoint.
+ * 
+ * Uses sport-scoped lookups for accurate resolution.
+ * Returns structured result with resolution status.
+ * 
+ * @param rawPlayerName - The raw player name from sportsbook data
+ * @param context - Optional context with sport/team for scoped lookup
+ * @returns ResolverResult with status and canonical value
+ */
+export function resolvePlayer(
+  rawPlayerName: string,
+  context?: { sport?: Sport; team?: string }
+): ResolverResult {
+  if (!rawPlayerName || rawPlayerName.trim() === '') {
+    return {
+      status: 'unresolved',
+      canonical: rawPlayerName || '',
+      raw: rawPlayerName || '',
+    };
+  }
+
+  const trimmed = normalizePlayerNameBasic(rawPlayerName);
+  
+  // Check for collision (ambiguous case)
+  const collisions = getPlayerCollision(trimmed, context);
+  if (collisions && collisions.length > 1) {
+    // Get the first match as the canonical (policy: keep first entry)
+    const playerInfo = getPlayerInfo(trimmed, context);
+    return {
+      status: 'ambiguous',
+      canonical: playerInfo?.canonical || trimmed,
+      raw: trimmed,
+      collision: {
+        input: trimmed,
+        candidates: collisions.map(p => p.canonical),
+      },
+    };
+  }
+  
+  // Check if this is a known player (resolved case)
+  const playerInfo = getPlayerInfo(trimmed, context);
+  if (playerInfo) {
+    return {
+      status: 'resolved',
+      canonical: playerInfo.canonical,
+      raw: trimmed,
+    };
+  }
+  
+  // No match found (unresolved case)
+  return {
+    status: 'unresolved',
+    canonical: trimmed,
+    raw: trimmed,
+  };
+}
+
+/**
+ * Convenience function to check if a player is resolved.
+ * 
+ * @param rawPlayerName - The raw player name
+ * @param context - Optional context with sport/team for scoped lookup
+ * @returns true if the player resolves to a known canonical
+ */
+export function isPlayerResolved(
+  rawPlayerName: string,
+  context?: { sport?: Sport; team?: string }
+): boolean {
+  const result = resolvePlayer(rawPlayerName, context);
+  return result.status === 'resolved';
+}
+
+/**
+ * Get the canonical player name, or a fallback bucket for unresolved.
+ * Use this in aggregation contexts where all entities need a key.
+ * 
+ * IMPORTANT: This function is PURE - it does NOT write to the queue
+ * or have any side effects. Safe to call from render paths.
+ * 
+ * @param rawPlayerName - The raw player name
+ * @param unresolvedBucket - The bucket name for unresolved entities (default: '[Unresolved]')
+ * @param context - Optional context with sport/team for scoped lookup
+ * @returns Canonical name or bucket name
+ */
+export function getPlayerAggregationKey(
+  rawPlayerName: string,
+  unresolvedBucket: string = '[Unresolved]',
+  context?: { sport?: Sport; team?: string }
+): string {
+  const result = resolvePlayer(rawPlayerName, context);
+  return result.status === 'resolved' ? result.canonical : unresolvedBucket;
 }

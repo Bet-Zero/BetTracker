@@ -35,6 +35,7 @@ import {
   StatTypeInfo,
   Sport 
 } from '../data/referenceData';
+import { PLAYERS, PlayerInfo } from '../data/referencePlayers';
 
 // ============================================================================
 // TYPE GUARDS
@@ -81,6 +82,24 @@ function isValidStatTypeData(item: unknown): item is StatTypeData {
   );
 }
 
+/**
+ * Type guard to validate PlayerData shape from localStorage.
+ */
+export function isValidPlayerData(item: unknown): item is PlayerData {
+  if (typeof item !== 'object' || item === null) return false;
+  const obj = item as Record<string, unknown>;
+  return (
+    typeof obj.canonical === 'string' &&
+    typeof obj.sport === 'string' &&
+    isValidSport(obj.sport) &&
+    Array.isArray(obj.aliases) &&
+    obj.aliases.every((a) => typeof a === 'string') &&
+    // Optional fields
+    (obj.id === undefined || typeof obj.id === 'string') &&
+    (obj.team === undefined || typeof obj.team === 'string')
+  );
+}
+
 // ============================================================================
 // STORAGE KEYS
 // ============================================================================
@@ -92,6 +111,7 @@ function isValidStatTypeData(item: unknown): item is StatTypeData {
 export const NORMALIZATION_STORAGE_KEYS = {
   TEAMS: 'bettracker-normalization-teams',
   STAT_TYPES: 'bettracker-normalization-stattypes',
+  PLAYERS: 'bettracker-normalization-players',
 } as const;
 
 // ============================================================================
@@ -117,7 +137,7 @@ export interface FutureTypeData {
  * Team data structure used in localStorage and UI.
  * Matches the shape expected by useNormalizationData hook.
  */
-import { Sport } from '../data/referenceData';
+
 
 export interface TeamData {
   canonical: string;
@@ -134,6 +154,23 @@ export interface StatTypeData {
   canonical: string;
   sport: Sport;
   description: string;
+  aliases: string[];
+}
+
+/**
+ * Player data structure used in localStorage and UI.
+ * Sport-scoped to prevent collisions between players in different sports.
+ */
+export interface PlayerData {
+  /** Optional unique identifier for future use */
+  id?: string;
+  /** The canonical display name for this player */
+  canonical: string;
+  /** Sport this player belongs to */
+  sport: Sport;
+  /** Team affiliation (optional, for context) */
+  team?: string;
+  /** Alternative names/spellings for this player */
   aliases: string[];
 }
 
@@ -155,6 +192,7 @@ export interface NormalizationResult {
 export interface ReferenceDataSnapshot {
   teams: TeamData[];
   statTypes: StatTypeData[];
+  players: PlayerData[];
   version: string;
 }
 
@@ -176,6 +214,11 @@ let teamCollisionMap = new Map<string, string[]>();
 // Cache the merged data for getReferenceDataSnapshot
 let cachedTeams: TeamData[] = [];
 let cachedStatTypes: StatTypeData[] = [];
+let cachedPlayers: PlayerData[] = [];
+
+// Player lookup maps (sport-scoped for collision prevention)
+let playerLookupMap = new Map<string, PlayerData>();
+let playerCollisionMap = new Map<string, string[]>();
 
 // ============================================================================
 // INITIALIZATION
@@ -312,6 +355,72 @@ function loadStatTypes(): StatTypeData[] {
 }
 
 /**
+ * Converts base PlayerInfo from referencePlayers to PlayerData format.
+ */
+function toPlayerData(player: PlayerInfo): PlayerData {
+  return {
+    id: player.id,
+    canonical: player.canonical,
+    sport: player.sport,
+    team: player.team,
+    aliases: [...player.aliases],
+  };
+}
+
+/**
+ * Loads players from localStorage, falling back to base seed if not present.
+ * Validates the shape of parsed data to prevent runtime errors from malformed data.
+ */
+function loadPlayers(): PlayerData[] {
+  const baseSeed = PLAYERS.map(toPlayerData);
+  
+  try {
+    const stored = localStorage.getItem(NORMALIZATION_STORAGE_KEYS.PLAYERS);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      
+      // Validate parsed data is an array
+      if (!Array.isArray(parsed)) {
+        console.error(
+          '[normalizationService] Invalid players data in localStorage: expected array, got',
+          typeof parsed
+        );
+        return baseSeed;
+      }
+      
+      // Validate each item has the correct shape
+      const validPlayers: PlayerData[] = [];
+      for (let i = 0; i < parsed.length; i++) {
+        const item = parsed[i];
+        if (isValidPlayerData(item)) {
+          validPlayers.push(item);
+        } else {
+          console.error(
+            `[normalizationService] Invalid player data at index ${i}:`,
+            'expected {canonical: string, sport: Sport, aliases: string[]}, got',
+            JSON.stringify(item).slice(0, 100)
+          );
+        }
+      }
+      
+      // If all items were invalid, fall back to base seed
+      if (validPlayers.length === 0 && parsed.length > 0) {
+        console.error(
+          '[normalizationService] All player entries in localStorage were invalid, falling back to base seed'
+        );
+        return baseSeed;
+      }
+      
+      return validPlayers.length > 0 ? validPlayers : baseSeed;
+    }
+  } catch (error) {
+    console.error('[normalizationService] Failed to load players from localStorage:', error);
+  }
+  
+  return baseSeed;
+}
+
+/**
  * Builds lookup map for teams from the provided data.
  * Detects and logs collisions when multiple teams share the same key.
  * Policy: Keep the first entry, skip subsequent overrides.
@@ -392,15 +501,83 @@ function buildStatTypeLookupMap(statTypes: StatTypeData[]): Map<string, StatType
 }
 
 /**
+ * Builds lookup map for players from the provided data.
+ * Uses sport-scoped keys to prevent collisions between players in different sports.
+ * Detects and logs collisions when multiple players share the same key within a sport.
+ * Policy: Keep the first entry, skip subsequent overrides.
+ */
+function buildPlayerLookupMap(players: PlayerData[]): Map<string, PlayerData> {
+  const map = new Map<string, PlayerData>();
+  const collisionMap = new Map<string, string[]>();
+  
+  /**
+   * Create a sport-scoped key for player lookups.
+   * Format: "sport::normalizedname" to prevent cross-sport collisions.
+   */
+  const makeKey = (name: string, sport: Sport): string => {
+    return `${sport}::${name.toLowerCase().trim()}`;
+  };
+  
+  /**
+   * Also index by name-only key for lookups without sport context.
+   */
+  const makeGenericKey = (name: string): string => {
+    return name.toLowerCase().trim();
+  };
+  
+  const addEntry = (key: string, player: PlayerData, keyType: string) => {
+    const existing = map.get(key);
+    if (existing && existing.canonical !== player.canonical) {
+      // Collision detected - track all candidates
+      if (!collisionMap.has(key)) {
+        collisionMap.set(key, [existing.canonical]);
+      }
+      const candidates = collisionMap.get(key)!;
+      if (!candidates.includes(player.canonical)) {
+        candidates.push(player.canonical);
+      }
+      console.warn(
+        `[normalizationService] Player lookup collision: key "${key}" (${keyType}) ` +
+        `maps to both "${existing.canonical}" and "${player.canonical}". ` +
+        `Keeping first entry: "${existing.canonical}".`
+      );
+      return; // Skip override, keep first entry
+    }
+    map.set(key, player);
+  };
+  
+  for (const player of players) {
+    // Add sport-scoped keys (primary)
+    addEntry(makeKey(player.canonical, player.sport), player, 'canonical');
+    for (const alias of player.aliases) {
+      addEntry(makeKey(alias, player.sport), player, 'alias');
+    }
+    
+    // Also add generic (non-sport-scoped) keys for lookups without context
+    addEntry(makeGenericKey(player.canonical), player, 'canonical-generic');
+    for (const alias of player.aliases) {
+      addEntry(makeGenericKey(alias), player, 'alias-generic');
+    }
+  }
+  
+  // Store collision map in module-level variable
+  playerCollisionMap = collisionMap;
+  
+  return map;
+}
+
+/**
  * Initialize or refresh lookup maps from localStorage.
  * Called automatically on first use, and should be called after UI edits.
  */
 export function initializeLookupMaps(): void {
   cachedTeams = loadTeams();
   cachedStatTypes = loadStatTypes();
+  cachedPlayers = loadPlayers();
   
   teamLookupMap = buildTeamLookupMap(cachedTeams);
   statTypeLookupMap = buildStatTypeLookupMap(cachedStatTypes);
+  playerLookupMap = buildPlayerLookupMap(cachedPlayers);
   
   initialized = true;
 }
@@ -435,6 +612,7 @@ export function getReferenceDataSnapshot(): ReferenceDataSnapshot {
   return {
     teams: [...cachedTeams],
     statTypes: [...cachedStatTypes],
+    players: [...cachedPlayers],
     version: REFERENCE_DATA_VERSION,
   };
 }
@@ -453,6 +631,122 @@ export function getBaseSeedTeams(): TeamData[] {
  */
 export function getBaseSeedStatTypes(): StatTypeData[] {
   return STAT_TYPES.map(toStatTypeData);
+}
+
+/**
+ * Returns the base seed players (without user overlays).
+ * Useful for reset functionality.
+ */
+export function getBaseSeedPlayers(): PlayerData[] {
+  return PLAYERS.map(toPlayerData);
+}
+
+// ============================================================================
+// PLAYER NORMALIZATION
+// ============================================================================
+
+/**
+ * Basic player name normalization (conservative approach).
+ * Only trims and collapses whitespace - does NOT change casing to avoid
+ * breaking names like "McDonald", "O'Brien", etc.
+ * 
+ * @param raw - The raw player name string
+ * @returns Normalized string (trimmed, collapsed spaces)
+ */
+export function normalizePlayerNameBasic(raw: string): string {
+  if (!raw) return raw;
+  return raw.trim().replace(/\s+/g, ' ');
+}
+
+/**
+ * Gets player information for a given player name.
+ * Uses sport-scoped lookup when sport context is provided.
+ * 
+ * @param playerName - The player name (can be in any format)
+ * @param context - Optional context with sport for scoped lookup
+ * @returns The player info object, or undefined if not found
+ */
+export function getPlayerInfo(
+  playerName: string,
+  context?: { sport?: Sport; team?: string }
+): PlayerData | undefined {
+  if (!playerName) return undefined;
+  
+  ensureInitialized();
+  
+  const normalized = normalizePlayerNameBasic(playerName);
+  const lowerSearch = normalized.toLowerCase();
+  
+  // Try sport-scoped lookup first (most accurate)
+  if (context?.sport) {
+    const sportKey = `${context.sport}::${lowerSearch}`;
+    const sportMatch = playerLookupMap.get(sportKey);
+    if (sportMatch) {
+      return sportMatch;
+    }
+  }
+  
+  // Fall back to generic lookup (name only)
+  return playerLookupMap.get(lowerSearch);
+}
+
+/**
+ * Gets collision candidates for an ambiguous player name.
+ * Returns all players that match the name if there's a collision.
+ * 
+ * @param playerName - The player name to check
+ * @param context - Optional context with sport for scoped lookup
+ * @returns Array of collision candidates, or undefined if no collision
+ */
+export function getPlayerCollision(
+  playerName: string,
+  context?: { sport?: Sport }
+): PlayerData[] | undefined {
+  if (!playerName) return undefined;
+  
+  ensureInitialized();
+  
+  const normalized = normalizePlayerNameBasic(playerName);
+  const lowerSearch = normalized.toLowerCase();
+  
+  // Check sport-scoped collision first
+  if (context?.sport) {
+    const sportKey = `${context.sport}::${lowerSearch}`;
+    const collisions = playerCollisionMap.get(sportKey);
+    if (collisions && collisions.length > 1) {
+      // Return full PlayerData for each collision candidate
+      return collisions
+        .map(canonical => {
+          const key = `${context.sport}::${canonical.toLowerCase()}`;
+          return playerLookupMap.get(key);
+        })
+        .filter((p): p is PlayerData => p !== undefined);
+    }
+  }
+  
+  // Check generic collision
+  const collisions = playerCollisionMap.get(lowerSearch);
+  if (collisions && collisions.length > 1) {
+    return collisions
+      .map(canonical => playerLookupMap.get(canonical.toLowerCase()))
+      .filter((p): p is PlayerData => p !== undefined);
+  }
+  
+  return undefined;
+}
+
+/**
+ * Checks if a player name is recognized in the system.
+ * 
+ * @param playerName - The player name to check
+ * @param context - Optional context with sport for scoped lookup
+ * @returns True if the player is recognized
+ */
+export function isKnownPlayer(
+  playerName: string,
+  context?: { sport?: Sport }
+): boolean {
+  return getPlayerInfo(playerName, context) !== undefined;
 }
 
 // ============================================================================
