@@ -113,7 +113,9 @@ function isValidTeamData(item: unknown): item is TeamData {
     Array.isArray(obj.aliases) &&
     obj.aliases.every((a) => typeof a === "string") &&
     Array.isArray(obj.abbreviations) &&
-    obj.abbreviations.every((a) => typeof a === "string")
+    obj.abbreviations.every((a) => typeof a === "string") &&
+    // Phase 4: Optional disabled field
+    (obj.disabled === undefined || typeof obj.disabled === "boolean")
   );
 }
 
@@ -129,7 +131,9 @@ function isValidStatTypeData(item: unknown): item is StatTypeData {
     isValidSport(obj.sport) &&
     typeof obj.description === "string" &&
     Array.isArray(obj.aliases) &&
-    obj.aliases.every((a) => typeof a === "string")
+    obj.aliases.every((a) => typeof a === "string") &&
+    // Phase 4: Optional disabled field
+    (obj.disabled === undefined || typeof obj.disabled === "boolean")
   );
 }
 
@@ -147,7 +151,9 @@ export function isValidPlayerData(item: unknown): item is PlayerData {
     obj.aliases.every((a) => typeof a === "string") &&
     // Optional fields
     (obj.id === undefined || typeof obj.id === "string") &&
-    (obj.team === undefined || typeof obj.team === "string")
+    (obj.team === undefined || typeof obj.team === "string") &&
+    // Phase 4: Optional disabled field
+    (obj.disabled === undefined || typeof obj.disabled === "boolean")
   );
 }
 
@@ -194,6 +200,8 @@ export interface TeamData {
   sport: Sport;
   abbreviations: string[];
   aliases: string[];
+  /** Phase 4: If true, entity is excluded from resolution */
+  disabled?: boolean;
 }
 
 /**
@@ -205,6 +213,8 @@ export interface StatTypeData {
   sport: Sport;
   description: string;
   aliases: string[];
+  /** Phase 4: If true, entity is excluded from resolution */
+  disabled?: boolean;
 }
 
 /**
@@ -222,6 +232,8 @@ export interface PlayerData {
   team?: string;
   /** Alternative names/spellings for this player */
   aliases: string[];
+  /** Phase 4: If true, entity is excluded from resolution */
+  disabled?: boolean;
 }
 
 /**
@@ -488,6 +500,7 @@ function loadPlayers(): PlayerData[] {
  * Detects and logs collisions when multiple teams share the same key.
  * Policy: Keep the first entry, skip subsequent overrides.
  * Also builds collision map to track all candidates for each key.
+ * Phase 4: Skips disabled entities (they won't resolve during import).
  */
 function buildTeamLookupMap(teams: TeamData[]): Map<string, TeamData> {
   const map = new Map<string, TeamData>();
@@ -516,6 +529,9 @@ function buildTeamLookupMap(teams: TeamData[]): Map<string, TeamData> {
   };
 
   for (const team of teams) {
+    // Phase 4: Skip disabled entities - they shouldn't resolve
+    if (team.disabled === true) continue;
+
     addEntry(team.canonical, team, "canonical");
     for (const alias of team.aliases) {
       addEntry(alias, team, "alias");
@@ -535,6 +551,7 @@ function buildTeamLookupMap(teams: TeamData[]): Map<string, TeamData> {
  * Builds lookup map for stat types from the provided data.
  * Detects and logs collisions when multiple stat types share the same key.
  * Policy: Keep the first entry, skip subsequent overrides.
+ * Phase 4: Skips disabled entities (they won't resolve during import).
  */
 function buildStatTypeLookupMap(
   statTypes: StatTypeData[]
@@ -556,6 +573,9 @@ function buildStatTypeLookupMap(
   };
 
   for (const stat of statTypes) {
+    // Phase 4: Skip disabled entities - they shouldn't resolve
+    if (stat.disabled === true) continue;
+
     addEntry(stat.canonical, stat, "canonical");
     for (const alias of stat.aliases) {
       addEntry(alias, stat, "alias");
@@ -570,6 +590,7 @@ function buildStatTypeLookupMap(
  * Uses sport-scoped keys to prevent collisions between players in different sports.
  * Detects and logs collisions when multiple players share the same key within a sport.
  * Policy: Keep the first entry, skip subsequent overrides.
+ * Phase 4: Skips disabled entities (they won't resolve during import).
  */
 function buildPlayerLookupMap(players: PlayerData[]): Map<string, PlayerData> {
   const map = new Map<string, PlayerData>();
@@ -612,6 +633,9 @@ function buildPlayerLookupMap(players: PlayerData[]): Map<string, PlayerData> {
   };
 
   for (const player of players) {
+    // Phase 4: Skip disabled entities - they shouldn't resolve
+    if (player.disabled === true) continue;
+
     // Add sport-scoped keys (primary)
     addEntry(makeKey(player.canonical, player.sport), player, "canonical");
     for (const alias of player.aliases) {

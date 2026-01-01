@@ -23,6 +23,15 @@ import {
 } from "../services/unresolvedQueue";
 // Phase 3.1: Import useNormalizationData for live refresh after Map/Create
 import { useNormalizationData } from "../hooks/useNormalizationData";
+import MapToExistingModal from "./MapToExistingModal";
+import CreateCanonicalModal from "./CreateCanonicalModal";
+import { UnresolvedItem } from "../services/unresolvedQueue";
+import { Sport } from "../data/referenceData";
+import {
+  TeamData,
+  PlayerData,
+  StatTypeData,
+} from "../services/normalizationService";
 
 // Export summary type for parent components
 export interface ImportSummary {
@@ -205,7 +214,123 @@ export const ImportConfirmationModal: React.FC<
 
   // Phase 3.1: Use normalization data hook to trigger re-render when data changes
   // The resolverVersion changes after Map/Create actions, causing re-computation of getBetIssues
-  const { resolverVersion } = useNormalizationData();
+  const {
+    resolverVersion,
+    teams,
+    players,
+    statTypes,
+    addTeamAlias,
+    addPlayerAlias,
+    addStatTypeAlias,
+    addTeam,
+    addPlayer,
+    addStatType,
+  } = useNormalizationData();
+
+  // Resolution state
+  const [resolvingItem, setResolvingItem] = useState<UnresolvedItem | null>(
+    null
+  );
+  const [resolutionMode, setResolutionMode] = useState<"map" | "create">("map");
+
+  // Handle initiating resolution
+  const handleInitiateResolve = (
+    bet: Bet,
+    field: string, // "Name" or "Type"
+    value: string,
+    legIndex?: number
+  ) => {
+    const visibleLegs = getVisibleLegs(bet);
+    const targetLeg =
+      legIndex !== undefined ? visibleLegs[legIndex]?.leg : visibleLegs[0]?.leg;
+
+    const market = targetLeg?.market || bet.type || "";
+    // Re-derive classification for context
+    const classification = classifyLeg(market, bet.sport);
+    const isTeamEntity =
+      classification === "Main Markets" ||
+      bet.marketCategory?.toLowerCase().includes("main");
+
+    let entityType: "team" | "player" | "stat" = "team";
+    if (field === "Name") {
+      entityType = isTeamEntity ? "team" : "player";
+    } else if (field === "Type") {
+      entityType = "stat";
+    }
+
+    // Construct temporary unresolved item
+    const item: UnresolvedItem = {
+      id: `temp-${bet.id}-${legIndex ?? "root"}-${field}`,
+      rawValue: value,
+      entityType,
+      encounteredAt: bet.placedAt,
+      book: bet.book,
+      betId: bet.id,
+      legIndex,
+      market,
+      sport: bet.sport,
+      context: `Import Resolve: ${field}`,
+    };
+
+    setResolvingItem(item);
+    setResolutionMode("map"); // Default to map
+  };
+
+  const handleMapConfirm = (
+    item: UnresolvedItem,
+    targetCanonical: string,
+    sport?: string
+  ) => {
+    if (item.entityType === "team") {
+      addTeamAlias(targetCanonical, item.rawValue);
+    } else if (item.entityType === "player") {
+      // Need sport for players
+      const playerSport = sport || item.sport || "NBA"; // Fallback if missing
+      addPlayerAlias(targetCanonical, playerSport, item.rawValue);
+    } else if (item.entityType === "stat") {
+      addStatTypeAlias(targetCanonical, item.rawValue);
+    }
+    setResolvingItem(null);
+  };
+
+  const handleCreateConfirm = (
+    item: UnresolvedItem,
+    canonical: string,
+    sport: Sport,
+    additionalAliases: string[],
+    extraData?: {
+      team?: string;
+      description?: string;
+      abbreviations?: string[];
+    }
+  ) => {
+    if (item.entityType === "team") {
+      const data: TeamData = {
+        canonical,
+        sport,
+        aliases: [item.rawValue, ...additionalAliases],
+        abbreviations: extraData?.abbreviations || [],
+      };
+      addTeam(data);
+    } else if (item.entityType === "player") {
+      const data: PlayerData = {
+        canonical,
+        sport,
+        team: extraData?.team,
+        aliases: [item.rawValue, ...additionalAliases],
+      };
+      addPlayer(data);
+    } else if (item.entityType === "stat") {
+      const data: StatTypeData = {
+        canonical,
+        sport,
+        description: extraData?.description || canonical,
+        aliases: [item.rawValue, ...additionalAliases],
+      };
+      addStatType(data);
+    }
+    setResolvingItem(null);
+  };
 
   // Map sportsbook names to abbreviations
   const siteShortNameMap = useMemo(() => {
@@ -995,6 +1120,17 @@ export const ImportConfirmationModal: React.FC<
                                       ) &&
                                       sport
                                     ) {
+                                      // START INLINE RESOLVE
+                                      handleInitiateResolve(
+                                        bet,
+                                        "Sport",
+                                        sport
+                                      );
+                                      // Note: Sport resolution is usually just adding it.
+                                      // But current logic was handleAddSport.
+                                      // Reverting to old logic for Sport as it's not a standard entity type?
+                                      // Wait, req only says Team/Player/Stat functionality.
+                                      // Keeping handleAddSport for Sport field for safety.
                                       handleAddSport(sport);
                                     } else {
                                       setEditingIndex(betIndex);
@@ -1045,21 +1181,32 @@ export const ImportConfirmationModal: React.FC<
                                   {betIssues.find(
                                     (i) => i.field === "Category"
                                   ) && (
-                                    <button
-                                      onClick={() => {
-                                        setEditingIndex(betIndex);
-                                        setEditingLegIndex(null);
-                                      }}
-                                      className="flex-shrink-0"
-                                      title={
-                                        betIssues.find(
-                                          (i) => i.field === "Category"
-                                        )?.message
-                                      }
-                                    >
-                                      <AlertTriangle className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
-                                    </button>
-                                  )}
+                                      <button
+                                        onClick={() => {
+                                          if (
+                                            category &&
+                                            betIssues
+                                              .find((i) => i.field === "Category")
+                                              ?.message.includes("missing")
+                                          ) {
+                                            // Category is usually selected interactively, not resolved via modal
+                                            setEditingIndex(betIndex);
+                                            setEditingLegIndex(null);
+                                          } else {
+                                            setEditingIndex(betIndex);
+                                            setEditingLegIndex(null);
+                                          }
+                                        }}
+                                        className="flex-shrink-0"
+                                        title={
+                                          betIssues.find(
+                                            (i) => i.field === "Category"
+                                          )?.message
+                                        }
+                                      >
+                                        <AlertTriangle className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+                                      </button>
+                                    )}
                                 </div>
                               )}
                             </>
@@ -1104,21 +1251,30 @@ export const ImportConfirmationModal: React.FC<
                                   {betIssues.find(
                                     (i) => i.field === "Type"
                                   ) && (
-                                    <button
-                                      onClick={() => {
-                                        setEditingIndex(betIndex);
-                                        setEditingLegIndex(null);
-                                      }}
-                                      className="flex-shrink-0"
-                                      title={
-                                        betIssues.find(
-                                          (i) => i.field === "Type"
-                                        )?.message
-                                      }
-                                    >
-                                      <AlertTriangle className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
-                                    </button>
-                                  )}
+                                      <button
+                                        onClick={() => {
+                                          // RESOLVE STAT TYPE
+                                          if (type) {
+                                            handleInitiateResolve(
+                                              bet,
+                                              "Type",
+                                              type
+                                            );
+                                          } else {
+                                            setEditingIndex(betIndex);
+                                            setEditingLegIndex(null);
+                                          }
+                                        }}
+                                        className="flex-shrink-0"
+                                        title={
+                                          betIssues.find(
+                                            (i) => i.field === "Type"
+                                          )?.message
+                                        }
+                                      >
+                                        <AlertTriangle className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+                                      </button>
+                                    )}
                                 </div>
                               )}
                             </>
@@ -1253,17 +1409,19 @@ export const ImportConfirmationModal: React.FC<
                                               .includes("main");
 
                                           if (
-                                            issue?.message.includes(
-                                              "not in database"
-                                            ) &&
-                                            name &&
-                                            sport
+                                            (isTeamEntity ||
+                                              !isTeamEntity ||
+                                              issue?.message.includes(
+                                                "not in database"
+                                              )) &&
+                                            name
                                           ) {
-                                            if (isTeamEntity && onAddTeam) {
-                                              handleAddTeam(sport, name);
-                                            } else if (!isTeamEntity) {
-                                              handleAddPlayer(sport, name);
-                                            }
+                                            // Handle Team/Player Resolve via Modal
+                                            handleInitiateResolve(
+                                              bet,
+                                              "Name",
+                                              name
+                                            );
                                           } else {
                                             setEditingIndex(betIndex);
                                             setEditingLegIndex(null);
@@ -1670,35 +1828,23 @@ export const ImportConfirmationModal: React.FC<
                                                         "Main Markets";
 
                                                       if (
-                                                        issue?.message.includes(
-                                                          "not in database"
-                                                        ) &&
-                                                        legName &&
-                                                        sport
+                                                        (isTeamEntity ||
+                                                          !isTeamEntity ||
+                                                          issue?.message.includes(
+                                                            "not in database"
+                                                          )) &&
+                                                        legName
                                                       ) {
-                                                        if (
-                                                          isTeamEntity &&
-                                                          onAddTeam
-                                                        ) {
-                                                          handleAddTeam(
-                                                            sport,
-                                                            legName
-                                                          );
-                                                        } else if (
-                                                          !isTeamEntity
-                                                        ) {
-                                                          handleAddPlayer(
-                                                            sport,
-                                                            legName
-                                                          );
-                                                        }
-                                                      } else {
-                                                        setEditingIndex(
-                                                          betIndex
-                                                        );
-                                                        setEditingLegIndex(
+                                                        // Handle Team/Player Resolve via Modal
+                                                        handleInitiateResolve(
+                                                          bet,
+                                                          "Name",
+                                                          legName,
                                                           legIndex
                                                         );
+                                                      } else {
+                                                        setEditingIndex(betIndex);
+                                                        setEditingLegIndex(legIndex);
                                                       }
                                                     }}
                                                     className="flex-shrink-0"
@@ -2066,6 +2212,27 @@ export const ImportConfirmationModal: React.FC<
             </button>
           </div>
         </div>
+        {/* Resolution Modals */}
+        {resolvingItem && resolutionMode === "map" && (
+          <MapToExistingModal
+            item={resolvingItem}
+            teams={teams}
+            players={players}
+            statTypes={statTypes}
+            onConfirm={(item, target) =>
+              handleMapConfirm(item, target, item.sport)
+            }
+            onCancel={() => setResolvingItem(null)}
+            onSwitchToCreate={() => setResolutionMode("create")}
+          />
+        )}
+        {resolvingItem && resolutionMode === "create" && (
+          <CreateCanonicalModal
+            item={resolvingItem}
+            onConfirm={handleCreateConfirm}
+            onCancel={() => setResolvingItem(null)}
+          />
+        )}
       </div>
     </div>
   );

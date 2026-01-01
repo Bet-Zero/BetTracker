@@ -25,6 +25,8 @@ interface MapToExistingModalProps {
   statTypes: StatTypeData[];
   onConfirm: (item: UnresolvedItem, targetCanonical: string) => void;
   onCancel: () => void;
+  /** Callback to switch to create mode */
+  onSwitchToCreate?: () => void;
   /** Number of items in the group (Phase 3.1) */
   groupCount?: number;
 }
@@ -36,6 +38,7 @@ const MapToExistingModal: React.FC<MapToExistingModalProps> = ({
   statTypes,
   onConfirm,
   onCancel,
+  onSwitchToCreate,
   groupCount,
 }) => {
   const [selectedCanonical, setSelectedCanonical] = useState<string>("");
@@ -280,6 +283,14 @@ const MapToExistingModal: React.FC<MapToExistingModalProps> = ({
           >
             Cancel
           </button>
+          {onSwitchToCreate && (
+            <button
+              onClick={onSwitchToCreate}
+              className="mr-auto px-4 py-2 text-sm font-medium text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 hover:bg-primary-50 dark:hover:bg-primary-900/10 rounded-md"
+            >
+              Create New
+            </button>
+          )}
           <button
             onClick={handleConfirm}
             disabled={!selectedCanonical}

@@ -57,9 +57,17 @@ interface NormalizationDataContextType {
   addTeam: (team: TeamData) => boolean;
   updateTeam: (canonical: string, team: TeamData) => boolean;
   removeTeam: (canonical: string) => void;
+  /** Phase 4: Disable a team (excluded from resolution) */
+  disableTeam: (canonical: string) => void;
+  /** Phase 4: Enable a previously disabled team */
+  enableTeam: (canonical: string) => void;
   addStatType: (statType: StatTypeData) => boolean;
   updateStatType: (canonical: string, statType: StatTypeData) => boolean;
   removeStatType: (canonical: string) => void;
+  /** Phase 4: Disable a stat type (excluded from resolution) */
+  disableStatType: (canonical: string, sport: Sport) => void;
+  /** Phase 4: Enable a previously disabled stat type */
+  enableStatType: (canonical: string, sport: Sport) => void;
   addPlayer: (player: PlayerData) => boolean;
   updatePlayer: (
     canonical: string,
@@ -67,6 +75,10 @@ interface NormalizationDataContextType {
     player: PlayerData
   ) => boolean;
   removePlayer: (canonical: string, sport: Sport) => void;
+  /** Phase 4: Disable a player (excluded from resolution) */
+  disablePlayer: (canonical: string, sport: Sport) => void;
+  /** Phase 4: Enable a previously disabled player */
+  enablePlayer: (canonical: string, sport: Sport) => void;
   loading: boolean;
   /** Phase 3.1: Resolver version counter for UI refresh triggers */
   resolverVersion: number;
@@ -192,6 +204,29 @@ export const NormalizationDataProvider: React.FC<{ children: ReactNode }> = ({
     [teams, setTeams]
   );
 
+  // Phase 4: Disable/Enable team operations
+  const disableTeam = useCallback(
+    (canonical: string) => {
+      const newTeams = teams.map((t) =>
+        t.canonical === canonical ? { ...t, disabled: true } : t
+      );
+      setTeams(newTeams);
+      setResolverVersion(getResolverVersion());
+    },
+    [teams, setTeams]
+  );
+
+  const enableTeam = useCallback(
+    (canonical: string) => {
+      const newTeams = teams.map((t) =>
+        t.canonical === canonical ? { ...t, disabled: false } : t
+      );
+      setTeams(newTeams);
+      setResolverVersion(getResolverVersion());
+    },
+    [teams, setTeams]
+  );
+
   // Stat Type CRUD operations
   const addStatType = useCallback(
     (statType: StatTypeData) => {
@@ -240,6 +275,33 @@ export const NormalizationDataProvider: React.FC<{ children: ReactNode }> = ({
   const removeStatType = useCallback(
     (canonical: string) => {
       setStatTypes(statTypes.filter((st) => st.canonical !== canonical));
+      setResolverVersion(getResolverVersion());
+    },
+    [statTypes, setStatTypes]
+  );
+
+  // Phase 4: Disable/Enable stat type operations
+  const disableStatType = useCallback(
+    (canonical: string, sport: Sport) => {
+      const newStatTypes = statTypes.map((st) =>
+        st.canonical === canonical && st.sport === sport
+          ? { ...st, disabled: true }
+          : st
+      );
+      setStatTypes(newStatTypes);
+      setResolverVersion(getResolverVersion());
+    },
+    [statTypes, setStatTypes]
+  );
+
+  const enableStatType = useCallback(
+    (canonical: string, sport: Sport) => {
+      const newStatTypes = statTypes.map((st) =>
+        st.canonical === canonical && st.sport === sport
+          ? { ...st, disabled: false }
+          : st
+      );
+      setStatTypes(newStatTypes);
       setResolverVersion(getResolverVersion());
     },
     [statTypes, setStatTypes]
@@ -301,6 +363,33 @@ export const NormalizationDataProvider: React.FC<{ children: ReactNode }> = ({
     [players, setPlayers]
   );
 
+  // Phase 4: Disable/Enable player operations
+  const disablePlayer = useCallback(
+    (canonical: string, sport: Sport) => {
+      const newPlayers = players.map((p) =>
+        p.canonical === canonical && p.sport === sport
+          ? { ...p, disabled: true }
+          : p
+      );
+      setPlayers(newPlayers);
+      setResolverVersion(getResolverVersion());
+    },
+    [players, setPlayers]
+  );
+
+  const enablePlayer = useCallback(
+    (canonical: string, sport: Sport) => {
+      const newPlayers = players.map((p) =>
+        p.canonical === canonical && p.sport === sport
+          ? { ...p, disabled: false }
+          : p
+      );
+      setPlayers(newPlayers);
+      setResolverVersion(getResolverVersion());
+    },
+    [players, setPlayers]
+  );
+
   const value = {
     teams,
     statTypes,
@@ -308,12 +397,18 @@ export const NormalizationDataProvider: React.FC<{ children: ReactNode }> = ({
     addTeam,
     updateTeam,
     removeTeam,
+    disableTeam,
+    enableTeam,
     addStatType,
     updateStatType,
     removeStatType,
+    disableStatType,
+    enableStatType,
     addPlayer,
     updatePlayer,
     removePlayer,
+    disablePlayer,
+    enablePlayer,
     loading,
     resolverVersion,
   };
