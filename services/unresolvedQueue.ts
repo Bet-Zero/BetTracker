@@ -7,6 +7,8 @@
  * Storage key: bettracker-unresolved-queue
  */
 
+import { toLookupKey } from './normalizationService';
+
 // ============================================================================
 // STORAGE KEY
 // ============================================================================
@@ -67,14 +69,15 @@ interface UnresolvedQueueState {
 
 /**
  * Generate a unique ID for an unresolved item.
- * Uses rawValue + betId + legIndex to prevent duplicates from the same import.
+ * Uses toLookupKey(rawValue) + betId + legIndex to prevent duplicates.
+ * Phase 3.P1: Uses toLookupKey() for consistent key normalization.
  */
 export function generateUnresolvedItemId(
   rawValue: string,
   betId: string,
   legIndex?: number
 ): string {
-  const parts = [rawValue.toLowerCase().trim(), betId];
+  const parts = [toLookupKey(rawValue), betId];
   if (legIndex !== undefined) {
     parts.push(String(legIndex));
   }

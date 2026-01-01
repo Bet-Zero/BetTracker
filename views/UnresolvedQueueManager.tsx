@@ -23,6 +23,7 @@ import {
   UnresolvedEntityType,
 } from "../services/unresolvedQueue";
 import { resolveTeam, resolvePlayer } from "../services/resolver";
+import { toLookupKey } from "../services/normalizationService";
 import { Sport } from "../data/referenceData";
 import {
   useNormalizationData,
@@ -85,10 +86,11 @@ interface GroupedQueueItem {
 }
 
 /**
- * Generate a group key from an unresolved item
+ * Generate a group key from an unresolved item.
+ * Phase 3.P1: Uses toLookupKey() for consistent key normalization.
  */
 function generateGroupKey(item: UnresolvedItem): string {
-  const normalizedRawValue = item.rawValue.toLowerCase().trim();
+  const normalizedRawValue = toLookupKey(item.rawValue);
   const sport = item.sport ?? "Unknown";
   return `${item.entityType}::${sport}::${normalizedRawValue}`;
 }

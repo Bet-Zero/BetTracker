@@ -286,4 +286,66 @@ Use everywhere: map-build, resolve, queue grouping, alias save validation.
 - Unicode NFKC normalization
 - Smart quote → ASCII conversion
 - Em-dash → hyphen conversion
-- Alias deduplication on save
+
+---
+
+## Phase 3.P1 — Lookup Key Unification (January 2025)
+
+**Status:** Implemented
+
+### Summary
+
+Created a single deterministic `toLookupKey()` function and applied it everywhere lookup keys are generated or compared. This eliminates "looks identical but doesn't resolve" bugs caused by inconsistent whitespace handling.
+
+### What `toLookupKey()` Does
+
+```typescript
+export function toLookupKey(raw: string): string {
+  if (!raw) return "";
+  return raw.trim().replace(/\s+/g, " ").toLowerCase();
+}
+```
+
+Rules:
+1. Trim leading/trailing whitespace
+2. Collapse internal whitespace to a single space (`\s+` → " ")
+3. Lowercase
+4. Return "" for empty/null-ish input
+
+### What `toLookupKey()` Does NOT Do
+
+- **No Unicode NFKC normalization** — Deferred to Phase 3.3
+- **No punctuation stripping** — Preserves apostrophes, periods, hyphens
+- **No fuzzy matching** — Pure deterministic transformation
+
+### Where It's Used
+
+| Location | Purpose |
+|----------|---------|
+| `buildTeamLookupMap()` | Map key generation for teams |
+| `buildStatTypeLookupMap()` | Map key generation for stat types |
+| `buildPlayerLookupMap()` | Map key generation for players |
+| `normalizeTeamName()` / `normalizeTeamNameWithMeta()` | Team resolution lookups |
+| `normalizeStatType()` | Stat type resolution lookups |
+| `getTeamInfo()` / `getSportForTeam()` | Team info lookups |
+| `getStatTypeInfo()` | Stat type info lookups |
+| `getPlayerInfo()` / `getPlayerCollision()` | Player resolution lookups |
+| `generateUnresolvedItemId()` | Queue item ID generation |
+| `generateGroupKey()` | Queue UI group key generation |
+| `dedupeAliases()` | Alias deduplication on save |
+
+### Files Modified
+
+- `services/normalizationService.ts` — Added `toLookupKey()`, updated all map-build and lookup functions
+- `services/unresolvedQueue.ts` — Uses `toLookupKey()` in ID generation
+- `views/UnresolvedQueueManager.tsx` — Uses `toLookupKey()` in group key generation
+- `hooks/useNormalizationData.tsx` — Added `dedupeAliases()` for alias save paths
+
+### New Test Files
+
+- `services/normalizationService.lookupKey.test.ts` — Unit tests for `toLookupKey()`
+
+### Updated Test Files
+
+- `services/resolver.test.ts` — Added "whitespace handling" describe block
+

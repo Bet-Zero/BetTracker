@@ -38,6 +38,34 @@ import {
 import { PLAYERS, PlayerInfo } from "../data/referencePlayers";
 
 // ============================================================================
+// LOOKUP KEY NORMALIZATION
+// ============================================================================
+
+/**
+ * Phase 3.P1: Single shared lookup-key function for consistent normalization.
+ *
+ * Rules:
+ * 1. Trim leading/trailing whitespace
+ * 2. Collapse internal whitespace to a single space (\s+ -> " ")
+ * 3. Lowercase
+ * 4. If input is empty/null-ish, return ""
+ *
+ * IMPORTANT:
+ * - Preserves punctuation (apostrophes, periods, hyphens)
+ * - Does NOT apply Unicode normalization
+ *
+ * Use everywhere lookup keys are generated or compared:
+ * - Map-building (teams/stat types/players)
+ * - Resolution (teams/stat types/players)
+ * - Unresolved queue ID generation
+ * - Unresolved queue grouping keys
+ */
+export function toLookupKey(raw: string): string {
+  if (!raw) return "";
+  return raw.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+// ============================================================================
 // TYPE GUARDS
 // ============================================================================
 
@@ -443,7 +471,7 @@ function buildTeamLookupMap(teams: TeamData[]): Map<string, TeamData> {
   const collisionMap = new Map<string, string[]>();
 
   const addEntry = (key: string, team: TeamData, keyType: string) => {
-    const lowerKey = key.toLowerCase();
+    const lowerKey = toLookupKey(key);
     const existing = map.get(lowerKey);
     if (existing && existing.canonical !== team.canonical) {
       // Collision detected - track all candidates
@@ -491,7 +519,7 @@ function buildStatTypeLookupMap(
   const map = new Map<string, StatTypeData>();
 
   const addEntry = (key: string, stat: StatTypeData, keyType: string) => {
-    const lowerKey = key.toLowerCase();
+    const lowerKey = toLookupKey(key);
     const existing = map.get(lowerKey);
     if (existing && existing.canonical !== stat.canonical) {
       console.warn(
@@ -529,14 +557,14 @@ function buildPlayerLookupMap(players: PlayerData[]): Map<string, PlayerData> {
    * Format: "sport::normalizedname" to prevent cross-sport collisions.
    */
   const makeKey = (name: string, sport: Sport): string => {
-    return `${sport}::${name.toLowerCase().trim()}`;
+    return `${sport}::${toLookupKey(name)}`;
   };
 
   /**
    * Also index by name-only key for lookups without sport context.
    */
   const makeGenericKey = (name: string): string => {
-    return name.toLowerCase().trim();
+    return toLookupKey(name);
   };
 
   const addEntry = (key: string, player: PlayerData, keyType: string) => {
@@ -699,8 +727,7 @@ export function getPlayerInfo(
 
   ensureInitialized();
 
-  const normalized = normalizePlayerNameBasic(playerName);
-  const lowerSearch = normalized.toLowerCase();
+  const lowerSearch = toLookupKey(playerName);
 
   // Try sport-scoped lookup first (most accurate)
   if (context?.sport) {
@@ -731,8 +758,7 @@ export function getPlayerCollision(
 
   ensureInitialized();
 
-  const normalized = normalizePlayerNameBasic(playerName);
-  const lowerSearch = normalized.toLowerCase();
+  const lowerSearch = toLookupKey(playerName);
 
   // Check sport-scoped collision first
   if (context?.sport) {
@@ -791,7 +817,7 @@ export function normalizeTeamName(teamName: string): string {
   ensureInitialized();
 
   const normalized = teamName.trim();
-  const lowerSearch = normalized.toLowerCase();
+  const lowerSearch = toLookupKey(teamName);
 
   // Try exact match using lookup map (O(1) performance)
   const teamInfo = teamLookupMap.get(lowerSearch);
@@ -854,7 +880,7 @@ export function normalizeTeamNameWithMeta(
   ensureInitialized();
 
   const normalized = teamName.trim();
-  const lowerSearch = normalized.toLowerCase();
+  const lowerSearch = toLookupKey(teamName);
 
   // Try exact match using lookup map (O(1) performance)
   const teamInfo = teamLookupMap.get(lowerSearch);
@@ -935,7 +961,7 @@ export function getSportForTeam(teamName: string): Sport | undefined {
 
   ensureInitialized();
 
-  const lowerSearch = teamName.trim().toLowerCase();
+  const lowerSearch = toLookupKey(teamName);
   const teamInfo = teamLookupMap.get(lowerSearch);
 
   if (teamInfo && isValidSport(teamInfo.sport)) {
@@ -944,7 +970,7 @@ export function getSportForTeam(teamName: string): Sport | undefined {
 
   // Fallback to full normalization if not found in lookup
   const canonical = normalizeTeamName(teamName);
-  const canonicalInfo = teamLookupMap.get(canonical.toLowerCase());
+  const canonicalInfo = teamLookupMap.get(toLookupKey(canonical));
 
   if (canonicalInfo && isValidSport(canonicalInfo.sport)) {
     return canonicalInfo.sport;
@@ -964,7 +990,7 @@ export function getTeamInfo(teamName: string): TeamData | undefined {
 
   ensureInitialized();
 
-  const lowerSearch = teamName.trim().toLowerCase();
+  const lowerSearch = toLookupKey(teamName);
   const teamInfo = teamLookupMap.get(lowerSearch);
 
   if (teamInfo) {
@@ -973,7 +999,7 @@ export function getTeamInfo(teamName: string): TeamData | undefined {
 
   // Fallback to full normalization if not found in lookup
   const canonical = normalizeTeamName(teamName);
-  return teamLookupMap.get(canonical.toLowerCase());
+  return teamLookupMap.get(toLookupKey(canonical));
 }
 
 // ============================================================================
@@ -993,8 +1019,7 @@ export function normalizeStatType(statType: string, sport?: Sport): string {
 
   ensureInitialized();
 
-  const normalized = statType.trim();
-  const lowerSearch = normalized.toLowerCase();
+  const lowerSearch = toLookupKey(statType);
 
   // Try exact match using lookup map (O(1) performance)
   const statInfo = statTypeLookupMap.get(lowerSearch);
@@ -1027,7 +1052,7 @@ export function normalizeStatType(statType: string, sport?: Sport): string {
   }
 
   // Return original if no match found
-  return normalized;
+  return statType.trim();
 }
 
 /**
@@ -1045,7 +1070,7 @@ export function getStatTypeInfo(
 
   ensureInitialized();
 
-  const lowerSearch = statType.trim().toLowerCase();
+  const lowerSearch = toLookupKey(statType);
   const statInfo = statTypeLookupMap.get(lowerSearch);
 
   // If sport context provided, verify the stat matches the sport

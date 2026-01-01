@@ -27,7 +27,25 @@ import {
   TeamData,
   StatTypeData,
   PlayerData,
+  toLookupKey,
 } from "../services/normalizationService";
+
+/**
+ * Phase 3.P1: Deduplicate aliases using toLookupKey().
+ * Keeps the first alias for each unique lookup key (preserves original order).
+ */
+function dedupeAliases(aliases: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const alias of aliases) {
+    const key = toLookupKey(alias);
+    if (key && !seen.has(key)) {
+      seen.add(key);
+      result.push(alias);
+    }
+  }
+  return result;
+}
 
 // Re-export types from unified service for consumers
 export type { TeamData, StatTypeData, PlayerData };
@@ -154,7 +172,11 @@ export const NormalizationDataProvider: React.FC<{ children: ReactNode }> = ({
       if (index === -1) return false;
 
       const newTeams = [...teams];
-      newTeams[index] = updatedTeam;
+      // Phase 3.P1: Dedupe aliases to prevent whitespace/casing duplicates
+      newTeams[index] = {
+        ...updatedTeam,
+        aliases: dedupeAliases(updatedTeam.aliases),
+      };
       setTeams(newTeams.sort((a, b) => a.canonical.localeCompare(b.canonical)));
       setResolverVersion(getResolverVersion());
       return true;
@@ -201,7 +223,11 @@ export const NormalizationDataProvider: React.FC<{ children: ReactNode }> = ({
       if (index === -1) return false;
 
       const newStatTypes = [...statTypes];
-      newStatTypes[index] = updatedStatType;
+      // Phase 3.P1: Dedupe aliases to prevent whitespace/casing duplicates
+      newStatTypes[index] = {
+        ...updatedStatType,
+        aliases: dedupeAliases(updatedStatType.aliases),
+      };
       setStatTypes(
         newStatTypes.sort((a, b) => a.canonical.localeCompare(b.canonical))
       );
@@ -251,7 +277,11 @@ export const NormalizationDataProvider: React.FC<{ children: ReactNode }> = ({
       if (index === -1) return false;
 
       const newPlayers = [...players];
-      newPlayers[index] = updatedPlayer;
+      // Phase 3.P1: Dedupe aliases to prevent whitespace/casing duplicates
+      newPlayers[index] = {
+        ...updatedPlayer,
+        aliases: dedupeAliases(updatedPlayer.aliases),
+      };
       setPlayers(
         newPlayers.sort((a, b) => a.canonical.localeCompare(b.canonical))
       );

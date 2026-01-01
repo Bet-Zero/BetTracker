@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { 
   resolveTeam, 
-  resolveStatType, 
+  resolveStatType,
+  resolvePlayer,
   isTeamResolved, 
   isStatTypeResolved,
   getTeamAggregationKey 
@@ -44,8 +45,7 @@ describe('resolver', () => {
     });
 
     it('returns unresolved for null/undefined', () => {
-      // @ts-expect-error - testing runtime behavior
-      const result = resolveTeam(null);
+      const result = resolveTeam(null as unknown as string);
       expect(result.status).toBe('unresolved');
     });
 
@@ -120,6 +120,77 @@ describe('resolver', () => {
 
     it('allows custom unresolved bucket name', () => {
       expect(getTeamAggregationKey('Unknown XYZ', '[Unknown]')).toBe('[Unknown]');
+    });
+  });
+
+  // Phase 3.P1: Whitespace handling regression tests
+  describe('whitespace handling', () => {
+    describe('resolveTeam with whitespace variants', () => {
+      it('resolves team with leading/trailing whitespace', () => {
+        const result = resolveTeam('  Lakers  ');
+        expect(result.status).toBe('resolved');
+        expect(result.canonical).toBe('Los Angeles Lakers');
+      });
+
+      it('resolves team with internal double spaces', () => {
+        const result = resolveTeam('Los  Angeles  Lakers');
+        expect(result.status).toBe('resolved');
+        expect(result.canonical).toBe('Los Angeles Lakers');
+      });
+
+      it('resolves team with tabs and newlines', () => {
+        const result = resolveTeam('Phoenix\t\nSuns');
+        expect(result.status).toBe('resolved');
+        expect(result.canonical).toBe('Phoenix Suns');
+      });
+
+      it('produces stable canonical regardless of whitespace', () => {
+        const variants = [
+          'Phoenix Suns',
+          '  Phoenix Suns  ',
+          'Phoenix  Suns',
+          'Phoenix\tSuns',
+          '  Phoenix   Suns  ',
+        ];
+        
+        const canonicals = variants.map(v => resolveTeam(v).canonical);
+        expect(new Set(canonicals).size).toBe(1);
+        expect(canonicals[0]).toBe('Phoenix Suns');
+      });
+    });
+
+    describe('resolveStatType with whitespace variants', () => {
+      it('resolves stat type with leading/trailing whitespace', () => {
+        const result = resolveStatType('  Points  ');
+        expect(result.status).toBe('resolved');
+        expect(result.canonical).toBe('Pts');
+      });
+
+      it('resolves stat type with internal double spaces', () => {
+        const result = resolveStatType('Passing  Yards');
+        expect(result.status).toBe('resolved');
+        expect(result.canonical).toBe('Pass Yds');
+      });
+    });
+
+    describe('resolvePlayer with whitespace variants', () => {
+      it('produces stable result for whitespace variants', () => {
+        const variants = [
+          'LeBron James',
+          '  LeBron James  ',
+          'LeBron  James',
+        ];
+        
+        // All variants should produce the same result
+        const results = variants.map(v => resolvePlayer(v, { sport: 'NBA' }));
+        const statuses = results.map(r => r.status);
+        const canonicals = results.map(r => r.canonical);
+        
+        // All should have the same status
+        expect(new Set(statuses).size).toBe(1);
+        // All should have the same canonical (with collapsed whitespace)
+        expect(new Set(canonicals).size).toBe(1);
+      });
     });
   });
 });
