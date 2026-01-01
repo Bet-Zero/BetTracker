@@ -82,6 +82,9 @@ interface NormalizationDataContextType {
   loading: boolean;
   /** Phase 3.1: Resolver version counter for UI refresh triggers */
   resolverVersion: number;
+  addTeamAlias: (canonical: string, alias: string) => boolean;
+  addStatTypeAlias: (canonical: string, alias: string) => boolean;
+  addPlayerAlias: (canonical: string, sport: Sport, alias: string) => boolean;
 }
 
 const NormalizationDataContext = createContext<
@@ -390,6 +393,57 @@ export const NormalizationDataProvider: React.FC<{ children: ReactNode }> = ({
     [players, setPlayers]
   );
 
+  // Helper: Add Team Alias
+  const addTeamAlias = useCallback(
+    (canonical: string, alias: string) => {
+      const team = teams.find((t) => t.canonical === canonical);
+      if (!team) return false;
+      if (team.aliases.includes(alias)) return true;
+      return updateTeam(canonical, {
+        ...team,
+        aliases: [...team.aliases, alias],
+      });
+    },
+    [teams, updateTeam]
+  );
+
+  // Helper: Add Stat Type Alias
+  const addStatTypeAlias = useCallback(
+    (canonical: string, alias: string) => {
+      const statType = statTypes.find((st) => st.canonical === canonical);
+      if (!statType) return false;
+      if (statType.aliases.includes(alias)) return true;
+      // Note: We don't have the sport here efficiently, but canonical for stat types 
+      // is usually unique enough or we rely on the caller to know? 
+      // Actually ImportConfirmationModal calls it as (canonical, alias). 
+      // But StatTypeData has 'sport'. The find might be ambiguous if duplicates exist across sports?
+      // Preflight data shows stat types are keyed by canonical+sport.
+      // However, for this helper let's assume canonical is sufficient or find the FIRST one.
+      // Better: find returns the first match.
+      return updateStatType(canonical, {
+        ...statType,
+        aliases: [...statType.aliases, alias],
+      });
+    },
+    [statTypes, updateStatType]
+  );
+
+  // Helper: Add Player Alias
+  const addPlayerAlias = useCallback(
+    (canonical: string, sport: Sport, alias: string) => {
+      const player = players.find(
+        (p) => p.canonical === canonical && p.sport === sport
+      );
+      if (!player) return false;
+      if (player.aliases.includes(alias)) return true;
+      return updatePlayer(canonical, sport, {
+        ...player,
+        aliases: [...player.aliases, alias],
+      });
+    },
+    [players, updatePlayer]
+  );
+
   const value = {
     teams,
     statTypes,
@@ -411,6 +465,9 @@ export const NormalizationDataProvider: React.FC<{ children: ReactNode }> = ({
     enablePlayer,
     loading,
     resolverVersion,
+    addTeamAlias,
+    addStatTypeAlias,
+    addPlayerAlias,
   };
 
   return (

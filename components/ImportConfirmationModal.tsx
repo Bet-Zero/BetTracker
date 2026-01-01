@@ -25,10 +25,8 @@ import {
 import { useNormalizationData } from "../hooks/useNormalizationData";
 import MapToExistingModal from "./MapToExistingModal";
 import CreateCanonicalModal from "./CreateCanonicalModal";
-import { UnresolvedItem } from "../services/unresolvedQueue";
 import { Sport } from "../data/referenceData";
 import {
-  TeamData,
   PlayerData,
   StatTypeData,
 } from "../services/normalizationService";
@@ -286,7 +284,7 @@ export const ImportConfirmationModal: React.FC<
     } else if (item.entityType === "player") {
       // Need sport for players
       const playerSport = sport || item.sport || "NBA"; // Fallback if missing
-      addPlayerAlias(targetCanonical, playerSport, item.rawValue);
+      addPlayerAlias(targetCanonical, playerSport as Sport, item.rawValue);
     } else if (item.entityType === "stat") {
       addStatTypeAlias(targetCanonical, item.rawValue);
     }
