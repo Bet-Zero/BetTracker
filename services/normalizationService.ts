@@ -42,17 +42,22 @@ import { PLAYERS, PlayerInfo } from "../data/referencePlayers";
 // ============================================================================
 
 /**
- * Phase 3.P1: Single shared lookup-key function for consistent normalization.
+ * Phase 3.3: Single shared lookup-key function for consistent normalization.
  *
- * Rules:
- * 1. Trim leading/trailing whitespace
- * 2. Collapse internal whitespace to a single space (\s+ -> " ")
- * 3. Lowercase
- * 4. If input is empty/null-ish, return ""
+ * This is the SINGLE SOURCE OF TRUTH for key normalization.
  *
- * IMPORTANT:
- * - Preserves punctuation (apostrophes, periods, hyphens)
- * - Does NOT apply Unicode normalization
+ * Steps (in order):
+ * 1. Return "" for null/undefined/empty
+ * 2. Apply Unicode NFKC normalization (unifies composed/decomposed forms)
+ * 3. Convert smart punctuation to ASCII equivalents
+ * 4. Trim leading/trailing whitespace
+ * 5. Collapse internal whitespace to single space (\s+ -> " ")
+ * 6. Convert to lowercase
+ *
+ * IMPORTANT - Does NOT:
+ * - Strip accents (José → josé, NOT jose — user preference)
+ * - Remove punctuation (O'Brien → o'brien, NOT obrien)
+ * - Apply fuzzy matching
  *
  * Use everywhere lookup keys are generated or compared:
  * - Map-building (teams/stat types/players)
@@ -62,7 +67,25 @@ import { PLAYERS, PlayerInfo } from "../data/referencePlayers";
  */
 export function toLookupKey(raw: string): string {
   if (!raw) return "";
-  return raw.trim().replace(/\s+/g, " ").toLowerCase();
+
+  // Step 1: Unicode NFKC normalization
+  // - Converts composed/decomposed variants to canonical form
+  // - Converts compatibility characters (e.g., ﬁ → fi)
+  let normalized = raw.normalize("NFKC");
+
+  // Step 2: Smart punctuation → ASCII
+  normalized = normalized
+    // Smart single quotes → ASCII apostrophe
+    .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]/g, "'")
+    // Smart double quotes → ASCII double quote
+    .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"')
+    // Dashes (em-dash, en-dash, figure dash, horizontal bar, minus sign) → hyphen-minus
+    .replace(/[\u2010\u2011\u2012\u2013\u2014\u2015\u2212]/g, "-")
+    // Non-breaking space, narrow no-break space → regular space
+    .replace(/[\u00A0\u202F]/g, " ");
+
+  // Step 3: Existing normalization (unchanged)
+  return normalized.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
 // ============================================================================
