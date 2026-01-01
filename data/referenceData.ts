@@ -717,12 +717,63 @@ export interface FutureTypeInfo {
 }
 
 export const FUTURE_TYPES: FutureTypeInfo[] = [
+  // NBA Futures
   {
-    canonical: 'NBA Finals',
+    canonical: 'NBA Championship',
     sport: 'NBA',
-    aliases: ['NBA Finals', 'To Win NBA Finals', 'Win NBA Finals', 'NBA Championship', 'nba finals'],
+    aliases: ['NBA Championship', 'Win NBA Championship', 'NBA Finals Winner', 'nba championship'],
     description: 'Win NBA Championship'
   },
+  {
+    canonical: 'NBA MVP',
+    sport: 'NBA',
+    aliases: ['NBA MVP', 'MVP', 'Most Valuable Player'],
+    description: 'NBA Regular Season MVP'
+  },
+  {
+    canonical: 'NBA DPOY',
+    sport: 'NBA',
+    aliases: ['NBA DPOY', 'DPOY', 'Defensive Player of the Year'],
+    description: 'NBA Defensive Player of the Year'
+  },
+  {
+    canonical: 'NBA ROY',
+    sport: 'NBA',
+    aliases: ['NBA ROY', 'ROY', 'Rookie of the Year'],
+    description: 'NBA Rookie of the Year'
+  },
+  {
+    canonical: 'NBA 6MOY',
+    sport: 'NBA',
+    aliases: ['NBA 6MOY', '6MOY', 'Sixth Man of the Year'],
+    description: 'NBA Sixth Man of the Year'
+  },
+  {
+    canonical: 'NBA MIP',
+    sport: 'NBA',
+    aliases: ['NBA MIP', 'MIP', 'Most Improved Player'],
+    description: 'NBA Most Improved Player'
+  },
+  {
+    canonical: 'NBA COTY',
+    sport: 'NBA',
+    aliases: ['NBA COTY', 'COTY', 'Coach of the Year'],
+    description: 'NBA Coach of the Year'
+  },
+  {
+    canonical: 'NBA Conference Winner',
+    sport: 'NBA',
+    aliases: ['NBA Conference Winner', 'Win Conference'],
+    description: 'Win NBA Conference'
+  },
+  {
+    canonical: 'NBA Division Winner',
+    sport: 'NBA',
+    aliases: ['NBA Division Winner', 'Win Division'],
+    description: 'Win NBA Division'
+  },
+
+  // NFL Futures
   {
     canonical: 'Super Bowl',
     sport: 'NFL',
@@ -730,17 +781,125 @@ export const FUTURE_TYPES: FutureTypeInfo[] = [
     description: 'Win Super Bowl'
   },
   {
+    canonical: 'NFL MVP',
+    sport: 'NFL',
+    aliases: ['NFL MVP', 'MVP', 'Most Valuable Player'],
+    description: 'NFL Regular Season MVP'
+  },
+  {
+    canonical: 'NFL OPOY',
+    sport: 'NFL',
+    aliases: ['NFL OPOY', 'OPOY', 'Offensive Player of the Year'],
+    description: 'NFL Offensive Player of the Year'
+  },
+  {
+    canonical: 'NFL DPOY',
+    sport: 'NFL',
+    aliases: ['NFL DPOY', 'DPOY', 'Defensive Player of the Year'],
+    description: 'NFL Defensive Player of the Year'
+  },
+  {
+    canonical: 'NFL OROY',
+    sport: 'NFL',
+    aliases: ['NFL OROY', 'OROY', 'Offensive Rookie of the Year'],
+    description: 'NFL Offensive Rookie of the Year'
+  },
+  {
+    canonical: 'NFL DROY',
+    sport: 'NFL',
+    aliases: ['NFL DROY', 'DROY', 'Defensive Rookie of the Year'],
+    description: 'NFL Defensive Rookie of the Year'
+  },
+  {
+    canonical: 'NFL CPOY',
+    sport: 'NFL',
+    aliases: ['NFL CPOY', 'CPOY', 'Comeback Player of the Year'],
+    description: 'NFL Comeback Player of the Year'
+  },
+  {
+    canonical: 'NFL COTY',
+    sport: 'NFL',
+    aliases: ['NFL COTY', 'COTY', 'Coach of the Year'],
+    description: 'NFL Coach of the Year'
+  },
+  {
+    canonical: 'NFL Conference Winner',
+    sport: 'NFL',
+    aliases: ['NFL Conference Winner', 'Win Conference'],
+    description: 'Win NFL Conference'
+  },
+  {
+    canonical: 'NFL Division Winner',
+    sport: 'NFL',
+    aliases: ['NFL Division Winner', 'Win Division'],
+    description: 'Win NFL Division'
+  },
+
+  // MLB Futures
+  {
     canonical: 'World Series',
     sport: 'MLB',
     aliases: ['World Series', 'To Win World Series', 'Win World Series', 'world series'],
     description: 'Win World Series'
   },
   {
+    canonical: 'MLB MVP',
+    sport: 'MLB',
+    aliases: ['MLB MVP', 'MVP', 'AL MVP', 'NL MVP'],
+    description: 'MLB MVP (AL/NL)'
+  },
+  {
+    canonical: 'Cy Young',
+    sport: 'MLB',
+    aliases: ['Cy Young', 'AL Cy Young', 'NL Cy Young'],
+    description: 'Cy Young Award'
+  },
+  {
+    canonical: 'MLB ROY',
+    sport: 'MLB',
+    aliases: ['MLB ROY', 'ROY', 'AL ROY', 'NL ROY'],
+    description: 'MLB Rookie of the Year'
+  },
+  {
+    canonical: 'MLB Manager of the Year',
+    sport: 'MLB',
+    aliases: ['MLB Manager of the Year', 'Manager of the Year'],
+    description: 'MLB Manager of the Year'
+  },
+
+  // NHL Futures
+  {
     canonical: 'Stanley Cup',
     sport: 'NHL',
     aliases: ['Stanley Cup', 'To Win Stanley Cup', 'Win Stanley Cup', 'stanley cup'],
     description: 'Win Stanley Cup'
   },
+  {
+    canonical: 'Hart Trophy',
+    sport: 'NHL',
+    aliases: ['Hart Trophy', 'Hart Memorial Trophy', 'MVP', 'NHL MVP'],
+    description: 'NHL MVP'
+  },
+  {
+    canonical: 'Vezina Trophy',
+    sport: 'NHL',
+    aliases: ['Vezina Trophy', 'Vezina', 'Goalie of the Year'],
+    description: 'NHL Goalie of the Year'
+  },
+  {
+    canonical: 'Norris Trophy',
+    sport: 'NHL',
+    aliases: ['Norris Trophy', 'Norris', 'Defenseman of the Year'],
+    description: 'NHL Defenseman of the Year'
+  },
+  {
+    canonical: 'Calder Trophy',
+    sport: 'NHL',
+    aliases: ['Calder Trophy', 'Calder', 'Rookie of the Year', 'NHL ROY'],
+    description: 'NHL Rookie of the Year'
+  },
+
+  // Generic/Other
   {
     canonical: 'Win Total',
     aliases: ['Win Total', 'Season Wins', 'Regular Season Wins', 'win total'],
@@ -755,50 +914,5 @@ export const FUTURE_TYPES: FutureTypeInfo[] = [
     canonical: 'Miss Playoffs',
     aliases: ['Miss Playoffs', 'To Miss Playoffs', 'miss playoffs'],
     description: 'Miss the playoffs'
-  },
-  {
-    canonical: 'MVP',
-    aliases: ['MVP', 'Most Valuable Player', 'To Win MVP', 'mvp'],
-    description: 'Win MVP Award'
-  },
-  {
-    canonical: 'DPOY',
-    aliases: ['DPOY', 'Defensive Player of the Year', 'dpoy'],
-    description: 'Win Defensive Player of the Year'
-  },
-  {
-    canonical: 'ROY',
-    aliases: ['ROY', 'Rookie of the Year', 'roy'],
-    description: 'Win Rookie of the Year'
-  },
-  {
-    canonical: '6MOY',
-    aliases: ['6MOY', 'Sixth Man of the Year', '6moy'],
-    description: 'Win Sixth Man of the Year'
-  },
-  {
-    canonical: 'MIP',
-    aliases: ['MIP', 'Most Improved Player', 'mip'],
-    description: 'Win Most Improved Player'
-  },
-  {
-    canonical: 'COTY',
-    aliases: ['COTY', 'Coach of the Year', 'coty'],
-    description: 'Win Coach of the Year'
-  },
-  {
-    canonical: 'Conference Winner',
-    aliases: ['Conference Winner', 'Win Conference', 'conference winner'],
-    description: 'Win Conference Championship'
-  },
-  {
-    canonical: 'Division Winner',
-    aliases: ['Division Winner', 'Win Division', 'division winner'],
-    description: 'Win Division Title'
-  },
-  {
-    canonical: 'Championship',
-    aliases: ['Championship', 'Win Championship', 'Outright Winner', 'championship'],
-    description: 'Win League Championship'
   },
 ];

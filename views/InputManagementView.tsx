@@ -88,7 +88,7 @@ const InputManagementView: React.FC = () => {
           active={activeTab === "statTypes"}
           onClick={() => setActiveTab("statTypes")}
         >
-          Stat Types
+          Bet Types
         </TabButton>
       </div>
 

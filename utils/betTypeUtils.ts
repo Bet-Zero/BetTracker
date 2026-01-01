@@ -9,10 +9,17 @@ export type StatCategory = "props" | "main" | "parlay" | "future";
 export const PARLAY_CANONICALS = new Set(["Parlay", "SGP", "SGP+"]);
 
 export const FUTURE_CANONICALS = new Set([
-  "Championship", "Conference Winner", "Division Winner", 
-  "Win Total", "Make Playoffs", "Miss Playoffs",
-  "NBA Finals", "Super Bowl", "World Series", "Stanley Cup",
-  "Awards", "MVP", "DPOY", "ROY", "6MOY", "MIP", "COTY"
+  // NBA
+  "NBA Championship", "NBA MVP", "NBA DPOY", "NBA ROY", "NBA 6MOY", "NBA MIP", "NBA COTY", "NBA Conference Winner", "NBA Division Winner",
+  // NFL
+  "Super Bowl", "NFL MVP", "NFL OPOY", "NFL DPOY", "NFL OROY", "NFL DROY", "NFL CPOY", "NFL COTY", "NFL Conference Winner", "NFL Division Winner",
+  // MLB
+  "World Series", "MLB MVP", "Cy Young", "MLB ROY", "MLB Manager of the Year",
+  // NHL
+  "Stanley Cup", "Hart Trophy", "Vezina Trophy", "Norris Trophy", "Calder Trophy",
+  
+  // Generic
+  "Win Total", "Make Playoffs", "Miss Playoffs", "Awards"
 ]);
 
 export const MAIN_MARKET_CANONICALS = new Set([
