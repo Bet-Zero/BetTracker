@@ -7,10 +7,13 @@ import DenseRow from "./DenseRow";
 import SearchInput from "./SearchInput";
 import { useEntitySearch } from "../../hooks/useEntitySearch";
 
-type StatCategory = "main" | "props";
-
-// Main Market stat types (derived classification)
-const MAIN_MARKET_CANONICALS = new Set(["Moneyline", "Spread", "Total", "Over", "Under"]);
+import { 
+  getBetTypeCategory, 
+  StatCategory, 
+  MAIN_MARKET_CANONICALS,
+  PARLAY_CANONICALS,
+  FUTURE_CANONICALS
+} from "../../utils/betTypeUtils";
 
 // Sport sub-tab pills
 const SportPills: React.FC<{
@@ -59,8 +62,8 @@ const StatTypesManager: React.FC = () => {
   // Pre-filter by Category
   const categoryFilteredEntities = useMemo(() => {
     return statTypes.filter(st => {
-      const isMain = MAIN_MARKET_CANONICALS.has(st.canonical);
-      return selectedCategory === "main" ? isMain : !isMain;
+      const category = getBetTypeCategory(st.canonical);
+      return category === selectedCategory;
     });
   }, [statTypes, selectedCategory]);
 
@@ -110,28 +113,26 @@ const StatTypesManager: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Category Tabs (Top Level for Stat Types) */}
+      {/* Category Tabs (Top Level for Bet Types) */}
       <div className="flex border-b border-neutral-200 dark:border-neutral-800 mb-4">
-        <button
-          onClick={() => setSelectedCategory("props")}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            selectedCategory === "props"
-              ? "border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400"
-              : "border-transparent text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
-          }`}
-        >
-          Props
-        </button>
-        <button
-          onClick={() => setSelectedCategory("main")}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            selectedCategory === "main"
-              ? "border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400"
-              : "border-transparent text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
-          }`}
-        >
-          Main Markets
-        </button>
+        {[
+          { id: "props", label: "Props" },
+          { id: "main", label: "Main Markets" },
+          { id: "parlay", label: "Parlays" },
+          { id: "future", label: "Futures" }
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setSelectedCategory(tab.id as StatCategory)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              selectedCategory === tab.id
+                ? "border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400"
+                : "border-transparent text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       {/* Header */}
@@ -140,7 +141,7 @@ const StatTypesManager: React.FC = () => {
           <SearchInput 
             value={query} 
             onChange={setQuery} 
-            placeholder={`Search ${selectedCategory === "main" ? "main" : "prop"} stats...`}
+            placeholder={`Search ${selectedCategory} types...`}
             className="w-full max-w-xs"
           />
           <label className="flex items-center space-x-1.5 text-xs text-neutral-500 dark:text-neutral-400 select-none cursor-pointer">
@@ -162,7 +163,7 @@ const StatTypesManager: React.FC = () => {
           className="flex items-center space-x-1 px-3 py-1.5 bg-primary-600 text-white text-sm font-medium rounded hover:bg-primary-700 transition-colors shadow-sm"
         >
           <Plus className="w-4 h-4" />
-          <span>Add Stat Type</span>
+          <span>Add Bet Type</span>
         </button>
       </div>
 
@@ -214,7 +215,7 @@ const StatTypesManager: React.FC = () => {
 
         {filteredStatTypes.length === 0 && !isAdding ? (
           <div className="p-8 text-center text-neutral-500 dark:text-neutral-400 text-sm">
-            No stat types found.
+            No bet types found in this category.
           </div>
         ) : filteredStatTypes.length > visibleCount ? (
           <button
@@ -330,7 +331,7 @@ const StatTypeEditPanel: React.FC<{
             disabled={!statType.canonical.trim()}
             className="px-3 py-1 text-sm bg-primary-600 text-white rounded hover:bg-primary-700 disabled:bg-neutral-400 transition-colors shadow-sm"
           >
-            Save Stat Type
+            Save Bet Type
           </button>
         )}
       </div>

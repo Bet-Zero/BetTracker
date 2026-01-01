@@ -30,6 +30,7 @@ import {
   STAT_TYPES,
   MAIN_MARKET_TYPES,
   FUTURE_TYPES,
+  PARLAY_TYPES,
   SPORTS,
   TeamInfo,
   StatTypeInfo,
@@ -115,7 +116,9 @@ function isValidTeamData(item: unknown): item is TeamData {
     Array.isArray(obj.abbreviations) &&
     obj.abbreviations.every((a) => typeof a === "string") &&
     // Phase 4: Optional disabled field
-    (obj.disabled === undefined || typeof obj.disabled === "boolean")
+    (obj.disabled === undefined || typeof obj.disabled === "boolean") &&
+    // Phase 5: Team ID
+    (obj.id === undefined || typeof obj.id === "string")
   );
 }
 
@@ -153,7 +156,9 @@ export function isValidPlayerData(item: unknown): item is PlayerData {
     (obj.id === undefined || typeof obj.id === "string") &&
     (obj.team === undefined || typeof obj.team === "string") &&
     // Phase 4: Optional disabled field
-    (obj.disabled === undefined || typeof obj.disabled === "boolean")
+    (obj.disabled === undefined || typeof obj.disabled === "boolean") &&
+    // Phase 5: Team ID
+    (obj.teamId === undefined || typeof obj.teamId === "string")
   );
 }
 
@@ -202,6 +207,8 @@ export interface TeamData {
   aliases: string[];
   /** Phase 4: If true, entity is excluded from resolution */
   disabled?: boolean;
+  /** Phase 5: Stable, sport-scoped unique identifier (e.g., "NBA:LAL") */
+  id: string;
 }
 
 /**
@@ -234,6 +241,8 @@ export interface PlayerData {
   aliases: string[];
   /** Phase 4: If true, entity is excluded from resolution */
   disabled?: boolean;
+  /** Phase 5: Link to TeamData.id */
+  teamId?: string;
 }
 
 /**
@@ -277,6 +286,8 @@ let teamCollisionMap = new Map<string, string[]>();
 let cachedTeams: TeamData[] = [];
 let cachedStatTypes: StatTypeData[] = [];
 let cachedPlayers: PlayerData[] = [];
+// Map team ID -> TeamData for O(1) resolution in UI
+let teamIdMap = new Map<string, TeamData>();
 
 // Player lookup maps (sport-scoped for collision prevention)
 let playerLookupMap = new Map<string, PlayerData>();
@@ -299,6 +310,8 @@ function toTeamData(team: TeamInfo): TeamData {
     sport: team.sport,
     abbreviations: [...team.abbreviations],
     aliases: [...team.aliases],
+    // Generate ID for seed data
+    id: generateTeamId(team.sport, team.abbreviations, team.canonical),
   };
 }
 
@@ -375,7 +388,29 @@ function loadTeams(): TeamData[] {
  * Validates the shape of parsed data to prevent runtime errors from malformed data.
  */
 function loadStatTypes(): StatTypeData[] {
-  const baseSeed = STAT_TYPES.map(toStatTypeData);
+  // Combine all stat types for the base seed
+  const baseSeed = [
+    ...STAT_TYPES.map(toStatTypeData),
+    ...MAIN_MARKET_TYPES.map(t => ({
+      canonical: t.canonical,
+      sport: "Other" as Sport, // Main markets are generic often, but let's default to Other or maybe explicit per type if needed. For now "Other" or generic is fine.
+      // Actually MAIN_MARKET_TYPES in referenceData doesn't have sport. Let's use "Other" for generic ones.
+      description: t.description,
+      aliases: [...t.aliases]
+    })),
+    ...FUTURE_TYPES.map(t => ({
+      canonical: t.canonical,
+      sport: (t.sport || "Other") as Sport,
+      description: t.description,
+      aliases: [...t.aliases]
+    })),
+    ...PARLAY_TYPES.map(t => ({
+      canonical: t.canonical,
+      sport: "Other" as Sport,
+      description: t.description,
+      aliases: [...t.aliases]
+    }))
+  ];
 
   try {
     const stored = localStorage.getItem(NORMALIZATION_STORAGE_KEYS.STAT_TYPES);
@@ -436,6 +471,7 @@ function toPlayerData(player: PlayerInfo): PlayerData {
     sport: player.sport,
     team: player.team,
     aliases: [...player.aliases],
+    // Seed data doesn't have teamId yet, will be resolved at runtime/migration
   };
 }
 
@@ -543,6 +579,14 @@ function buildTeamLookupMap(teams: TeamData[]): Map<string, TeamData> {
 
   // Store collision map in module-level variable
   teamCollisionMap = collisionMap;
+
+  // Phase 5: Populate ID map
+  teamIdMap.clear();
+  for (const team of teams) {
+    if (team.id) {
+       teamIdMap.set(team.id, team);
+    }
+  }
 
   return map;
 }
@@ -730,7 +774,27 @@ export function getBaseSeedTeams(): TeamData[] {
  * Useful for reset functionality.
  */
 export function getBaseSeedStatTypes(): StatTypeData[] {
-  return STAT_TYPES.map(toStatTypeData);
+  return [
+    ...STAT_TYPES.map(toStatTypeData),
+    ...MAIN_MARKET_TYPES.map(t => ({
+      canonical: t.canonical,
+      sport: "Other" as Sport,
+      description: t.description,
+      aliases: [...t.aliases]
+    })),
+    ...FUTURE_TYPES.map(t => ({
+      canonical: t.canonical,
+      sport: (t.sport || "Other") as Sport,
+      description: t.description,
+      aliases: [...t.aliases]
+    })),
+    ...PARLAY_TYPES.map(t => ({
+      canonical: t.canonical,
+      sport: "Other" as Sport,
+      description: t.description,
+      aliases: [...t.aliases]
+    }))
+  ];
 }
 
 /**
@@ -787,6 +851,50 @@ export function getPlayerInfo(
 
   // Fall back to generic lookup (name only)
   return playerLookupMap.get(lowerSearch);
+}
+
+// ============================================================================
+// PHASE 5: TEAM ID HELPERS
+// ============================================================================
+
+/**
+ * Generates a stable ID for a team.
+ * Format: "${sport}:${primaryAbbr}"
+ *
+ * @param sport - Team's sport
+ * @param abbreviations - List of abbreviations
+ * @param canonical - Canonical name (fallback for abbr)
+ * @returns Stable ID string
+ */
+export function generateTeamId(
+  sport: Sport,
+  abbreviations: string[],
+  canonical: string
+): string {
+  let primaryAbbr = abbreviations.length > 0 ? abbreviations[0] : null;
+
+  if (!primaryAbbr) {
+    // safe fallback derived from canonical
+    // Remove non-alphanumeric, uppercase, take first 6 chars
+    primaryAbbr = canonical
+      .replace(/[^a-zA-Z0-9]/g, "")
+      .toUpperCase()
+      .slice(0, 6);
+  }
+
+  return `${sport}:${primaryAbbr}`;
+}
+
+/**
+ * Gets a team by its stable ID.
+ * O(1) lookup using the internal map.
+ *
+ * @param id - The team ID (e.g., "NBA:LAL")
+ * @returns The TeamData object or undefined
+ */
+export function getTeamById(id: string): TeamData | undefined {
+  ensureInitialized();
+  return teamIdMap.get(id);
 }
 
 /**

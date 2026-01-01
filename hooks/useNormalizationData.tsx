@@ -28,6 +28,9 @@ import {
   StatTypeData,
   PlayerData,
   toLookupKey,
+  generateTeamId,
+  getPlayerInfo,
+  getTeamById,
 } from "../services/normalizationService";
 
 /**
@@ -49,6 +52,7 @@ function dedupeAliases(aliases: string[]): string[] {
 
 // Re-export types from unified service for consumers
 export type { TeamData, StatTypeData, PlayerData };
+export { getTeamById };
 
 interface NormalizationDataContextType {
   teams: TeamData[];
@@ -159,8 +163,77 @@ export const NormalizationDataProvider: React.FC<{ children: ReactNode }> = ({
     // Initialize normalization service with current localStorage data
     refreshLookupMaps();
     setResolverVersion(getResolverVersion());
+
+    // Phase 5: One-time migration for Team IDs and Player Links
+    let teamsChanged = false;
+    let playersChanged = false;
+
+    // 1. Migrate Teams: Ensure all teams have an ID
+    const migratedTeams = teams.map((t) => {
+      if (!t.id) {
+        teamsChanged = true;
+        return {
+          ...t,
+          id: generateTeamId(t.sport, t.abbreviations, t.canonical),
+        };
+      }
+      return t;
+    });
+
+    if (teamsChanged) {
+      console.log("[NormalizationData] Migrating teams to include stable IDs...");
+      setTeams(migratedTeams);
+      // NOTE: setTeams triggers refreshLookupMaps, so we don't need to double call it
+      // BUT we need the updated maps for player resolution below immediately?
+      // State updates are async, but 'migratedTeams' is available locally.
+      // However, link resolution relies on 'services/normalizationService' lookups.
+      // We should manually refresh the service with the new structure temporary?
+      // Actually, 'refreshLookupMaps' reloads from 'cachedTeams' which are loaded from LS.
+      // We just called setTeams (which saves to LS).
+      // So calling refreshLookupMaps() manually here is safe if we want immediate lookup availability.
+      // BUT setTeams implementation calls refreshLookupMaps().. but maybe not synchronously with this execution flow if it relies on react state?
+      // Wait, 'useLocalStorage' setters write to LS immediately.
+      // And they call 'refreshLookupMaps()'. So the service IS updated.
+    }
+
+    // 2. Migrate Players: Link 'team' string to 'teamId'
+    // We use 'migratedTeams' to ensure we have IDs available
+    const migratedPlayers = players.map((p) => {
+      if (p.team && !p.teamId) {
+        // Try to resolve team string to an ID
+        // We can use getPlayerInfo-like logic or just search teams
+        // Need to find a team in p.sport that matches p.team (canonical or alias)
+        // Since we are inside the hook, we can iterate 'migratedTeams'
+        const normalizedSearch = p.team.trim().toLowerCase(); // Basic normalization
+        
+        const matchedTeam = migratedTeams.find((t) => {
+             if (t.sport !== p.sport) return false;
+             if (t.disabled) return false;
+             if (t.canonical.toLowerCase() === normalizedSearch) return true;
+             if (t.aliases.some(a => a.toLowerCase() === normalizedSearch)) return true;
+             if (t.abbreviations.some(a => a.toLowerCase() === normalizedSearch)) return true;
+             return false;
+        });
+
+        if (matchedTeam) {
+          playersChanged = true;
+          return {
+             ...p,
+             teamId: matchedTeam.id
+          };
+        }
+      }
+      return p;
+    });
+
+    if (playersChanged) {
+       console.log("[NormalizationData] Migrating players to use teamId...");
+       setPlayers(migratedPlayers);
+    }
+
     setLoading(false);
-  }, []);
+  }, []); // Run links migration on mount
+
 
   // Team CRUD operations
   const addTeam = useCallback(
@@ -172,8 +245,12 @@ export const NormalizationDataProvider: React.FC<{ children: ReactNode }> = ({
       ) {
         return false;
       }
+      const teamWithId = team.id 
+         ? team 
+         : { ...team, id: generateTeamId(team.sport, team.abbreviations, team.canonical) };
+
       setTeams(
-        [...teams, team].sort((a, b) => a.canonical.localeCompare(b.canonical))
+        [...teams, teamWithId].sort((a, b) => a.canonical.localeCompare(b.canonical))
       );
       setResolverVersion(getResolverVersion());
       return true;

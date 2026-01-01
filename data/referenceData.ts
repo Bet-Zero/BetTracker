@@ -678,6 +678,34 @@ export const MAIN_MARKET_TYPES: MainMarketTypeInfo[] = [
 ];
 
 // ============================================================================
+// PARLAY TYPES
+// ============================================================================
+
+export interface ParlayTypeInfo {
+  canonical: string;
+  aliases: string[];
+  description: string;
+}
+
+export const PARLAY_TYPES: ParlayTypeInfo[] = [
+  {
+    canonical: 'Parlay',
+    aliases: ['Parlay', 'Multi', 'Accumulator', 'parlay'],
+    description: 'Multi-leg bet'
+  },
+  {
+    canonical: 'SGP',
+    aliases: ['SGP', 'Same Game Parlay', 'sgp'],
+    description: 'Same Game Parlay'
+  },
+  {
+    canonical: 'SGP+',
+    aliases: ['SGP+', 'Same Game Parlay Plus', 'SGP Plus', 'sgp+'],
+    description: 'Same Game Parlay Plus'
+  },
+];
+
+// ============================================================================
 // FUTURE TYPES
 // ============================================================================
 
@@ -732,5 +760,45 @@ export const FUTURE_TYPES: FutureTypeInfo[] = [
     canonical: 'MVP',
     aliases: ['MVP', 'Most Valuable Player', 'To Win MVP', 'mvp'],
     description: 'Win MVP Award'
+  },
+  {
+    canonical: 'DPOY',
+    aliases: ['DPOY', 'Defensive Player of the Year', 'dpoy'],
+    description: 'Win Defensive Player of the Year'
+  },
+  {
+    canonical: 'ROY',
+    aliases: ['ROY', 'Rookie of the Year', 'roy'],
+    description: 'Win Rookie of the Year'
+  },
+  {
+    canonical: '6MOY',
+    aliases: ['6MOY', 'Sixth Man of the Year', '6moy'],
+    description: 'Win Sixth Man of the Year'
+  },
+  {
+    canonical: 'MIP',
+    aliases: ['MIP', 'Most Improved Player', 'mip'],
+    description: 'Win Most Improved Player'
+  },
+  {
+    canonical: 'COTY',
+    aliases: ['COTY', 'Coach of the Year', 'coty'],
+    description: 'Win Coach of the Year'
+  },
+  {
+    canonical: 'Conference Winner',
+    aliases: ['Conference Winner', 'Win Conference', 'conference winner'],
+    description: 'Win Conference Championship'
+  },
+  {
+    canonical: 'Division Winner',
+    aliases: ['Division Winner', 'Win Division', 'division winner'],
+    description: 'Win Division Title'
+  },
+  {
+    canonical: 'Championship',
+    aliases: ['Championship', 'Win Championship', 'Outright Winner', 'championship'],
+    description: 'Win League Championship'
   },
 ];
