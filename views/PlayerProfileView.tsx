@@ -6,7 +6,7 @@ import { getTeamInfo, normalizeTeamName } from '../services/normalizationService
 import { getTeamAggregationKey, getPlayerAggregationKey } from '../services/resolver';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Sector } from 'recharts';
 import { TrendingUp, TrendingDown, Scale, BarChart2, User } from '../components/icons';
-import { Bet } from '../types';
+import { Bet, BetLeg } from '../types';
 import {
   createBetTypePredicate,
   createDateRangePredicate,
@@ -22,6 +22,7 @@ import {
   mapToStatsArray,
 } from '../services/aggregationService';
 import { getNetNumeric, getEntityMoneyContribution } from '../services/displaySemantics';
+import { computeOverUnderStats, filterBetsByMarketCategory, OverUnderMarketFilter } from '../services/overUnderStatsService';
 
 // --- HELPER COMPONENTS ---
 
@@ -231,44 +232,29 @@ const ToggleButton: React.FC<{
 );
 
 const OverUnderBreakdown: React.FC<{ bets: Bet[], selectedPlayer: string | null }> = ({ bets, selectedPlayer }) => {
-    const [filter, setFilter] = useState<'props' | 'totals' | 'all'>('all');
+    const [filter, setFilter] = useState<OverUnderMarketFilter>('all');
 
     const data = useMemo(() => {
-        const filteredBets = bets.filter(bet => {
-            if (filter === 'props') return bet.marketCategory === 'Props';
-            if (filter === 'totals') return bet.marketCategory === 'Main Markets';
-            return bet.marketCategory === 'Props' || bet.marketCategory === 'Main Markets';
-        });
-
-        const stats = { 
-            over: { count: 0, wins: 0, losses: 0, stake: 0, net: 0 }, 
-            under: { count: 0, wins: 0, losses: 0, stake: 0, net: 0 }
-        };
-
-        filteredBets.forEach(bet => {
-            if (bet.legs?.length) {
-                // P4: Use entity money contribution to exclude parlay money from player stats
-                const moneyContribution = getEntityMoneyContribution(bet);
-                bet.legs.forEach(leg => {
-                    // Phase 1: Use resolver for entity matching
-                    if (leg.ou && (!selectedPlayer || leg.entities?.some(e => getPlayerAggregationKey(e, '[Unresolved]', { sport: bet.sport as any }) === selectedPlayer))) {
-                        const ou = leg.ou.toLowerCase() as 'over' | 'under';
-                        stats[ou].count++; 
-                        stats[ou].stake += moneyContribution.stake; // P4: excludes parlays
-                        stats[ou].net += moneyContribution.net; // P4: excludes parlays
-                        if (bet.result === 'win') stats[ou].wins++; 
-                        if (bet.result === 'loss') stats[ou].losses++;
-                    }
-                });
-            }
-        });
-
-        // Using imported calculateRoi from aggregationService
+        // Use shared O/U stats service with entity filter and P4 money attribution
+        const filteredBets = filterBetsByMarketCategory(bets, filter);
         
-        return { 
-            over: {...stats.over, roi: calculateRoi(stats.over.net, stats.over.stake)}, 
-            under: {...stats.under, roi: calculateRoi(stats.under.net, stats.under.stake)}
+        // Custom matcher to handle player aggregation keys
+        const entityMatcher = (leg: BetLeg, bet: Bet, targetEntity: string) => {
+            if (!leg.entities) return false;
+            return leg.entities.some((e: string) => 
+                getPlayerAggregationKey(e, '[Unresolved]', { sport: bet.sport as any }) === targetEntity
+            );
         };
+        
+        return computeOverUnderStats(filteredBets, {
+            // Entity filter: only count legs where selectedPlayer is involved
+            entityFilter: selectedPlayer ? {
+                entity: selectedPlayer,
+                matcher: entityMatcher,
+            } : undefined,
+            // P4: Use entity money contribution to exclude parlay money
+            useEntityMoneyContribution: true,
+        });
     }, [bets, filter, selectedPlayer]);
 
     const pieData = [
