@@ -152,12 +152,14 @@ LAYER 7: DASHBOARD DISPLAY (Components)
 | `isGroupLeg` | boolean | ❌ | SGP group marker | true for SGP containers | Parser |
 | `children` | BetLeg[] | ❌ | Nested selections | For SGP+ inner legs | Parser |
 
-### RED FLAGS — Data Contract Issues
+### NOTES — Data Contract
 
-**NONE IDENTIFIED.** The canonical data contract is well-defined in:
+No data contract issues identified. The canonical data contract is well-defined in:
 - `types.ts` (interfaces)
 - `parsing/parserContract.ts` (validation)
 - `parsing/PARSER_TARGET_FIELDS.md` (documentation)
+
+*For the consolidated red flags list, see Section K.*
 
 ---
 
@@ -224,11 +226,11 @@ if (odds < 0): toWin = stake + (stake / (|odds| / 100))
 
 **Location:** `services/aggregationService.ts:computeProfitOverTime()`
 
-### RED FLAGS — Derived Metrics Issues
+### NOTES — Intentional Divergence (Net Semantics)
 
-| ID | Priority | Issue | Location | Risk |
-|----|----------|-------|----------|------|
-| 1 | P2 | `computeNetNumeric` (betToFinalRows) vs `getNetNumeric` (displaySemantics) have different pending behavior | Two files | **Intentional** - documented divergence |
+`betToFinalRows.computeNetNumeric()` returns `undefined` for pending (display blank), while `displaySemantics.getNetNumeric()` returns `0` for pending (KPI totals). This is **intentional divergence** by design — KPI vs display semantics.
+
+*This behavior is tracked as PG-1 (P0) in Section K. See Section K for the consolidated red flags list.*
 
 ---
 
@@ -278,11 +280,11 @@ if (odds < 0): toWin = stake + (stake / (|odds| / 100))
 |--------|-------------|---------|---------------------|
 | BetTable | `bets` → `flattenedBets` | sport, type, result, category, search | Uses `betToFinalRows()` |
 
-### RED FLAGS — Widget Wiring Issues
+### NOTES — Widget Wiring Design Decisions
 
-| ID | Priority | Issue | Location | Risk |
-|----|----------|-------|----------|------|
-| 5 | P3 | QuickStatCards use ALL bets, not filteredBets | DashboardView:829-830 | **Intentional** - shows "at-a-glance" regardless of filters |
+QuickStatCards use ALL bets (not filteredBets) by design — this is the "at-a-glance" global view regardless of filters.
+
+*This behavior is tracked as PG-2 (P0) in Section K. See Section K for the consolidated red flags list.*
 
 ---
 
