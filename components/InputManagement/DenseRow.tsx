@@ -103,7 +103,7 @@ const DenseRow: React.FC<DenseRowProps> = ({
 
       {/* Expansion panel */}
       {expanded && children && (
-        <div className="px-3 py-3 bg-neutral-50 dark:bg-neutral-800/30 border-t border-neutral-200 dark:border-neutral-700 shadow-inner">
+        <div className="px-3 py-3 pl-4 bg-neutral-100 dark:bg-neutral-950 border-t border-l-2 border-neutral-200 dark:border-neutral-700 border-l-primary-500">
           {children}
         </div>
       )}

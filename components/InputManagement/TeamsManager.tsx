@@ -151,27 +151,30 @@ const TeamsManager: React.FC = () => {
           </div>
         )}
         
-        {filteredTeams.slice(0, visibleCount).map((team) => (
-          <DenseRow
-            key={team.id || team.canonical}
-            name={team.canonical}
-            subtitle={team.sport}
-            aliasCount={team.aliases.length + team.abbreviations.length}
-            disabled={team.disabled}
-            expanded={expandedTeam === team.canonical}
-            onToggleExpand={() => setExpandedTeam(expandedTeam === team.canonical ? null : team.canonical)}
-            onDisable={() => disableTeam(team.canonical)}
-            onEnable={() => enableTeam(team.canonical)}
-            onDelete={() => removeTeam(team.canonical)}
-          >
+        {filteredTeams.slice(0, visibleCount).map((team) => {
+          const rowKey = team.id || team.canonical;
+          return (
+            <DenseRow
+              key={rowKey}
+              name={team.canonical}
+              subtitle={team.sport}
+              aliasCount={team.aliases.length + team.abbreviations.length}
+              disabled={team.disabled}
+              expanded={expandedTeam === rowKey}
+              onToggleExpand={() => setExpandedTeam(expandedTeam === rowKey ? null : rowKey)}
+              onDisable={() => disableTeam(team.canonical)}
+              onEnable={() => enableTeam(team.canonical)}
+              onDelete={() => removeTeam(team.canonical)}
+            >
             <TeamEditPanel
               team={team}
               onChange={(updated) => updateTeam(team.canonical, updated)}
               onSave={() => setExpandedTeam(null)}
               onCancel={() => setExpandedTeam(null)}
             />
-          </DenseRow>
-        ))}
+            </DenseRow>
+          );
+        })}
 
         {/* Load More / Empty State */}
         {filteredTeams.length === 0 && !isAdding ? (
@@ -204,7 +207,7 @@ const TeamEditPanel: React.FC<{
   const [isLocked, setIsLocked] = useState(!isNew);
 
   return (
-    <div className={`space-y-3 ${isNew ? "p-4 bg-blue-50 dark:bg-blue-900/10" : ""}`}>
+    <div className={`space-y-3 ${isNew ? "p-4 bg-blue-50 dark:bg-blue-950/50" : ""}`}>
       <div className="grid grid-cols-2 gap-3">
         <div className="relative">
           <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-1">Canonical Name</label>
@@ -231,7 +234,7 @@ const TeamEditPanel: React.FC<{
             value={team.canonical}
             onChange={(e) => onChange({ ...team, canonical: e.target.value })}
             disabled={!isNew && isLocked}
-            className="w-full px-2 py-1.5 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-800 disabled:bg-neutral-100 dark:disabled:bg-neutral-900 focus:ring-1 focus:ring-primary-500 outline-none transition-colors"
+            className="w-full px-2 py-1.5 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-800 disabled:bg-neutral-50 dark:disabled:bg-neutral-800/50 disabled:text-neutral-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors"
             placeholder="e.g., Phoenix Suns"
           />
         </div>
@@ -241,7 +244,7 @@ const TeamEditPanel: React.FC<{
             value={team.sport}
             onChange={(e) => onChange({ ...team, sport: e.target.value as Sport })}
             disabled={!isNew && isLocked}
-            className="w-full px-2 py-1.5 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-800 disabled:bg-neutral-100 dark:disabled:bg-neutral-900 focus:ring-1 focus:ring-primary-500 outline-none transition-colors"
+            className="w-full px-2 py-1.5 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-800 disabled:bg-neutral-50 dark:disabled:bg-neutral-800/50 disabled:text-neutral-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors"
           >
             {SPORTS.map((s) => (
               <option key={s} value={s}>{s}</option>

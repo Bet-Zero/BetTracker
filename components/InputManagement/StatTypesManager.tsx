@@ -189,16 +189,18 @@ const StatTypesManager: React.FC = () => {
         )}
         
         {filteredStatTypes.slice(0, visibleCount).map((statType) => {
-          const key = `${statType.canonical}::${statType.sport}`;
+          const rowKey = `${statType.canonical}::${statType.sport}`;
+          // Note: statType doesn't have a stable id yet, so we use the original key
+          // but wrap updates to preserve expansion. For now, key on canonical::sport.
           return (
             <DenseRow
-              key={key}
+              key={rowKey}
               name={statType.canonical}
               subtitle={statType.sport}
               aliasCount={statType.aliases.length}
               disabled={statType.disabled}
-              expanded={expandedStatType === key}
-              onToggleExpand={() => setExpandedStatType(expandedStatType === key ? null : key)}
+              expanded={expandedStatType === rowKey}
+              onToggleExpand={() => setExpandedStatType(expandedStatType === rowKey ? null : rowKey)}
               onDisable={() => disableStatType(statType.canonical, statType.sport)}
               onEnable={() => enableStatType(statType.canonical, statType.sport)}
               onDelete={() => removeStatType(statType.canonical)}
@@ -242,7 +244,7 @@ const StatTypeEditPanel: React.FC<{
   const [isLocked, setIsLocked] = useState(!isNew);
 
   return (
-    <div className={`space-y-3 ${isNew ? "p-4 bg-blue-50 dark:bg-blue-900/10" : ""}`}>
+    <div className={`space-y-3 ${isNew ? "p-4 bg-blue-50 dark:bg-blue-950/50" : ""}`}>
       <div className="grid grid-cols-2 gap-3">
         <div className="relative">
           <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-1">Canonical Name</label>
@@ -269,7 +271,7 @@ const StatTypeEditPanel: React.FC<{
             value={statType.canonical}
             onChange={(e) => onChange({ ...statType, canonical: e.target.value })}
             disabled={!isNew && isLocked}
-            className="w-full px-2 py-1.5 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-800 disabled:bg-neutral-100 dark:disabled:bg-neutral-900 focus:ring-1 focus:ring-primary-500 outline-none transition-colors"
+            className="w-full px-2 py-1.5 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-800 disabled:bg-neutral-50 dark:disabled:bg-neutral-800/50 disabled:text-neutral-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors"
             placeholder="e.g., Points"
           />
         </div>
@@ -279,7 +281,7 @@ const StatTypeEditPanel: React.FC<{
             value={statType.sport}
             onChange={(e) => onChange({ ...statType, sport: e.target.value as Sport })}
             disabled={!isNew && isLocked}
-            className="w-full px-2 py-1.5 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-800 disabled:bg-neutral-100 dark:disabled:bg-neutral-900 focus:ring-1 focus:ring-primary-500 outline-none transition-colors"
+            className="w-full px-2 py-1.5 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-800 disabled:bg-neutral-50 dark:disabled:bg-neutral-800/50 disabled:text-neutral-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors"
           >
             {SPORTS.map((s) => (
               <option key={s} value={s}>{s}</option>

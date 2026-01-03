@@ -150,7 +150,7 @@ const PlayersManager: React.FC = () => {
         )}
         
         {filteredPlayers.slice(0, visibleCount).map((player) => {
-          const key = `${player.canonical}::${player.sport}`;
+          const rowKey = player.id || `${player.canonical}::${player.sport}`;
           // Resolve team name for display
           let teamDisplay = "";
           if (player.teamId) {
@@ -163,13 +163,13 @@ const PlayersManager: React.FC = () => {
 
           return (
             <DenseRow
-              key={player.id || key}
+              key={rowKey}
               name={player.canonical}
               subtitle={`${player.sport}${teamDisplay ? ` · ${teamDisplay}` : ""}`}
               aliasCount={player.aliases.length}
               disabled={player.disabled}
-              expanded={expandedPlayer === key}
-              onToggleExpand={() => setExpandedPlayer(expandedPlayer === key ? null : key)}
+              expanded={expandedPlayer === rowKey}
+              onToggleExpand={() => setExpandedPlayer(expandedPlayer === rowKey ? null : rowKey)}
               onDisable={() => disablePlayer(player.canonical, player.sport)}
               onEnable={() => enablePlayer(player.canonical, player.sport)}
               onDelete={() => removePlayer(player.canonical, player.sport)}
@@ -231,7 +231,7 @@ const PlayerEditPanel: React.FC<{
   };
 
   return (
-    <div className={`space-y-3 ${isNew ? "p-4 bg-blue-50 dark:bg-blue-900/10" : ""}`}>
+    <div className={`space-y-3 ${isNew ? "p-4 bg-blue-50 dark:bg-blue-950/50" : ""}`}>
       <div className="grid grid-cols-3 gap-3">
         <div className="relative">
           <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-1">Canonical Name</label>
@@ -258,7 +258,7 @@ const PlayerEditPanel: React.FC<{
             value={player.canonical}
             onChange={(e) => onChange({ ...player, canonical: e.target.value })}
             disabled={!isNew && isLocked}
-            className="w-full px-2 py-1.5 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-800 disabled:bg-neutral-100 dark:disabled:bg-neutral-900 focus:ring-1 focus:ring-primary-500 outline-none transition-colors"
+            className="w-full px-2 py-1.5 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-800 disabled:bg-neutral-50 dark:disabled:bg-neutral-800/50 disabled:text-neutral-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors"
             placeholder="e.g., Kobe Bryant"
           />
         </div>
@@ -268,7 +268,7 @@ const PlayerEditPanel: React.FC<{
             value={player.sport}
             onChange={(e) => handleSportChange(e.target.value as Sport)}
             disabled={!isNew && isLocked}
-            className="w-full px-2 py-1.5 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-800 disabled:bg-neutral-100 dark:disabled:bg-neutral-900 focus:ring-1 focus:ring-primary-500 outline-none transition-colors"
+            className="w-full px-2 py-1.5 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-800 disabled:bg-neutral-50 dark:disabled:bg-neutral-800/50 disabled:text-neutral-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors"
           >
             {SPORTS.map((s) => (
               <option key={s} value={s}>{s}</option>
@@ -284,7 +284,7 @@ const PlayerEditPanel: React.FC<{
                onChange({ ...player, teamId: val || undefined });
             }}
             disabled={!isNew && isLocked}
-            className="w-full px-2 py-1.5 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-800 disabled:bg-neutral-100 dark:disabled:bg-neutral-900 focus:ring-1 focus:ring-primary-500 outline-none transition-colors"
+            className="w-full px-2 py-1.5 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-800 disabled:bg-neutral-50 dark:disabled:bg-neutral-800/50 disabled:text-neutral-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors"
           >
             <option value="">(No Team)</option>
             {sportTeams.map((t) => (
