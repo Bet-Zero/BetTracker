@@ -23,6 +23,8 @@ import {
 } from '../services/aggregationService';
 import { getNetNumeric, getEntityMoneyContribution } from '../services/displaySemantics';
 import { computeOverUnderStats, filterBetsByMarketCategory, OverUnderMarketFilter } from '../services/overUnderStatsService';
+// Task C: UI Clarity tooltips
+import { InfoTooltip } from '../components/debug/InfoTooltip';
 
 // --- HELPER COMPONENTS ---
 
@@ -282,7 +284,14 @@ const OverUnderBreakdown: React.FC<{ bets: Bet[], selectedPlayer: string | null 
     return (
         <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-md p-6 h-full flex flex-col">
             <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold text-neutral-800 dark:text-neutral-200">Over vs. Under</h2>
+                <div className="flex items-center gap-2">
+                    <h2 className="text-xl font-semibold text-neutral-800 dark:text-neutral-200">Over vs. Under</h2>
+                    {/* Task C3: PlayerProfileView O/U Breakdown tooltip */}
+                    <InfoTooltip
+                        text="Bet counts include parlay legs; stake/net from straight bets only"
+                        position="right"
+                    />
+                </div>
                 <div className="flex items-center space-x-1 flex-wrap gap-y-2 bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-lg">
                     <ToggleButton value="props" label="Props" currentValue={filter} onClick={(v) => setFilter(v as any)} />
                     <ToggleButton value="totals" label="Totals" currentValue={filter} onClick={(v) => setFilter(v as any)} />
@@ -515,6 +524,11 @@ const PlayerProfileView: React.FC<PlayerProfileViewProps> = ({ selectedPlayer, s
                                     <div className="px-3 py-1.5 rounded-md font-semibold text-xs bg-primary-600 text-white shadow">
                                         PLAYER: {selectedPlayer}
                                     </div>
+                                    {/* Task C4: PlayerProfileView Header tooltip */}
+                                    <InfoTooltip
+                                        text="Includes all bets with this player, including parlays"
+                                        position="right"
+                                    />
                                     <button
                                         onClick={handleClearPlayer}
                                         className="px-3 py-1.5 rounded-md font-semibold text-xs text-danger-600 dark:text-danger-400 hover:bg-danger-100 dark:hover:bg-danger-900/50"

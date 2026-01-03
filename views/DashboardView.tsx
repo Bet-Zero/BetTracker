@@ -50,6 +50,8 @@ import { resolveTeam, getTeamAggregationKey, getPlayerAggregationKey } from "../
 // Dashboard UI Clarity Phase: DEV-ONLY debug overlay and tooltips
 import { DashboardTruthOverlay } from "../components/debug/DashboardTruthOverlay";
 import { InfoTooltip } from "../components/debug/InfoTooltip";
+// Futures Exposure Panel (Task B)
+import FuturesExposurePanel from "../components/FuturesExposurePanel";
 
 // --- HELPER FUNCTIONS & COMPONENTS ---
 
@@ -383,11 +385,15 @@ const OverUnderBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
   return (
     <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-md p-6 flex flex-col">
       <div className="flex justify-between items-center mb-4">
-        <div>
+        <div className="flex items-center gap-2">
           <h2 className="text-xl font-semibold text-neutral-800 dark:text-neutral-200">
             Over / Under
           </h2>
-
+          {/* Task C1: Dashboard O/U Breakdown tooltip */}
+          <InfoTooltip
+            text="Straight bets only (excludes parlay/SGP legs)"
+            position="right"
+          />
         </div>
         <div className="flex items-center space-x-1 flex-wrap gap-y-2 bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-lg">
           <ToggleButton
@@ -1307,6 +1313,8 @@ const DashboardView: React.FC = () => {
                 searchPlaceholder="Search tail..."
               />
             )}
+            {/* Futures Exposure Panel (Task B) */}
+            <FuturesExposurePanel bets={bets} />
           </div>
         </div>
       )}

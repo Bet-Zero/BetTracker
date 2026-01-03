@@ -9,10 +9,11 @@ import SettingsView from './views/SettingsView';
 import SportsbookBreakdownView from './views/SportsbookBreakdownView';
 import BySportView from './views/BySportView';
 import PlayerProfileView from './views/PlayerProfileView';
+import ParlayPerformanceView from './views/ParlayPerformanceView';
 import ErrorBoundary from './components/ErrorBoundary';
-import { DownloadCloud, BarChart2, Settings, Table, Sun, Moon, Scale, User, Trophy } from './components/icons';
+import { DownloadCloud, BarChart2, Settings, Table, Sun, Moon, Scale, User, Trophy, Layers } from './components/icons';
 
-type Tab = 'import' | 'table' | 'dashboard' | 'bySport' | 'sportsbooks' | 'player' | 'settings';
+type Tab = 'import' | 'table' | 'dashboard' | 'bySport' | 'sportsbooks' | 'player' | 'parlays' | 'settings';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('import');
@@ -53,6 +54,8 @@ const App: React.FC = () => {
         return <SportsbookBreakdownView />;
       case 'player':
         return <PlayerProfileView selectedPlayer={selectedPlayer} setSelectedPlayer={setSelectedPlayer} />;
+      case 'parlays':
+        return <ParlayPerformanceView />;
       case 'settings':
         return <SettingsView theme={theme} toggleTheme={toggleTheme} />;
       default:
@@ -90,6 +93,7 @@ const App: React.FC = () => {
               <NavItem tab="dashboard" icon={<BarChart2 className="w-6 h-6" />} label="Dashboard" />
               <NavItem tab="bySport" icon={<Trophy className="w-6 h-6" />} label="By Sport" />
               <NavItem tab="sportsbooks" icon={<Scale className="w-6 h-6" />} label="By Sportsbook" />
+              <NavItem tab="parlays" icon={<Layers className="w-6 h-6" />} label="Parlays" />
               <NavItem tab="player" icon={<User className="w-6 h-6" />} label="Player Profiles" />
               <NavItem tab="settings" icon={<Settings className="w-6 h-6" />} label="Settings" />
             </nav>

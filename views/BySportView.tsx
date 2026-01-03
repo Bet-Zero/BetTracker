@@ -48,6 +48,8 @@ import { normalizeTeamName, getTeamInfo } from "../services/normalizationService
 // Phase 1: Resolver for team aggregation
 // Phase 2: Extended with player aggregation
 import { getTeamAggregationKey, getPlayerAggregationKey } from "../services/resolver";
+// Task C: UI Clarity tooltips
+import { InfoTooltip } from "../components/debug/InfoTooltip";
 
 // --- HELPER FUNCTIONS & COMPONENTS ---
 
@@ -141,7 +143,7 @@ type StatsData = {
 };
 interface StatsTableProps {
   data: StatsData[];
-  title: string;
+  title: React.ReactNode;
   searchPlaceholder: string;
   className?: string;
   children?: React.ReactNode;
@@ -439,10 +441,15 @@ const OverUnderBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
   return (
     <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-md p-6 h-full flex flex-col">
       <div className="flex justify-between items-center mb-4">
-        <div>
+        <div className="flex items-center gap-2">
           <h2 className="text-xl font-semibold text-neutral-800 dark:text-neutral-200">
             Over / Under
           </h2>
+          {/* Task C1: BySportView O/U Breakdown tooltip */}
+          <InfoTooltip
+            text="Straight bets only (excludes parlay/SGP legs)"
+            position="right"
+          />
         </div>
         <div className="flex items-center space-x-1 flex-wrap gap-y-2 bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-lg">
           <ToggleButton
@@ -1034,7 +1041,16 @@ const BySportView: React.FC = () => {
             <div className="h-[500px]">
               <StatsTable
                 data={processedData.playerTeamStats}
-                title="Player & Team Performance"
+                title={
+                  <span className="flex items-center gap-2">
+                    Player & Team Performance
+                    {/* Task C2: BySportView Player & Team Table tooltip */}
+                    <InfoTooltip
+                      text="Parlays/SGP/SGP+ contribute $0 stake/net to entity breakdowns (prevents double-counting)."
+                      position="right"
+                    />
+                  </span>
+                }
                 searchPlaceholder="Search player/team..."
                 className="h-full"
               >
