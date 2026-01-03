@@ -1605,7 +1605,7 @@ const BetTableView: React.FC = () => {
                 />
               ))}
             </colgroup>
-            <thead className="text-xs font-semibold tracking-wide text-neutral-700 uppercase bg-neutral-50 dark:bg-neutral-800 dark:text-neutral-400 sticky top-0 z-10 border-b border-neutral-200 dark:border-neutral-700">
+            <thead className="text-xs font-semibold tracking-wide text-neutral-700 uppercase bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-400 sticky top-0 z-10 border-b border-neutral-300 dark:border-neutral-700">
               <tr className="leading-tight">
                 {headers.map((header, index) => {
                   const headerPaddingX = "px-1";
@@ -1634,11 +1634,11 @@ const BetTableView: React.FC = () => {
                       scope="col"
                       className={`${headerPaddingX} py-1 relative whitespace-nowrap${alignmentClass}${
                         isMoneyBlockStart
-                          ? " border-l border-neutral-200 dark:border-neutral-700"
+                          ? " border-l border-neutral-300 dark:border-neutral-700"
                           : ""
                       }${
                         !isLastColumn
-                          ? " border-r border-neutral-200 dark:border-neutral-700"
+                          ? " border-r border-neutral-300 dark:border-neutral-700"
                           : ""
                       }`}
                       style={{
@@ -1751,7 +1751,7 @@ const BetTableView: React.FC = () => {
                     }
                     if (!isLastColumn) {
                       classes +=
-                        " border-r border-neutral-200 dark:border-neutral-700";
+                        " border-r border-neutral-300 dark:border-neutral-700";
                     }
                     return classes;
                   };
@@ -1761,7 +1761,7 @@ const BetTableView: React.FC = () => {
                   const isEvenStripe = stripeIdx % 2 === 0;
                   const bgClass = isEvenStripe
                     ? "bg-white dark:bg-neutral-900"
-                    : "bg-neutral-50 dark:bg-neutral-800/50";
+                    : "bg-neutral-200 dark:bg-neutral-800/50";
 
                   return (
                     <tr

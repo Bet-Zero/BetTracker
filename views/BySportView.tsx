@@ -309,7 +309,7 @@ const StatsTable: React.FC<StatsTableProps> = ({
               return (
                 <tr
                   key={item.sport ? `${item.sport}-${item.name}` : item.name}
-                  className="odd:bg-white dark:odd:bg-neutral-900 even:bg-neutral-50 dark:even:bg-neutral-800/50 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  className="odd:bg-white dark:odd:bg-neutral-900 even:bg-neutral-200 dark:even:bg-neutral-800/50 hover:bg-neutral-100 dark:hover:bg-neutral-800"
                 >
                   <td className="px-4 py-2 font-medium text-neutral-900 dark:text-neutral-100 truncate max-w-xs">
                     {item.name}
