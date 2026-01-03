@@ -364,10 +364,14 @@ function getParlayTypeName(bet: Bet): string {
 
 /**
  * Gets the leg count bucket for breakdown.
+ * Note: By definition parlays have 2+ legs. Bets with <2 legs are classified
+ * as single bets and filtered out by isParlayBetType(), but we handle
+ * edge cases defensively here.
  */
 function getLegCountBucket(bet: Bet): string {
   const legCount = bet.legs?.length || 0;
-  if (legCount <= 2) return '2-leg';
+  if (legCount < 2) return '2-leg'; // Edge case: shouldn't happen for parlays
+  if (legCount === 2) return '2-leg';
   if (legCount === 3) return '3-leg';
   if (legCount === 4) return '4-leg';
   return '5+ legs';
