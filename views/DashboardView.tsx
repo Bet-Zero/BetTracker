@@ -41,6 +41,7 @@ import {
   DimensionStats,
 } from "../services/aggregationService";
 import { getNetNumeric, isParlayBetType } from "../services/displaySemantics";
+import { computeOverUnderStats, filterBetsByMarketCategory, OverUnderMarketFilter } from "../services/overUnderStatsService";
 import { computeEntityStatsMap, EntityStats } from "../services/entityStatsService";
 import { normalizeTeamName, getTeamInfo } from "../services/normalizationService";
 // Phase 1: Resolver for team aggregation
@@ -319,51 +320,12 @@ const ToggleButton: React.FC<{
 );
 
 const OverUnderBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
-  const [filter, setFilter] = useState<"props" | "totals" | "all">("all");
+  const [filter, setFilter] = useState<OverUnderMarketFilter>("all");
 
   const data = useMemo(() => {
-    const filteredBets = bets.filter((bet) => {
-      if (filter === "props") return bet.marketCategory === "Props";
-      if (filter === "totals") return bet.marketCategory === "Main Markets";
-      return (
-        bet.marketCategory === "Props" || bet.marketCategory === "Main Markets"
-      );
-    });
-
-    const stats = {
-      over: { count: 0, wins: 0, losses: 0, stake: 0, net: 0 },
-      under: { count: 0, wins: 0, losses: 0, stake: 0, net: 0 },
-    };
-
-    // NOTE: This breakdown uses ticket-level attribution (full ticket stake/net per leg).
-    // This is intentional for overall O/U analysis across all bets, not entity-specific stats.
-    // For entity-specific O/U stats (e.g., player profile), use getEntityMoneyContribution() to exclude parlay money.
-    filteredBets.forEach((bet) => {
-      // Skip parlays - only count straight bets for O/U leg analysis
-      if (isParlayBetType(bet.betType)) return;
-
-      if (bet.legs?.length) {
-        bet.legs.forEach((leg) => {
-          if (leg.ou) {
-            const ou = leg.ou.toLowerCase() as "over" | "under";
-            const net = getNetNumeric(bet);
-            stats[ou].count++;
-            stats[ou].stake += bet.stake;
-            stats[ou].net += net;
-            if (bet.result === "win") stats[ou].wins++;
-            if (bet.result === "loss") stats[ou].losses++;
-          }
-        });
-      }
-    });
-
-    const calculateRoi = (s: { stake: number; net: number }) =>
-      s.stake > 0 ? (s.net / s.stake) * 100 : 0;
-
-    return {
-      over: { ...stats.over, roi: calculateRoi(stats.over) },
-      under: { ...stats.under, roi: calculateRoi(stats.under) },
-    };
+    // Use shared O/U stats service (consolidates parlay exclusion logic)
+    const filteredBets = filterBetsByMarketCategory(bets, filter);
+    return computeOverUnderStats(filteredBets);
   }, [bets, filter]);
 
   const pieData = [
