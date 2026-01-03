@@ -182,7 +182,7 @@ No data contract issues identified. The canonical data contract is well-defined 
 - `services/displaySemantics.ts:getNetDisplay()` — Display formatting  
 - `parsing/shared/betToFinalRows.ts:computeNetNumeric()` — Table display
 
-**IMPORTANT — PROOF GAP PG-1:** `betToFinalRows.computeNetNumeric()` returns `undefined` for pending (display blank), while `displaySemantics.getNetNumeric()` returns `0` for pending (KPI totals). This is **intentional divergence**. The drift risk is that either function’s **settled-bet behavior** or pending semantics changes without tests catching it. Enforcement must assert: KPI totals reconcile only against `getNetNumeric`, pending display net stays blank, and settled display net matches `payout - stake` formatting expectations.
+**IMPORTANT — NOTE (tracks as PG-1 in Section K):** `betToFinalRows.computeNetNumeric()` returns `undefined` for pending (display blank), while `displaySemantics.getNetNumeric()` returns `0` for pending (KPI totals). This is **intentional divergence**. The drift risk is that either function’s **settled-bet behavior** or pending semantics changes without tests catching it. Enforcement must assert: KPI totals reconcile only against `getNetNumeric`, pending display net stays blank, and settled display net matches `payout - stake` formatting expectations.
 
 ### 2. ROI Calculation
 
@@ -225,12 +225,6 @@ if (odds < 0): toWin = stake + (stake / (|odds| / 100))
 **Formula:** Sort bets by placedAt, accumulate net
 
 **Location:** `services/aggregationService.ts:computeProfitOverTime()`
-
-### NOTES — Intentional Divergence (Net Semantics)
-
-`betToFinalRows.computeNetNumeric()` returns `undefined` for pending (display blank), while `displaySemantics.getNetNumeric()` returns `0` for pending (KPI totals). This is **intentional divergence** by design — KPI vs display semantics.
-
-*This behavior is tracked as PG-1 (P0) in Section K. See Section K for the consolidated red flags list.*
 
 ---
 
