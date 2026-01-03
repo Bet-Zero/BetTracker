@@ -55,16 +55,22 @@ describe('Time Bucketing Enforcement Tests - Phase 2B', () => {
     });
 
     it('settledAt field is completely ignored by date filter', () => {
-      // Create a bet with placedAt inside window and settledAt = undefined
+      // TIME_BUCKET_BET_PLACED_IN_SETTLED_OUT has:
+      // - settledAt: '2025-01-20T12:00:00Z' (explicitly defined, OUT of window)
+      // Verify the bet has a defined settledAt that would fail if used
+      expect(TIME_BUCKET_BET_PLACED_IN_SETTLED_OUT.settledAt).toBeDefined();
+      
+      // Even though settledAt is outside the window, the bet should be included
+      // because filtering uses placedAt (which IS inside the window)
+      const predicate = createDateRangePredicate('custom', DEADLY_TIME_WINDOW as CustomDateRange);
+      expect(predicate(TIME_BUCKET_BET_PLACED_IN_SETTLED_OUT)).toBe(true);
+      
+      // Also verify that removing settledAt doesn't change the behavior
       const betWithNoSettledAt: Bet = {
         ...TIME_BUCKET_BET_PLACED_IN_SETTLED_OUT,
         id: 'test-no-settled',
         settledAt: undefined,
       };
-
-      const predicate = createDateRangePredicate('custom', DEADLY_TIME_WINDOW as CustomDateRange);
-
-      // Should still be included based on placedAt
       expect(predicate(betWithNoSettledAt)).toBe(true);
     });
   });

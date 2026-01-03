@@ -176,19 +176,23 @@ describe('PG-3 / INV-8: Over/Under Breakdown Parlay Exclusion', () => {
       expect(stats.over.net).toBe(0);
     });
 
-    it('bet without legs is not counted in O/U (no leg data to process)', () => {
+    it('bet without legs is not counted in O/U (leg.ou required, not bet.ou)', () => {
+      // NOTE: The O/U breakdown processes leg.ou, NOT bet.ou
+      // This is intentional because the actual O/U selection lives on the leg,
+      // while bet.ou is just a convenience field. This test verifies that
+      // bet-level ou is NOT used for O/U breakdown calculations.
       const betWithoutLegs = createBet({
         id: 'no-legs',
         betType: 'single',
         stake: 10,
         payout: 20,
         result: 'win',
-        ou: 'Over', // Bet-level ou, but no legs
+        ou: 'Over', // Bet-level ou - should be IGNORED (no legs to process)
       });
 
       const stats = computeOverUnderBreakdown([betWithoutLegs]);
 
-      // No legs means no O/U data to process
+      // No legs means no O/U data to process (bet.ou is ignored)
       expect(stats.over.count).toBe(0);
       expect(stats.under.count).toBe(0);
     });
@@ -230,8 +234,15 @@ describe('PG-3 / INV-8: Over/Under Breakdown Parlay Exclusion', () => {
       expect(stats.over.losses).toBe(0);
     });
 
-    it('multiple O/U legs on single bet counted once per leg', () => {
-      // Edge case: A single bet with multiple O/U legs (unusual but possible)
+    it('multiple O/U legs on single bet counted once per leg (ticket-level attribution)', () => {
+      // EDGE CASE DOCUMENTATION:
+      // A single bet with multiple O/U legs is unusual but can occur in specific
+      // market types (e.g., alternate totals, combined prop markets). This test
+      // verifies the ticket-level attribution semantics: each O/U leg receives
+      // the full ticket stake/net attributed to it.
+      //
+      // This matches the documented behavior in displaySemantics.ts STAKE_ATTRIBUTION_POLICY
+      // where "ticket-level" attribution is used for leg rollups.
       const multiLegSingle = createBet({
         id: 'multi-ou-single',
         betType: 'single',
@@ -246,10 +257,11 @@ describe('PG-3 / INV-8: Over/Under Breakdown Parlay Exclusion', () => {
 
       const stats = computeOverUnderBreakdown([multiLegSingle]);
 
-      // Each leg is counted separately
+      // Each leg is counted separately with ticket-level attribution
       expect(stats.over.count).toBe(1);
       expect(stats.under.count).toBe(1);
-      // Both get full ticket attribution (ticket-level semantics)
+      // Both get full ticket attribution (intentional double-count for analysis)
+      // This is consistent with STAKE_ATTRIBUTION_POLICY: 'ticket-level'
       expect(stats.over.net).toBe(15);
       expect(stats.under.net).toBe(15);
     });
