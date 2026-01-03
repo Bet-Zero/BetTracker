@@ -169,3 +169,56 @@ npm test -- --run
 
 ## Phase 2B Completion Date
 **2025-01-03**
+
+---
+
+## Dashboard UI Phase: ✅ COMPLETE
+
+### Overview
+
+Added UI transparency and self-verification features to the Dashboard without changing any backend calculation logic. All 62 Phase 2B tests continue to pass.
+
+### Features Added
+
+| Feature | Description | File |
+|---------|-------------|------|
+| DEV-ONLY Truth Overlay | Fixed top-right debug panel showing bet counts, filter state, and reconciliation check | `components/debug/DashboardTruthOverlay.tsx` |
+| Scope Labels | "Global (ignores filters)" badge for QuickStatCards, "Filtered view" badge for main KPIs | `views/DashboardView.tsx` |
+| Info Tooltips | Reusable tooltip component for micro-explainers | `components/debug/InfoTooltip.tsx` |
+| Pending Net Explainer | "Pending = $0" note near filtered KPIs | `views/DashboardView.tsx` |
+| Parlay Entity Explainer | Tooltip explaining parlays contribute $0 to entity breakdowns | `views/DashboardView.tsx` |
+| Date Filter Explainer | Tooltip explaining filters use placedAt | `views/DashboardView.tsx` |
+
+### Files Created/Modified
+
+| Path | Type | Purpose |
+|------|------|---------|
+| `components/debug/DashboardTruthOverlay.tsx` | New | DEV-ONLY overlay with reconciliation check |
+| `components/debug/InfoTooltip.tsx` | New | Reusable info tooltip component |
+| `views/DashboardView.tsx` | Modified | Import overlay/tooltip, add scope labels |
+
+### Reconciliation Verification
+
+The Truth Overlay computes and displays:
+- `net_sum_getNetNumeric = sum(filteredBets.map(getNetNumeric))`
+- `net_from_computeOverallStats = computeOverallStats(filteredBets).netProfit`
+- Shows ✅ RECONCILES when equal, ❌ when divergent
+
+### What Was NOT Changed
+
+- No changes to `services/aggregationService.ts`
+- No changes to `services/displaySemantics.ts`
+- No changes to `services/entityStatsService.ts`
+- No changes to `utils/filterPredicates.ts`
+- No new "alternative" net calculations added
+- No metric logic changes
+
+### Task D Decision
+
+Optional "Apply filters to Quick Stats" toggle was NOT implemented because:
+- Scope labels + tooltips provide sufficient clarity
+- QuickStats global scope is intentional per Issue #5
+- Adds complexity without clear user value
+
+### Dashboard UI Phase Completion Date
+**2026-01-03**

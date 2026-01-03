@@ -46,6 +46,9 @@ import { normalizeTeamName, getTeamInfo } from "../services/normalizationService
 // Phase 1: Resolver for team aggregation
 // Phase 2: Extended with player aggregation
 import { resolveTeam, getTeamAggregationKey, getPlayerAggregationKey } from "../services/resolver";
+// Dashboard UI Clarity Phase: DEV-ONLY debug overlay and tooltips
+import { DashboardTruthOverlay } from "../components/debug/DashboardTruthOverlay";
+import { InfoTooltip } from "../components/debug/InfoTooltip";
 
 // --- HELPER FUNCTIONS & COMPONENTS ---
 
@@ -91,7 +94,7 @@ type StatsData = {
 };
 interface StatsTableProps {
   data: StatsData[];
-  title: string;
+  title: React.ReactNode;
   searchPlaceholder: string;
   className?: string;
   children?: React.ReactNode;
@@ -955,6 +958,17 @@ const DashboardView: React.FC = () => {
 
   return (
     <div className="p-6 h-full flex flex-col space-y-6 bg-neutral-100 dark:bg-neutral-950 overflow-y-auto">
+      {/* DEV-ONLY: Truth Overlay for debugging */}
+      <DashboardTruthOverlay
+        allBets={bets}
+        filteredBets={filteredBets}
+        dateRange={dateRange}
+        customDateRange={customDateRange as { start: string; end: string }}
+        betTypeFilter={betTypeFilter}
+        selectedMarketCategory={selectedMarketCategory}
+        entityType={entityType}
+      />
+
       <div className="flex-shrink-0 bg-white dark:bg-neutral-900 rounded-lg shadow-md p-6 space-y-6">
         <div>
           <h1 className="text-3xl font-bold text-neutral-900 dark:text-white">
@@ -965,7 +979,18 @@ const DashboardView: React.FC = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 border-t border-neutral-200 dark:border-neutral-800 pt-6">
+        {/* Scope Label: Global stats */}
+        <div className="flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400 border-t border-neutral-200 dark:border-neutral-800 pt-4">
+          <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded font-medium">
+            Global (ignores filters)
+          </span>
+          <InfoTooltip
+            text="These stats use ALL bets with time windows only. They don't change when you filter by category, bet type, or entity."
+            position="right"
+          />
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 pt-2">
           <QuickStatCard
             label="Last 24h"
             value={processedData.quickNetStats.net1d}
@@ -1048,8 +1073,9 @@ const DashboardView: React.FC = () => {
               Parlays
             </button>
           </div>
-          <div className="flex items-center space-x-1 flex-wrap gap-y-2 bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-lg">
-            <DateRangeButton
+          <div className="flex items-center gap-2">
+            <div className="flex items-center space-x-1 flex-wrap gap-y-2 bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-lg">
+              <DateRangeButton
               range="all"
               label="All"
               currentRange={dateRange}
@@ -1090,6 +1116,11 @@ const DashboardView: React.FC = () => {
               label="Custom"
               currentRange={dateRange}
               onClick={setDateRange}
+              />
+            </div>
+            <InfoTooltip
+              text="Filters use placed date (not settled date)."
+              position="left"
             />
           </div>
         </div>
@@ -1141,6 +1172,24 @@ const DashboardView: React.FC = () => {
 
         {hasData ? (
           <>
+            {/* Scope Label: Filtered view */}
+            <div className="flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400 mb-2">
+              <span className="px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 rounded font-medium">
+                Filtered view
+              </span>
+              <InfoTooltip
+                text="These stats reflect bets matching your current filters above."
+                position="right"
+              />
+              <span className="ml-2 flex items-center gap-1">
+                <InfoTooltip
+                  text="Pending bets contribute $0 to net totals; table shows blank for pending."
+                  position="right"
+                />
+                <span className="text-neutral-400">Pending = $0</span>
+              </span>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <StatCard
                 title="Net Profit"
@@ -1266,7 +1315,15 @@ const DashboardView: React.FC = () => {
             <div className="h-[500px]">
               <StatsTable
                 data={processedData.playerTeamStats}
-                title="Player & Team Performance"
+                title={
+                  <span className="flex items-center gap-2">
+                    Player & Team Performance
+                    <InfoTooltip
+                      text="Parlays/SGP/SGP+ contribute $0 stake/net to entity breakdowns (prevents double-counting)."
+                      position="right"
+                    />
+                  </span>
+                }
                 searchPlaceholder="Search player/team..."
                 className="h-full"
               >
