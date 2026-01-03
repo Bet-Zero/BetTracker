@@ -180,7 +180,7 @@ LAYER 7: DASHBOARD DISPLAY (Components)
 - `services/displaySemantics.ts:getNetDisplay()` — Display formatting  
 - `parsing/shared/betToFinalRows.ts:computeNetNumeric()` — Table display
 
-**IMPORTANT — PROOF GAP PG-1:** `betToFinalRows.computeNetNumeric()` returns `undefined` for pending (display as blank), while `displaySemantics.getNetNumeric()` returns `0` for pending (KPI totals). This is **intentional divergence** documented in code, but **no cross-module test enforces** that both implementations follow the same policy for settled bets. See Section H for enforcement plan.
+**IMPORTANT — PROOF GAP PG-1:** `betToFinalRows.computeNetNumeric()` returns `undefined` for pending (display blank), while `displaySemantics.getNetNumeric()` returns `0` for pending (KPI totals). This is **intentional divergence**. The drift risk is that either function’s **settled-bet behavior** or pending semantics changes without tests catching it. Enforcement must assert: KPI totals reconcile only against `getNetNumeric`, pending display net stays blank, and settled display net matches `payout - stake` formatting expectations.
 
 ### 2. ROI Calculation
 
