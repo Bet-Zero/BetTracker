@@ -1071,5 +1071,143 @@ describe("betToFinalRows", () => {
   // NOTE: Leg deduplication tests have been moved to parsing/draftkings/tests/parlay-deduplication.test.ts
   // and parsing/fanduel/tests/parlay-deduplication.test.ts since deduplication now happens in the parser layer.
   // betToFinalRows trusts parsers to output deduplicated legs.
+
+  // ===========================================================================
+  // PG-1 / INV-3: Pending bet net behavior (Phase 2B enforcement)
+  // ===========================================================================
+  describe("PG-1 / INV-3: pending net behavior", () => {
+    it("should output blank Net for pending single bet (not '0', not '-stake')", () => {
+      const pendingBet: Bet = {
+        id: "pending-net-test",
+        book: "FanDuel",
+        betId: "PENDING123",
+        placedAt: "2024-11-18T19:00:00.000Z",
+        betType: "single",
+        marketCategory: "Props",
+        sport: "NBA",
+        description: "Pending bet",
+        name: "Player",
+        odds: 200,
+        stake: 10.0,
+        payout: 0,
+        result: "pending",
+      };
+
+      const rows = betToFinalRows(pendingBet);
+
+      expect(rows).toHaveLength(1);
+      // Net MUST be blank string, NOT "0" and NOT "-10.00"
+      expect(rows[0].Net).toBe("");
+      // Raw net MUST be undefined (not 0 and not -10)
+      expect(rows[0]._rawNet).toBeUndefined();
+    });
+
+    it("should output numeric Net for settled win (payout - stake)", () => {
+      const winBet: Bet = {
+        id: "win-net-test",
+        book: "FanDuel",
+        betId: "WIN123",
+        placedAt: "2024-11-18T19:00:00.000Z",
+        betType: "single",
+        marketCategory: "Props",
+        sport: "NBA",
+        description: "Win bet",
+        name: "Player",
+        odds: 200,
+        stake: 10.0,
+        payout: 30.0,
+        result: "win",
+      };
+
+      const rows = betToFinalRows(winBet);
+
+      expect(rows).toHaveLength(1);
+      // Net should be 30 - 10 = 20
+      expect(rows[0].Net).toBe("20.00");
+      expect(rows[0]._rawNet).toBe(20);
+    });
+
+    it("should output negative Net for settled loss (-stake)", () => {
+      const lossBet: Bet = {
+        id: "loss-net-test",
+        book: "FanDuel",
+        betId: "LOSS123",
+        placedAt: "2024-11-18T19:00:00.000Z",
+        betType: "single",
+        marketCategory: "Props",
+        sport: "NBA",
+        description: "Loss bet",
+        name: "Player",
+        odds: 200,
+        stake: 10.0,
+        payout: 0,
+        result: "loss",
+      };
+
+      const rows = betToFinalRows(lossBet);
+
+      expect(rows).toHaveLength(1);
+      // Net should be 0 - 10 = -10
+      expect(rows[0].Net).toBe("-10.00");
+      expect(rows[0]._rawNet).toBe(-10);
+    });
+
+    it("should output zero Net for push (payout - stake = 0)", () => {
+      const pushBet: Bet = {
+        id: "push-net-test",
+        book: "FanDuel",
+        betId: "PUSH123",
+        placedAt: "2024-11-18T19:00:00.000Z",
+        betType: "single",
+        marketCategory: "Props",
+        sport: "NBA",
+        description: "Push bet",
+        name: "Player",
+        odds: -110,
+        stake: 10.0,
+        payout: 10.0,
+        result: "push",
+      };
+
+      const rows = betToFinalRows(pushBet);
+
+      expect(rows).toHaveLength(1);
+      // Net should be 10 - 10 = 0
+      expect(rows[0].Net).toBe("0.00");
+      expect(rows[0]._rawNet).toBe(0);
+    });
+
+    it("should output blank Net for pending parlay header", () => {
+      const pendingParlay: Bet = {
+        id: "pending-parlay-net-test",
+        book: "FanDuel",
+        betId: "PPARLAY123",
+        placedAt: "2024-11-18T19:00:00.000Z",
+        betType: "parlay",
+        marketCategory: "Parlays",
+        sport: "NBA",
+        description: "Pending parlay",
+        odds: 500,
+        stake: 10.0,
+        payout: 0,
+        result: "pending",
+        legs: [
+          { entities: ["Player A"], market: "Pts", result: "pending" },
+          { entities: ["Player B"], market: "Reb", result: "pending" },
+        ],
+      };
+
+      const rows = betToFinalRows(pendingParlay);
+
+      // Header + 2 legs
+      expect(rows).toHaveLength(3);
+      // Header Net should be blank for pending
+      expect(rows[0].Net).toBe("");
+      expect(rows[0]._rawNet).toBeUndefined();
+      // Child legs always have blank Net
+      expect(rows[1].Net).toBe("");
+      expect(rows[2].Net).toBe("");
+    });
+  });
 });
 
