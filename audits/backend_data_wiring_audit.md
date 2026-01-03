@@ -303,42 +303,6 @@ if (odds < 0): toWin = stake + (stake / (|odds| / 100))
 
 ---
 
-## F) RED FLAGS LIST
-
-### P0 (Critical — Proof Gaps Requiring Enforcement)
-
-No **observed** misattribution bugs found in Phase 1 mapping; however, **Phase 2A identified proof gaps** that must be enforced to prevent silent drift.
-
-| ID | Issue | Location | Impact | Status |
-|----|-------|----------|--------|--------|
-| PG-1 | Net semantics divergence: `computeNetNumeric` (betToFinalRows) vs `getNetNumeric` (displaySemantics) have different pending behavior with no cross-module test | Two files | Could silently diverge | **NEEDS INVARIANT TEST** |
-| PG-2 | QuickStatCards use ALL bets (global) but no test enforces this behavior | DashboardView:830 | Could break on refactor | **NEEDS TEST** |
-| PG-3 | O/U parlay exclusion is inline check, not centralized guard | DashboardView:339, BySportView:396 | New components could miss check | **NEEDS TEST** |
-| PG-4 | Self-healing reclassification could mask classifier bugs | useBets.tsx:68-92 | False confidence in classifier | **NEEDS MONITORING** |
-| PG-5 | Entity type fallback heuristic not tested for unknown entities | DashboardView:873-884 | Unknown entities misclassified | **NEEDS TEST** |
-
-### P1 (High — Should Review)
-
-| ID | Issue | Location | Impact | Recommendation |
-|----|-------|----------|--------|----------------|
-| PG-6 | No reconciliation test for ROI consistency across widgets | aggregationService | Could diverge silently | Add reconciliation test |
-| PG-7 | Parlay detection (`isParlayBetType`) spread across files with inline calls | Multiple | Could miss a check | Consolidate + test |
-
-### P2 (Medium — Nice to Have)
-
-| ID | Issue | Location | Impact | Recommendation |
-|----|-------|----------|--------|----------------|
-| PG-8 | Win rate edge case (all pushes) not explicitly tested | aggregationService | Edge case only | Add test |
-| PG-9 | LiveVsPreMatch breakdown not tested in isolation | DashboardView | Low risk | Add unit test |
-
-### P3 (Low — Future Enhancement)
-
-| ID | Issue | Location | Impact | Recommendation |
-|----|-------|----------|--------|----------------|
-| 8 | Parlay child net calculation uses bet.result | betToFinalRows:485 | Child rows inherit parent result, not leg result | **Intentional** - parlay net is ticket-level |
-
----
-
 ## G) EXECUTION PLAN (PHASE 2 OVERVIEW)
 
 Based on the audit findings, the codebase is **correct in behavior** but has **proof gaps** where enforcement is needed. The data pipeline has:
@@ -353,10 +317,11 @@ Based on the audit findings, the codebase is **correct in behavior** but has **p
 
 ### Phase 2A (Proof Gap Review) — COMPLETE
 
-See sections H, I, J below for:
-- H) Proof Gaps identified (P0/P1/P2)
+See sections H, I, J, K below for:
+- H) Proof Gaps identified (P0/P1/P2) — detailed analysis
 - I) Invariants defined (must-never-break rules)
 - J) Phase 2B Execution Plan (lockdown implementation)
+- K) Red Flags List (final consolidated list)
 
 ### Phase 2B Tasks (Pending Approval)
 
@@ -376,13 +341,6 @@ The codebase already has solid test coverage:
 - Parser tests — FanDuel and DraftKings with fixtures ✅
 
 ---
-
-## PHASE 1 ACCEPTANCE CRITERIA CHECKLIST
-
-- [x] Every dashboard widget is mapped to an identified data source and filter context
-- [x] Every displayed metric has an explicit formula or canonical field
-- [x] RED FLAG section exists (P1/P2/P3 identified, no P0)
-- [x] Clear Phase 2 plan is provided
 
 ---
 
@@ -561,44 +519,55 @@ Consider adding `console.assert()` or conditional assertions that:
 
 ---
 
-## F) RED FLAGS LIST (UPDATED)
+## K) RED FLAGS LIST (FINAL)
+
+This section consolidates all identified red flags and proof gaps from Phase 1 and Phase 2A analysis.
 
 ### P0 (Critical — Proof Gaps Requiring Enforcement)
 
+No **observed** misattribution bugs found in Phase 1 mapping; however, **Phase 2A identified proof gaps** that must be enforced to prevent silent drift.
+
 | ID | Issue | Location | Impact | Status |
 |----|-------|----------|--------|--------|
-| PG-1 | Net semantics divergence without cross-module test | Two files | Could silently diverge | **NEEDS TEST** |
-| PG-2 | QuickStatCards global behavior undocumented by test | DashboardView | Could break on refactor | **NEEDS TEST** |
-| PG-3 | O/U parlay exclusion not centralized | Multiple views | Could add new component without check | **NEEDS TEST** |
-| PG-4 | Self-healing masks classifier bugs | useBets.tsx | False confidence in classifier | **NEEDS MONITORING** |
-| PG-5 | Entity type fallback not tested | Multiple views | Unknown entities misclassified | **NEEDS TEST** |
+| PG-1 | Net semantics divergence: `computeNetNumeric` (betToFinalRows) vs `getNetNumeric` (displaySemantics) have different pending behavior with no cross-module test | Two files | Could silently diverge | **NEEDS INVARIANT TEST** |
+| PG-2 | QuickStatCards use ALL bets (global) but no test enforces this behavior | DashboardView:830 | Could break on refactor | **NEEDS TEST** |
+| PG-3 | O/U parlay exclusion is inline check, not centralized guard | DashboardView:339, BySportView:396 | New components could miss check | **NEEDS TEST** |
+| PG-4 | Self-healing reclassification could mask classifier bugs | useBets.tsx:68-92 | False confidence in classifier | **NEEDS MONITORING** |
+| PG-5 | Entity type fallback heuristic not tested for unknown entities | DashboardView:873-884 | Unknown entities misclassified | **NEEDS TEST** |
 
 ### P1 (High — Should Review)
 
 | ID | Issue | Location | Impact | Recommendation |
 |----|-------|----------|--------|----------------|
-| PG-6 | No reconciliation test for ROI across widgets | aggregationService | Could diverge silently | Add reconciliation test |
-| PG-7 | Parlay detection spread across files | Multiple | Could miss a check | Consolidate + test |
+| PG-6 | No reconciliation test for ROI consistency across widgets | aggregationService | Could diverge silently | Add reconciliation test |
+| PG-7 | Parlay detection (`isParlayBetType`) spread across files with inline calls | Multiple | Could miss a check | Consolidate + test |
 | PG-10 | Time bucketing uses `placedAt` by convention only | filterPredicates, DashboardView | Could use wrong timestamp | Add explicit test |
 
 ### P2 (Medium — Nice to Have)
 
 | ID | Issue | Location | Impact | Recommendation |
 |----|-------|----------|--------|----------------|
-| PG-8 | Win rate edge case (all pushes) not tested | aggregationService | Edge case only | Add test |
-| PG-9 | LiveVsPreMatch not tested in isolation | DashboardView | Low risk | Add unit test |
+| PG-8 | Win rate edge case (all pushes) not explicitly tested | aggregationService | Edge case only | Add test |
+| PG-9 | LiveVsPreMatch breakdown not tested in isolation | DashboardView | Low risk | Add unit test |
+
+### P3 (Low — Future Enhancement)
+
+| ID | Issue | Location | Impact | Recommendation |
+|----|-------|----------|--------|----------------|
+| RF-8 | Parlay child net calculation uses bet.result | betToFinalRows:485 | Child rows inherit parent result, not leg result | **Intentional** - parlay net is ticket-level |
 
 ---
 
-## PHASE 1 ACCEPTANCE CRITERIA CHECKLIST (UPDATED)
+## PHASE 1 ACCEPTANCE CRITERIA CHECKLIST (FINAL)
 
 - [x] Every dashboard widget is mapped to an identified data source and filter context
 - [x] Every displayed metric has an explicit formula or canonical field
-- [x] RED FLAG section exists (P0/P1/P2 identified)
+- [x] RED FLAG section exists (Section K: P0/P1/P2/P3 identified)
 - [x] Clear Phase 2 plan is provided
 - [x] **PHASE 2A:** Proof gaps identified (Section H)
 - [x] **PHASE 2A:** Invariants defined (Section I)
 - [x] **PHASE 2A:** Execution plan created (Section J)
+- [x] **PHASE 2A.1:** Red flags consolidated (Section K)
 
 ---
 
