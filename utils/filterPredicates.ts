@@ -146,9 +146,45 @@ export function createEntityPredicate(
 // --- BetTable Helper ---
 
 /**
+ * Interface for BetTable flat rows.
+ * Matches the FlatBet type defined in BetTableView.tsx.
+ */
+export interface FlatBetRow {
+  id: string;
+  betId: string;
+  date: string;
+  site: string;
+  sport: string;
+  type: string;
+  category: string;
+  name: string;
+  name2?: string;
+  ou?: 'Over' | 'Under';
+  line?: string | number;
+  odds?: number;
+  bet: number;
+  toWin: number;
+  result: string;
+  net: number;
+  isLive: boolean;
+  overallResult: string;
+  tail?: string;
+  _parlayGroupId?: string | null;
+  _legIndex?: number | null;
+  _legCount?: number | null;
+  _isParlayHeader?: boolean;
+  _isParlayChild?: boolean;
+}
+
+/**
+ * Searchable fields for BetTable filter predicate.
+ */
+export type BetTableSearchField = 'name' | 'name2' | 'sport' | 'type' | 'category' | 'tail';
+
+/**
  * Create a predicate for BetTable search and filtering.
- * Note: BetTable operates on "FlatRows", requiring adequate typing or loose typing.
- * This predicate handles the specific BetTable filtering requirements.
+ * Note: BetTable operates on "FlatRows" which have both a row-level result
+ * and an overallResult (the parent bet's result for parlay children).
  */
 export function createBetTableFilterPredicate(
   filters: {
@@ -158,16 +194,20 @@ export function createBetTableFilterPredicate(
     category: string | "all";
   },
   searchTerm: string,
-  searchFields: ('name' | 'name2' | 'type' | 'category' | 'tail')[] = ['name', 'name2', 'type', 'category', 'tail']
-): (row: any) => boolean {
+  searchFields: BetTableSearchField[] = ['name', 'name2', 'type', 'category', 'tail']
+): (row: FlatBetRow) => boolean {
   const lowerSearchTerm = searchTerm.toLowerCase();
 
-  return (row: any) => {
+  return (row: FlatBetRow) => {
     // 1. Structural Filters
     if (filters.sport !== "all" && row.sport !== filters.sport) return false;
     if (filters.type !== "all" && row.type !== filters.type) return false;
+    // Result filter: show row if EITHER the row result OR the overall bet result matches.
+    // This is important for parlay children where row.result is the leg result
+    // but row.overallResult is the parent bet's result.
     if (filters.result !== "all" && 
-        (row.result !== filters.result && row.overallResult !== filters.result)) return false;
+        row.result !== filters.result && 
+        row.overallResult !== filters.result) return false;
     if (filters.category !== "all" && row.category !== filters.category) return false;
 
     // 2. Search Term
@@ -175,7 +215,8 @@ export function createBetTableFilterPredicate(
 
     // Check all specified fields
     for (const field of searchFields) {
-      if (row[field] && row[field].toString().toLowerCase().includes(lowerSearchTerm)) {
+      const value = row[field];
+      if (value && value.toString().toLowerCase().includes(lowerSearchTerm)) {
         return true;
       }
     }
@@ -183,3 +224,4 @@ export function createBetTableFilterPredicate(
     return false;
   };
 }
+

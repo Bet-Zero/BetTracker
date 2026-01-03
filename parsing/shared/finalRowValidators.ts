@@ -155,21 +155,16 @@ export function parseFormattedOdds(
  * @param amount - The amount to format
  * @returns Formatted string (e.g., "1.00", "3.60") or empty string
  */
-/**
- * Formats a monetary amount to FormattedAmount.
- * Now uses shared formatCurrency which adds currency symbol and commas.
- * @param amount - The amount to format
- * @returns Formatted string (e.g., "$1,234.56") or empty string
- */
 export function formatAmount(
   amount: number | undefined | null
 ): FormattedAmount {
   if (amount === undefined || amount === null || isNaN(amount)) {
     return "" as FormattedAmount;
   }
-  // Use shared formatter which adds $ and commas
-  return formatCurrency(amount) as FormattedAmount;
+  // Return plain decimal format without currency symbol to match FormattedAmount type
+  return amount.toFixed(2) as FormattedAmount;
 }
+
 
 /**
  * Validates a FormattedAmount string.

@@ -475,6 +475,11 @@ function createFinalRow(
   const result = toFinalResult(resultValue);
 
   // Net (profit/loss) - only on header rows, use bet result for parlays
+  // NOTE: For parlay children, showMonetaryValues is false, so this code path
+  // is not hit. If that ever changes, the logic here uses bet.result (the overall
+  // parlay result) rather than the leg's individual result. This is intentional
+  // because parlay net depends on the overall outcome, not individual legs.
+  // See Issue #8 in backend_data_wiring_audit.md for discussion.
   let net;
   if (metadata.showMonetaryValues) {
     const netResult = metadata.isParlayChild ? bet.result : legData.result;
@@ -681,7 +686,11 @@ function computeNetNumeric(
     return 0;
   }
 
-  // Pending - return undefined
+  // INTENTIONAL DIVERGENCE from displaySemantics.getNetNumeric():
+  // This function returns `undefined` for pending bets (for display as empty string),
+  // while displaySemantics.getNetNumeric() returns 0 for pending (for KPI calculations).
+  // This is correct: pending bets should show blank in the table but contribute 0 to totals.
+  // See Issue #1 in backend_data_wiring_audit.md for discussion.
   return undefined;
 }
 

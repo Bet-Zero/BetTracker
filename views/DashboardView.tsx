@@ -769,13 +769,17 @@ const DashboardView: React.FC = () => {
             const aggregationKey = getTeamAggregationKey(entity, '[Unresolved]');
             teams.add(aggregationKey);
           } else {
-            // Fallback: check if entity is a known team via normalization service
+            // FALLBACK BEHAVIOR: When leg.entityType is missing or 'unknown',
+            // we check if the entity is a known team in our reference data.
+            // If found as a team, classify as team; otherwise default to player.
+            // This may misclassify new teams not yet in reference data as players.
+            // See Issue #6 in backend_data_wiring_audit.md for details.
             const teamInfo = getTeamInfo(entity);
             if (teamInfo) {
               const aggregationKey = getTeamAggregationKey(entity, '[Unresolved]');
               teams.add(aggregationKey);
             } else {
-              // Assume player if not a known team - use player aggregation
+              // Default to player when entity type is unknown and not in team reference
               const aggregationKey = getPlayerAggregationKey(entity, '[Unresolved]', { sport: bet.sport as any });
               players.add(aggregationKey);
             }
@@ -819,6 +823,10 @@ const DashboardView: React.FC = () => {
     };
 
     const now = new Date();
+    // INTENTIONAL: quickNetStats uses ALL bets (not filteredBets) to provide
+    // a consistent "at-a-glance" view of recent performance regardless of
+    // which filters the user has applied to the main dashboard charts.
+    // See Issue #5 in backend_data_wiring_audit.md for discussion.
     const calculateNetForPeriod = (startDate: Date) => {
       return bets
         .filter((bet) => new Date(bet.placedAt) >= startDate)
