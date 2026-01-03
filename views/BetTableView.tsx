@@ -458,6 +458,7 @@ const BetTableView: React.FC = () => {
     addBetType,
     addPlayer,
     addTeam,
+    tails,
   } = useInputs();
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState<{
@@ -759,6 +760,10 @@ const BetTableView: React.FC = () => {
     }),
     [sports, availableSites, displayCategories, betTypes, players, teams]
   );
+
+  const tailOptions = useMemo(() => {
+    return tails.map((t) => t.displayName).sort();
+  }, [tails]);
 
   const filteredBets = useMemo(() => {
     const tablePredicate = createBetTableFilterPredicate(filters, debouncedSearchTerm, ['name', 'name2', 'sport', 'type', 'category', 'tail']);
@@ -2433,7 +2438,7 @@ const BetTableView: React.FC = () => {
                             }
                           />
                         )}
-                        <EditableCell
+                        <TypableDropdown
                           value={row.tail || ""}
                           isFocused={isCellFocused(rowIndex, "tail")}
                           onFocus={() =>
@@ -2443,6 +2448,8 @@ const BetTableView: React.FC = () => {
                           onSave={(newValue) => {
                             updateBet(row.betId, { tail: newValue });
                           }}
+                          options={tailOptions}
+                          allowCustom={true}
                         />
                       </td>
                     </tr>
