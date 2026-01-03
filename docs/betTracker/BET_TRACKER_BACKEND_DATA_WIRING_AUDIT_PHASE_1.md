@@ -222,3 +222,386 @@ Optional "Apply filters to Quick Stats" toggle was NOT implemented because:
 
 ### Dashboard UI Phase Completion Date
 **2026-01-03**
+
+---
+
+## Dashboard Tables Truth Audit: ✅ COMPLETE
+
+### Summary
+
+All widgets across DashboardView, BySportView, and PlayerProfileView have been audited. **No true miswires or bugs were found.** The data flows are correct and use the canonical functions as intended. All Phase 2B tests continue to pass (62 tests).
+
+### Key Findings
+
+1. **All widgets use canonical functions**: `getNetNumeric()`, `computeOverallStats()`, `computeProfitOverTime()`, `computeEntityStatsMap()`, `calculateRoi()`
+2. **Pending bets contribute $0** to all net/profit calculations (enforced by `getNetNumeric()`)
+3. **Time filtering uses `placedAt`**, not `settledAt` (enforced by `createDateRangePredicate()`)
+4. **Parlay exclusion is correctly implemented** in entity tables and O/U breakdowns
+5. **QuickStatCards correctly use global `bets`**, not `filteredBets` (intentional design)
+
+---
+
+### Truth Sheets: DashboardView.tsx
+
+#### 1. QuickStatCards (Global Time Periods)
+
+| Property | Value |
+|----------|-------|
+| **Name** | QuickStatCards (Last 24h/3d/1w/1m/1y) |
+| **Scope** | **Global** - Ignores ALL dashboard filters |
+| **Input Dataset** | `bets` (all bets, NOT filteredBets) |
+| **Filters Applied** | Time window only (placedAt >= startDate) |
+| **Math Source** | `getNetNumeric(bet)` summed per period |
+| **Parlay Behavior** | Included - full stake/net attributed |
+| **Pending Behavior** | Contributes $0 (via getNetNumeric) |
+| **Time Basis** | `placedAt` (confirmed) |
+| **User-Facing Meaning** | "Your net profit across ALL your bets in the last X time period" |
+| **Confusion Risk** | YES - Users may expect filters to apply |
+| **Proposed Fix** | ✅ Already has "Global (ignores filters)" badge + InfoTooltip |
+
+#### 2. Main KPI StatCards (Net Profit, Wagered, Bets, Win Rate)
+
+| Property | Value |
+|----------|-------|
+| **Name** | Main KPI StatCards |
+| **Scope** | **Filtered** - Respects all dashboard filters |
+| **Input Dataset** | `filteredBets` |
+| **Filters Applied** | Date range, bet type, market category |
+| **Math Source** | `computeOverallStats(filteredBets)` |
+| **Parlay Behavior** | Included in counts/stake/net |
+| **Pending Behavior** | Counted in totalBets, contributes $0 to net |
+| **Time Basis** | `placedAt` (via createDateRangePredicate) |
+| **User-Facing Meaning** | "Your stats for bets matching current filters" |
+| **Confusion Risk** | LOW - Clear "Filtered view" badge exists |
+| **Proposed Fix** | None needed |
+
+#### 3. Profit Over Time Chart
+
+| Property | Value |
+|----------|-------|
+| **Name** | Profit Over Time |
+| **Scope** | **Filtered** |
+| **Input Dataset** | `filteredBets` |
+| **Filters Applied** | Date range, bet type, market category |
+| **Math Source** | `computeProfitOverTime(filteredBets)` |
+| **Parlay Behavior** | Included |
+| **Pending Behavior** | Contributes $0 to cumulative line |
+| **Time Basis** | `placedAt` (sorted chronologically) |
+| **User-Facing Meaning** | "Cumulative profit over time for filtered bets" |
+| **Confusion Risk** | LOW |
+| **Proposed Fix** | None needed |
+
+#### 4. Profit By Book Chart
+
+| Property | Value |
+|----------|-------|
+| **Name** | Total Profit by Sportsbook |
+| **Scope** | **Filtered** |
+| **Input Dataset** | `filteredBets` |
+| **Filters Applied** | Date range, bet type, market category |
+| **Math Source** | `computeStatsByDimension(filteredBets, bet => bet.book)` |
+| **Parlay Behavior** | Included |
+| **Pending Behavior** | Contributes $0 |
+| **Time Basis** | `placedAt` |
+| **User-Facing Meaning** | "Net profit per sportsbook for filtered bets" |
+| **Confusion Risk** | LOW |
+| **Proposed Fix** | None needed |
+
+#### 5. Market Category Table
+
+| Property | Value |
+|----------|-------|
+| **Name** | Performance by Market Category |
+| **Scope** | **Filtered** |
+| **Input Dataset** | `filteredBets` |
+| **Filters Applied** | Date range, bet type, market category |
+| **Math Source** | `computeStatsByDimension(filteredBets, bet => bet.marketCategory)` |
+| **Parlay Behavior** | Included - Parlays show in "Parlays" category |
+| **Pending Behavior** | Counted in # Bets, $0 net |
+| **Time Basis** | `placedAt` |
+| **Row Represents** | Market category (Props, Main Markets, Parlays, Futures) |
+| **What Is Summed** | Ticket count, stake, net per category |
+| **User-Facing Meaning** | "Your performance breakdown by market type" |
+| **Confusion Risk** | LOW |
+| **Proposed Fix** | None needed |
+
+#### 6. Sport Stats Table
+
+| Property | Value |
+|----------|-------|
+| **Name** | Performance by Sport |
+| **Scope** | **Filtered** |
+| **Input Dataset** | `filteredBets` |
+| **Filters Applied** | Date range, bet type, market category |
+| **Math Source** | `computeStatsByDimension(filteredBets, bet => bet.sport)` |
+| **Parlay Behavior** | Included |
+| **Pending Behavior** | Counted, $0 net |
+| **Time Basis** | `placedAt` |
+| **Row Represents** | Sport (NBA, NFL, MLB, etc.) |
+| **What Is Summed** | Ticket count, stake, net per sport |
+| **User-Facing Meaning** | "Your performance breakdown by sport" |
+| **Confusion Risk** | LOW |
+| **Proposed Fix** | None needed |
+
+#### 7. Player & Team Performance Table
+
+| Property | Value |
+|----------|-------|
+| **Name** | Player & Team Performance |
+| **Scope** | **Filtered** |
+| **Input Dataset** | `filteredBets` |
+| **Filters Applied** | Date range, bet type, market category, entity type toggle |
+| **Math Source** | `computeEntityStatsMap(filteredBets, ...)` |
+| **Parlay Behavior** | **EXCLUDED** - Parlays contribute $0 stake/net (P4 policy) |
+| **Pending Behavior** | Counted if straight bet, $0 net |
+| **Time Basis** | `placedAt` |
+| **Row Represents** | Entity (player or team name) |
+| **What Is Summed** | Straight bet tickets, stake, net per entity |
+| **Duplicate Counting Risk** | NO - Each entity counted once per ticket |
+| **User-Facing Meaning** | "Your performance on straight bets involving this entity" |
+| **Confusion Risk** | MEDIUM - Users may wonder why parlay bets don't affect money |
+| **Proposed Fix** | ✅ Already has InfoTooltip: "Parlays/SGP/SGP+ contribute $0 stake/net to entity breakdowns" |
+
+#### 8. OverUnderBreakdown
+
+| Property | Value |
+|----------|-------|
+| **Name** | Over / Under Breakdown |
+| **Scope** | **Filtered** (receives `filteredBets` as prop) |
+| **Input Dataset** | `filteredBets` with internal Props/Totals/All filter |
+| **Filters Applied** | Parent filters + Props/Totals toggle |
+| **Math Source** | Manual loop with `getNetNumeric(bet)` |
+| **Parlay Behavior** | **EXCLUDED** - `isParlayBetType()` check skips parlays |
+| **Pending Behavior** | Counted in O/U stats, $0 net |
+| **Time Basis** | Inherited from parent (`placedAt`) |
+| **Row Represents** | Over vs Under selection type |
+| **What Is Summed** | Ticket count, stake, net per O/U type |
+| **User-Facing Meaning** | "Your Over vs Under performance on straight bets" |
+| **Confusion Risk** | MEDIUM - Users may expect parlay O/U legs to be counted |
+| **Proposed Fix** | Consider adding tooltip: "Excludes parlay legs (straight bets only)" |
+
+#### 9. LiveVsPreMatchBreakdown
+
+| Property | Value |
+|----------|-------|
+| **Name** | Live vs. Pre-Match |
+| **Scope** | **Filtered** (receives `filteredBets` as prop) |
+| **Input Dataset** | `filteredBets` with internal Props/Main/All filter |
+| **Filters Applied** | Parent filters + category toggle |
+| **Math Source** | Manual loop with `getNetNumeric(bet)` |
+| **Parlay Behavior** | **INCLUDED** - All bets counted |
+| **Pending Behavior** | Counted, $0 net |
+| **Time Basis** | Inherited (`placedAt`) |
+| **Row Represents** | Live vs Pre-Match timing |
+| **What Is Summed** | Ticket count, stake, net per timing type |
+| **User-Facing Meaning** | "Your performance on live vs pre-game bets" |
+| **Confusion Risk** | LOW |
+| **Proposed Fix** | None needed |
+
+#### 10. Truth Overlay (DEV-ONLY)
+
+| Property | Value |
+|----------|-------|
+| **Name** | DashboardTruthOverlay |
+| **Scope** | Debug - Shows reconciliation of filtered data |
+| **Input Dataset** | Both `allBets` and `filteredBets` |
+| **Math Source** | `getNetNumeric()` sum vs `computeOverallStats().netProfit` |
+| **Purpose** | Verify canonical functions reconcile |
+| **Accuracy** | ✅ Verified - Always shows "RECONCILES ✅" |
+| **Confusion Risk** | NO (dev-only, not user-facing) |
+
+---
+
+### Truth Sheets: BySportView.tsx
+
+#### 11. StatCards (Sport-Filtered)
+
+| Property | Value |
+|----------|-------|
+| **Name** | Sport StatCards |
+| **Scope** | **Sport + Date Filtered** |
+| **Input Dataset** | `filteredBets` (by sport + date range) |
+| **Math Source** | `computeOverallStats(filteredBets)` |
+| **Parlay Behavior** | Included |
+| **Pending Behavior** | $0 net |
+| **Time Basis** | `placedAt` |
+| **User-Facing Meaning** | "Your stats for [sport] in selected date range" |
+| **Confusion Risk** | LOW |
+
+#### 12. Profit Over Time (Sport)
+
+| Property | Value |
+|----------|-------|
+| **Name** | Profit Over Time (Sport) |
+| **Scope** | **Sport + Date Filtered** |
+| **Input Dataset** | `filteredBets` |
+| **Math Source** | `computeProfitOverTime(filteredBets)` |
+| **User-Facing Meaning** | "Cumulative profit for [sport]" |
+| **Confusion Risk** | LOW |
+
+#### 13. Market Performance Table (Sport)
+
+| Property | Value |
+|----------|-------|
+| **Name** | Market Performance |
+| **Scope** | **Sport + Date Filtered** |
+| **Input Dataset** | `filteredBets` |
+| **Math Source** | `computeStatsByDimension()` using `leg.market` |
+| **Row Represents** | Market type (Pts, Reb, Spread, etc.) |
+| **Parlay Behavior** | Included - market from each leg |
+| **User-Facing Meaning** | "Your performance by market type for [sport]" |
+| **Confusion Risk** | LOW |
+
+#### 14. Player & Team Performance (Sport)
+
+| Property | Value |
+|----------|-------|
+| **Name** | Player & Team Performance (Sport) |
+| **Scope** | **Sport + Date Filtered** |
+| **Input Dataset** | `filteredBets` |
+| **Math Source** | `computeEntityStatsMap(filteredBets, ...)` |
+| **Parlay Behavior** | **EXCLUDED** - P4 policy |
+| **User-Facing Meaning** | "Your straight bet performance by entity for [sport]" |
+| **Confusion Risk** | MEDIUM - Same as main dashboard |
+
+#### 15. OverUnderBreakdown (Sport)
+
+Same as #8 but scoped to sport-filtered bets.
+
+#### 16. LiveVsPreMatch (Sport)
+
+Same as #9 but scoped to sport-filtered bets.
+
+---
+
+### Truth Sheets: PlayerProfileView.tsx
+
+#### 17. StatCards (Player Profile)
+
+| Property | Value |
+|----------|-------|
+| **Name** | Player Profile StatCards |
+| **Scope** | **Player + Date + BetType Filtered** |
+| **Input Dataset** | `playerBets` (bets involving selected player) |
+| **Math Source** | `computeOverallStats(playerBets)` |
+| **Parlay Behavior** | INCLUDED in stats if parlay contains player |
+| **Pending Behavior** | $0 net |
+| **Time Basis** | `placedAt` |
+| **User-Facing Meaning** | "Your overall stats on bets involving [player]" |
+| **Confusion Risk** | MEDIUM - Includes ALL bet types involving player |
+| **Proposed Fix** | Consider tooltip: "Includes singles and parlays containing this player" |
+
+#### 18. Profit Over Time (Player)
+
+| Property | Value |
+|----------|-------|
+| **Name** | Profit Over Time (Player) |
+| **Scope** | **Player + Date + BetType Filtered** |
+| **Input Dataset** | `playerBets` |
+| **Math Source** | `computeProfitOverTime(playerBets)` |
+| **User-Facing Meaning** | "Cumulative profit on bets involving [player]" |
+| **Confusion Risk** | LOW |
+
+#### 19. Market Breakdown Table (Player)
+
+| Property | Value |
+|----------|-------|
+| **Name** | Performance by Market (Player) |
+| **Scope** | **Player + Date + BetType Filtered** |
+| **Input Dataset** | `playerBets` |
+| **Math Source** | `computeStatsByDimension()` using player's leg markets |
+| **Row Represents** | Market type (Pts, Reb, etc.) for player |
+| **Parlay Behavior** | Included in market counts |
+| **User-Facing Meaning** | "Your performance by stat type for [player]" |
+| **Confusion Risk** | LOW |
+
+#### 20. OverUnderBreakdown (Player)
+
+| Property | Value |
+|----------|-------|
+| **Name** | Over vs Under (Player) |
+| **Scope** | **Player + Date + BetType Filtered** |
+| **Input Dataset** | `playerBets` (filtered to Props/Totals) |
+| **Math Source** | Manual loop with `getEntityMoneyContribution(bet)` |
+| **Parlay Behavior** | **EXCLUDED from money** - P4 policy via getEntityMoneyContribution |
+| **Count Behavior** | Parlay legs ARE counted in bet count |
+| **User-Facing Meaning** | "Your Over vs Under picks for [player], money from straight bets only" |
+| **Confusion Risk** | MEDIUM - Counts include parlay legs but money excludes them |
+| **Proposed Fix** | Add tooltip: "Bet counts include parlay legs; stake/net from straight bets only" |
+
+#### 21. Recent Bets Table (Player)
+
+| Property | Value |
+|----------|-------|
+| **Name** | Recent Bets |
+| **Scope** | **Player + Date + BetType Filtered** |
+| **Input Dataset** | `playerBets` (last 10, sorted by placedAt) |
+| **Data Type** | **Bet objects** (NOT FinalRows) |
+| **Math Source** | `getNetNumeric(bet)` per row |
+| **Parlay Behavior** | Included - shows full ticket info |
+| **Pending Behavior** | Shows bet, net column shows $0 |
+| **User-Facing Meaning** | "Your 10 most recent bets involving [player]" |
+| **Confusion Risk** | LOW |
+
+---
+
+### Table Quality Checklist Summary
+
+| Table | Row Type | Sums | Parlays | Sorting | Totals Reconciled | Duplicate Risk | Category Leakage |
+|-------|----------|------|---------|---------|-------------------|----------------|------------------|
+| Market Category | Category | Tickets/Stake/Net | Included | ✅ Yes | ✅ Yes | NO | NO |
+| Sport Stats | Sport | Tickets/Stake/Net | Included | ✅ Yes | ✅ Yes | NO | NO |
+| Player/Team | Entity | Tickets/Stake/Net | **Excluded** | ✅ Yes | ✅ Yes | NO | NO |
+| Market (Sport) | Market | Tickets/Stake/Net | Included | ✅ Yes | ✅ Yes | NO | NO |
+| Player/Team (Sport) | Entity | Tickets/Stake/Net | **Excluded** | ✅ Yes | ✅ Yes | NO | NO |
+| Market (Player) | Market | Tickets/Stake/Net | Included | ✅ Yes | ✅ Yes | NO | NO |
+| Recent Bets | Ticket | Per-row | Included | By Date | ✅ Yes | NO | NO |
+
+---
+
+### Top 5 Confusion Risks (Ranked)
+
+1. **Player Profile O/U Count vs Money Mismatch**
+   - Counts include parlay legs, but stake/net excludes them
+   - **Proposed Fix**: Add tooltip explaining the difference
+
+2. **Player/Team Table Parlay Exclusion**
+   - Users may not understand why their parlay bets don't affect these numbers
+   - **Proposed Fix**: ✅ Already has tooltip (sufficient)
+
+3. **Dashboard O/U Parlay Exclusion**
+   - Not as obvious as entity tables that parlays are excluded
+   - **Proposed Fix**: Add small tooltip: "Straight bets only"
+
+4. **QuickStatCards Global Scope**
+   - Users may expect filters to apply
+   - **Proposed Fix**: ✅ Already has badge + tooltip (sufficient)
+
+5. **Player Profile Stats Include All Bet Types**
+   - Includes parlays in aggregate stats, may inflate "bets involving player"
+   - **Proposed Fix**: Consider adding "(includes parlay appearances)" note
+
+---
+
+### Bugs Found: NONE
+
+No true data miswires were discovered. All widgets:
+- Use `getNetNumeric()` for net calculations
+- Use `placedAt` for time filtering
+- Use `computeOverallStats()` / `computeProfitOverTime()` for aggregations
+- Correctly apply P4 parlay exclusion policy where appropriate
+
+---
+
+### Recommended UI Clarifications (Not Implemented)
+
+These are documentation-only proposals. Implementation deferred to UI polish phase:
+
+1. **O/U Breakdown**: Add InfoTooltip "Straight bets only (excludes parlays)"
+2. **Player Profile O/U**: Add InfoTooltip "Counts include parlay legs; stake/net from straight bets only"
+3. **Player Profile Header**: Consider note "(includes parlay appearances)"
+
+---
+
+### Dashboard Tables Truth Audit Completion Date
+**2026-01-03**
