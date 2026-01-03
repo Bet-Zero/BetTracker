@@ -6,7 +6,7 @@ import { getTeamInfo, normalizeTeamName } from '../services/normalizationService
 import { getTeamAggregationKey, getPlayerAggregationKey } from '../services/resolver';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Sector } from 'recharts';
 import { TrendingUp, TrendingDown, Scale, BarChart2, User } from '../components/icons';
-import { Bet } from '../types';
+import { Bet, BetLeg } from '../types';
 import {
   createBetTypePredicate,
   createDateRangePredicate,
@@ -239,7 +239,7 @@ const OverUnderBreakdown: React.FC<{ bets: Bet[], selectedPlayer: string | null 
         const filteredBets = filterBetsByMarketCategory(bets, filter);
         
         // Custom matcher to handle player aggregation keys
-        const entityMatcher = (leg: any, bet: any, targetEntity: string) => {
+        const entityMatcher = (leg: BetLeg, bet: Bet, targetEntity: string) => {
             if (!leg.entities) return false;
             return leg.entities.some((e: string) => 
                 getPlayerAggregationKey(e, '[Unresolved]', { sport: bet.sport as any }) === targetEntity
