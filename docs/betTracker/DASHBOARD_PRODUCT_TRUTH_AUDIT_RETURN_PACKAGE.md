@@ -21,7 +21,7 @@
 | **H) What am I up/down by player/team INCLUDING parlays?** | ❌ | **NOT ANSWERED** - No toggle to include parlay stakes. Entity tables only show straight bet money |
 | **I) How am I doing on parlays/SGPs specifically?** | ❌ | **NOT ANSWERED** - Market Category shows "Parlays" row with count/net, but no dedicated breakdown by leg count, SGP vs standard, or parlay-specific ROI analysis |
 | **J) How accurate am I on parlay LEGS?** | ❌ | **NOT ANSWERED** - `displaySemantics.ts` has `getLegOutcome()` and `getEntityLegContribution()` functions but they're not wired to any UI table |
-| **K) How am I doing on Overs vs Unders?** | ⚠️ | O/U Breakdown exists but: (1) excludes parlays without tooltip, (2) PlayerProfileView has count/money mismatch that IS confusing |
+| **K) How am I doing on Overs vs Unders?** | ⚠️ | O/U Breakdown exists but: (1) excludes parlays without tooltip, (2) PlayerProfileView has count/money mismatch that is confusing |
 | **L) How am I doing on Live vs Pre-match?** | ✅ | LiveVsPreMatch breakdown correctly includes all bets, uses `getNetNumeric()` |
 | **M) What futures are currently open?** | ❌ | **NOT ANSWERED** - No "Open Futures" panel or exposure view. Futures appear in Bet Table but no dedicated tracking |
 | **N) Data quality issues?** | ❌ | **NOT ANSWERED** - No dashboard indicator for unresolved entities. Resolution queue exists but is not surfaced |
@@ -281,12 +281,12 @@ This is **intentional** (shows total betting activity for player), but creates s
 | "All tables clearly count tickets, not legs" | ✅ **VERIFIED** | `entityStatsService.ts` line 112: `stats.tickets++` once per entity per bet. `aggregationService.ts` line 75: `stats.count++` once per bet |
 | "No double-counting of money per leg detected" | ✅ **VERIFIED** | Entity tables use `Set` to dedupe entities per bet. Money is ticket-level, not leg-attributed |
 | "Market performance tables using leg.market are fine" | ⚠️ **PARTIALLY VERIFIED** | Rows ARE leg-derived, but money IS ticket-level. Not technically wrong, but semantically confusing for users expecting leg-level attribution |
-| "Sorting defaults are Net DESC across key tables" | ❌ **INCORRECT** | StatsTable default is `{ key: 'net', direction: 'desc' }` ✅ BUT BetTableView defaults to `{ key: 'date', direction: 'desc' }` which is appropriate for a spreadsheet view. The claim is partially true |
+| "Sorting defaults are Net DESC across key tables" | ⚠️ **PARTIALLY VERIFIED** | StatsTable default is `{ key: 'net', direction: 'desc' }` ✅ BUT BetTableView defaults to `{ key: 'date', direction: 'desc' }` which is appropriate for a spreadsheet view |
 | "Empty states explain why empty" | ✅ **VERIFIED** | DashboardView lines 1246-1255 show "No betting data matches your selected filters" message |
 | "BySportView entity table lacks InfoTooltip" | ✅ **VERIFIED** | Code review confirms no InfoTooltip in BySportView.tsx Player & Team section, unlike DashboardView |
 | "PlayerProfileView O/U has count/money mismatch" | ✅ **VERIFIED** | `useEntityMoneyContribution: true` causes counts to include parlay legs but money to exclude them |
 
-**Summary**: 4 claims fully verified, 2 partially verified, 1 minor inaccuracy about sorting defaults
+**Summary**: 4 claims fully verified, 3 partially verified
 
 ---
 
