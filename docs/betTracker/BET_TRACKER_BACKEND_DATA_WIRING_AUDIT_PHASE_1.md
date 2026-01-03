@@ -547,6 +547,15 @@ Same as #9 but scoped to sport-filtered bets.
 
 ### Table Quality Checklist Summary
 
+**Column Definitions:**
+- **Row Type**: What each row represents (e.g., entity = player/team, category = market category)
+- **Sums**: What values are aggregated in the table
+- **Parlays**: Whether parlay bets are included or excluded from calculations
+- **Sorting**: Whether the table supports user-controlled sorting
+- **Totals Reconciled**: Whether totals match canonical functions (computeOverallStats, etc.)
+- **Duplicate Risk**: Whether the same bet could be counted multiple times (e.g., counting legs vs tickets)
+- **Category Leakage**: Whether items appear in wrong categories (e.g., parlays showing in Props table)
+
 | Table | Row Type | Sums | Parlays | Sorting | Totals Reconciled | Duplicate Risk | Category Leakage |
 |-------|----------|------|---------|---------|-------------------|----------------|------------------|
 | Market Category | Category | Tickets/Stake/Net | Included | ✅ Yes | ✅ Yes | NO | NO |
@@ -563,23 +572,23 @@ Same as #9 but scoped to sport-filtered bets.
 
 1. **Player Profile O/U Count vs Money Mismatch**
    - Counts include parlay legs, but stake/net excludes them
-   - **Proposed Fix**: Add tooltip explaining the difference
+   - **Status**: NOT FIXED - Proposed tooltip explaining the difference
 
 2. **Player/Team Table Parlay Exclusion**
    - Users may not understand why their parlay bets don't affect these numbers
-   - **Proposed Fix**: ✅ Already has tooltip (sufficient)
+   - **Status**: ✅ ALREADY FIXED - Has InfoTooltip in DashboardView
 
 3. **Dashboard O/U Parlay Exclusion**
    - Not as obvious as entity tables that parlays are excluded
-   - **Proposed Fix**: Add small tooltip: "Straight bets only"
+   - **Status**: NOT FIXED - Proposed tooltip: "Straight bets only"
 
 4. **QuickStatCards Global Scope**
    - Users may expect filters to apply
-   - **Proposed Fix**: ✅ Already has badge + tooltip (sufficient)
+   - **Status**: ✅ ALREADY FIXED - Has badge + InfoTooltip in DashboardView
 
 5. **Player Profile Stats Include All Bet Types**
    - Includes parlays in aggregate stats, may inflate "bets involving player"
-   - **Proposed Fix**: Consider adding "(includes parlay appearances)" note
+   - **Status**: NOT FIXED - Consider adding "(includes parlay appearances)" note
 
 ---
 
@@ -593,13 +602,15 @@ No true data miswires were discovered. All widgets:
 
 ---
 
-### Recommended UI Clarifications (Not Implemented)
+### Recommended UI Clarifications (Deferred to UI Polish Phase)
 
-These are documentation-only proposals. Implementation deferred to UI polish phase:
+The following items are NOT implemented in this audit - they are documentation-only proposals for future UI polish:
 
-1. **O/U Breakdown**: Add InfoTooltip "Straight bets only (excludes parlays)"
+1. **Dashboard O/U Breakdown**: Add InfoTooltip "Straight bets only (excludes parlays)"
 2. **Player Profile O/U**: Add InfoTooltip "Counts include parlay legs; stake/net from straight bets only"
 3. **Player Profile Header**: Consider note "(includes parlay appearances)"
+
+Note: Items #2 and #4 from the Confusion Risks list are already addressed with existing tooltips.
 
 ---
 
