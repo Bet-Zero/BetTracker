@@ -56,8 +56,8 @@ describe("betToFinalRows", () => {
         Under: "0",
         Line: "3+",
         Odds: "+360",
-        Bet: "$1.00",
-        "To Win": "$4.60",
+        Bet: "1.00",
+        "To Win": "4.60",
         Result: "Win",
         Net: "3.60",
         Live: "",
@@ -232,9 +232,9 @@ describe("betToFinalRows", () => {
       expect(rows[0]._legCount).toBe(2);
       expect(rows[0]._isParlayHeader).toBe(true);
       expect(rows[0]._isParlayChild).toBe(false);
-      expect(rows[0].Bet).toBe("$5.00");
+      expect(rows[0].Bet).toBe("5.00");
       expect(rows[0].Odds).toBe("+500");
-      expect(rows[0]["To Win"]).toBe("$30.00");
+      expect(rows[0]["To Win"]).toBe("30.00");
       expect(rows[0].Net).toBe("-5.00");
       expect(rows[0].Result).toBe("Loss"); // bet.result
 
@@ -315,7 +315,7 @@ describe("betToFinalRows", () => {
       expect(rows[0].Net).toBe("-10.00"); // Header shows bet loss
       expect(rows[1].Net).toBe(""); // Child leg has no monetary values
       expect(rows[2].Net).toBe(""); // Child leg has no monetary values
-      expect(rows[0].Bet).toBe("$10.00");
+      expect(rows[0].Bet).toBe("10.00");
       expect(rows[1].Bet).toBe("");
       expect(rows[2].Bet).toBe("");
 
@@ -912,8 +912,8 @@ describe("betToFinalRows", () => {
       expect(rows[0].Category).toBe("Parlays");
       expect(rows[0].Type).toBe("Parlay");
       expect(rows[0].Odds).toBe("+300");
-      expect(rows[0].Bet).toBe("$20.00");
-      expect(rows[0]["To Win"]).toBe("$80.00");
+      expect(rows[0].Bet).toBe("20.00");
+      expect(rows[0]["To Win"]).toBe("80.00");
       expect(rows[0].Net).toBe("60.00");
       expect(rows[0].Result).toBe("Win"); // bet.result
 
@@ -1007,7 +1007,7 @@ describe("betToFinalRows", () => {
       expect(rows[0].Category).toBe("Parlays");
       expect(rows[0].Type).toBe("SGP");
       expect(rows[0].Odds).toBe("+1500");
-      expect(rows[0].Bet).toBe("$5.00");
+      expect(rows[0].Bet).toBe("5.00");
       expect(rows[0].Result).toBe("Loss"); // bet.result
 
       // Child rows (all 4 legs)
