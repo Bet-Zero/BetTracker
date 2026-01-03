@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useNormalizationData, StatTypeData } from "../../hooks/useNormalizationData";
 import { SPORTS, Sport } from "../../data/referenceData";
-import { Plus, X } from "../../components/icons";
+import { Plus, X, Lock, Unlock } from "../../components/icons";
 import DenseRow from "./DenseRow";
 import SearchInput from "./SearchInput";
 import { useEntitySearch } from "../../hooks/useEntitySearch";
@@ -239,18 +239,37 @@ const StatTypeEditPanel: React.FC<{
   isNew?: boolean;
 }> = ({ statType, onChange, onSave, onCancel, isNew }) => {
   const [newAlias, setNewAlias] = useState("");
+  const [isLocked, setIsLocked] = useState(!isNew);
 
   return (
     <div className={`space-y-3 ${isNew ? "p-4 bg-blue-50 dark:bg-blue-900/10" : ""}`}>
       <div className="grid grid-cols-2 gap-3">
-        <div>
+        <div className="relative">
           <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-1">Canonical Name</label>
+          {!isNew && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsLocked(!isLocked);
+              }}
+              className={`absolute top-0 right-0 p-0.5 rounded border transition-colors ${
+                isLocked 
+                  ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-500 border-transparent hover:bg-neutral-200 dark:hover:bg-neutral-700" 
+                  : "bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border-neutral-300 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-700"
+              }`}
+              title={isLocked ? "Unlock to edit" : "Lock to prevent changes"}
+            >
+              {isLocked ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
+            </button>
+          )}
           <input
             type="text"
             value={statType.canonical}
             onChange={(e) => onChange({ ...statType, canonical: e.target.value })}
-            disabled={!isNew}
-            className="w-full px-2 py-1.5 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-800 disabled:bg-neutral-100 dark:disabled:bg-neutral-900 focus:ring-1 focus:ring-primary-500 outline-none"
+            disabled={!isNew && isLocked}
+            className="w-full px-2 py-1.5 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-800 disabled:bg-neutral-100 dark:disabled:bg-neutral-900 focus:ring-1 focus:ring-primary-500 outline-none transition-colors"
             placeholder="e.g., Points"
           />
         </div>
@@ -259,8 +278,8 @@ const StatTypeEditPanel: React.FC<{
           <select
             value={statType.sport}
             onChange={(e) => onChange({ ...statType, sport: e.target.value as Sport })}
-            disabled={!isNew}
-            className="w-full px-2 py-1.5 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-800 disabled:bg-neutral-100 dark:disabled:bg-neutral-900 focus:ring-1 focus:ring-primary-500 outline-none"
+            disabled={!isNew && isLocked}
+            className="w-full px-2 py-1.5 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-800 disabled:bg-neutral-100 dark:disabled:bg-neutral-900 focus:ring-1 focus:ring-primary-500 outline-none transition-colors"
           >
             {SPORTS.map((s) => (
               <option key={s} value={s}>{s}</option>

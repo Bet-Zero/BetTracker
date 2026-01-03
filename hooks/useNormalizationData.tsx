@@ -196,14 +196,21 @@ export const NormalizationDataProvider: React.FC<{ children: ReactNode }> = ({
       // And they call 'refreshLookupMaps()'. So the service IS updated.
     }
 
-    // 2. Migrate Players: Link 'team' string to 'teamId'
+    // 2. Migrate Players: Link 'team' string to 'teamId' AND ensure consistent ID
     // We use 'migratedTeams' to ensure we have IDs available
     const migratedPlayers = players.map((p) => {
+      let changed = false;
+      const updates: Partial<PlayerData> = {};
+
+      // Ensure ID exists
+      if (!p.id) {
+        updates.id = crypto.randomUUID();
+        changed = true;
+      }
+
+      // Link team string to teamId if missing
       if (p.team && !p.teamId) {
         // Try to resolve team string to an ID
-        // We can use getPlayerInfo-like logic or just search teams
-        // Need to find a team in p.sport that matches p.team (canonical or alias)
-        // Since we are inside the hook, we can iterate 'migratedTeams'
         const normalizedSearch = p.team.trim().toLowerCase(); // Basic normalization
         
         const matchedTeam = migratedTeams.find((t) => {
@@ -216,18 +223,20 @@ export const NormalizationDataProvider: React.FC<{ children: ReactNode }> = ({
         });
 
         if (matchedTeam) {
-          playersChanged = true;
-          return {
-             ...p,
-             teamId: matchedTeam.id
-          };
+          updates.teamId = matchedTeam.id;
+          changed = true;
         }
+      }
+      
+      if (changed) {
+        playersChanged = true;
+        return { ...p, ...updates };
       }
       return p;
     });
 
     if (playersChanged) {
-       console.log("[NormalizationData] Migrating players to use teamId...");
+       console.log("[NormalizationData] Migrating players (IDs / Links)...");
        setPlayers(migratedPlayers);
     }
 
@@ -400,8 +409,11 @@ export const NormalizationDataProvider: React.FC<{ children: ReactNode }> = ({
       ) {
         return false;
       }
+      
+      const playerWithId = player.id ? player : { ...player, id: crypto.randomUUID() };
+
       setPlayers(
-        [...players, player].sort((a, b) =>
+        [...players, playerWithId].sort((a, b) =>
           a.canonical.localeCompare(b.canonical)
         )
       );
