@@ -17,8 +17,9 @@ import { getUnresolvedQueueCount } from "../services/unresolvedQueue";
 import TeamsManager from "@/components/InputManagement/TeamsManager";
 import PlayersManager from "@/components/InputManagement/PlayersManager";
 import StatTypesManager from "@/components/InputManagement/StatTypesManager";
+import TailsManager from "@/components/InputManagement/TailsManager";
 
-type EntityTab = "unresolved" | "teams" | "players" | "statTypes";
+type EntityTab = "unresolved" | "teams" | "players" | "statTypes" | "tails";
 
 // Tab button component
 const TabButton: React.FC<{
@@ -90,6 +91,12 @@ const InputManagementView: React.FC = () => {
         >
           Bet Types
         </TabButton>
+        <TabButton
+          active={activeTab === "tails"}
+          onClick={() => setActiveTab("tails")}
+        >
+          Tails
+        </TabButton>
       </div>
 
       {/* Tab Content */}
@@ -98,6 +105,7 @@ const InputManagementView: React.FC = () => {
         {activeTab === "teams" && <TeamsManager />}
         {activeTab === "players" && <PlayersManager />}
         {activeTab === "statTypes" && <StatTypesManager />}
+        {activeTab === "tails" && <TailsManager />}
       </div>
     </div>
   );

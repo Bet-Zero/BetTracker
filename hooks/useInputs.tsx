@@ -6,7 +6,7 @@ import React, {
   ReactNode,
   useCallback,
 } from "react";
-import { Sportsbook, SportsbookName } from "../types";
+import { Sportsbook, SportsbookName, Tail } from "../types";
 
 export interface ItemsBySport {
   [sport: string]: string[];
@@ -16,6 +16,10 @@ interface InputsContextType {
   sportsbooks: Sportsbook[];
   addSportsbook: (book: Sportsbook) => boolean;
   removeSportsbook: (name: SportsbookName) => void;
+  tails: Tail[];
+  addTail: (tail: Tail) => boolean;
+  updateTail: (name: string, tail: Tail) => boolean;
+  removeTail: (name: string) => void;
   sports: string[];
   addSport: (sport: string) => boolean;
   removeSport: (sport: string) => void;
@@ -129,6 +133,10 @@ export const InputsProvider: React.FC<{ children: ReactNode }> = ({
     "bettracker-sportsbooks",
     defaultSportsbooks
   );
+  const [tails, setTails] = useLocalStorage<Tail[]>(
+    "bettracker-tails",
+    []
+  );
   const [sports, setSports] = useLocalStorage<string[]>(
     "bettracker-sports",
     defaultSports
@@ -178,6 +186,38 @@ export const InputsProvider: React.FC<{ children: ReactNode }> = ({
       setSportsbooks(sportsbooks.filter((b) => b.name !== name));
     },
     [sportsbooks, setSportsbooks]
+  );
+
+  const addTail = useCallback(
+    (tail: Tail) => {
+      if (tails.some((t) => t.name.toLowerCase() === tail.name.toLowerCase())) {
+        return false;
+      }
+      setTails(
+        [...tails, tail].sort((a, b) => a.name.localeCompare(b.name))
+      );
+      return true;
+    },
+    [tails, setTails]
+  );
+
+  const updateTail = useCallback(
+    (name: string, updatedTail: Tail) => {
+      const index = tails.findIndex((t) => t.name === name);
+      if (index === -1) return false;
+      const newTails = [...tails];
+      newTails[index] = updatedTail;
+      setTails(newTails.sort((a, b) => a.name.localeCompare(b.name)));
+      return true;
+    },
+    [tails, setTails]
+  );
+
+  const removeTail = useCallback(
+    (name: string) => {
+      setTails(tails.filter((t) => t.name !== name));
+    },
+    [tails, setTails]
   );
 
   const addSport = useCallback(
@@ -330,6 +370,10 @@ export const InputsProvider: React.FC<{ children: ReactNode }> = ({
     sportsbooks,
     addSportsbook,
     removeSportsbook,
+    tails,
+    addTail,
+    updateTail,
+    removeTail,
     sports,
     addSport,
     removeSport,

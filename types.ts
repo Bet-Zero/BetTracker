@@ -55,6 +55,15 @@ export interface Sportsbook {
   url: string;
 }
 
+/**
+ * Tail - A person whose picks are followed ("tailed").
+ * Used to track which bets were tailed and from whom.
+ */
+export interface Tail {
+  name: string;        // Full name (e.g., "Tony's Picks")
+  displayName: string; // Short display name, 5-6 chars (e.g., "Tony")
+}
+
 export interface BetLeg {
   entities?: string[];
   /**
