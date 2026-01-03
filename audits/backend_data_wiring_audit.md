@@ -342,11 +342,14 @@ No **observed** misattribution bugs found in Phase 1 mapping; however, **Phase 2
 ## G) EXECUTION PLAN (PHASE 2 OVERVIEW)
 
 Based on the audit findings, the codebase is **correct in behavior** but has **proof gaps** where enforcement is needed. The data pipeline has:
-- ✅ Single source of truth for net calculations (`displaySemantics`)
+- ✅ **Intentional split for net semantics by purpose:**
+  - **KPI Net Source:** `displaySemantics.getNetNumeric()` — returns 0 for pending (for accounting totals)
+  - **Display Net Source:** `betToFinalRows.computeNetNumeric()` — returns undefined for pending (shows blank in table)
+  - This is **not duplication** — each serves a distinct purpose, enforced via invariants INV-1, INV-2, INV-3
 - ✅ Single source of truth for entity stats (`entityStatsService`)
 - ✅ Consistent filter predicates (`filterPredicates`)
 - ✅ Clear parlay vs singles isolation
-- ⚠️ **Intentional divergences documented but not enforced by tests**
+- ⚠️ **Intentional divergences documented but not all enforced by tests**
 
 ### Phase 2A (Proof Gap Review) — COMPLETE
 
@@ -403,6 +406,7 @@ This section identifies areas where current correctness is based on **convention
 |----|----------------------------|------------------|-------------------|----------|---------------|
 | PG-6 | ROI calculation uses `calculateRoi()` from aggregationService | Tests exist but no reconciliation test ensures chart ROI == table ROI == card ROI for same data | Add "same filter context => same totals" reconciliation test | `services/aggregationService.ts:calculateRoi()` | `reconciliation.test.ts`: "all widgets show identical ROI for identical filter" |
 | PG-7 | Parlay exclusion uses `isParlayBetType()` in entityStatsService | Tests exist for entity stats, but OverUnderBreakdown has its own inline `isParlayBetType()` call | Consolidate all parlay checks to use same function + add cross-component test | Multiple files | `parlayExclusion.test.ts`: "isParlayBetType is the single source of parlay detection" |
+| PG-10 | Time bucketing uses `bet.placedAt` by convention, not enforcement | No test validates that all date filtering code paths use `placedAt` consistently. A refactor could accidentally use `settledAt` or introduce timezone bugs. | Add explicit test that `placedAt` is used for all time-based filtering | `filterPredicates.ts`, `DashboardView.tsx:calculateNetForPeriod()` | `timeBucketing.test.ts`: "all date filters use placedAt, never settledAt" |
 
 ### P2 — Medium Priority Gaps (Documented but Not Tested)
 
@@ -444,8 +448,10 @@ These invariants represent non-negotiable correctness rules. Each must have an e
 
 | Invariant | Enforcement Method | Enforcement Location |
 |-----------|-------------------|---------------------|
-| **INV-9:** All date comparisons must use `bet.placedAt` (not `settledAt`) for time bucketing. | Convention | `filterPredicates.ts:createDateRangePredicate()` (test exists) |
-| **INV-10:** Custom date ranges use UTC boundaries (00:00:00.000Z start, 23:59:59.999Z end). | Implementation | `filterPredicates.ts:76-80` (test needed for edge cases) |
+| **INV-9:** All date filtering MUST use `bet.placedAt` (ISO 8601 timestamp). The field `settledAt` exists but is NEVER used for time bucketing or date range filtering. | Unit test needed | `filterPredicates.ts:createDateRangePredicate()` |
+| **INV-10:** Date comparisons use JavaScript Date parsing of ISO 8601 strings. QuickStatCards use relative time windows (e.g., "1 day ago" from `now`). Custom date ranges compare against `placedAt` using Date objects. Timezone handling: ISO 8601 strings are parsed in local timezone context. | Unit test needed | `filterPredicates.ts`, `DashboardView.tsx:calculateNetForPeriod()` |
+
+**NOTE:** Time bucketing enforcement promoted to proof gap PG-10 (see Section H) because no test currently validates that `placedAt` is consistently used across all date filtering code paths.
 
 ### Entity Resolution / entityType Classification
 
@@ -471,11 +477,12 @@ Based on proof gaps identified, here is a minimal execution plan to enforce corr
 
 | Order | File | Action | Purpose |
 |-------|------|--------|---------|
-| 1 | `tests/invariants.test.ts` (NEW) | Create | Cross-module invariant tests |
-| 2 | `tests/reconciliation.test.ts` (NEW) | Create | Same-filter-context reconciliation |
-| 3 | `parsing/tests/betToFinalRows.test.ts` | Add tests | Pending net display = blank |
-| 4 | `views/__tests__/DashboardView.test.tsx` (NEW or existing) | Create/extend | QuickStatCards global behavior |
-| 5 | `tests/fixtures/deadly-fixtures.ts` (NEW) | Create | Canonical test fixture dataset |
+| 1 | `src/tests/fixtures/deadly-fixtures.ts` (NEW) | Create | Canonical test fixture dataset |
+| 2 | `src/tests/invariants.test.ts` (NEW) | Create | Cross-module invariant tests (net semantics) |
+| 3 | `src/tests/reconciliation.test.ts` (NEW) | Create | KPI totals == sum(filteredBets.map(getNetNumeric)) |
+| 4 | `src/tests/timeBucketing.test.ts` (NEW) | Create | Enforce `placedAt` usage for all date filtering |
+| 5 | `parsing/tests/betToFinalRows.test.ts` | Add tests | Pending net display = blank (display semantics only) |
+| 6 | `src/tests/DashboardView.test.tsx` (NEW or existing) | Create/extend | QuickStatCards global behavior |
 
 ### 2) Fixture Dataset Plan (Deadly Fixtures)
 
@@ -526,10 +533,17 @@ For entity stats (non-parlays only):
 - [ ] Win rate excludes pushes and pending (NEEDS EXPLICIT TEST)
 
 #### Dashboard Aggregation Reconciliation Tests
-- [ ] StatCard net == sum(filteredBets table rows net) for settled bets
-- [ ] Chart total == table total for same filter context
-- [ ] QuickStatCards unchanged when dashboard filters change
+
+**IMPORTANT:** KPI totals reconcile against **canonical bet data**, NOT against FinalRows.
+
+- [ ] StatCard net == `sum(filteredBets.map(getNetNumeric))` for the same filter context
+- [ ] Chart profit total == `sum(filteredBets.map(getNetNumeric))` for same filter context
+- [ ] QuickStatCards unchanged when dashboard filters change (uses ALL bets, not filteredBets)
 - [ ] O/U breakdown excludes parlays
+
+**FinalRows are display-only** and must NOT be used for KPI reconciliation:
+- [ ] FinalRow.Net shows blank for pending bets (display semantics test)
+- [ ] FinalRow formatting tests (currency, percentages) are separate from KPI tests
 
 #### "No Leakage" Tests (Parlays Never Counted as Singles)
 - [ ] `isParlayBetType()` returns true for 'parlay', 'sgp', 'sgp_plus' (EXISTING ✅)
@@ -564,6 +578,7 @@ Consider adding `console.assert()` or conditional assertions that:
 |----|-------|----------|--------|----------------|
 | PG-6 | No reconciliation test for ROI across widgets | aggregationService | Could diverge silently | Add reconciliation test |
 | PG-7 | Parlay detection spread across files | Multiple | Could miss a check | Consolidate + test |
+| PG-10 | Time bucketing uses `placedAt` by convention only | filterPredicates, DashboardView | Could use wrong timestamp | Add explicit test |
 
 ### P2 (Medium — Nice to Have)
 
@@ -588,23 +603,42 @@ Consider adding `console.assert()` or conditional assertions that:
 
 ## CONCLUSION (UPDATED)
 
-Phase 1 mapping found no **observed** misattribution bugs. However, **Phase 2A analysis identified 5 P0 proof gaps** where correctness is based on convention rather than enforcement:
+Phase 1 mapping found no **observed** misattribution bugs. However, **Phase 2A analysis identified 5 P0 and 3 P1 proof gaps** where correctness is based on convention rather than enforcement:
 
-1. **Net semantics divergence** — Two implementations of pending net with no cross-module test
+**P0 Proof Gaps (Must Fix):**
+1. **Net semantics divergence** — KPI net (`getNetNumeric`) and display net (`computeNetNumeric`) have intentionally different pending behavior, but no cross-module test enforces consistency for settled bets
 2. **QuickStatCards scoping** — Global behavior undocumented by test
 3. **O/U parlay exclusion** — Inline checks without centralized guard
 4. **Self-healing masking** — Could hide classifier bugs
 5. **Entity type fallback** — Unknown entities not tested
 
+**P1 Proof Gaps (Should Fix):**
+6. **ROI reconciliation** — No cross-widget consistency test
+7. **Parlay detection spread** — Multiple inline checks
+10. **Time bucketing** — Uses `placedAt` by convention, no test enforces this
+
+**Key Clarification:** Net calculations are **intentionally split by purpose**:
+- **KPI Net:** `displaySemantics.getNetNumeric()` — pending = 0 (for totals)
+- **Display Net:** `betToFinalRows.computeNetNumeric()` — pending = undefined (shows blank)
+
+This is NOT a bug or duplication — it's enforced separation of concerns via INV-1 through INV-3.
+
 **These are NOT bugs today**, but they represent silent drift risks. Phase 2B implementation will add:
 - Invariant tests to lock in semantics
-- Reconciliation tests to ensure widget consistency
+- Reconciliation tests against `sum(filteredBets.map(getNetNumeric))` (NOT FinalRows)
 - Deadly fixtures to catch regressions
+- Time bucketing enforcement tests
 
-**Status:** Phase 2A complete. Ready for Phase 2B execution upon approval.
+**Status:** Phase 2A.1 complete. Doc hardened. Ready for Phase 2B execution upon approval.
 
 ---
 
 ## STOP — AWAITING "Run Phase 2B"
 
-Phase 2A complete. Proof gaps identified and invariants documented. Phase 2B will implement the test suite and enforcement mechanisms defined above.
+Phase 2A.1 doc hardening complete. Changes made:
+- Clarified net semantics split (KPI vs Display) is intentional, not duplication
+- Strengthened time bucketing invariants and added PG-10 proof gap
+- Corrected reconciliation targets: KPI totals reconcile against `sum(filteredBets.map(getNetNumeric))`, NOT FinalRows
+- Standardized test file paths to `src/tests/` convention
+
+Phase 2B will implement the test suite and enforcement mechanisms defined above.
