@@ -239,30 +239,32 @@ const FuturesExposurePanel: React.FC<FuturesExposurePanelProps> = ({ bets }) => 
 /**
  * Extract entity name from bet description for futures.
  * Tries to identify team/player names from futures bet descriptions.
+ * Uses ordered pattern matching - returns first match with length > 1.
  */
 function extractEntityFromDescription(description: string): string {
   if (!description) return '';
   
-  // Common futures patterns:
-  // "Lakers to win NBA Championship" -> "Lakers"
-  // "Celtics Win Total Over 52.5" -> "Celtics"
-  // "LeBron James MVP (+500)" -> "LeBron James"
-  // "Warriors vs. Celtics - Finals Winner" -> "Warriors"
-  
-  // Try to extract before "to Win", "Win Total", "MVP", "vs.", "-", etc.
-  const patterns = [
-    /^(.*?)\s+to\s+win/i,                    // "X to win Y"
-    /^(.*?)\s+win\s+total/i,                 // "X Win Total"
-    /^(.*?)\s+MVP\s*\(/i,                    // "X MVP (+odds)"
-    /^(.*?)\s+vs\.\s+/i,                     // "X vs. Y"
-    /^(.*?)\s+-\s+/i,                        // "X - Y"
-    /^(.*?)\s+(?:Over|Under)\s+\d/i,         // "X Over/Under N"
+  // Pattern checks in order - return first match with length > 1
+  // NOTE: Order matters! More specific patterns should come before general ones
+  const patterns: RegExp[] = [
+    /^(.*?)\s+to\s+win/i,                    // "Lakers to win NBA Championship" -> "Lakers"
+    /^(.*?)\s+win\s+total/i,                 // "Celtics Win Total Over 52.5" -> "Celtics"
+    /^(.*?)\s+vs\./i,                        // "Warriors vs. Celtics" -> "Warriors" (before dash!)
+    /^(.*?)\s+-\s+/,                         // "Lakers - Championship Winner" -> "Lakers"
+    /^(.*?)\s+(?:Over|Under)\s+\d/i,         // "Patrick Mahomes Over 4500.5" -> "Patrick Mahomes"
+    /^(.*?)\s+\([+-]\d+\)/,                  // "Lakers (+500)" -> "Lakers"
+    /^(.*?)\s+\(/,                           // "Warriors (Regular Season Wins)" -> "Warriors"
+    /^(.*?)\s+(?:Finals|Championship)/i,    // "Lakers Finals" -> "Lakers"
   ];
   
   for (const pattern of patterns) {
     const match = description.match(pattern);
     if (match && match[1]) {
-      return match[1].trim();
+      const entity = match[1].trim();
+      // Validation: entity must have length > 1 (reject single characters)
+      if (entity.length > 1) {
+        return entity;
+      }
     }
   }
   
