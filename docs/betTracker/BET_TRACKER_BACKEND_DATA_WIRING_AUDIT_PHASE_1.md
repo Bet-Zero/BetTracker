@@ -616,3 +616,97 @@ Note: Items #2 and #4 from the Confusion Risks list are already addressed with e
 
 ### Dashboard Tables Truth Audit Completion Date
 **2026-01-03**
+
+---
+
+## Parlay Isolation Implementation Phase: ✅ COMPLETE
+
+### Overview
+
+Added dedicated Parlay Performance page and Futures Exposure panel while enforcing strict parlay isolation rules as specified in the execution prompt.
+
+### Parlay Isolation Policy (ENFORCED)
+
+**"Tickets drive money. Legs never do."**
+
+1. Parlay legs NEVER contribute stake, net, or ROI anywhere outside parlay-only or leg-only views
+2. No parlay data may be silently mixed into straight-bet analytics
+3. Parlay data is allowed in ONLY these places:
+   - A) Ticket-level global analytics (existing behavior)
+   - B) New Parlay Performance page (parlay tickets only)
+   - C) Optional future leg-accuracy-only view (NO money attribution)
+
+### Files Created/Modified
+
+| Path | Type | Purpose |
+|------|------|---------|
+| `views/ParlayPerformanceView.tsx` | New | Dedicated parlay ticket analytics page |
+| `components/FuturesExposurePanel.tsx` | New | Pending futures exposure panel |
+| `components/icons.tsx` | Modified | Added Layers, Clock icons |
+| `App.tsx` | Modified | Added Parlays navigation tab |
+| `views/DashboardView.tsx` | Modified | Integrated FuturesExposurePanel, added O/U tooltip |
+| `views/BySportView.tsx` | Modified | Added Player/Team and O/U tooltips |
+| `views/PlayerProfileView.tsx` | Modified | Added O/U and Header tooltips |
+
+### Parlay Performance Page (Task A)
+
+**Placement**: New top-level navigation item "Parlays"
+
+**Dataset**: `bets.filter(bet => isParlayBetType(bet.betType))`
+
+**Metrics**:
+- Total Parlays: `parlayBets.length`
+- Parlay Stake: `sum(bet.stake)`
+- Parlay Net: `sum(getNetNumeric(bet))`
+- Parlay Win Rate: `wins / (wins + losses)`
+- Parlay ROI: `net / stake * 100`
+- Average Legs: `sum(bet.legs.length) / parlayBets.length`
+
+**Breakdowns**:
+- By leg count: 2-leg / 3-leg / 4-leg / 5+
+- By parlay type: Standard / SGP / SGP+
+- Parlay profit over time (parlay tickets only)
+- By sportsbook
+- By sport
+
+**All headers clearly state**: "Parlay tickets only"
+
+### Futures Exposure Panel (Task B)
+
+**Placement**: Dashboard (at bottom of Performance Review section)
+
+**Dataset**: `bets.filter(bet => bet.marketCategory === 'Futures' && bet.result === 'pending')`
+
+**Metrics**:
+- Open Futures Count: `openFutures.length`
+- Total Exposure: `sum(bet.stake)`
+- Potential Payout: `sum(bet.payout)`
+- Max Profit: `sum(bet.payout - bet.stake)`
+
+**Breakdowns**:
+- By sport
+- By entity (team/player)
+
+**Labeling**: "Pending futures only (open positions)"
+
+### UI Clarity Tooltips (Task C)
+
+| Location | Tooltip Text |
+|----------|--------------|
+| Dashboard O/U Breakdown | "Straight bets only (excludes parlay/SGP legs)" |
+| BySportView O/U Breakdown | "Straight bets only (excludes parlay/SGP legs)" |
+| BySportView Player & Team Table | "Parlays/SGP/SGP+ contribute $0 stake/net to entity breakdowns (prevents double-counting)." |
+| PlayerProfileView O/U Breakdown | "Bet counts include parlay legs; stake/net from straight bets only" |
+| PlayerProfileView Header | "Includes all bets with this player, including parlays" |
+
+### Forbidden Changes Verified
+
+The following were NOT modified (as required):
+- `computeEntityStatsMap` - unchanged
+- `getEntityMoneyContribution` - unchanged  
+- `computeOverUnderStats` - unchanged
+- No parlay leg money attributed to entities
+- No existing widget scope changed
+
+### Parlay Isolation Implementation Completion Date
+**2026-01-03**
