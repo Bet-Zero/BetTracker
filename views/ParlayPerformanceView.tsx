@@ -49,6 +49,7 @@ import {
 } from '../utils/filterPredicates';
 import { InfoTooltip } from '../components/debug/InfoTooltip';
 import ParlayInsightsCard from '../components/ParlayInsightsCard';
+import { StatCard } from '../components/StatCard';
 
 // --- HELPER COMPONENTS ---
 
@@ -90,35 +91,7 @@ const ChartContainer: React.FC<{
   </div>
 );
 
-const StatCard: React.FC<{
-  title: string;
-  value: string;
-  icon: React.ReactNode;
-  subtitle?: string;
-  subtitleClassName?: string;
-  valueClassName?: string;
-}> = ({ title, value, icon, subtitle, subtitleClassName, valueClassName }) => {
-  return (
-    <div className="bg-white dark:bg-neutral-900 p-6 rounded-lg shadow-md flex items-start justify-between">
-      <div>
-        <p className="text-sm font-medium text-neutral-500 dark:text-neutral-400 uppercase">
-          {title}
-        </p>
-        <p className={`text-3xl font-bold mt-1 ${valueClassName || 'text-neutral-900 dark:text-white'}`}>
-          {value}
-        </p>
-        {subtitle && (
-          <p className={`text-sm font-semibold mt-2 ${subtitleClassName || 'text-neutral-500 dark:text-neutral-400'}`}>
-            {subtitle}
-          </p>
-        )}
-      </div>
-      <div className="bg-primary-100 dark:bg-primary-900/50 text-primary-600 dark:text-primary-400 p-3 rounded-full">
-        {icon}
-      </div>
-    </div>
-  );
-};
+
 
 type StatsData = {
   name: string;
@@ -602,32 +575,34 @@ const ParlayPerformanceView: React.FC = () => {
 
         {processedData ? (
           <>
-            {/* Main KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 pt-4">
+            {/* Main KPI Cards - 4 Column Layout */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pt-4">
               <StatCard
-                title="Total Parlays"
-                value={processedData.overallStats.totalBets.toString()}
-                icon={<Layers className="w-6 h-6" />}
-              />
-              <StatCard
-                title="Parlay Stake"
-                value={`$${processedData.overallStats.totalWagered.toFixed(2)}`}
-                icon={<BarChart2 className="w-6 h-6" />}
-              />
-              <StatCard
-                title="Parlay Net"
-                value={`${processedData.overallStats.netProfit >= 0 ? '$' : '-$'}${Math.abs(processedData.overallStats.netProfit).toFixed(2)}`}
+                title="Net Profit"
+                value={`${processedData.overallStats.netProfit >= 0 ? '$' : '-$'}${Math.abs(processedData.overallStats.netProfit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                 icon={<Scale className="w-6 h-6" />}
-                valueClassName={
-                  processedData.overallStats.netProfit > 0
+                subtitle={`${processedData.overallStats.roi.toFixed(1)}% ROI`}
+                subtitleClassName={
+                  processedData.overallStats.roi > 0
                     ? 'text-accent-500'
-                    : processedData.overallStats.netProfit < 0
+                    : processedData.overallStats.roi < 0
                     ? 'text-danger-500'
                     : undefined
                 }
               />
               <StatCard
-                title="Parlay Win Rate"
+                title="Total Wagered"
+                value={`$${processedData.overallStats.totalWagered.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                icon={<BarChart2 className="w-6 h-6" />}
+              />
+              <StatCard
+                title="Total Bets"
+                value={processedData.overallStats.totalBets.toLocaleString()}
+                icon={<Layers className="w-6 h-6" />}
+                subtitle={`Avg Legs: ${processedData.avgLegs.toFixed(1)}`}
+              />
+              <StatCard
+                title="Win Rate"
                 value={`${processedData.overallStats.winRate.toFixed(1)}%`}
                 icon={<BarChart2 className="w-6 h-6" />}
                 subtitle={`${processedData.overallStats.wins}-${processedData.overallStats.losses}`}
@@ -638,29 +613,6 @@ const ParlayPerformanceView: React.FC = () => {
                     ? 'text-danger-500'
                     : undefined
                 }
-              />
-              <StatCard
-                title="Parlay ROI"
-                value={`${processedData.overallStats.roi.toFixed(1)}%`}
-                icon={
-                  processedData.overallStats.roi >= 0 ? (
-                    <TrendingUp className="w-6 h-6" />
-                  ) : (
-                    <TrendingDown className="w-6 h-6" />
-                  )
-                }
-                valueClassName={
-                  processedData.overallStats.roi > 0
-                    ? 'text-accent-500'
-                    : processedData.overallStats.roi < 0
-                    ? 'text-danger-500'
-                    : undefined
-                }
-              />
-              <StatCard
-                title="Avg Legs"
-                value={processedData.avgLegs.toFixed(1)}
-                icon={<Layers className="w-6 h-6" />}
               />
             </div>
 

@@ -15,6 +15,8 @@ import {
   computeStatsByDimension,
   mapToStatsArray,
 } from '../services/aggregationService';
+import { StatCard } from '../components/StatCard';
+
 
 // --- HELPER COMPONENTS ---
 
@@ -41,45 +43,7 @@ const ChartContainer: React.FC<{ title: string; children: React.ReactNode }> = (
     </div>
 );
 
-const StatCard: React.FC<{
-    title: string;
-    value: string;
-    icon: React.ReactNode;
-    subtitle?: string; // Static text (no arrows)
-    subtitleClassName?: string; // Explicit color for subtitle
-    change?: string; // Trend with arrows (auto-colored)
-    valueClassName?: string; // Explicit color for main value
-}> = ({ title, value, icon, subtitle, subtitleClassName, change, valueClassName }) => {
-    const isPositive = change && parseFloat(change) > 0;
-    const isNegative = change && parseFloat(change) < 0;
-    const changeColor = isPositive ? 'text-accent-500' : isNegative ? 'text-danger-500' : 'text-neutral-500 dark:text-neutral-400';
 
-    return (
-        <div className="bg-white dark:bg-neutral-900 p-6 rounded-lg shadow-md flex items-start justify-between">
-            <div>
-                <p className="text-sm font-medium text-neutral-500 dark:text-neutral-400 uppercase">{title}</p>
-                <p className={`text-3xl font-bold mt-1 ${valueClassName || "text-neutral-900 dark:text-white"}`}>
-                    {value}
-                </p>
-                {subtitle && (
-                    <p className={`text-sm font-semibold mt-2 ${subtitleClassName || "text-neutral-500 dark:text-neutral-400"}`}>
-                        {subtitle}
-                    </p>
-                )}
-                {change && (
-                    <p className={`text-sm font-semibold flex items-center mt-2 ${changeColor}`}>
-                        {isPositive && <TrendingUp className="w-4 h-4 mr-1" />}
-                        {isNegative && <TrendingDown className="w-4 h-4 mr-1" />}
-                        {change}
-                    </p>
-                )}
-            </div>
-            <div className="bg-primary-100 dark:bg-primary-900/50 text-primary-600 dark:text-primary-400 p-3 rounded-full">
-                {icon}
-            </div>
-        </div>
-    );
-};
 
 
 
@@ -251,12 +215,12 @@ const SportsbookBreakdownView: React.FC = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                             <StatCard 
                                 title="Net Profit" 
-                                value={`${processedData.stats.netProfit >= 0 ? '$' : '-$'}${Math.abs(processedData.stats.netProfit).toFixed(2)}`} 
+                                value={`${processedData.stats.netProfit >= 0 ? '$' : '-$'}${Math.abs(processedData.stats.netProfit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} 
                                 icon={<Scale className="w-6 h-6"/>} 
                                 subtitle={`${processedData.stats.roi.toFixed(1)}% ROI`}
                                 subtitleClassName={processedData.stats.roi > 0 ? "text-accent-500" : processedData.stats.roi < 0 ? "text-danger-500" : undefined}
                             />
-                            <StatCard title="Total Wagered" value={`$${processedData.stats.totalWagered.toFixed(2)}`} icon={<BarChart2 className="w-6 h-6"/>} />
+                            <StatCard title="Total Wagered" value={`$${processedData.stats.totalWagered.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} icon={<BarChart2 className="w-6 h-6"/>} />
                             <StatCard title="Total Bets" value={processedData.stats.totalBets.toString()} icon={<BarChart2 className="w-6 h-6"/>} />
                             <StatCard 
                                 title="Win Rate" 

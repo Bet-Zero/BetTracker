@@ -50,6 +50,8 @@ import { normalizeTeamName, getTeamInfo } from "../services/normalizationService
 import { getTeamAggregationKey, getPlayerAggregationKey } from "../services/resolver";
 // Task C: UI Clarity tooltips
 import { InfoTooltip } from "../components/debug/InfoTooltip";
+import { StatCard } from "../components/StatCard";
+import { FitText } from "../components/FitText";
 
 // --- HELPER FUNCTIONS & COMPONENTS ---
 
@@ -83,53 +85,7 @@ const ChartContainer: React.FC<{
   </div>
 );
 
-const StatCard: React.FC<{
-  title: string;
-  value: string;
-  icon: React.ReactNode;
-  subtitle?: string; // Static text (no arrows)
-  subtitleClassName?: string; // Explicit color for subtitle
-  change?: string; // Trend with arrows (auto-colored)
-  valueClassName?: string; // Explicit color for main value
-}> = ({ title, value, icon, subtitle, subtitleClassName, change, valueClassName }) => {
-  const isPositive = change && parseFloat(change) > 0;
-  const isNegative = change && parseFloat(change) < 0;
-  const changeColor = isPositive
-    ? "text-accent-500"
-    : isNegative
-    ? "text-danger-500"
-    : "text-neutral-500 dark:text-neutral-400";
 
-  return (
-    <div className="bg-white dark:bg-neutral-900 p-6 rounded-lg shadow-md flex items-start justify-between">
-      <div>
-        <p className="text-sm font-medium text-neutral-500 dark:text-neutral-400 uppercase">
-          {title}
-        </p>
-        <p className={`text-3xl font-bold mt-1 ${valueClassName || "text-neutral-900 dark:text-white"}`}>
-          {value}
-        </p>
-        {subtitle && (
-          <p className={`text-sm font-semibold mt-2 ${subtitleClassName || "text-neutral-500 dark:text-neutral-400"}`}>
-            {subtitle}
-          </p>
-        )}
-        {change && (
-          <p
-            className={`text-sm font-semibold flex items-center mt-2 ${changeColor}`}
-          >
-            {isPositive && <TrendingUp className="w-4 h-4 mr-1" />}
-            {isNegative && <TrendingDown className="w-4 h-4 mr-1" />}
-            {change}
-          </p>
-        )}
-      </div>
-      <div className="bg-primary-100 dark:bg-primary-900/50 text-primary-600 dark:text-primary-400 p-3 rounded-full">
-        {icon}
-      </div>
-    </div>
-  );
-};
 
 type StatsData = {
   name: string;
@@ -426,10 +382,17 @@ const OverUnderBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
           <p>
             <b>Win %:</b> {winPct.toFixed(1)}%
           </p>
-          <p className={`flex items-center ${netColor}`}>
+          <div className={`flex justify-between items-center ${netColor}`}>
             <b>Net:</b>
-            <NetIcon className="w-4 h-4 mx-1" /> ${stats.net.toFixed(2)}
-          </p>
+            <div className="flex items-center ml-1">
+              <NetIcon className="w-4 h-4 mr-1 flex-shrink-0" />
+              <div className="w-20 h-6">
+                 <FitText maxFontSize={16} minFontSize={10} className="justify-end font-bold">
+                   ${stats.net.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                 </FitText>
+              </div>
+            </div>
+          </div>
           <p className={netColor}>
             <b>ROI:</b> {stats.roi.toFixed(1)}%
           </p>
@@ -589,9 +552,16 @@ const LiveVsPreMatchBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
           <p>
             <b>Win %:</b> {winPct.toFixed(1)}%
           </p>
-          <p className={netColor}>
-            <b>Net:</b> ${stats.net.toFixed(2)}
-          </p>
+          <div className={`flex justify-between items-center ${netColor}`}>
+            <b>Net:</b>
+            <div className="flex items-center ml-1">
+               <div className="w-20 h-6">
+                 <FitText maxFontSize={16} minFontSize={10} className="justify-end font-bold">
+                   ${stats.net.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                 </FitText>
+               </div>
+            </div>
+          </div>
           <p className={netColor}>
             <b>ROI:</b> {stats.roi.toFixed(1)}%
           </p>

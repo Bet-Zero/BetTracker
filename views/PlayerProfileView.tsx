@@ -24,7 +24,10 @@ import {
 import { getNetNumeric, getEntityMoneyContribution } from '../services/displaySemantics';
 import { computeOverUnderStats, filterBetsByMarketCategory, OverUnderMarketFilter } from '../services/overUnderStatsService';
 // Task C: UI Clarity tooltips
+// Task C: UI Clarity tooltips
 import { InfoTooltip } from '../components/debug/InfoTooltip';
+import { StatCard } from '../components/StatCard';
+import { FitText } from '../components/FitText';
 
 // --- HELPER COMPONENTS ---
 
@@ -51,45 +54,7 @@ const ChartContainer: React.FC<{ title: string; children: React.ReactNode }> = (
     </div>
 );
 
-const StatCard: React.FC<{
-    title: string;
-    value: string;
-    icon: React.ReactNode;
-    subtitle?: string; // Static text (no arrows)
-    subtitleClassName?: string; // Explicit color for subtitle
-    change?: string; // Trend with arrows (auto-colored)
-    valueClassName?: string; // Explicit color for main value
-}> = ({ title, value, icon, subtitle, subtitleClassName, change, valueClassName }) => {
-    const isPositive = change && parseFloat(change) > 0;
-    const isNegative = change && parseFloat(change) < 0;
-    const changeColor = isPositive ? 'text-accent-500' : isNegative ? 'text-danger-500' : 'text-neutral-500 dark:text-neutral-400';
 
-    return (
-        <div className="bg-white dark:bg-neutral-900 p-6 rounded-lg shadow-md flex items-start justify-between">
-            <div>
-                <p className="text-sm font-medium text-neutral-500 dark:text-neutral-400 uppercase">{title}</p>
-                <p className={`text-3xl font-bold mt-1 ${valueClassName || "text-neutral-900 dark:text-white"}`}>
-                    {value}
-                </p>
-                {subtitle && (
-                    <p className={`text-sm font-semibold mt-2 ${subtitleClassName || "text-neutral-500 dark:text-neutral-400"}`}>
-                        {subtitle}
-                    </p>
-                )}
-                {change && (
-                    <p className={`text-sm font-semibold flex items-center mt-2 ${changeColor}`}>
-                        {isPositive && <TrendingUp className="w-4 h-4 mr-1" />}
-                        {isNegative && <TrendingDown className="w-4 h-4 mr-1" />}
-                        {change}
-                    </p>
-                )}
-            </div>
-            <div className="bg-primary-100 dark:bg-primary-900/50 text-primary-600 dark:text-primary-400 p-3 rounded-full">
-                {icon}
-            </div>
-        </div>
-    );
-};
 
 
 type StatsData = { name: string; count: number; wins: number; losses: number; stake: number; net: number; roi: number };
@@ -274,7 +239,14 @@ const OverUnderBreakdown: React.FC<{ bets: Bet[], selectedPlayer: string | null 
                     <p><b>Bets:</b> {stats.count}</p>
                     <p><b>Win/Loss:</b> {stats.wins}-{stats.losses}</p>
                     <p><b>Win %:</b> {winPct.toFixed(1)}%</p>
-                    <p className={netColor}><b>Net:</b> ${stats.net.toFixed(2)}</p>
+                    <div className={netColor}>
+                        <b>Net:</b> 
+                        <div className="inline-block w-20 h-5 align-middle ml-1">
+                             <FitText maxFontSize={14} minFontSize={10} className="justify-start font-bold">
+                                ${stats.net.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                             </FitText>
+                        </div>
+                    </div>
                     <p className={netColor}><b>ROI:</b> {stats.roi.toFixed(1)}%</p>
                 </div>
             </div>
@@ -620,12 +592,12 @@ const PlayerProfileView: React.FC<PlayerProfileViewProps> = ({ selectedPlayer, s
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 border-t border-neutral-200 dark:border-neutral-800 pt-6">
                                 <StatCard 
                                     title="Net Profit" 
-                                    value={`${processedData.overallStats.netProfit >= 0 ? '$' : '-$'}${Math.abs(processedData.overallStats.netProfit).toFixed(2)}`} 
+                                    value={`${processedData.overallStats.netProfit >= 0 ? '$' : '-$'}${Math.abs(processedData.overallStats.netProfit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} 
                                     icon={<Scale className="w-6 h-6"/>} 
                                     subtitle={`${processedData.overallStats.roi.toFixed(1)}% ROI`}
                                     subtitleClassName={processedData.overallStats.roi > 0 ? "text-accent-500" : processedData.overallStats.roi < 0 ? "text-danger-500" : undefined}
                                 />
-                                <StatCard title="Total Wagered" value={`$${processedData.overallStats.totalWagered.toFixed(2)}`} icon={<BarChart2 className="w-6 h-6"/>} />
+                                <StatCard title="Total Wagered" value={`$${processedData.overallStats.totalWagered.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} icon={<BarChart2 className="w-6 h-6"/>} />
                                 <StatCard title="Total Bets" value={processedData.overallStats.totalBets.toString()} icon={<BarChart2 className="w-6 h-6"/>} />
                                 <StatCard 
                                     title="Win/Loss/Push" 
