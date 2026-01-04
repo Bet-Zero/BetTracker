@@ -48,6 +48,7 @@ import {
   CustomDateRange,
 } from '../utils/filterPredicates';
 import { InfoTooltip } from '../components/debug/InfoTooltip';
+import ParlayInsightsCard from '../components/ParlayInsightsCard';
 
 // --- HELPER COMPONENTS ---
 
@@ -661,6 +662,11 @@ const ParlayPerformanceView: React.FC = () => {
                 value={processedData.avgLegs.toFixed(1)}
                 icon={<Layers className="w-6 h-6" />}
               />
+            </div>
+
+            {/* Parlay Strategy Insights Card - below stat cards, above charts */}
+            <div className="pt-4">
+              <ParlayInsightsCard parlayBets={parlayBets} />
             </div>
 
             {/* Charts Row */}
