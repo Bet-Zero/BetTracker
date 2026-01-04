@@ -62,16 +62,23 @@ function calculateFuturesMetrics(openFutures: Bet[]) {
 
 /**
  * Extracts entity from bet description
- * Mirrors FuturesExposurePanel logic
+ * Mirrors FuturesExposurePanel logic with improved patterns
  */
 function extractEntityFromDescription(description: string): string {
   if (!description) return '';
   
+  // Common futures patterns:
+  // "Lakers to win NBA Championship" -> "Lakers"
+  // "Celtics Win Total Over 52.5" -> "Celtics"
+  // "LeBron James MVP (+500)" -> "LeBron James"
+  // "Warriors vs. Celtics - Finals Winner" -> "Warriors"
   const patterns = [
-    /^(.*?)\s+to\s+win/i,
-    /^(.*?)\s+win\s+total/i,
-    /^(.*?)\s+-\s+/i,
-    /^(.*?)\s+(?:Over|Under)\s+\d/i,
+    /^(.*?)\s+to\s+win/i,                    // "X to win Y"
+    /^(.*?)\s+win\s+total/i,                 // "X Win Total"
+    /^(.*?)\s+MVP\s*\(/i,                    // "X MVP (+odds)"
+    /^(.*?)\s+vs\.\s+/i,                     // "X vs. Y"
+    /^(.*?)\s+-\s+/i,                        // "X - Y"
+    /^(.*?)\s+(?:Over|Under)\s+\d/i,         // "X Over/Under N"
   ];
   
   for (const pattern of patterns) {
@@ -81,7 +88,11 @@ function extractEntityFromDescription(description: string): string {
     }
   }
   
-  return description.length > 30 ? description.substring(0, 30) + '...' : description;
+  // Fallback: truncate to 40 chars ending with "…" for long descriptions
+  if (description.length > 40) {
+    return description.substring(0, 40) + '…';
+  }
+  return description;
 }
 
 // ===========================================================================
@@ -331,17 +342,34 @@ describe('Futures Exposure Panel', () => {
   });
 
   // ===========================================================================
-  // Entity Extraction Tests
+  // Entity Extraction Tests (per prompt requirements)
   // ===========================================================================
   describe('Entity Extraction from Description', () => {
+    // Required examples from prompt:
+    it('extracts "Lakers" from "Lakers to win NBA Championship"', () => {
+      const result = extractEntityFromDescription('Lakers to win NBA Championship');
+      expect(result).toBe('Lakers');
+    });
+
+    it('extracts "Celtics" from "Celtics Win Total Over 52.5"', () => {
+      const result = extractEntityFromDescription('Celtics Win Total Over 52.5');
+      expect(result).toBe('Celtics');
+    });
+
+    it('extracts "LeBron James" from "LeBron James MVP (+500)"', () => {
+      const result = extractEntityFromDescription('LeBron James MVP (+500)');
+      expect(result).toBe('LeBron James');
+    });
+
+    it('extracts "Warriors" from "Warriors vs. Celtics - Finals Winner"', () => {
+      const result = extractEntityFromDescription('Warriors vs. Celtics - Finals Winner');
+      expect(result).toBe('Warriors');
+    });
+
+    // Additional pattern tests
     it('extracts entity from "X to Win Y" pattern', () => {
       const result = extractEntityFromDescription('Boston Celtics to Win NBA Championship');
       expect(result).toBe('Boston Celtics');
-    });
-
-    it('extracts entity from "X Win Total" pattern', () => {
-      const result = extractEntityFromDescription('Lakers Win Total Over 45.5');
-      expect(result).toBe('Lakers');
     });
 
     it('extracts entity from "X - Y" pattern', () => {
@@ -359,13 +387,15 @@ describe('Futures Exposure Panel', () => {
       expect(result).toBe('Cubs');
     });
 
-    it('returns truncated description for unrecognized patterns', () => {
-      const longDescription = 'This is a very long description that does not match any pattern and should be truncated';
+    // Truncation tests - per prompt: <= 40 chars ending with "…"
+    it('truncates long description to <= 40 chars ending with "…"', () => {
+      const longDescription = 'This is a very long description that does not match any known pattern and should be truncated to forty characters';
       const result = extractEntityFromDescription(longDescription);
-      expect(result.length).toBeLessThanOrEqual(33); // 30 chars + '...'
+      expect(result.length).toBeLessThanOrEqual(41); // 40 chars + '…'
+      expect(result.endsWith('…')).toBe(true);
     });
 
-    it('handles empty description', () => {
+    it('handles empty description returning ""', () => {
       const result = extractEntityFromDescription('');
       expect(result).toBe('');
     });
@@ -374,6 +404,13 @@ describe('Futures Exposure Panel', () => {
       const shortDescription = 'Short desc';
       const result = extractEntityFromDescription(shortDescription);
       expect(result).toBe('Short desc');
+    });
+
+    it('preserves descriptions exactly 40 chars without truncation', () => {
+      const exactly40 = '1234567890123456789012345678901234567890'; // exactly 40 chars
+      const result = extractEntityFromDescription(exactly40);
+      expect(result).toBe(exactly40);
+      expect(result.length).toBe(40);
     });
   });
 

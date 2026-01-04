@@ -225,9 +225,9 @@ describe('Parlay Performance View', () => {
   });
 
   // ===========================================================================
-  // getParlayTypeName Tests
+  // getParlayTypeName Tests (mapParlayType per prompt)
   // ===========================================================================
-  describe('getParlayTypeName', () => {
+  describe('getParlayTypeName (mapParlayType)', () => {
     it('returns "Standard Parlay" for parlay betType', () => {
       const bet = createTestBet({
         id: 'test-parlay',
@@ -263,37 +263,55 @@ describe('Parlay Performance View', () => {
       });
       expect(getParlayTypeName(bet)).toBe('Parlay');
     });
+
+    it('returns "Parlay" as fallback for undefined betType', () => {
+      const bet = createTestBet({
+        id: 'test-undefined',
+        result: 'win',
+        betType: 'single', // Will be set to undefined below
+      });
+      // @ts-ignore - intentionally test undefined behavior
+      bet.betType = undefined;
+      expect(getParlayTypeName(bet)).toBe('Parlay');
+    });
   });
 
   // ===========================================================================
-  // Parlay Statistics Calculation Tests
+  // Parlay Statistics Calculation Tests (ticket-level metrics per prompt)
   // ===========================================================================
   describe('Parlay Statistics Calculations', () => {
-    it('computes correct overall stats for parlay-only dataset', () => {
+    it('computes correct total parlays count', () => {
       const parlayBets = DEADLY_BETS.filter(bet => isParlayBetType(bet.betType));
       const stats = computeOverallStats(parlayBets);
-
-      // Calculate expected values manually
-      const expectedStake = parlayBets.reduce((sum, bet) => sum + bet.stake, 0);
-      const expectedNet = parlayBets.reduce((sum, bet) => sum + getNetNumeric(bet), 0);
-
       expect(stats.totalBets).toBe(parlayBets.length);
+    });
+
+    it('computes correct stake sum', () => {
+      const parlayBets = DEADLY_BETS.filter(bet => isParlayBetType(bet.betType));
+      const stats = computeOverallStats(parlayBets);
+      const expectedStake = parlayBets.reduce((sum, bet) => sum + bet.stake, 0);
       expect(stats.totalWagered).toBe(expectedStake);
+    });
+
+    it('computes correct net sum', () => {
+      const parlayBets = DEADLY_BETS.filter(bet => isParlayBetType(bet.betType));
+      const stats = computeOverallStats(parlayBets);
+      const expectedNet = parlayBets.reduce((sum, bet) => sum + getNetNumeric(bet), 0);
       expect(stats.netProfit).toBe(expectedNet);
     });
 
-    it('computes correct win/loss counts for parlays', () => {
+    it('computes correct win rate as wins/(wins+losses)', () => {
       const parlayBets = DEADLY_BETS.filter(bet => isParlayBetType(bet.betType));
       const stats = computeOverallStats(parlayBets);
-
+      
       const wins = parlayBets.filter(bet => bet.result === 'win').length;
       const losses = parlayBets.filter(bet => bet.result === 'loss').length;
-
-      expect(stats.wins).toBe(wins);
-      expect(stats.losses).toBe(losses);
+      const expectedWinRate = (wins + losses) > 0 ? (wins / (wins + losses)) * 100 : 0;
+      
+      expect(stats.winRate).toBeCloseTo(expectedWinRate, 2);
     });
 
-    it('computes correct ROI for parlay dataset', () => {
+    it('computes correct ROI as (net/stake)*100', () => {
       const parlayBets = DEADLY_BETS.filter(bet => isParlayBetType(bet.betType));
       const stats = computeOverallStats(parlayBets);
 
@@ -302,6 +320,17 @@ describe('Parlay Performance View', () => {
       const expectedRoi = expectedStake > 0 ? (expectedNet / expectedStake) * 100 : 0;
 
       expect(stats.roi).toBeCloseTo(expectedRoi, 2);
+    });
+
+    it('handles zero-parlay behavior correctly', () => {
+      const emptyParlays: Bet[] = [];
+      const stats = computeOverallStats(emptyParlays);
+      
+      expect(stats.totalBets).toBe(0);
+      expect(stats.totalWagered).toBe(0);
+      expect(stats.netProfit).toBe(0);
+      expect(stats.winRate).toBe(0);
+      expect(stats.roi).toBe(0);
     });
 
     it('computes correct average legs per parlay', () => {

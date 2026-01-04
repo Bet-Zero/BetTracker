@@ -244,16 +244,19 @@ function extractEntityFromDescription(description: string): string {
   if (!description) return '';
   
   // Common futures patterns:
-  // "Dallas Mavericks to Win NBA Championship"
-  // "Luka Doncic - NBA MVP"
-  // "Boston Celtics Win Total Over 52.5"
+  // "Lakers to win NBA Championship" -> "Lakers"
+  // "Celtics Win Total Over 52.5" -> "Celtics"
+  // "LeBron James MVP (+500)" -> "LeBron James"
+  // "Warriors vs. Celtics - Finals Winner" -> "Warriors"
   
-  // Try to extract before "to Win", "Win Total", "-", etc.
+  // Try to extract before "to Win", "Win Total", "MVP", "vs.", "-", etc.
   const patterns = [
-    /^(.*?)\s+to\s+win/i,
-    /^(.*?)\s+win\s+total/i,
-    /^(.*?)\s+-\s+/i,
-    /^(.*?)\s+(?:Over|Under)\s+\d/i,
+    /^(.*?)\s+to\s+win/i,                    // "X to win Y"
+    /^(.*?)\s+win\s+total/i,                 // "X Win Total"
+    /^(.*?)\s+MVP\s*\(/i,                    // "X MVP (+odds)"
+    /^(.*?)\s+vs\.\s+/i,                     // "X vs. Y"
+    /^(.*?)\s+-\s+/i,                        // "X - Y"
+    /^(.*?)\s+(?:Over|Under)\s+\d/i,         // "X Over/Under N"
   ];
   
   for (const pattern of patterns) {
@@ -263,8 +266,11 @@ function extractEntityFromDescription(description: string): string {
     }
   }
   
-  // Fallback: return the whole description truncated
-  return description.length > 30 ? description.substring(0, 30) + '...' : description;
+  // Fallback: truncate to 40 chars ending with "…" for long descriptions
+  if (description.length > 40) {
+    return description.substring(0, 40) + '…';
+  }
+  return description;
 }
 
 export default FuturesExposurePanel;
