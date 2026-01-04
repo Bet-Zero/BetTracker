@@ -19,6 +19,7 @@ import { InfoTooltip } from '../components/debug/InfoTooltip';
 import {
   calculateRoi,
 } from '../services/aggregationService';
+import HedgeCalculator from './HedgeCalculator';
 
 interface FuturesExposurePanelProps {
   bets: Bet[];
@@ -39,6 +40,7 @@ type FuturesTimelineItem = {
   stake: number;
   potential: number;
   profit: number;
+  odds: number;
   resolutionDate: string | null;
   daysUntil: number | null;
 };
@@ -116,6 +118,7 @@ function formatResolutionDate(date: Date | null): string {
 const FuturesExposurePanel: React.FC<FuturesExposurePanelProps> = ({ bets }) => {
   const [breakdownView, setBreakdownView] = useState<'sport' | 'entity'>('sport');
   const [showTimeline, setShowTimeline] = useState(true);
+  const [hedgeCalcItem, setHedgeCalcItem] = useState<FuturesTimelineItem | null>(null);
 
   const futuresData = useMemo(() => {
     // Dataset: pending futures only
@@ -184,6 +187,7 @@ const FuturesExposurePanel: React.FC<FuturesExposurePanelProps> = ({ bets }) => 
         stake: bet.stake,
         potential: bet.payout,
         profit: bet.payout - bet.stake,
+        odds: bet.odds || 0,
         resolutionDate: resolutionDate ? resolutionDate.toISOString() : null,
         daysUntil,
       };
@@ -376,7 +380,7 @@ const FuturesExposurePanel: React.FC<FuturesExposurePanelProps> = ({ bets }) => 
                     {item.sport}
                   </p>
                 </div>
-                <div className="flex items-center gap-6 ml-4">
+                <div className="flex items-center gap-4 ml-4">
                   <div className="text-right">
                     <p className="text-xs text-neutral-500 dark:text-neutral-400 uppercase">
                       Resolution
@@ -403,6 +407,13 @@ const FuturesExposurePanel: React.FC<FuturesExposurePanelProps> = ({ bets }) => 
                       +${item.profit.toFixed(2)}
                     </p>
                   </div>
+                  <button
+                    onClick={() => setHedgeCalcItem(item)}
+                    className="px-3 py-1.5 text-xs font-medium bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 rounded-lg hover:bg-primary-200 dark:hover:bg-primary-900/50 transition-colors"
+                    title="Calculate hedge"
+                  >
+                    🔄 Hedge
+                  </button>
                 </div>
               </div>
             ))}
@@ -414,6 +425,16 @@ const FuturesExposurePanel: React.FC<FuturesExposurePanelProps> = ({ bets }) => 
           </div>
         )}
       </div>
+
+      {/* Hedge Calculator Modal */}
+      {hedgeCalcItem && (
+        <HedgeCalculator
+          originalStake={hedgeCalcItem.stake}
+          originalOdds={hedgeCalcItem.odds}
+          potentialPayout={hedgeCalcItem.potential}
+          onClose={() => setHedgeCalcItem(null)}
+        />
+      )}
     </div>
   );
 };
