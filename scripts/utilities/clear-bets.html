@@ -79,7 +79,9 @@
           const count = JSON.parse(bets).length;
           document.querySelector('.info').innerHTML += `<p>Current bet count: <strong>${count}</strong></p>`;
         } catch (e) {
-          // Ignore
+          // Parse errors are safely ignored - fallback to showing 0 count
+          // This can happen if the stored data is corrupted or in an unexpected format
+          document.querySelector('.info').innerHTML += `<p>Current bet count: <strong>0</strong> (unable to read stored data)</p>`;
         }
       } else {
         document.querySelector('.info').innerHTML += `<p>Current bet count: <strong>0</strong></p>`;

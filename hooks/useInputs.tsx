@@ -72,14 +72,15 @@ const useLocalStorage = <T,>(
       window.localStorage.setItem(key, JSON.stringify(valueToStore));
     } catch (error) {
       console.error(`[useLocalStorage] Failed to save ${key}:`, error);
-      // Show alert for critical storage errors that require user action
+      // Show alert only for critical storage errors that require user action
       if (error instanceof Error) {
         if (error.message.includes('QuotaExceededError') || error.message.includes('quota')) {
           alert(`⚠️ Storage is full.\n\nFailed to save ${key}. Please clear browser storage or export your data from Settings.`);
         } else if (error.message.includes('SecurityError') || error.message.includes('disabled')) {
           alert(`⚠️ Browser storage is disabled.\n\nFailed to save ${key}. Please enable localStorage in browser settings.`);
         }
-        // Don't alert for other errors - just log them
+        // For other errors (rare edge cases), just log to console without alerting the user
+        // as the error has already been logged and repeated alerts would be disruptive
       }
     }
   };
