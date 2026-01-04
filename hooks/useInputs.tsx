@@ -40,6 +40,12 @@ interface InputsContextType {
 
 const InputsContext = createContext<InputsContextType | undefined>(undefined);
 
+/**
+ * Custom hook for managing localStorage with automatic persistence.
+ * 
+ * NOTE: Uses alert() for critical storage errors (quota exceeded, security errors)
+ * that the user must acknowledge. These are rare events where user action is required.
+ */
 const useLocalStorage = <T,>(
   key: string,
   initialValue: T
@@ -49,10 +55,10 @@ const useLocalStorage = <T,>(
       const item = window.localStorage.getItem(key);
       return item ? JSON.parse(item) : initialValue;
     } catch (error) {
-      console.error(`Failed to load ${key} from localStorage:`, error);
-      // Show error notification for load failures
+      console.error(`[useLocalStorage] Failed to load ${key}:`, error);
+      // Only show alert for critical errors that prevent the app from functioning
       if (error instanceof Error && (error.message.includes('QuotaExceededError') || error.message.includes('SecurityError'))) {
-        alert(`Failed to load ${key} from storage. Your data may not be saved. Please check browser settings.`);
+        alert(`⚠️ Failed to load ${key} from storage.\n\nYour data may not be saved. Please check browser settings.`);
       }
       return initialValue;
     }
@@ -65,16 +71,15 @@ const useLocalStorage = <T,>(
       setStoredValue(valueToStore);
       window.localStorage.setItem(key, JSON.stringify(valueToStore));
     } catch (error) {
-      console.error(`Failed to save ${key} to localStorage:`, error);
-      // Show error notification for save failures
+      console.error(`[useLocalStorage] Failed to save ${key}:`, error);
+      // Show alert for critical storage errors that require user action
       if (error instanceof Error) {
         if (error.message.includes('QuotaExceededError') || error.message.includes('quota')) {
-          alert(`Storage is full. Failed to save ${key}. Please clear browser storage or export your data.`);
+          alert(`⚠️ Storage is full.\n\nFailed to save ${key}. Please clear browser storage or export your data from Settings.`);
         } else if (error.message.includes('SecurityError') || error.message.includes('disabled')) {
-          alert(`Browser storage is disabled. Failed to save ${key}. Please enable localStorage in browser settings.`);
-        } else {
-          alert(`Failed to save ${key}. Check console for details.`);
+          alert(`⚠️ Browser storage is disabled.\n\nFailed to save ${key}. Please enable localStorage in browser settings.`);
         }
+        // Don't alert for other errors - just log them
       }
     }
   };

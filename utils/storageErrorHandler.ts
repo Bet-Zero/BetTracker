@@ -58,11 +58,22 @@ export const handleStorageError = (
 
 /**
  * Shows a user-visible error notification with better formatting.
+ * 
+ * NOTE: This uses `alert()` for critical storage errors that the user must acknowledge.
+ * For a more polished UX, consider implementing a global toast/notification context
+ * that can be used across the application.
+ * 
  * @param errorInfo - Error information to display
  */
 export const showStorageError = (errorInfo: StorageErrorInfo): void => {
-  // Build a more informative message
-  let fullMessage = errorInfo.message;
+  // Log to console first for debugging
+  console.error('[Storage Error]', errorInfo.message);
+  if (errorInfo.suggestion) {
+    console.info('[Storage Suggestion]', errorInfo.suggestion);
+  }
+  
+  // Build a user-friendly message
+  let fullMessage = `⚠️ ${errorInfo.message}`;
   
   if (errorInfo.backupCreated) {
     fullMessage += '\n\n✓ A backup was automatically created.';
@@ -70,9 +81,10 @@ export const showStorageError = (errorInfo: StorageErrorInfo): void => {
   
   fullMessage += '\n\n' + errorInfo.suggestion;
   
-  // Use alert for now - in a production app this would use a toast/notification system
+  // Use alert() for critical storage errors that must be acknowledged
+  // These are rare events (storage corruption, quota exceeded) where the user
+  // needs to take action before continuing
   alert(fullMessage);
-  console.error('Storage Error:', errorInfo.message, errorInfo.suggestion);
 };
 
 /**
