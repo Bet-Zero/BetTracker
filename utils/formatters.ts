@@ -151,5 +151,5 @@ export function formatNet(amount: number | null | undefined): string {
   if (amount === null || amount === undefined || isNaN(amount)) {
     return "";
   }
-  return amount.toFixed(2);
+  return amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }

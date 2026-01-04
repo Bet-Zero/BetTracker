@@ -42,7 +42,7 @@ const SportPills: React.FC<{
 );
 
 const PlayersManager: React.FC = () => {
-  const { players, updatePlayer, removePlayer, disablePlayer, enablePlayer, addPlayer } = useNormalizationData();
+  const { players, teams, updatePlayer, removePlayer, disablePlayer, enablePlayer, addPlayer } = useNormalizationData();
   const [selectedSport, setSelectedSport] = useState<string>("All");
   const [showDisabled, setShowDisabled] = useState(false);
   const [expandedPlayer, setExpandedPlayer] = useState<string | null>(null);
@@ -74,6 +74,30 @@ const PlayersManager: React.FC = () => {
     });
     return counts;
   }, [players, showDisabled]);
+
+  // Sort players by Team then Name
+  const sortedPlayers = useMemo(() => {
+    // Create a map for fast team lookup
+    const teamMap = new Map(teams.map(t => [t.id, t]));
+
+    const getTeamName = (p: PlayerData): string => {
+      if (p.teamId) {
+        const t = teamMap.get(p.teamId);
+        return t ? t.canonical : "(Unknown Team)";
+      }
+      if (p.team) return p.team;
+      return "zzz_No Team"; // Sort at bottom
+    };
+
+    return [...filteredPlayers].sort((a, b) => {
+      const teamA = getTeamName(a);
+      const teamB = getTeamName(b);
+      
+      if (teamA < teamB) return -1;
+      if (teamA > teamB) return 1;
+      return a.canonical.localeCompare(b.canonical);
+    });
+  }, [filteredPlayers, teams]);
 
   const handleSaveEdit = () => {
     if (!editForm) return;
@@ -149,20 +173,50 @@ const PlayersManager: React.FC = () => {
           </div>
         )}
         
-        {filteredPlayers.slice(0, visibleCount).map((player) => {
+        {sortedPlayers.slice(0, visibleCount).map((player, index, arr) => {
           const rowKey = player.id || `${player.canonical}::${player.sport}`;
           // Resolve team name for display
           let teamDisplay = "";
+          let rawTeamName = "zzz_No Team"; // For header comparison
+          
           if (player.teamId) {
              const t = getTeamById(player.teamId);
-             if (t) teamDisplay = t.canonical;
+             if (t) {
+               teamDisplay = t.canonical;
+               rawTeamName = t.canonical;
+             }
           } else if (player.team) {
              // Fallback for legacy
              teamDisplay = player.team;
+             rawTeamName = player.team;
+          }
+
+          // Determine if we need a header
+          let showHeader = false;
+          if (index === 0) {
+            showHeader = true;
+          } else {
+            const prevPlayer = arr[index - 1];
+            let prevTeamName = "zzz_No Team";
+            if (prevPlayer.teamId) {
+               const t = getTeamById(prevPlayer.teamId);
+               if (t) prevTeamName = t.canonical;
+            } else if (prevPlayer.team) {
+               prevTeamName = prevPlayer.team;
+            }
+            if (rawTeamName !== prevTeamName) {
+              showHeader = true;
+            }
           }
 
           return (
-            <DenseRow
+            <React.Fragment key={rowKey}>
+              {showHeader && (
+                <div className="sticky top-0 z-10 px-4 py-1.5 bg-neutral-100 dark:bg-neutral-800 border-y border-neutral-200 dark:border-neutral-700 text-xs font-bold text-neutral-700 dark:text-neutral-300 uppercase tracking-wider">
+                  {rawTeamName === "zzz_No Team" ? "(No Team)" : rawTeamName}
+                </div>
+              )}
+              <DenseRow
               key={rowKey}
               name={player.canonical}
               subtitle={`${player.sport}${teamDisplay ? ` · ${teamDisplay}` : ""}`}
@@ -181,6 +235,7 @@ const PlayersManager: React.FC = () => {
                 onCancel={() => setExpandedPlayer(null)}
               />
             </DenseRow>
+          </React.Fragment>
           );
         })}
 
@@ -286,7 +341,8 @@ const PlayerEditPanel: React.FC<{
             disabled={!isNew && isLocked}
             className="w-full px-2 py-1.5 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-800 disabled:bg-neutral-50 dark:disabled:bg-neutral-800/50 disabled:text-neutral-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors"
           >
-            <option value="">(No Team)</option>
+            {!isNew && <option value="">(No Team)</option>}
+            {isNew && !player.teamId && <option value="" disabled>Select a team...</option>}
             {sportTeams.map((t) => (
               <option key={t.id} value={t.id} disabled={t.disabled}>
                 {t.canonical} {t.abbreviations[0] ? `(${t.abbreviations[0]})` : ""}
@@ -363,7 +419,7 @@ const PlayerEditPanel: React.FC<{
         {isNew && (
           <button
             onClick={onSave}
-            disabled={!player.canonical.trim()}
+            disabled={!player.canonical.trim() || !player.teamId}
             className="px-3 py-1 text-sm bg-primary-600 text-white rounded hover:bg-primary-700 disabled:bg-neutral-400 transition-colors shadow-sm"
           >
             Save Player

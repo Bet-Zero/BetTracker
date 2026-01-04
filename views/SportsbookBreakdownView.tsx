@@ -16,6 +16,7 @@ import {
   mapToStatsArray,
 } from '../services/aggregationService';
 import { StatCard } from '../components/StatCard';
+import { formatCurrency } from '../utils/formatters';
 
 
 // --- HELPER COMPONENTS ---
@@ -27,7 +28,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
                 <p className="label font-bold mb-1">{`${label}`}</p>
                 {payload.map((pld: any, index: number) => (
                     <p key={index} style={{ color: pld.color || pld.fill }}>
-                        {`${pld.name}: ${typeof pld.value === 'number' ? pld.value.toFixed(2) : pld.value}`}
+                    {`${pld.name}: ${typeof pld.value === 'number' ? pld.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : pld.value}`}
                     </p>
                 ))}
             </div>
@@ -100,8 +101,16 @@ const SportsbookBreakdownView: React.FC = () => {
         const profitBySportData = mapToStatsArray(sportMap)
             .map(s => ({ name: s.name, profit: s.net }))
             .sort((a,b) => b.profit - a.profit);
+        
+        let profitByBookData: { name: string; profit: number }[] = [];
+        if (selectedBook === 'all') {
+             const bookMap = computeStatsByDimension(filteredBets, (bet) => bet.book);
+             profitByBookData = mapToStatsArray(bookMap)
+                .map(s => ({ name: s.name, profit: s.net }))
+                .sort((a,b) => b.profit - a.profit);
+        }
 
-        return { stats: overallStats, profitOverTime, profitBySportData };
+        return { stats: overallStats, profitOverTime, profitBySportData, profitByBookData };
     }, [filteredBets]);
 
     if (loading) return <div className="p-6 text-center">Loading breakdown...</div>;
@@ -123,6 +132,7 @@ const SportsbookBreakdownView: React.FC = () => {
     dropdownBooks.push(...otherBooks.sort());
 
     const isDropdownBookSelected = dropdownBooks.includes(selectedBook as string);
+    const isAllBooks = selectedBook === 'all';
 
     return (
          <div className="p-6 h-full flex flex-col space-y-6 bg-neutral-100 dark:bg-neutral-950 overflow-y-auto">
@@ -215,12 +225,12 @@ const SportsbookBreakdownView: React.FC = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                             <StatCard 
                                 title="Net Profit" 
-                                value={`${processedData.stats.netProfit >= 0 ? '$' : '-$'}${Math.abs(processedData.stats.netProfit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} 
+                                value={formatCurrency(processedData.stats.netProfit)} 
                                 icon={<Scale className="w-6 h-6"/>} 
                                 subtitle={`${processedData.stats.roi.toFixed(1)}% ROI`}
                                 subtitleClassName={processedData.stats.roi > 0 ? "text-accent-500" : processedData.stats.roi < 0 ? "text-danger-500" : undefined}
                             />
-                            <StatCard title="Total Wagered" value={`$${processedData.stats.totalWagered.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} icon={<BarChart2 className="w-6 h-6"/>} />
+                            <StatCard title="Total Wagered" value={formatCurrency(processedData.stats.totalWagered)} icon={<BarChart2 className="w-6 h-6"/>} />
                             <StatCard title="Total Bets" value={processedData.stats.totalBets.toString()} icon={<BarChart2 className="w-6 h-6"/>} />
                             <StatCard 
                                 title="Win Rate" 
@@ -231,35 +241,53 @@ const SportsbookBreakdownView: React.FC = () => {
                             />
                         </div>
 
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <ChartContainer title="Profit Over Time">
+                        {isAllBooks ? (
+                            <ChartContainer title="Net Profit by Sportsbook">
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <LineChart data={processedData.profitOverTime}>
+                                    <BarChart data={processedData.profitByBookData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(128, 128, 128, 0.2)" />
-                                        <XAxis dataKey="date" stroke="rgb(113, 113, 122)" tick={{ fontSize: 12 }} />
-                                        <YAxis stroke="rgb(113, 113, 122)" tick={{ fontSize: 12 }} tickFormatter={(value) => `$${value}`}/>
-                                        <Tooltip content={<CustomTooltip />} />
-                                        <Line type="monotone" dataKey="profit" name="Profit" stroke="#8b5cf6" strokeWidth={2} dot={false} />
-                                    </LineChart>
-                                </ResponsiveContainer>
-                            </ChartContainer>
-                            
-                            <ChartContainer title="Net Profit by Sport">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={processedData.profitBySportData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(128, 128, 128, 0.2)" />
-                                        <XAxis type="number" stroke="rgb(113, 113, 122)" tick={{ fontSize: 12 }} tickFormatter={(value) => `$${value}`}/>
-                                        <YAxis type="category" dataKey="name" stroke="rgb(113, 113, 122)" tick={{ fontSize: 12 }} width={80} />
+                                        <XAxis type="number" stroke="rgb(113, 113, 122)" tick={{ fontSize: 12 }} tickFormatter={(value) => formatCurrency(value)}/>
+                                        <YAxis type="category" dataKey="name" stroke="rgb(113, 113, 122)" tick={{ fontSize: 12 }} width={100} />
                                         <Tooltip content={<CustomTooltip />} />
                                         <Bar dataKey="profit" name="Profit">
-                                            {processedData.profitBySportData.map((entry, index) => (
+                                            {processedData.profitByBookData.map((entry, index) => (
                                                 <Cell key={`cell-${index}`} fill={entry.profit >= 0 ? '#22c55e' : '#ef4444'} />
                                             ))}
                                         </Bar>
                                     </BarChart>
                                 </ResponsiveContainer>
                             </ChartContainer>
-                        </div>
+                        ) : (
+                            <>
+                                <ChartContainer title="Profit Over Time">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <LineChart data={processedData.profitOverTime}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(128, 128, 128, 0.2)" />
+                                            <XAxis dataKey="date" stroke="rgb(113, 113, 122)" tick={{ fontSize: 12 }} />
+                                            <YAxis stroke="rgb(113, 113, 122)" tick={{ fontSize: 12 }} tickFormatter={(value) => formatCurrency(value)}/>
+                                            <Tooltip content={<CustomTooltip />} />
+                                            <Line type="monotone" dataKey="profit" name="Profit" stroke="#8b5cf6" strokeWidth={2} dot={false} />
+                                        </LineChart>
+                                    </ResponsiveContainer>
+                                </ChartContainer>
+                                
+                                <ChartContainer title="Net Profit by Sport">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={processedData.profitBySportData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(128, 128, 128, 0.2)" />
+                                            <XAxis type="number" stroke="rgb(113, 113, 122)" tick={{ fontSize: 12 }} tickFormatter={(value) => formatCurrency(value)}/>
+                                            <YAxis type="category" dataKey="name" stroke="rgb(113, 113, 122)" tick={{ fontSize: 12 }} width={80} />
+                                            <Tooltip content={<CustomTooltip />} />
+                                            <Bar dataKey="profit" name="Profit">
+                                                {processedData.profitBySportData.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={entry.profit >= 0 ? '#22c55e' : '#ef4444'} />
+                                                ))}
+                                            </Bar>
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </ChartContainer>
+                            </>
+                        )}
                     </div>
                 ) : (
                     <div className="flex-grow flex items-center justify-center">

@@ -19,7 +19,7 @@ import { Wifi } from "../components/icons";
 import { calculateProfit } from "../utils/betCalculations";
 import { betToFinalRows } from "../parsing/shared/betToFinalRows";
 import { abbreviateMarket, normalizeCategoryForDisplay } from "../services/marketClassification";
-import { formatDateShort, formatOdds } from "../utils/formatters";
+import { formatDateShort, formatOdds, formatCurrency } from "../utils/formatters";
 import { createBetTableFilterPredicate } from "../utils/filterPredicates";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
 
@@ -866,14 +866,14 @@ const BetTableView: React.FC = () => {
     onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
     options: string[];
   }> = ({ label, value, onChange, options }) => (
-    <div>
-      <label className="text-sm font-medium text-neutral-500 dark:text-neutral-400 mr-2">
-        {label}:
+    <div className="flex items-center gap-1.5 flex-shrink-0">
+      <label className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 whitespace-nowrap">
+        {label}
       </label>
       <select
         value={value}
         onChange={onChange}
-        className="bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-md p-1 text-sm"
+        className="bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded p-1 py-0.5 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
       >
         <option value="all">All</option>
         {options.map((o) => (
@@ -1328,7 +1328,7 @@ const BetTableView: React.FC = () => {
           }
           break;
         case "bet":
-          const stakeVal = parseFloat(value);
+          const stakeVal = parseFloat(value.replace(/[$,]/g, ""));
           if (!isNaN(stakeVal)) {
             updateBet(row.betId, { stake: stakeVal });
           }
@@ -1537,58 +1537,63 @@ const BetTableView: React.FC = () => {
   }, [dragFillData, handleDragFillMove, handleDragFillEnd]);
 
   return (
-    <div className="p-4 h-full flex flex-col space-y-2 bg-neutral-100 dark:bg-neutral-950">
-      <header>
-        <h1 className="text-xl font-bold text-neutral-900 dark:text-white">
+    <div className="p-4 h-full flex flex-col space-y-3 bg-neutral-100 dark:bg-neutral-950">
+      <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+        <h1 className="text-lg font-bold text-neutral-900 dark:text-white whitespace-nowrap shrink-0">
           Bet Table
         </h1>
-      </header>
 
-      <div className="p-2 bg-white dark:bg-neutral-900 rounded-lg shadow-md flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <input
-          type="text"
-          placeholder="Search..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full lg:grow lg:min-w-[280px] p-2 border border-neutral-300 dark:border-neutral-600 rounded-md bg-white dark:bg-neutral-800 placeholder-neutral-400 dark:placeholder-neutral-500"
-        />
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <FilterControl
-            label="Sport"
-            value={filters.sport}
-            onChange={(e) =>
-              setFilters({
-                ...filters,
-                sport: e.target.value as any,
-                type: "all",
-              })
-            }
-            options={sports}
-          />
-          <FilterControl
-            label="Category"
-            value={filters.category}
-            onChange={(e) =>
-              setFilters({ ...filters, category: e.target.value as any })
-            }
-            options={displayCategories}
-          />
-          <FilterControl
-            label="Type"
-            value={filters.type}
-            onChange={(e) =>
-              setFilters({ ...filters, type: e.target.value as any })
-            }
-            options={availableTypes}
-          />
-          <FilterControl
-            label="Result"
-            value={filters.result}
-            onChange={(e) =>
-              setFilters({ ...filters, result: e.target.value as any })
-            }
-            options={["win", "loss", "push", "pending"]}
-          />
+        <div className="flex-grow flex flex-col sm:flex-row items-center gap-3 bg-white dark:bg-neutral-900 p-1.5 px-3 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-800">
+          <div className="relative flex-grow w-full sm:w-auto">
+            <input
+              type="text"
+              placeholder="Search..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-transparent border-none focus:ring-0 text-sm placeholder-neutral-400 p-0"
+            />
+          </div>
+
+          <div className="hidden sm:block w-px h-5 bg-neutral-200 dark:bg-neutral-700"></div>
+
+          <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto overflow-x-auto no-scrollbar">
+            <FilterControl
+              label="Sport"
+              value={filters.sport}
+              onChange={(e) =>
+                setFilters({
+                  ...filters,
+                  sport: e.target.value as any,
+                  type: "all",
+                })
+              }
+              options={sports}
+            />
+            <FilterControl
+              label="Cat"
+              value={filters.category}
+              onChange={(e) =>
+                setFilters({ ...filters, category: e.target.value as any })
+              }
+              options={displayCategories}
+            />
+            <FilterControl
+              label="Type"
+              value={filters.type}
+              onChange={(e) =>
+                setFilters({ ...filters, type: e.target.value as any })
+              }
+              options={availableTypes}
+            />
+            <FilterControl
+              label="Result"
+              value={filters.result}
+              onChange={(e) =>
+                setFilters({ ...filters, result: e.target.value as any })
+              }
+              options={["win", "loss", "push", "pending"]}
+            />
+          </div>
         </div>
       </div>
 
@@ -2333,7 +2338,7 @@ const BetTableView: React.FC = () => {
                           </span>
                         ) : (
                           <EditableCell
-                            value={`$${row.bet.toFixed(2)}`}
+                            value={formatCurrency(row.bet)}
                             type="number"
                             isFocused={isCellFocused(rowIndex, "bet")}
                             onFocus={() =>
@@ -2344,7 +2349,7 @@ const BetTableView: React.FC = () => {
                             }
                             inputRef={getCellRef(rowIndex, "bet")}
                             onSave={(val) => {
-                              const numVal = parseFloat(val.replace("$", ""));
+                              const numVal = parseFloat(val.replace(/[$,]/g, ""));
                               if (!isNaN(numVal))
                                 updateBet(row.betId, { stake: numVal });
                             }}
@@ -2363,7 +2368,7 @@ const BetTableView: React.FC = () => {
                             ↳
                           </span>
                         ) : (
-                          `$${row.toWin.toFixed(2)}`
+                           formatCurrency(row.toWin)
                         )}
                       </td>
                       <td
@@ -2400,7 +2405,7 @@ const BetTableView: React.FC = () => {
                             ↳
                           </span>
                         ) : (
-                          `${net < 0 ? "-" : ""}$${Math.abs(net).toFixed(2)}`
+                           formatCurrency(net)
                         )}
                       </td>
                       <td

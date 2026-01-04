@@ -7,10 +7,11 @@
  * Phase 3.1: Supports group context - shows count badge when creating from a group
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { UnresolvedItem } from "../services/unresolvedQueue";
 import { Sport, SPORTS } from "../data/referenceData";
 import { X, Plus } from "./icons";
+import { useNormalizationData } from "../hooks/useNormalizationData";
 
 interface CreateCanonicalModalProps {
   item: UnresolvedItem;
@@ -53,8 +54,18 @@ const CreateCanonicalModal: React.FC<CreateCanonicalModalProps> = ({
   const [additionalAliases, setAdditionalAliases] = useState<string[]>([]);
   const [newAlias, setNewAlias] = useState<string>("");
 
+  // Get teams for player dropdown
+  const { teams } = useNormalizationData();
+
+  // Filter teams by selected sport
+  const sportTeams = useMemo(() => {
+    return teams
+      .filter(t => t.sport === sport && !t.disabled)
+      .sort((a, b) => a.canonical.localeCompare(b.canonical));
+  }, [teams, sport]);
+
   // Extra data based on entity type
-  const [team, setTeam] = useState<string>(""); // For players
+  const [teamId, setTeamId] = useState<string>(""); // For players - stores team ID
   const [description, setDescription] = useState<string>(""); // For stat types
   const [abbreviations, setAbbreviations] = useState<string>(""); // For teams (comma-separated)
 
@@ -64,6 +75,11 @@ const CreateCanonicalModal: React.FC<CreateCanonicalModalProps> = ({
       setSport(item.sport as Sport);
     }
   }, [item.sport]);
+
+  // Reset team selection when sport changes (team list changes)
+  useEffect(() => {
+    setTeamId("");
+  }, [sport]);
 
   // Add alias handler
   const handleAddAlias = () => {
@@ -88,13 +104,13 @@ const CreateCanonicalModal: React.FC<CreateCanonicalModalProps> = ({
     if (!canonical.trim()) return;
 
     const extraData: {
-      team?: string;
+      teamId?: string;
       description?: string;
       abbreviations?: string[];
     } = {};
 
-    if (item.entityType === "player" && team.trim()) {
-      extraData.team = team.trim();
+    if (item.entityType === "player" && teamId) {
+      extraData.teamId = teamId;
     }
     if (item.entityType === "stat" && description.trim()) {
       extraData.description = description.trim();
@@ -206,15 +222,25 @@ const CreateCanonicalModal: React.FC<CreateCanonicalModalProps> = ({
           {item.entityType === "player" && (
             <div>
               <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                Team (optional)
+                Team <span className="text-danger-500">*</span>
               </label>
-              <input
-                type="text"
-                value={team}
-                onChange={(e) => setTeam(e.target.value)}
-                placeholder="e.g., Phoenix Suns"
+              <select
+                value={teamId}
+                onChange={(e) => setTeamId(e.target.value)}
                 className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-md bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white text-sm"
-              />
+              >
+                <option value="" disabled>Select a team...</option>
+                {sportTeams.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.canonical} {t.abbreviations[0] ? `(${t.abbreviations[0]})` : ""}
+                  </option>
+                ))}
+              </select>
+              {sportTeams.length === 0 && (
+                <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                  No teams found for {sport}. Add teams in Input Management first.
+                </p>
+              )}
             </div>
           )}
 
@@ -310,9 +336,9 @@ const CreateCanonicalModal: React.FC<CreateCanonicalModalProps> = ({
           </button>
           <button
             onClick={handleConfirm}
-            disabled={!canonical.trim()}
+            disabled={!canonical.trim() || (item.entityType === "player" && !teamId)}
             className={`px-4 py-2 text-sm font-medium rounded-md ${
-              canonical.trim()
+              canonical.trim() && (item.entityType !== "player" || teamId)
                 ? "bg-accent-600 text-white hover:bg-accent-700"
                 : "bg-neutral-300 dark:bg-neutral-700 text-neutral-500 dark:text-neutral-400 cursor-not-allowed"
             }`}

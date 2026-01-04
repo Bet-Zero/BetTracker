@@ -30,6 +30,7 @@ import {
   DateRange,
   CustomDateRange,
 } from "../utils/filterPredicates";
+import { formatCurrency, formatNet } from "../utils/formatters";
 import {
   calculateRoi,
   computeOverallStats,
@@ -63,7 +64,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         {payload.map((pld: any, index: number) => (
           <p key={index} style={{ color: pld.color || pld.fill }}>
             {`${pld.name}: ${
-              typeof pld.value === "number" ? pld.value.toFixed(2) : pld.value
+              typeof pld.value === "number" ? pld.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : pld.value
             }`}
           </p>
         ))}
@@ -101,6 +102,7 @@ interface StatsTableProps {
   data: StatsData[];
   title: React.ReactNode;
   searchPlaceholder: string;
+  firstColumnHeader?: string;
   className?: string;
   children?: React.ReactNode;
   hideWinLoss?: boolean;
@@ -110,6 +112,7 @@ const StatsTable: React.FC<StatsTableProps> = ({
   data,
   title,
   searchPlaceholder,
+  firstColumnHeader,
   className,
   children,
   hideWinLoss,
@@ -166,7 +169,7 @@ const StatsTable: React.FC<StatsTableProps> = ({
                 className="px-4 py-2 cursor-pointer"
                 onClick={() => requestSort("name")}
               >
-                {searchPlaceholder.split(" ")[1]}{" "}
+                {firstColumnHeader || searchPlaceholder.split(" ")[1].replace("...", "")}{" "}
                 {sortConfig.key === "name"
                   ? sortConfig.direction === "desc"
                     ? "▼"
@@ -285,9 +288,9 @@ const StatsTable: React.FC<StatsTableProps> = ({
                       </td>
                     </>
                   )}
-                  <td className="px-4 py-2">${item.stake.toFixed(2)}</td>
+                  <td className="px-4 py-2">{formatCurrency(item.stake)}</td>
                   <td className={`px-4 py-2 font-semibold ${netColor}`}>
-                    {item.net.toFixed(2)}
+                    {formatNet(item.net)}
                   </td>
                   <td className={`px-4 py-2 font-semibold ${netColor}`}>
                     {item.roi.toFixed(1)}%
@@ -362,7 +365,6 @@ const OverUnderBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
         : stats.net < 0
         ? "text-danger-500"
         : "";
-    const NetIcon = stats.net > 0 ? TrendingUp : TrendingDown;
     const winPct =
       stats.wins + stats.losses > 0
         ? (stats.wins / (stats.wins + stats.losses)) * 100
@@ -385,10 +387,9 @@ const OverUnderBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
           <div className={`flex justify-between items-center ${netColor}`}>
             <b>Net:</b>
             <div className="flex items-center ml-1">
-              <NetIcon className="w-4 h-4 mr-1 flex-shrink-0" />
               <div className="w-20 h-6">
                  <FitText maxFontSize={16} minFontSize={10} className="justify-end font-bold">
-                   ${stats.net.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                   {formatCurrency(stats.net)}
                  </FitText>
               </div>
             </div>
@@ -401,12 +402,14 @@ const OverUnderBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
     );
   };
 
+  const isPlaceholder = pieData.length === 0;
+
   return (
     <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-md p-6 h-full flex flex-col">
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-2">
           <h2 className="text-xl font-semibold text-neutral-800 dark:text-neutral-200">
-            Over / Under
+            Over vs. Under
           </h2>
           {/* Task C1: BySportView O/U Breakdown tooltip */}
           <InfoTooltip
@@ -439,21 +442,27 @@ const OverUnderBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
-              data={pieData}
+              data={isPlaceholder ? [{ name: "No Data", value: 1 }] : pieData}
               dataKey="value"
               nameKey="name"
               cx="50%"
               cy="50%"
+              innerRadius={isPlaceholder ? 50 : 0}
               outerRadius={60}
-              label={({ name, percent }) =>
-                `${name} ${(percent * 100).toFixed(0)}%`
+              label={
+                isPlaceholder
+                  ? undefined
+                  : ({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`
               }
+              stroke="none"
+              fill={isPlaceholder ? "#e5e5e5" : undefined}
             >
-              {pieData.map((entry) => (
-                <Cell key={`cell-${entry.name}`} fill={entry.color} />
-              ))}
+              {!isPlaceholder &&
+                pieData.map((entry) => (
+                  <Cell key={`cell-${entry.name}`} fill={entry.color} />
+                ))}
             </Pie>
-            <Tooltip />
+            {!isPlaceholder && <Tooltip />}
           </PieChart>
         </ResponsiveContainer>
       </div>
@@ -518,6 +527,8 @@ const LiveVsPreMatchBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
     { name: "Live", value: data.live.count, color: "#a78bfa" },
   ].filter((d) => d.value > 0);
 
+  const isPlaceholder = pieData.length === 0;
+
   const StatCard = ({
     title,
     stats,
@@ -547,7 +558,7 @@ const LiveVsPreMatchBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
             <b>Bets:</b> {stats.count}
           </p>
           <p>
-            <b>W/L:</b> {stats.wins}-{stats.losses}
+            <b>Record:</b> {stats.wins}-{stats.losses}
           </p>
           <p>
             <b>Win %:</b> {winPct.toFixed(1)}%
@@ -555,11 +566,11 @@ const LiveVsPreMatchBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
           <div className={`flex justify-between items-center ${netColor}`}>
             <b>Net:</b>
             <div className="flex items-center ml-1">
-               <div className="w-20 h-6">
+              <div className="w-20 h-6">
                  <FitText maxFontSize={16} minFontSize={10} className="justify-end font-bold">
-                   ${stats.net.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                   {formatCurrency(stats.net)}
                  </FitText>
-               </div>
+              </div>
             </div>
           </div>
           <p className={netColor}>
@@ -574,7 +585,7 @@ const LiveVsPreMatchBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
     <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-md p-6 h-full flex flex-col">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-semibold text-neutral-800 dark:text-neutral-200">
-          Live vs. Pre-Match
+          Live vs. Pre-Game
         </h2>
         <div className="flex items-center space-x-1 flex-wrap gap-y-2 bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-lg">
           <ToggleButton
@@ -601,27 +612,33 @@ const LiveVsPreMatchBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
-              data={pieData}
+              data={isPlaceholder ? [{ name: "No Data", value: 1 }] : pieData}
               dataKey="value"
               nameKey="name"
               cx="50%"
               cy="50%"
+              innerRadius={isPlaceholder ? 50 : 0}
               outerRadius={60}
-              label={({ name, percent }) =>
-                `${name} ${(percent * 100).toFixed(0)}%`
+              label={
+                isPlaceholder
+                  ? undefined
+                  : ({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`
               }
+              stroke="none"
+              fill={isPlaceholder ? "#e5e5e5" : undefined}
             >
-              {pieData.map((entry) => (
-                <Cell key={`cell-${entry.name}`} fill={entry.color} />
-              ))}
+              {!isPlaceholder &&
+                pieData.map((entry) => (
+                  <Cell key={`cell-${entry.name}`} fill={entry.color} />
+                ))}
             </Pie>
-            <Tooltip />
+            {!isPlaceholder && <Tooltip />}
           </PieChart>
         </ResponsiveContainer>
       </div>
       <div className="flex gap-4 mt-4">
         <StatCard
-          title="Pre-Match"
+          title="Pre-Game"
           stats={data.preMatch}
           color={
             pieData.find((d) => d.name === "Pre-Match")?.color || "#4c1d95"
@@ -655,10 +672,54 @@ const DateRangeButton: React.FC<{
   </button>
 );
 
+const SportBreakdownChart: React.FC<{ data: StatsData[] }> = ({ data }) => {
+  return (
+    <ChartContainer title="Sport Breakdown (Net Profit)">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={data}>
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(128, 128, 128, 0.2)" />
+          <XAxis dataKey="name" stroke="rgb(113, 113, 122)" tick={{ fontSize: 12 }} />
+          <YAxis
+            stroke="rgb(113, 113, 122)"
+            tick={{ fontSize: 12 }}
+            tickFormatter={(value) => formatCurrency(value)}
+          />
+          <Tooltip
+            content={({ active, payload, label }) => {
+              if (active && payload && payload.length) {
+                const data = payload[0].payload;
+                return (
+                  <div className="bg-white dark:bg-neutral-800 p-2 border border-neutral-300 dark:border-neutral-600 rounded shadow-lg text-sm">
+                    <p className="label font-bold mb-1">{label}</p>
+                    <p className={data.net >= 0 ? "text-accent-500" : "text-danger-500"}>
+                      Net: {formatCurrency(data.net)}
+                    </p>
+                    <p>ROI: {data.roi.toFixed(1)}%</p>
+                    <p>Bets: {data.count}</p>
+                  </div>
+                );
+              }
+              return null;
+            }}
+          />
+          <Bar dataKey="net" name="Net Profit">
+            {data.map((entry, index) => (
+              <Cell
+                key={`cell-${index}`}
+                fill={entry.net >= 0 ? "#8b5cf6" : "#ef4444"}
+              />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </ChartContainer>
+  );
+};
+
 const BySportView: React.FC = () => {
   const { bets, loading } = useBets();
   const { sports } = useInputs();
-  const [selectedSport, setSelectedSport] = useState<string>(sports[0] || "");
+  const [selectedSport, setSelectedSport] = useState<string>("All");
   const [dateRange, setDateRange] = useState<DateRange>("all");
   const [customDateRange, setCustomDateRange] = useState<{
     start: string;
@@ -712,12 +773,7 @@ const BySportView: React.FC = () => {
     return [...Array.from(sports).sort()];
   }, [bets, loading]);
 
-  // Set default sport once available
-  React.useEffect(() => {
-    if (availableSports.length > 0 && selectedSport === "") {
-      setSelectedSport(availableSports[0]);
-    }
-  }, [availableSports, selectedSport]);
+
 
   const filteredBets = useMemo(() => {
     // First filter by sport, then apply date range filter
@@ -731,7 +787,9 @@ const BySportView: React.FC = () => {
     );
 
     return bets.filter(
-      (bet) => bet.sport === selectedSport && datePredicate(bet)
+      (bet) =>
+        (selectedSport === "All" || bet.sport === selectedSport) &&
+        datePredicate(bet)
     );
   }, [bets, selectedSport, dateRange, customDateRange]);
 
@@ -776,6 +834,9 @@ const BySportView: React.FC = () => {
       bet.tail ? bet.tail.trim() : null
     );
 
+    // Sport Stats (for "All" view)
+    const sportMap = computeStatsByDimension(filteredBets, (bet) => bet.sport);
+
     // Convert EntityStats map to StatsData array
     let playerTeamStats: StatsData[] = Array.from(playerTeamMap.entries()).map(
       ([name, stats]: [string, EntityStats]) => ({
@@ -807,6 +868,7 @@ const BySportView: React.FC = () => {
       playerTeamStats,
       marketStats: mapToStatsArray(marketMap).sort((a, b) => b.net - a.net),
       tailStats: mapToStatsArray(tailMap).sort((a, b) => b.net - a.net),
+      sportStats: mapToStatsArray(sportMap).sort((a, b) => b.net - a.net),
     };
   }, [filteredBets, entityType, allPlayers, allTeams]);
 
@@ -843,6 +905,16 @@ const BySportView: React.FC = () => {
       <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-md p-6 space-y-4">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
           <div className="flex items-center space-x-1 flex-wrap gap-y-2 bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-lg">
+            <button
+              onClick={() => setSelectedSport("All")}
+              className={`px-3 py-1.5 rounded-md font-medium text-xs transition-colors ${
+                selectedSport === "All"
+                  ? "bg-primary-600 text-white shadow"
+                  : "text-neutral-600 dark:text-neutral-300 hover:bg-white dark:hover:bg-neutral-700"
+              }`}
+            >
+              All
+            </button>
             {availableSports.map((sport) => (
               <button
                 key={sport}
@@ -928,16 +1000,14 @@ const BySportView: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <StatCard
                 title="Net Profit"
-                value={`${
-                  processedData.overallStats.netProfit >= 0 ? "$" : "-$"
-                }${Math.abs(processedData.overallStats.netProfit).toFixed(2)}`}
+                value={formatCurrency(processedData.overallStats.netProfit)}
                 icon={<Scale className="w-6 h-6" />}
                 subtitle={`${processedData.overallStats.roi.toFixed(1)}% ROI`}
                 subtitleClassName={processedData.overallStats.roi > 0 ? "text-accent-500" : processedData.overallStats.roi < 0 ? "text-danger-500" : undefined}
               />
               <StatCard
                 title="Total Wagered"
-                value={`$${processedData.overallStats.totalWagered.toFixed(2)}`}
+                value={formatCurrency(processedData.overallStats.totalWagered)}
                 icon={<BarChart2 className="w-6 h-6" />}
               />
               <StatCard
@@ -953,35 +1023,39 @@ const BySportView: React.FC = () => {
                 valueClassName={processedData.overallStats.winRate > 50 ? "text-accent-500" : processedData.overallStats.winRate < 50 ? "text-danger-500" : undefined}
               />
             </div>
-            <ChartContainer title="Profit Over Time">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={processedData.profitOverTime}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="rgba(128, 128, 128, 0.2)"
-                  />
-                  <XAxis
-                    dataKey="date"
-                    stroke="rgb(113, 113, 122)"
-                    tick={{ fontSize: 12 }}
-                  />
-                  <YAxis
-                    stroke="rgb(113, 113, 122)"
-                    tick={{ fontSize: 12 }}
-                    tickFormatter={(value) => `$${value}`}
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Line
-                    type="monotone"
-                    dataKey="profit"
-                    name="Profit"
-                    stroke="#8b5cf6"
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartContainer>
+            {selectedSport === "All" ? (
+              <SportBreakdownChart data={processedData.sportStats} />
+            ) : (
+              <ChartContainer title="Profit Over Time">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={processedData.profitOverTime}>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="rgba(128, 128, 128, 0.2)"
+                    />
+                    <XAxis
+                      dataKey="date"
+                      stroke="rgb(113, 113, 122)"
+                      tick={{ fontSize: 12 }}
+                    />
+                    <YAxis
+                      stroke="rgb(113, 113, 122)"
+                      tick={{ fontSize: 12 }}
+                      tickFormatter={(value) => formatCurrency(value)}
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Line
+                      type="monotone"
+                      dataKey="profit"
+                      name="Profit"
+                      stroke="#8b5cf6"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </ChartContainer>
+            )}
           </div>
         ) : (
           <div className="flex-grow flex items-center justify-center">
@@ -989,8 +1063,9 @@ const BySportView: React.FC = () => {
               <Trophy className="w-16 h-16 mx-auto text-neutral-400 dark:text-neutral-600" />
               <h3 className="mt-4 text-xl font-semibold">No Data Found</h3>
               <p className="mt-1">
-                No betting data found for {selectedSport} in the selected date
-                range.
+                No betting data found for{" "}
+                {selectedSport === "All" ? "any sport" : selectedSport} in the
+                selected date range.
               </p>
             </div>
           </div>
@@ -1000,47 +1075,62 @@ const BySportView: React.FC = () => {
       {processedData && (
         <div className="pt-4 border-t border-neutral-200 dark:border-neutral-800">
           <h2 className="text-2xl font-bold text-neutral-900 dark:text-white mb-6">
-            Performance Analysis for {selectedSport}
+            Performance Analysis for{" "}
+            {selectedSport === "All" ? "All Sports" : selectedSport}
           </h2>
           <div className="space-y-6">
-            <StatsTable
-              data={processedData.marketStats}
-              title="Market Performance"
-              searchPlaceholder="Search market..."
-            />
-            <div className="h-[500px]">
+            {selectedSport === "All" ? (
               <StatsTable
-                data={processedData.playerTeamStats}
-                title={
-                  <span className="flex items-center gap-2">
-                    Player & Team Performance
-                    {/* Task C2: BySportView Player & Team Table tooltip */}
-                    <InfoTooltip
-                      text="Parlays/SGP/SGP+ contribute $0 stake/net to entity breakdowns (prevents double-counting)."
-                      position="right"
-                    />
-                  </span>
-                }
-                searchPlaceholder="Search player/team..."
-                className="h-full"
-              >
-                <div className="flex items-center space-x-1 flex-wrap gap-y-2 bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-lg">
-                  <EntityTypeButton type="all" label="All" />
-                  <EntityTypeButton type="player" label="Player" />
-                  <EntityTypeButton type="team" label="Team" />
-                </div>
-              </StatsTable>
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <OverUnderBreakdown bets={filteredBets} />
-              <LiveVsPreMatchBreakdown bets={filteredBets} />
-            </div>
-            {processedData.tailStats.length > 0 && (
-              <StatsTable
-                data={processedData.tailStats}
-                title="Performance by Tail"
-                searchPlaceholder="Search tail..."
+                data={processedData.sportStats}
+                title="Sport Performance"
+                searchPlaceholder="Search sport..."
+                firstColumnHeader="Sport"
               />
+            ) : (
+              <>
+                <StatsTable
+                  data={processedData.marketStats}
+                  title="Market Performance"
+                  searchPlaceholder="Search market..."
+                  firstColumnHeader="Market"
+                />
+                <div className="h-[500px]">
+                  <StatsTable
+                    data={processedData.playerTeamStats}
+                    title={
+                      <span className="flex items-center gap-2">
+                        Player & Team Performance
+                        {/* Task C2: BySportView Player & Team Table tooltip */}
+                        <InfoTooltip
+                          text="Parlays/SGP/SGP+ contribute $0 stake/net to entity breakdowns (prevents double-counting)."
+                          position="right"
+                        />
+                      </span>
+                    }
+                    searchPlaceholder="Search player/team..."
+                    firstColumnHeader="Player / Team"
+                    className="h-full"
+                  >
+                    <div className="flex items-center space-x-1 flex-wrap gap-y-2 bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-lg">
+                      <EntityTypeButton type="all" label="All" />
+                      <EntityTypeButton type="player" label="Player" />
+                      <EntityTypeButton type="team" label="Team" />
+                    </div>
+                  </StatsTable>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <OverUnderBreakdown bets={filteredBets} />
+                  <LiveVsPreMatchBreakdown bets={filteredBets} />
+                </div>
+                {processedData.tailStats.length > 0 && (
+                  <StatsTable
+                    data={processedData.tailStats}
+                    title="Performance by Tail"
+                    searchPlaceholder="Search tail..."
+                    firstColumnHeader="Tail"
+                  />
+                )}
+              </>
             )}
           </div>
         </div>

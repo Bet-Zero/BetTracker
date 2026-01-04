@@ -48,10 +48,29 @@ import {
   CustomDateRange,
 } from '../utils/filterPredicates';
 import { InfoTooltip } from '../components/debug/InfoTooltip';
-import ParlayInsightsCard from '../components/ParlayInsightsCard';
+
 import { StatCard } from '../components/StatCard';
+import { formatCurrency, formatNet } from '../utils/formatters';
 
 // --- HELPER COMPONENTS ---
+
+const ToggleButton: React.FC<{
+  value: string;
+  label: string;
+  currentValue: string;
+  onClick: (value: string) => void;
+}> = ({ value, label, currentValue, onClick }) => (
+  <button
+    onClick={() => onClick(value)}
+    className={`px-2.5 py-1 rounded-md font-medium text-xs transition-colors ${
+      currentValue === value
+        ? 'bg-primary-600 text-white shadow'
+        : 'text-neutral-600 dark:text-neutral-300 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700'
+    }`}
+  >
+    {label}
+  </button>
+);
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
@@ -61,7 +80,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         {payload.map((pld: any, index: number) => (
           <p key={index} style={{ color: pld.color || pld.fill }}>
             {`${pld.name}: ${
-              typeof pld.value === 'number' ? pld.value.toFixed(2) : pld.value
+              typeof pld.value === 'number' ? pld.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : pld.value
             }`}
           </p>
         ))}
@@ -108,6 +127,7 @@ interface StatsTableProps {
   title: string;
   subtitle?: string;
   searchPlaceholder: string;
+  firstColumnHeader?: string;
 }
 
 const StatsTable: React.FC<StatsTableProps> = ({
@@ -115,6 +135,7 @@ const StatsTable: React.FC<StatsTableProps> = ({
   title,
   subtitle,
   searchPlaceholder,
+  firstColumnHeader,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState<{
@@ -170,7 +191,7 @@ const StatsTable: React.FC<StatsTableProps> = ({
                 className="px-4 py-2 cursor-pointer"
                 onClick={() => requestSort('name')}
               >
-                {searchPlaceholder.split(' ')[1]}{' '}
+                {firstColumnHeader || searchPlaceholder.split(' ')[1].replace("...", "")}{' '}
                 {sortConfig.key === 'name'
                   ? sortConfig.direction === 'desc'
                     ? '▼'
@@ -281,9 +302,9 @@ const StatsTable: React.FC<StatsTableProps> = ({
                   >
                     {winPct.toFixed(1)}%
                   </td>
-                  <td className="px-4 py-2">${item.stake.toFixed(2)}</td>
+                  <td className="px-4 py-2">{formatCurrency(item.stake)}</td>
                   <td className={`px-4 py-2 font-semibold ${netColor}`}>
-                    {item.net.toFixed(2)}
+                    {formatNet(item.net)}
                   </td>
                   <td className={`px-4 py-2 font-semibold ${netColor}`}>
                     {item.roi.toFixed(1)}%
@@ -360,6 +381,9 @@ const ParlayPerformanceView: React.FC = () => {
     start: string;
     end: string;
   }>({ start: '', end: '' });
+  const [parlayTypeFilter, setParlayTypeFilter] = useState<
+    'all' | 'parlay' | 'sgp' | 'sgp_plus'
+  >('all');
 
   // MANDATORY: Filter to ONLY parlay tickets
   const parlayBets = useMemo(() => {
@@ -368,10 +392,16 @@ const ParlayPerformanceView: React.FC = () => {
       customDateRange as CustomDateRange
     );
 
-    return bets.filter(
-      (bet) => isParlayBetType(bet.betType) && datePredicate(bet)
-    );
-  }, [bets, dateRange, customDateRange]);
+    return bets.filter((bet) => {
+      const isParlay = isParlayBetType(bet.betType);
+      if (!isParlay) return false;
+
+      const matchesType =
+        parlayTypeFilter === 'all' || bet.betType === parlayTypeFilter;
+      
+      return matchesType && datePredicate(bet);
+    });
+  }, [bets, dateRange, customDateRange, parlayTypeFilter]);
 
   const processedData = useMemo(() => {
     if (parlayBets.length === 0) return null;
@@ -478,9 +508,32 @@ const ParlayPerformanceView: React.FC = () => {
       <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-md p-6 space-y-4">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
           <div className="flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
-            <span className="px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 rounded font-medium">
-              Parlay tickets only
-            </span>
+             <div className="flex items-center space-x-1 flex-wrap gap-y-2 bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-lg">
+              <ToggleButton
+                value="all"
+                label="All"
+                currentValue={parlayTypeFilter}
+                onClick={(v) => setParlayTypeFilter(v as any)}
+              />
+              <ToggleButton
+                value="parlay"
+                label="Parlay"
+                currentValue={parlayTypeFilter}
+                onClick={(v) => setParlayTypeFilter(v as any)}
+              />
+              <ToggleButton
+                value="sgp"
+                label="SGP"
+                currentValue={parlayTypeFilter}
+                onClick={(v) => setParlayTypeFilter(v as any)}
+              />
+              <ToggleButton
+                value="sgp_plus"
+                label="SGP+"
+                currentValue={parlayTypeFilter}
+                onClick={(v) => setParlayTypeFilter(v as any)}
+              />
+            </div>
           </div>
           <div className="flex items-center space-x-1 flex-wrap gap-y-2 bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-lg">
             <DateRangeButton
@@ -579,7 +632,7 @@ const ParlayPerformanceView: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pt-4">
               <StatCard
                 title="Net Profit"
-                value={`${processedData.overallStats.netProfit >= 0 ? '$' : '-$'}${Math.abs(processedData.overallStats.netProfit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                value={formatCurrency(processedData.overallStats.netProfit)}
                 icon={<Scale className="w-6 h-6" />}
                 subtitle={`${processedData.overallStats.roi.toFixed(1)}% ROI`}
                 subtitleClassName={
@@ -592,7 +645,7 @@ const ParlayPerformanceView: React.FC = () => {
               />
               <StatCard
                 title="Total Wagered"
-                value={`$${processedData.overallStats.totalWagered.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                value={formatCurrency(processedData.overallStats.totalWagered)}
                 icon={<BarChart2 className="w-6 h-6" />}
               />
               <StatCard
@@ -616,10 +669,7 @@ const ParlayPerformanceView: React.FC = () => {
               />
             </div>
 
-            {/* Parlay Strategy Insights Card - below stat cards, above charts */}
-            <div className="pt-4">
-              <ParlayInsightsCard parlayBets={parlayBets} />
-            </div>
+
 
             {/* Charts Row */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-4">
@@ -641,7 +691,7 @@ const ParlayPerformanceView: React.FC = () => {
                     <YAxis
                       stroke="rgb(113, 113, 122)"
                       tick={{ fontSize: 12 }}
-                      tickFormatter={(value) => `$${value}`}
+                      tickFormatter={(value) => formatCurrency(value)}
                     />
                     <Tooltip content={<CustomTooltip />} />
                     <Line
@@ -674,7 +724,7 @@ const ParlayPerformanceView: React.FC = () => {
                     <YAxis
                       stroke="rgb(113, 113, 122)"
                       tick={{ fontSize: 12 }}
-                      tickFormatter={(value) => `$${value}`}
+                      tickFormatter={(value) => formatCurrency(value)}
                     />
                     <Tooltip content={<CustomTooltip />} />
                     <Bar dataKey="net" name="Net Profit">

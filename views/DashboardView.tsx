@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useLayoutEffect, useRef } from "react";
 import { useBets } from "../hooks/useBets";
 import { useInputs } from "../hooks/useInputs";
 import {
@@ -24,7 +24,7 @@ import {
   BarChart2,
 } from "../components/icons";
 import { Bet } from "../types";
-import { formatDateChartKey } from "../utils/formatters";
+import { formatCurrency, formatDateChartKey, formatNet } from "../utils/formatters";
 import {
   createBetTypePredicate,
   createDateRangePredicate,
@@ -39,6 +39,7 @@ import {
   computeStatsByDimension,
   mapToStatsArray,
   DimensionStats,
+  computeVolumeOverTime,
 } from "../services/aggregationService";
 import { getNetNumeric, isParlayBetType } from "../services/displaySemantics";
 import { computeOverUnderStats, filterBetsByMarketCategory, OverUnderMarketFilter } from "../services/overUnderStatsService";
@@ -50,6 +51,9 @@ import { resolveTeam, getTeamAggregationKey, getPlayerAggregationKey } from "../
 // Dashboard UI Clarity Phase: DEV-ONLY debug overlay and tooltips
 import { DashboardTruthOverlay } from "../components/debug/DashboardTruthOverlay";
 import { InfoTooltip } from "../components/debug/InfoTooltip";
+// Shared Components
+import { FitText } from "../components/FitText";
+import { StatCard } from "../components/StatCard";
 // Futures Exposure Panel (Task B)
 import FuturesExposurePanel from "../components/FuturesExposurePanel";
 
@@ -63,7 +67,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         {payload.map((pld: any, index: number) => (
           <p key={index} style={{ color: pld.color || pld.fill }}>
             {`${pld.name}: ${
-              typeof pld.value === "number" ? pld.value.toFixed(2) : pld.value
+              typeof pld.value === "number" ? pld.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : pld.value
             }`}
           </p>
         ))}
@@ -95,10 +99,12 @@ type StatsData = {
   roi: number;
   sport?: string;
 };
+
 interface StatsTableProps {
   data: StatsData[];
   title: React.ReactNode;
   searchPlaceholder: string;
+  firstColumnHeader?: string;
   className?: string;
   children?: React.ReactNode;
 }
@@ -107,6 +113,7 @@ const StatsTable: React.FC<StatsTableProps> = ({
   data,
   title,
   searchPlaceholder,
+  firstColumnHeader,
   className,
   children,
 }) => {
@@ -162,7 +169,7 @@ const StatsTable: React.FC<StatsTableProps> = ({
                 className="px-4 py-2 cursor-pointer"
                 onClick={() => requestSort("name")}
               >
-                {searchPlaceholder.split(" ")[1]}{" "}
+                {firstColumnHeader || searchPlaceholder.split(" ")[1].replace("...", "")}{" "}
                 {sortConfig.key === "name"
                   ? sortConfig.direction === "desc"
                     ? "▼"
@@ -273,9 +280,9 @@ const StatsTable: React.FC<StatsTableProps> = ({
                   >
                     {winPct.toFixed(1)}%
                   </td>
-                  <td className="px-4 py-2">${item.stake.toFixed(2)}</td>
+                  <td className="px-4 py-2">{formatCurrency(item.stake)}</td>
                   <td className={`px-4 py-2 font-semibold ${netColor}`}>
-                    {item.net.toFixed(2)}
+                    {formatNet(item.net)}
                   </td>
                   <td className={`px-4 py-2 font-semibold ${netColor}`}>
                     {item.roi.toFixed(1)}%
@@ -288,19 +295,6 @@ const StatsTable: React.FC<StatsTableProps> = ({
       </div>
     </div>
   );
-};
-
-const extractEntityFromDescription = (description: string): string => {
-  const patterns = [
-    /^(.*?)\s+([+-]\d+(\.\d+)?|ML|PK|pk)$/i,
-    /^(.*?)\s+(?:to win|To Win|to Win Outright)/i,
-    /^(.*?)\s+(?:Over|Under|O|U)\s+\d+(\.\d+)?/i,
-  ];
-  for (const pattern of patterns) {
-    const match = description.match(pattern);
-    if (match && match[1]) return match[1].trim();
-  }
-  return description;
 };
 
 const ToggleButton: React.FC<{
@@ -325,7 +319,6 @@ const OverUnderBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
   const [filter, setFilter] = useState<OverUnderMarketFilter>("all");
 
   const data = useMemo(() => {
-    // Use shared O/U stats service (consolidates parlay exclusion logic)
     const filteredBets = filterBetsByMarketCategory(bets, filter);
     return computeOverUnderStats(filteredBets);
   }, [bets, filter]);
@@ -335,7 +328,9 @@ const OverUnderBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
     { name: "Under", value: data.under.count, color: "#6d28d9" },
   ].filter((d) => d.value > 0);
 
-  const StatCard = ({
+  const isPlaceholder = pieData.length === 0;
+
+  const BreakdownStatCard = ({
     title,
     stats,
     color,
@@ -350,7 +345,6 @@ const OverUnderBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
         : stats.net < 0
         ? "text-danger-500"
         : "";
-    const NetIcon = stats.net > 0 ? TrendingUp : TrendingDown;
     const winPct =
       stats.wins + stats.losses > 0
         ? (stats.wins / (stats.wins + stats.losses)) * 100
@@ -370,10 +364,44 @@ const OverUnderBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
           <p>
             <b>Win %:</b> {winPct.toFixed(1)}%
           </p>
-          <p className={`flex items-center ${netColor}`}>
+          <div className={`flex justify-between items-center ${netColor}`}>
             <b>Net:</b>
-            <NetIcon className="w-4 h-4 mx-1" /> ${stats.net.toFixed(2)}
-          </p>
+            <div className="flex items-center ml-1">
+              <div className="w-20 h-6">
+                   {/* Used formatCurrency but removed leading '$' since it's outside in previous design, 
+                       but actually previous design had '$' outside FitText div? No, '$' was text node before FitText div?
+                       Wait, existing code: 
+                       <b>Net:</b>
+                       <div className="flex items-center ml-1">
+                         <div className="w-20 h-6">
+                            <FitText...>
+                               ${stats.net.toLocaleString...}
+                            </FitText>
+                         </div>
+                       </div>
+                       
+                       The '$' is INSIDE the FitText children in the existing code.
+                       Line 372: ${stats.net.toLocaleString...}
+                       So I can replace the whole string inside FitText with formatCurrency(stats.net).
+                       formatCurrency adds the '$'.
+                       However, formatCurrency handles negative with '-$'.
+                       The current logic simply prints '$' + formatted number.
+                       If negative, it would be '$-100.00' (weird) or maybe abs value?
+                       Let's check code.
+                       Line 372: ${stats.net.toLocaleString...}
+                       It takes the signed value. toLocaleString of -100 is "-100".
+                       So result: "$-100.00". This is actually bad formatting in the existing code?
+                       Or maybe standard JS behavior is "-100.00".
+                       So "$-100.00".
+                       formatCurrency does "-$100.00".
+                       I should replace `${...}` with formatCurrency(stats.net).
+                    */}
+                   <FitText maxFontSize={16} minFontSize={10} className="justify-end font-bold">
+                     {formatCurrency(stats.net)}
+                   </FitText>
+              </div>
+            </div>
+          </div>
           <p className={netColor}>
             <b>ROI:</b> {stats.roi.toFixed(1)}%
           </p>
@@ -387,9 +415,8 @@ const OverUnderBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-2">
           <h2 className="text-xl font-semibold text-neutral-800 dark:text-neutral-200">
-            Over / Under
+            Over vs. Under
           </h2>
-          {/* Task C1: Dashboard O/U Breakdown tooltip */}
           <InfoTooltip
             text="Straight bets only (excludes parlay/SGP legs)"
             position="right"
@@ -420,31 +447,37 @@ const OverUnderBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
-              data={pieData}
+              data={isPlaceholder ? [{ name: "No Data", value: 1 }] : pieData}
               dataKey="value"
               nameKey="name"
               cx="50%"
               cy="50%"
+              innerRadius={isPlaceholder ? 50 : 0}
               outerRadius={60}
-              label={({ name, percent }) =>
-                `${name} ${(percent * 100).toFixed(0)}%`
+              label={
+                isPlaceholder
+                  ? undefined
+                  : ({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`
               }
+              stroke="none"
+              fill={isPlaceholder ? "#e5e5e5" : undefined}
             >
-              {pieData.map((entry) => (
-                <Cell key={`cell-${entry.name}`} fill={entry.color} />
-              ))}
+              {!isPlaceholder &&
+                pieData.map((entry) => (
+                  <Cell key={`cell-${entry.name}`} fill={entry.color} />
+                ))}
             </Pie>
-            <Tooltip content={<CustomTooltip />} />
+            {!isPlaceholder && <Tooltip content={<CustomTooltip />} />}
           </PieChart>
         </ResponsiveContainer>
       </div>
       <div className="flex gap-4 mt-4">
-        <StatCard
+        <BreakdownStatCard
           title="Over"
           stats={data.over}
           color={pieData.find((d) => d.name === "Over")?.color || "#8b5cf6"}
         />
-        <StatCard
+        <BreakdownStatCard
           title="Under"
           stats={data.under}
           color={pieData.find((d) => d.name === "Under")?.color || "#6d28d9"}
@@ -461,7 +494,7 @@ const LiveVsPreMatchBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
     const filteredBets = bets.filter((bet) => {
       if (filter === "props") return bet.marketCategory === "Props";
       if (filter === "main") return bet.marketCategory === "Main Markets";
-      return true; // all
+      return true;
     });
 
     const stats = {
@@ -480,8 +513,6 @@ const LiveVsPreMatchBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
       if (result === "loss") liveTarget.losses++;
     });
 
-    // Using imported calculateRoi from aggregationService
-
     return {
       live: { ...stats.live, roi: calculateRoi(stats.live.net, stats.live.stake) },
       preMatch: { ...stats.preMatch, roi: calculateRoi(stats.preMatch.net, stats.preMatch.stake) },
@@ -493,7 +524,9 @@ const LiveVsPreMatchBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
     { name: "Live", value: data.live.count, color: "#a78bfa" },
   ].filter((d) => d.value > 0);
 
-  const StatCard = ({
+  const isPlaceholder = pieData.length === 0;
+
+  const BreakdownStatCard = ({
     title,
     stats,
     color,
@@ -508,7 +541,6 @@ const LiveVsPreMatchBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
         : stats.net < 0
         ? "text-danger-500"
         : "";
-    const NetIcon = stats.net > 0 ? TrendingUp : TrendingDown;
     const winPct =
       stats.wins + stats.losses > 0
         ? (stats.wins / (stats.wins + stats.losses)) * 100
@@ -528,10 +560,16 @@ const LiveVsPreMatchBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
           <p>
             <b>Win %:</b> {winPct.toFixed(1)}%
           </p>
-          <p className={`flex items-center ${netColor}`}>
+          <div className={`flex justify-between items-center ${netColor}`}>
             <b>Net:</b>
-            <NetIcon className="w-4 h-4 mx-1" /> ${stats.net.toFixed(2)}
-          </p>
+            <div className="flex items-center ml-1">
+              <div className="w-20 h-6">
+                 <FitText maxFontSize={16} minFontSize={10} className="justify-end font-bold">
+                   {formatCurrency(stats.net)}
+                 </FitText>
+              </div>
+            </div>
+          </div>
           <p className={netColor}>
             <b>ROI:</b> {stats.roi.toFixed(1)}%
           </p>
@@ -544,7 +582,7 @@ const LiveVsPreMatchBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
     <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-md p-6 flex flex-col">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-semibold text-neutral-800 dark:text-neutral-200">
-          Live vs. Pre-Match
+          Live vs. Pre-Game
         </h2>
         <div className="flex items-center space-x-1 flex-wrap gap-y-2 bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-lg">
           <ToggleButton
@@ -571,33 +609,39 @@ const LiveVsPreMatchBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
-              data={pieData}
+              data={isPlaceholder ? [{ name: "No Data", value: 1 }] : pieData}
               dataKey="value"
               nameKey="name"
               cx="50%"
               cy="50%"
+              innerRadius={isPlaceholder ? 50 : 0}
               outerRadius={60}
-              label={({ name, percent }) =>
-                `${name} ${(percent * 100).toFixed(0)}%`
+              label={
+                isPlaceholder
+                  ? undefined
+                  : ({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`
               }
+              stroke="none"
+              fill={isPlaceholder ? "#e5e5e5" : undefined}
             >
-              {pieData.map((entry) => (
-                <Cell key={`cell-${entry.name}`} fill={entry.color} />
-              ))}
+              {!isPlaceholder &&
+                pieData.map((entry) => (
+                  <Cell key={`cell-${entry.name}`} fill={entry.color} />
+                ))}
             </Pie>
-            <Tooltip content={<CustomTooltip />} />
+            {!isPlaceholder && <Tooltip content={<CustomTooltip />} />}
           </PieChart>
         </ResponsiveContainer>
       </div>
       <div className="flex gap-4 mt-4">
-        <StatCard
-          title="Pre-Match"
+        <BreakdownStatCard
+          title="Pre-Game"
           stats={data.preMatch}
           color={
             pieData.find((d) => d.name === "Pre-Match")?.color || "#4c1d95"
           }
         />
-        <StatCard
+        <BreakdownStatCard
           title="Live"
           stats={data.live}
           color={pieData.find((d) => d.name === "Live")?.color || "#a78bfa"}
@@ -606,8 +650,6 @@ const LiveVsPreMatchBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
     </div>
   );
 };
-
-// DateRange type is imported from filterPredicates
 
 const DateRangeButton: React.FC<{
   range: DateRange;
@@ -637,71 +679,22 @@ const QuickStatCard: React.FC<{ label: string; value: number }> = ({
       : value < 0
       ? "text-danger-500"
       : "text-neutral-500";
-  const formattedValue = `${value >= 0 ? "+" : "-"}$${Math.abs(value).toFixed(
-    2
-  )}`;
 
   return (
-    <div className="bg-neutral-100 dark:bg-neutral-800/50 p-4 rounded-lg text-center">
-      <p className="text-sm font-medium text-neutral-500 dark:text-neutral-400">
-        {label}
-      </p>
-      <p className={`text-2xl font-bold mt-1 ${valueColor}`}>
-        {formattedValue}
-      </p>
-    </div>
-  );
-};
-
-const StatCard: React.FC<{
-  title: string;
-  value: string;
-  icon: React.ReactNode;
-  subtitle?: string; // Static text (no arrows)
-  subtitleClassName?: string; // Explicit color for subtitle
-  change?: string; // Trend with arrows (auto-colored)
-  valueClassName?: string; // Explicit color for main value
-}> = ({ title, value, icon, subtitle, subtitleClassName, change, valueClassName }) => {
-  // Change: colored with arrows (actual trend comparison)
-  const isPositive = change && parseFloat(change) > 0;
-  const isNegative = change && parseFloat(change) < 0;
-  const changeColor = isPositive
-    ? "text-accent-500"
-    : isNegative
-    ? "text-danger-500"
-    : "text-neutral-500 dark:text-neutral-400";
-
-  return (
-    <div className="bg-white dark:bg-neutral-900 p-6 rounded-lg shadow-md flex items-start justify-between">
-      <div>
-        <p className="text-sm font-medium text-neutral-500 dark:text-neutral-400 uppercase">
-          {title}
-        </p>
-        <p className={`text-3xl font-bold mt-1 ${valueClassName || "text-neutral-900 dark:text-white"}`}>
-          {value}
-        </p>
-        {subtitle && (
-          <p className={`text-sm font-semibold mt-2 ${subtitleClassName || "text-neutral-500 dark:text-neutral-400"}`}>
-            {subtitle}
-          </p>
-        )}
-        {change && (
-          <p
-            className={`text-sm font-semibold flex items-center mt-2 ${changeColor}`}
-          >
-            {isPositive && <TrendingUp className="w-4 h-4 mr-1" />}
-            {isNegative && <TrendingDown className="w-4 h-4 mr-1" />}
-            {change}
-          </p>
-        )}
+    <div className="bg-neutral-100 dark:bg-neutral-800/50 p-2 rounded-lg text-center h-20 flex flex-col justify-center">
+      <div className="h-4 w-full mb-1 text-neutral-500 dark:text-neutral-400">
+        <FitText maxFontSize={12} minFontSize={10} className="justify-center font-medium">
+          {label}
+        </FitText>
       </div>
-      <div className="bg-primary-100 dark:bg-primary-900/50 text-primary-600 dark:text-primary-400 p-3 rounded-full">
-        {icon}
+      <div className={`h-8 w-full ${valueColor}`}>
+        <FitText maxFontSize={20} minFontSize={10} className="justify-center font-bold">
+           {value >= 0 ? "+" : "-"}${Math.abs(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        </FitText>
       </div>
     </div>
   );
 };
-
 
 // --- MAIN DASHBOARD VIEW ---
 
@@ -777,6 +770,7 @@ const DashboardView: React.FC = () => {
     const initialData = {
       profitByBook: [],
       profitOverTime: [],
+      volumeOverTime: [],
       marketCategoryStats: [],
       playerTeamStats: [],
       tailStats: [],
@@ -829,6 +823,9 @@ const DashboardView: React.FC = () => {
     // 2. Profit Over Time
     const profitOverTime = computeProfitOverTime(filteredBets);
 
+    // 2b. Volume Over Time
+    const volumeOverTime = computeVolumeOverTime(filteredBets);
+
     // 3. Breakdown by dimensions
     const bookMap = computeStatsByDimension(filteredBets, (bet) => bet.book);
     const categoryMap = computeStatsByDimension(filteredBets, (bet) => bet.marketCategory);
@@ -872,7 +869,7 @@ const DashboardView: React.FC = () => {
       .sort((a, b) => b.net - a.net);
 
     // Convert other maps to sorted arrays
-    const profitByBook = mapToStatsArray(bookMap).sort((a, b) => b.net - a.net);
+    const profitByBook = mapToStatsArray(bookMap).sort((a, b) => b.stake - a.stake);
     const marketCategoryStats = mapToStatsArray(categoryMap).sort((a, b) => b.count - a.count);
     const sportStats = mapToStatsArray(sportMap).sort((a, b) => b.net - a.net);
     const tailStats = mapToStatsArray(tailMap).sort((a, b) => b.net - a.net);
@@ -887,6 +884,7 @@ const DashboardView: React.FC = () => {
 
     return {
       profitOverTime,
+      volumeOverTime,
       profitByBook,
       quickNetStats,
       overallStats,
@@ -925,7 +923,7 @@ const DashboardView: React.FC = () => {
   );
 
   return (
-    <div className="p-6 h-full flex flex-col space-y-6 bg-neutral-100 dark:bg-neutral-950 overflow-y-auto">
+    <div className="p-4 h-full flex flex-col space-y-4 bg-neutral-100 dark:bg-neutral-950 overflow-y-auto">
       {/* DEV-ONLY: Truth Overlay for debugging */}
       <DashboardTruthOverlay
         allBets={bets}
@@ -937,28 +935,17 @@ const DashboardView: React.FC = () => {
         entityType={entityType}
       />
 
-      <div className="flex-shrink-0 bg-white dark:bg-neutral-900 rounded-lg shadow-md p-6 space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-neutral-900 dark:text-white">
+      <div className="flex-shrink-0 flex flex-col xl:flex-row justify-between xl:items-center gap-4">
+        <div className="flex-shrink-0">
+          <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">
             Dashboard
           </h1>
-          <p className="text-neutral-500 dark:text-neutral-400 mt-1">
+          <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
             A high-level overview of your betting performance.
           </p>
         </div>
 
-        {/* Scope Label: Global stats */}
-        <div className="flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400 border-t border-neutral-200 dark:border-neutral-800 pt-4">
-          <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded font-medium">
-            Global (ignores filters)
-          </span>
-          <InfoTooltip
-            text="These stats use ALL bets with time windows only. They don't change when you filter by category, bet type, or entity."
-            position="right"
-          />
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 pt-2">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 w-full xl:w-2/3 xl:max-w-4xl bg-white dark:bg-neutral-900 rounded-lg shadow-md p-2">
           <QuickStatCard
             label="Last 24h"
             value={processedData.quickNetStats.net1d}
@@ -982,114 +969,113 @@ const DashboardView: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-md p-6 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-          <div className="flex items-center space-x-1 flex-wrap gap-y-2 bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-lg">
-            <button
-              onClick={() => setSelectedMarketCategory("all")}
-              className={`px-3 py-1.5 rounded-md font-medium text-xs transition-colors ${
-                selectedMarketCategory === "all"
-                  ? "bg-primary-600 text-white shadow"
-                  : "text-neutral-600 dark:text-neutral-300 hover:bg-white dark:hover:bg-neutral-700"
-              }`}
-            >
-              All
-            </button>
-            {["Main Markets", "Props", "Parlays", "Futures"].map((cat) => (
+      <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-md p-4 space-y-6">
+        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 pb-6 border-b border-neutral-200 dark:border-neutral-800">
+          <div className="flex flex-col sm:flex-row gap-4 w-full xl:w-auto">
+            <div className="flex items-center space-x-1 flex-wrap gap-y-2 bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-lg">
               <button
-                key={cat}
-                onClick={() => setSelectedMarketCategory(cat)}
+                onClick={() => setSelectedMarketCategory("all")}
                 className={`px-3 py-1.5 rounded-md font-medium text-xs transition-colors ${
-                  selectedMarketCategory === cat
+                  selectedMarketCategory === "all"
                     ? "bg-primary-600 text-white shadow"
                     : "text-neutral-600 dark:text-neutral-300 hover:bg-white dark:hover:bg-neutral-700"
                 }`}
               >
-                {cat}
+                All
               </button>
-            ))}
-          </div>
-          <div className="flex items-center space-x-1 flex-wrap gap-y-2 bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-lg">
-            <button
-              onClick={() => setBetTypeFilter("all")}
-              className={`px-3 py-1.5 rounded-md font-medium text-xs transition-colors ${
-                betTypeFilter === "all"
-                  ? "bg-primary-600 text-white shadow"
-                  : "text-neutral-600 dark:text-neutral-300 hover:bg-white dark:hover:bg-neutral-700"
-              }`}
-            >
-              All
-            </button>
-            <button
-              onClick={() => setBetTypeFilter("non-parlays")}
-              className={`px-3 py-1.5 rounded-md font-medium text-xs transition-colors ${
-                betTypeFilter === "non-parlays"
-                  ? "bg-primary-600 text-white shadow"
-                  : "text-neutral-600 dark:text-neutral-300 hover:bg-white dark:hover:bg-neutral-700"
-              }`}
-            >
-              Singles
-            </button>
-            <button
-              onClick={() => setBetTypeFilter("parlays")}
-              className={`px-3 py-1.5 rounded-md font-medium text-xs transition-colors ${
-                betTypeFilter === "parlays"
-                  ? "bg-primary-600 text-white shadow"
-                  : "text-neutral-600 dark:text-neutral-300 hover:bg-white dark:hover:bg-neutral-700"
-              }`}
-            >
-              Parlays
-            </button>
-          </div>
-          <div className="flex items-center gap-2">
+              {["Main Markets", "Props", "Parlays", "Futures"].map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedMarketCategory(cat)}
+                  className={`px-3 py-1.5 rounded-md font-medium text-xs transition-colors ${
+                    selectedMarketCategory === cat
+                      ? "bg-primary-600 text-white shadow"
+                      : "text-neutral-600 dark:text-neutral-300 hover:bg-white dark:hover:bg-neutral-700"
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
             <div className="flex items-center space-x-1 flex-wrap gap-y-2 bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-lg">
+              <button
+                onClick={() => setBetTypeFilter("all")}
+                className={`px-3 py-1.5 rounded-md font-medium text-xs transition-colors ${
+                  betTypeFilter === "all"
+                    ? "bg-primary-600 text-white shadow"
+                    : "text-neutral-600 dark:text-neutral-300 hover:bg-white dark:hover:bg-neutral-700"
+                }`}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setBetTypeFilter("non-parlays")}
+                className={`px-3 py-1.5 rounded-md font-medium text-xs transition-colors ${
+                  betTypeFilter === "non-parlays"
+                    ? "bg-primary-600 text-white shadow"
+                    : "text-neutral-600 dark:text-neutral-300 hover:bg-white dark:hover:bg-neutral-700"
+                }`}
+              >
+                Singles
+              </button>
+              <button
+                onClick={() => setBetTypeFilter("parlays")}
+                className={`px-3 py-1.5 rounded-md font-medium text-xs transition-colors ${
+                  betTypeFilter === "parlays"
+                    ? "bg-primary-600 text-white shadow"
+                    : "text-neutral-600 dark:text-neutral-300 hover:bg-white dark:hover:bg-neutral-700"
+                }`}
+              >
+                Parlays
+              </button>
+            </div>
+          </div>
+          
+          <div className="w-full xl:w-auto overflow-x-auto">
+            <div className="flex items-center space-x-1 flex-nowrap min-w-max bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-lg">
               <DateRangeButton
-              range="all"
-              label="All"
-              currentRange={dateRange}
-              onClick={setDateRange}
-            />
-            <DateRangeButton
-              range="1d"
-              label="1D"
-              currentRange={dateRange}
-              onClick={setDateRange}
-            />
-            <DateRangeButton
-              range="3d"
-              label="3D"
-              currentRange={dateRange}
-              onClick={setDateRange}
-            />
-            <DateRangeButton
-              range="1w"
-              label="1W"
-              currentRange={dateRange}
-              onClick={setDateRange}
-            />
-            <DateRangeButton
-              range="1m"
-              label="1M"
-              currentRange={dateRange}
-              onClick={setDateRange}
-            />
-            <DateRangeButton
-              range="1y"
-              label="1Y"
-              currentRange={dateRange}
-              onClick={setDateRange}
-            />
-            <DateRangeButton
-              range="custom"
-              label="Custom"
-              currentRange={dateRange}
-              onClick={setDateRange}
+                range="all"
+                label="All"
+                currentRange={dateRange}
+                onClick={setDateRange}
+              />
+              <DateRangeButton
+                range="1d"
+                label="1D"
+                currentRange={dateRange}
+                onClick={setDateRange}
+              />
+              <DateRangeButton
+                range="3d"
+                label="3D"
+                currentRange={dateRange}
+                onClick={setDateRange}
+              />
+              <DateRangeButton
+                range="1w"
+                label="1W"
+                currentRange={dateRange}
+                onClick={setDateRange}
+              />
+              <DateRangeButton
+                range="1m"
+                label="1M"
+                currentRange={dateRange}
+                onClick={setDateRange}
+              />
+              <DateRangeButton
+                range="1y"
+                label="1Y"
+                currentRange={dateRange}
+                onClick={setDateRange}
+              />
+              <DateRangeButton
+                range="custom"
+                label="Custom"
+                currentRange={dateRange}
+                onClick={setDateRange}
               />
             </div>
-            <InfoTooltip
-              text="Filters use placed date (not settled date)."
-              position="left"
-            />
           </div>
         </div>
 
@@ -1140,37 +1126,20 @@ const DashboardView: React.FC = () => {
 
         {hasData ? (
           <>
-            {/* Scope Label: Filtered view */}
-            <div className="flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400 mb-2">
-              <span className="px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 rounded font-medium">
-                Filtered view
-              </span>
-              <InfoTooltip
-                text="These stats reflect bets matching your current filters above."
-                position="right"
-              />
-              <span className="ml-2 flex items-center gap-1">
-                <InfoTooltip
-                  text="Pending bets contribute $0 to net totals; table shows blank for pending."
-                  position="right"
-                />
-                <span className="text-neutral-400">Pending = $0</span>
-              </span>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6">
               <StatCard
                 title="Net Profit"
                 value={`${
                   processedData.overallStats.netProfit >= 0 ? "$" : "-$"
-                }${Math.abs(processedData.overallStats.netProfit).toFixed(2)}`}
+                }${Math.abs(processedData.overallStats.netProfit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                 icon={<Scale className="w-6 h-6" />}
                 subtitle={`${processedData.overallStats.roi.toFixed(1)}% ROI`}
                 subtitleClassName={processedData.overallStats.roi > 0 ? "text-accent-500" : processedData.overallStats.roi < 0 ? "text-danger-500" : undefined}
               />
               <StatCard
                 title="Total Wagered"
-                value={`$${processedData.overallStats.totalWagered.toFixed(2)}`}
+                value={`$${processedData.overallStats.totalWagered.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                 icon={<BarChart2 className="w-6 h-6" />}
               />
               <StatCard
@@ -1202,7 +1171,7 @@ const DashboardView: React.FC = () => {
                     <YAxis
                       stroke="rgb(113, 113, 122)"
                       tick={{ fontSize: 12 }}
-                      tickFormatter={(value) => `$${value}`}
+                      tickFormatter={(value) => formatCurrency(value)}
                     />
                     <Tooltip content={<CustomTooltip />} />
                     <Line
@@ -1217,33 +1186,33 @@ const DashboardView: React.FC = () => {
                 </ResponsiveContainer>
               </ChartContainer>
 
-              <ChartContainer title="Total Profit by Sportsbook">
+              <ChartContainer title="Volume Over Time">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={processedData.profitByBook}>
+                  <LineChart data={processedData.volumeOverTime}>
                     <CartesianGrid
                       strokeDasharray="3 3"
                       stroke="rgba(128, 128, 128, 0.2)"
                     />
                     <XAxis
-                      dataKey="name"
+                      dataKey="date"
                       stroke="rgb(113, 113, 122)"
                       tick={{ fontSize: 12 }}
                     />
                     <YAxis
                       stroke="rgb(113, 113, 122)"
                       tick={{ fontSize: 12 }}
-                      tickFormatter={(value) => `$${value}`}
+                      tickFormatter={(value) => formatCurrency(value)}
                     />
                     <Tooltip content={<CustomTooltip />} />
-                    <Bar dataKey="profit" name="Profit">
-                      {processedData.profitByBook.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={entry.profit >= 0 ? "#22c55e" : "#ef4444"}
-                        />
-                      ))}
-                    </Bar>
-                  </BarChart>
+                    <Line
+                      type="monotone"
+                      dataKey="volume"
+                      name="Volume"
+                      stroke="#8b5cf6"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  </LineChart>
                 </ResponsiveContainer>
               </ChartContainer>
             </div>

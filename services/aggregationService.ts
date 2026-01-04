@@ -151,6 +151,34 @@ export function computeProfitOverTime(bets: Bet[]): ProfitDataPoint[] {
 }
 
 /**
+ * Compute volume (total wagered) by date.
+ * Returns an array of data points sorted chronologically.
+ */
+/**
+ * Compute cumulative volume over time.
+ * Returns an array of data points sorted chronologically, matching computeProfitOverTime behavior.
+ */
+export function computeVolumeOverTime(bets: Bet[]): { date: string; volume: number }[] {
+  if (bets.length === 0) {
+    return [];
+  }
+
+  // Sort by placedAt chronologically
+  const sortedBets = [...bets].sort(
+    (a, b) => new Date(a.placedAt).getTime() - new Date(b.placedAt).getTime()
+  );
+
+  let cumulativeVolume = 0;
+  return sortedBets.map(bet => {
+    cumulativeVolume += bet.stake;
+    return {
+      date: new Date(bet.placedAt).toLocaleDateString('en-CA'),
+      volume: cumulativeVolume,
+    };
+  });
+}
+
+/**
  * Compute stats grouped by a dynamic dimension derived from each bet.
  * Returns a Map where keys are the dimension values.
  * 

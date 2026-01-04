@@ -23,7 +23,7 @@ import {
   UnresolvedEntityType,
 } from "../services/unresolvedQueue";
 import { resolveTeam, resolvePlayer } from "../services/resolver";
-import { toLookupKey } from "../services/normalizationService";
+import { toLookupKey, generateTeamId } from "../services/normalizationService";
 import { Sport } from "../data/referenceData";
 import {
   useNormalizationData,
@@ -367,7 +367,7 @@ const UnresolvedQueueManager: React.FC<UnresolvedQueueManagerProps> = ({
       sport: Sport,
       additionalAliases: string[],
       extraData?: {
-        team?: string;
+        teamId?: string;
         description?: string;
         abbreviations?: string[];
       }
@@ -383,6 +383,7 @@ const UnresolvedQueueManager: React.FC<UnresolvedQueueManagerProps> = ({
 
       if (item.entityType === "team") {
         const newTeam: TeamData = {
+          id: generateTeamId(sport, extraData?.abbreviations || [], canonical),
           canonical,
           sport,
           aliases,
@@ -390,11 +391,19 @@ const UnresolvedQueueManager: React.FC<UnresolvedQueueManagerProps> = ({
         };
         addTeam(newTeam);
       } else if (item.entityType === "player") {
+        // Resolve team name from ID if present
+        let teamName = extraData?.teamId ? undefined : undefined;
+        if (extraData?.teamId) {
+           const foundTeam = teams.find(t => t.id === extraData?.teamId);
+           if (foundTeam) teamName = foundTeam.canonical;
+        }
+
         const newPlayer: PlayerData = {
           canonical,
           sport,
           aliases,
-          team: extraData?.team,
+          team: teamName,
+          teamId: extraData?.teamId,
         };
         addPlayer(newPlayer);
       } else if (item.entityType === "stat") {
