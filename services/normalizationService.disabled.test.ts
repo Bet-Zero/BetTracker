@@ -4,17 +4,17 @@ import {
   initializeLookupMaps,
   TeamData,
   PlayerData,
-  StatTypeData,
+  BetTypeData,
   NORMALIZATION_STORAGE_KEYS,
   toLookupKey
 } from './normalizationService';
 import {
   resolveTeam,
   resolvePlayer,
-  resolveStatType
+  resolveBetType
 } from './resolver';
 
-// Check if resolveStatType is exported, if not we might need to use getStatTypeInfo directly from normalizationService
+// Check if resolveBetType is exported, if not we might need to use getBetTypeInfo directly from normalizationService
 // But for now let's assume it follows the pattern. If not, I'll need to check resolver.ts content.
 
 // Mock localStorage

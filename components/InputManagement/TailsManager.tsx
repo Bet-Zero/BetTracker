@@ -81,34 +81,37 @@ const TailsManager: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-3 px-1">
-        <div className="flex items-center space-x-3 w-1/2">
-          <SearchInput
-            value={searchQuery}
-            onChange={setSearchQuery}
-            placeholder="Search tails..."
-            className="w-full max-w-xs"
-          />
+    <div className="flex flex-col h-full p-6">
+      {/* Toolbar Section */}
+      <div className="bg-neutral-50 dark:bg-neutral-800 rounded-lg p-4 mb-4 border border-neutral-200 dark:border-neutral-700">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3 flex-1">
+            <SearchInput
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder="Search tails..."
+              className="max-w-xs"
+            />
+          </div>
+          <button
+            onClick={() => {
+              setIsAdding(true);
+              setEditForm({ name: "", displayName: "" });
+              setExpandedTail("__new__");
+            }}
+            className="flex items-center space-x-1.5 px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-all duration-200 shadow-md shadow-primary-600/20 hover:shadow-lg hover:shadow-primary-600/30"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Tail</span>
+          </button>
         </div>
-        <button
-          onClick={() => {
-            setIsAdding(true);
-            setEditForm({ name: "", displayName: "" });
-            setExpandedTail("__new__");
-          }}
-          className="flex items-center space-x-1 px-3 py-1.5 bg-primary-600 text-white text-sm font-medium rounded hover:bg-primary-700 transition-colors shadow-sm"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add Tail</span>
-        </button>
       </div>
 
-      {/* List */}
-      <div className="flex-1 overflow-y-auto border border-neutral-200 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-900 shadow-sm">
+      {/* List Container - Card with shadow */}
+      <div className="flex-1 min-h-0 overflow-y-auto bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-700 shadow-md">
+        <div className="p-2">
         {isAdding && editForm && (
-          <div className="border-b border-neutral-200 dark:border-neutral-700">
+          <div className="border-b border-neutral-200 dark:border-neutral-700 bg-blue-50 dark:bg-blue-950/30">
             <TailEditPanel
               tail={editForm}
               onChange={setEditForm}
@@ -163,6 +166,7 @@ const TailsManager: React.FC = () => {
             {filteredTails.length - visibleCount} remaining)
           </button>
         ) : null}
+        </div>
       </div>
     </div>
   );
@@ -178,8 +182,17 @@ const TailEditPanel: React.FC<{
 }> = ({ tail, onChange, onSave, onCancel, isNew }) => {
   const [isLocked, setIsLocked] = useState(!isNew);
 
+  // Prevent keyboard events from bubbling up when editing
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    e.stopPropagation();
+  };
+
   return (
-    <div className={`space-y-3 ${isNew ? "p-4 bg-blue-50 dark:bg-blue-950/50" : ""}`}>
+    <div 
+      className={`space-y-3 ${isNew ? "p-4 bg-blue-50 dark:bg-blue-950/50 rounded-lg border border-blue-200 dark:border-blue-900" : ""}`}
+      onKeyDown={handleKeyDown}
+      onClick={(e) => e.stopPropagation()}
+    >
       <div className="grid grid-cols-2 gap-3">
         <div className="relative">
           <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-1">
@@ -207,6 +220,7 @@ const TailEditPanel: React.FC<{
             type="text"
             value={tail.name}
             onChange={(e) => onChange({ ...tail, name: e.target.value })}
+            onKeyDown={handleKeyDown}
             disabled={!isNew && isLocked}
             className="w-full px-2 py-1.5 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-800 disabled:bg-neutral-50 dark:disabled:bg-neutral-800/50 disabled:text-neutral-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors"
             placeholder="e.g., Tony's Picks"
@@ -226,6 +240,7 @@ const TailEditPanel: React.FC<{
               const value = e.target.value.slice(0, MAX_DISPLAY_NAME_LENGTH);
               onChange({ ...tail, displayName: value });
             }}
+            onKeyDown={handleKeyDown}
             maxLength={MAX_DISPLAY_NAME_LENGTH}
             className="w-full px-2 py-1.5 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-800 focus:ring-1 focus:ring-primary-500 outline-none transition-colors"
             placeholder="e.g., Tony"

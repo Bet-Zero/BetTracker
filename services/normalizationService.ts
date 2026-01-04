@@ -20,20 +20,20 @@
  *   - Structure: TeamData[] (see interface below)
  *   - Contains full team data including user additions/edits
  *
- * NORMALIZATION_STORAGE_KEYS.STAT_TYPES = 'bettracker-normalization-stattypes'
- *   - Structure: StatTypeData[] (see interface below)
- *   - Contains full stat type data including user additions/edits
+ * NORMALIZATION_STORAGE_KEYS.BET_TYPES = 'bettracker-normalization-bettypes'
+ *   - Structure: BetTypeData[] (see interface below)
+ *   - Contains full bet type data including user additions/edits
  */
 
 import {
   TEAMS,
-  STAT_TYPES,
+  BET_TYPES,
   MAIN_MARKET_TYPES,
   FUTURE_TYPES,
   PARLAY_TYPES,
   SPORTS,
   TeamInfo,
-  StatTypeInfo,
+  BetTypeInfo,
   Sport,
 } from "../data/referenceData";
 import { PLAYERS, PlayerInfo } from "../data/referencePlayers";
@@ -123,9 +123,9 @@ function isValidTeamData(item: unknown): item is TeamData {
 }
 
 /**
- * Type guard to validate StatTypeData shape from localStorage.
+ * Type guard to validate BetTypeData shape from localStorage.
  */
-function isValidStatTypeData(item: unknown): item is StatTypeData {
+function isValidBetTypeData(item: unknown): item is BetTypeData {
   if (typeof item !== "object" || item === null) return false;
   const obj = item as Record<string, unknown>;
   return (
@@ -172,7 +172,7 @@ export function isValidPlayerData(item: unknown): item is PlayerData {
  */
 export const NORMALIZATION_STORAGE_KEYS = {
   TEAMS: "bettracker-normalization-teams",
-  STAT_TYPES: "bettracker-normalization-stattypes",
+  BET_TYPES: "bettracker-normalization-bettypes",
   PLAYERS: "bettracker-normalization-players",
 } as const;
 
@@ -212,10 +212,11 @@ export interface TeamData {
 }
 
 /**
- * Stat type data structure used in localStorage and UI.
+ * Bet type data structure used in localStorage and UI.
  * Matches the shape expected by useNormalizationData hook.
+ * Includes Props, Main Markets, Parlays, and Futures.
  */
-export interface StatTypeData {
+export interface BetTypeData {
   canonical: string;
   sport: Sport;
   description: string;
@@ -262,7 +263,7 @@ export interface NormalizationResult {
  */
 export interface ReferenceDataSnapshot {
   teams: TeamData[];
-  statTypes: StatTypeData[];
+  betTypes: BetTypeData[];
   players: PlayerData[];
   version: string;
 }
@@ -276,7 +277,7 @@ const REFERENCE_DATA_VERSION = "1.0.0";
 
 // Build lookup maps on initialization for O(1) lookups
 let teamLookupMap = new Map<string, TeamData>();
-let statTypeLookupMap = new Map<string, StatTypeData>();
+let betTypeLookupMap = new Map<string, BetTypeData>();
 let initialized = false;
 
 // Track team collisions: key -> array of canonical names that match this key
@@ -284,7 +285,7 @@ let teamCollisionMap = new Map<string, string[]>();
 
 // Cache the merged data for getReferenceDataSnapshot
 let cachedTeams: TeamData[] = [];
-let cachedStatTypes: StatTypeData[] = [];
+let cachedBetTypes: BetTypeData[] = [];
 let cachedPlayers: PlayerData[] = [];
 // Map team ID -> TeamData for O(1) resolution in UI
 let teamIdMap = new Map<string, TeamData>();
@@ -316,9 +317,9 @@ function toTeamData(team: TeamInfo): TeamData {
 }
 
 /**
- * Converts base StatTypeInfo from referenceData to StatTypeData format.
+ * Converts base BetTypeInfo from referenceData to BetTypeData format.
  */
-function toStatTypeData(stat: StatTypeInfo): StatTypeData {
+function toBetTypeData(stat: BetTypeInfo): BetTypeData {
   return {
     canonical: stat.canonical,
     sport: stat.sport,
@@ -384,13 +385,13 @@ function loadTeams(): TeamData[] {
 }
 
 /**
- * Loads stat types from localStorage, falling back to base seed if not present.
+ * Loads bet types from localStorage, falling back to base seed if not present.
  * Validates the shape of parsed data to prevent runtime errors from malformed data.
  */
-function loadStatTypes(): StatTypeData[] {
-  // Combine all stat types for the base seed
+function loadBetTypes(): BetTypeData[] {
+  // Combine all bet types for the base seed
   const baseSeed = [
-    ...STAT_TYPES.map(toStatTypeData),
+    ...BET_TYPES.map(toBetTypeData),
     ...MAIN_MARKET_TYPES.map(t => ({
       canonical: t.canonical,
       sport: "Other" as Sport, // Main markets are generic often, but let's default to Other or maybe explicit per type if needed. For now "Other" or generic is fine.
@@ -413,28 +414,43 @@ function loadStatTypes(): StatTypeData[] {
   ];
 
   try {
-    const stored = localStorage.getItem(NORMALIZATION_STORAGE_KEYS.STAT_TYPES);
+    // Check for new key first
+    let stored = localStorage.getItem(NORMALIZATION_STORAGE_KEYS.BET_TYPES);
+    
+    // Migration: If new key doesn't exist, check for old key and migrate
+    if (!stored) {
+      const oldKey = "bettracker-normalization-stattypes";
+      const oldStored = localStorage.getItem(oldKey);
+      if (oldStored) {
+        // Migrate old data to new key
+        localStorage.setItem(NORMALIZATION_STORAGE_KEYS.BET_TYPES, oldStored);
+        localStorage.removeItem(oldKey);
+        stored = oldStored;
+        console.log("[normalizationService] Migrated bet types from old localStorage key");
+      }
+    }
+    
     if (stored) {
       const parsed = JSON.parse(stored);
 
       // Validate parsed data is an array
       if (!Array.isArray(parsed)) {
         console.error(
-          "[normalizationService] Invalid stat types data in localStorage: expected array, got",
+          "[normalizationService] Invalid bet types data in localStorage: expected array, got",
           typeof parsed
         );
         return baseSeed;
       }
 
       // Validate each item has the correct shape
-      const validStatTypes: StatTypeData[] = [];
+      const validBetTypes: BetTypeData[] = [];
       for (let i = 0; i < parsed.length; i++) {
         const item = parsed[i];
-        if (isValidStatTypeData(item)) {
-          validStatTypes.push(item);
+        if (isValidBetTypeData(item)) {
+          validBetTypes.push(item);
         } else {
           console.error(
-            `[normalizationService] Invalid stat type data at index ${i}:`,
+            `[normalizationService] Invalid bet type data at index ${i}:`,
             "expected {canonical: string, sport: Sport, description: string, aliases: string[]}, got",
             JSON.stringify(item).slice(0, 100)
           );
@@ -442,18 +458,18 @@ function loadStatTypes(): StatTypeData[] {
       }
 
       // If all items were invalid, fall back to base seed
-      if (validStatTypes.length === 0 && parsed.length > 0) {
+      if (validBetTypes.length === 0 && parsed.length > 0) {
         console.error(
-          "[normalizationService] All stat type entries in localStorage were invalid, falling back to base seed"
+          "[normalizationService] All bet type entries in localStorage were invalid, falling back to base seed"
         );
         return baseSeed;
       }
 
-      return validStatTypes.length > 0 ? validStatTypes : baseSeed;
+      return validBetTypes.length > 0 ? validBetTypes : baseSeed;
     }
   } catch (error) {
     console.error(
-      "[normalizationService] Failed to load stat types from localStorage:",
+      "[normalizationService] Failed to load bet types from localStorage:",
       error
     );
   }
@@ -592,22 +608,22 @@ function buildTeamLookupMap(teams: TeamData[]): Map<string, TeamData> {
 }
 
 /**
- * Builds lookup map for stat types from the provided data.
- * Detects and logs collisions when multiple stat types share the same key.
+ * Builds lookup map for bet types from the provided data.
+ * Detects and logs collisions when multiple bet types share the same key.
  * Policy: Keep the first entry, skip subsequent overrides.
  * Phase 4: Skips disabled entities (they won't resolve during import).
  */
-function buildStatTypeLookupMap(
-  statTypes: StatTypeData[]
-): Map<string, StatTypeData> {
-  const map = new Map<string, StatTypeData>();
+function buildBetTypeLookupMap(
+  betTypes: BetTypeData[]
+): Map<string, BetTypeData> {
+  const map = new Map<string, BetTypeData>();
 
-  const addEntry = (key: string, stat: StatTypeData, keyType: string) => {
+  const addEntry = (key: string, stat: BetTypeData, keyType: string) => {
     const lowerKey = toLookupKey(key);
     const existing = map.get(lowerKey);
     if (existing && existing.canonical !== stat.canonical) {
       console.warn(
-        `[normalizationService] Stat type lookup collision: key "${key}" (${keyType}) ` +
+        `[normalizationService] Bet type lookup collision: key "${key}" (${keyType}) ` +
           `maps to both "${existing.canonical}" (${existing.sport}) and "${stat.canonical}" (${stat.sport}). ` +
           `Keeping first entry: "${existing.canonical}".`
       );
@@ -616,7 +632,7 @@ function buildStatTypeLookupMap(
     map.set(lowerKey, stat);
   };
 
-  for (const stat of statTypes) {
+  for (const stat of betTypes) {
     // Phase 4: Skip disabled entities - they shouldn't resolve
     if (stat.disabled === true) continue;
 
@@ -705,11 +721,11 @@ function buildPlayerLookupMap(players: PlayerData[]): Map<string, PlayerData> {
  */
 export function initializeLookupMaps(): void {
   cachedTeams = loadTeams();
-  cachedStatTypes = loadStatTypes();
+  cachedBetTypes = loadBetTypes();
   cachedPlayers = loadPlayers();
 
   teamLookupMap = buildTeamLookupMap(cachedTeams);
-  statTypeLookupMap = buildStatTypeLookupMap(cachedStatTypes);
+  betTypeLookupMap = buildBetTypeLookupMap(cachedBetTypes);
   playerLookupMap = buildPlayerLookupMap(cachedPlayers);
 
   initialized = true;
@@ -755,7 +771,7 @@ export function getReferenceDataSnapshot(): ReferenceDataSnapshot {
   ensureInitialized();
   return {
     teams: [...cachedTeams],
-    statTypes: [...cachedStatTypes],
+    betTypes: [...cachedBetTypes],
     players: [...cachedPlayers],
     version: REFERENCE_DATA_VERSION,
   };
@@ -770,12 +786,12 @@ export function getBaseSeedTeams(): TeamData[] {
 }
 
 /**
- * Returns the base seed stat types (without user overlays).
+ * Returns the base seed bet types (without user overlays).
  * Useful for reset functionality.
  */
-export function getBaseSeedStatTypes(): StatTypeData[] {
+export function getBaseSeedBetTypes(): BetTypeData[] {
   return [
-    ...STAT_TYPES.map(toStatTypeData),
+    ...BET_TYPES.map(toBetTypeData),
     ...MAIN_MARKET_TYPES.map(t => ({
       canonical: t.canonical,
       sport: "Other" as Sport,
@@ -1158,26 +1174,26 @@ export function getTeamInfo(teamName: string): TeamData | undefined {
 }
 
 // ============================================================================
-// STAT TYPE NORMALIZATION
+// BET TYPE NORMALIZATION
 // ============================================================================
 
 /**
- * Normalizes a stat type to its canonical form.
+ * Normalizes a bet type to its canonical form.
  * Handles various formats like "Reb", "Rebs", "Rebounds" → "Reb"
  *
- * @param statType - The stat type as it appears in the sportsbook data
+ * @param betType - The bet type as it appears in the sportsbook data
  * @param sport - Optional sport context to help with ambiguous cases
- * @returns The canonical stat type code, or the original if no match found
+ * @returns The canonical bet type code, or the original if no match found
  */
-export function normalizeStatType(statType: string, sport?: Sport): string {
-  if (!statType) return statType;
+export function normalizeBetType(betType: string, sport?: Sport): string {
+  if (!betType) return betType;
 
   ensureInitialized();
 
-  const lowerSearch = toLookupKey(statType);
+  const lowerSearch = toLookupKey(betType);
 
   // Try exact match using lookup map (O(1) performance)
-  const statInfo = statTypeLookupMap.get(lowerSearch);
+  const statInfo = betTypeLookupMap.get(lowerSearch);
 
   // If sport context provided, verify the stat matches the sport
   if (statInfo) {
@@ -1185,7 +1201,7 @@ export function normalizeStatType(statType: string, sport?: Sport): string {
       // Look for a sport-specific match
       const uniqueStats = Array.from(
         new Map(
-          Array.from(statTypeLookupMap.values()).map((st) => [
+          Array.from(betTypeLookupMap.values()).map((st) => [
             st.canonical + st.sport,
             st,
           ])
@@ -1207,26 +1223,26 @@ export function normalizeStatType(statType: string, sport?: Sport): string {
   }
 
   // Return original if no match found
-  return statType.trim();
+  return betType.trim();
 }
 
 /**
- * Gets stat type information for a given stat type.
+ * Gets bet type information for a given bet type.
  *
- * @param statType - The stat type (can be in any format)
+ * @param betType - The bet type (can be in any format)
  * @param sport - Optional sport context
- * @returns The stat type info object, or undefined if not found
+ * @returns The bet type info object, or undefined if not found
  */
-export function getStatTypeInfo(
-  statType: string,
+export function getBetTypeInfo(
+  betType: string,
   sport?: Sport
-): StatTypeData | undefined {
-  if (!statType) return undefined;
+): BetTypeData | undefined {
+  if (!betType) return undefined;
 
   ensureInitialized();
 
-  const lowerSearch = toLookupKey(statType);
-  const statInfo = statTypeLookupMap.get(lowerSearch);
+  const lowerSearch = toLookupKey(betType);
+  const statInfo = betTypeLookupMap.get(lowerSearch);
 
   // If sport context provided, verify the stat matches the sport
   if (statInfo) {
@@ -1234,7 +1250,7 @@ export function getStatTypeInfo(
       // Look for a sport-specific match
       const uniqueStats = Array.from(
         new Map(
-          Array.from(statTypeLookupMap.values()).map((st) => [
+          Array.from(betTypeLookupMap.values()).map((st) => [
             st.canonical + st.sport,
             st,
           ])
@@ -1254,27 +1270,27 @@ export function getStatTypeInfo(
   }
 
   // Fallback to normalization
-  const canonical = normalizeStatType(statType, sport);
-  return statTypeLookupMap.get(canonical.toLowerCase());
+  const canonical = normalizeBetType(betType, sport);
+  return betTypeLookupMap.get(canonical.toLowerCase());
 }
 
 /**
- * Gets the sport(s) associated with a stat type.
+ * Gets the sport(s) associated with a bet type.
  *
- * @param statType - The stat type (can be in any format)
- * @returns Array of sports that use this stat type
+ * @param betType - The bet type (can be in any format)
+ * @returns Array of sports that use this bet type
  */
-export function getSportsForStatType(statType: string): Sport[] {
-  if (!statType) return [];
+export function getSportsForBetType(betType: string): Sport[] {
+  if (!betType) return [];
 
   ensureInitialized();
 
-  const canonical = normalizeStatType(statType);
+  const canonical = normalizeBetType(betType);
   const sports: Sport[] = [];
 
   const uniqueStats = Array.from(
     new Map(
-      Array.from(statTypeLookupMap.values()).map((st) => [
+      Array.from(betTypeLookupMap.values()).map((st) => [
         st.canonical + st.sport,
         st,
       ])
@@ -1423,12 +1439,13 @@ export function normalizeFutureType(futureType: string, sport?: Sport): string {
  * Attempts to infer the sport from various context clues.
  * Checks team names, stat types, and description keywords.
  *
- * @param context - Object with optional team, statType, and description fields
+ * @param context - Object with optional team, betType, and description fields
  * @returns The inferred sport, or undefined if unable to determine
  */
 export function inferSportFromContext(context: {
   team?: string;
-  statType?: string;
+  betType?: string;
+  statType?: string; // Legacy parameter name, kept for backward compatibility
   description?: string;
 }): Sport | undefined {
   ensureInitialized();
@@ -1439,9 +1456,10 @@ export function inferSportFromContext(context: {
     if (sport) return sport;
   }
 
-  // Try stat type
-  if (context.statType) {
-    const sports = getSportsForStatType(context.statType);
+  // Try bet type (support both old and new parameter names)
+  const betType = context.betType || context.statType;
+  if (betType) {
+    const sports = getSportsForBetType(betType);
     if (sports.length === 1) {
       return sports[0];
     }
@@ -1492,11 +1510,30 @@ export function isKnownTeam(teamName: string): boolean {
 }
 
 /**
- * Checks if a stat type is recognized in the system.
+ * Checks if a bet type is recognized in the system.
  *
- * @param statType - The stat type to check
- * @returns True if the stat type is recognized
+ * @param betType - The bet type to check
+ * @returns True if the bet type is recognized
  */
-export function isKnownStatType(statType: string): boolean {
-  return getStatTypeInfo(statType) !== undefined;
+export function isKnownBetType(betType: string): boolean {
+  return getBetTypeInfo(betType) !== undefined;
 }
+
+// ============================================================================
+// BACKWARD COMPATIBILITY EXPORTS (for test files)
+// ============================================================================
+
+/**
+ * @deprecated Use BetTypeData instead. Kept only for test files.
+ */
+export type StatTypeData = BetTypeData;
+
+/**
+ * @deprecated Use normalizeBetType instead. Kept only for test files.
+ */
+export const normalizeStatType = normalizeBetType;
+
+/**
+ * @deprecated Use isKnownBetType instead. Kept only for test files.
+ */
+export const isKnownStatType = isKnownBetType;

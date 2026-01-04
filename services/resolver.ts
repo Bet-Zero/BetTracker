@@ -15,9 +15,9 @@ import { Sport } from '../data/referenceData';
 import {
   normalizeTeamName,
   normalizeTeamNameWithMeta,
-  normalizeStatType,
+  normalizeBetType,
   isKnownTeam,
-  isKnownStatType,
+  isKnownBetType,
   getPlayerInfo,
   getPlayerCollision,
   isKnownPlayer,
@@ -139,34 +139,34 @@ export function getTeamAggregationKey(
 // ============================================================================
 
 /**
- * Phase 1: Resolve a stat type through the chokepoint.
+ * Phase 1: Resolve a bet type through the chokepoint.
  * 
- * Wraps existing normalizeStatType logic.
+ * Wraps existing normalizeBetType logic.
  * Returns structured result with resolution status.
  * 
- * @param rawStatType - The raw stat type from sportsbook data
+ * @param rawBetType - The raw bet type from sportsbook data
  * @param sport - Optional sport context
  * @returns ResolverResult with status and canonical value
  */
-export function resolveStatType(rawStatType: string, sport?: Sport): ResolverResult {
-  if (!rawStatType || rawStatType.trim() === '') {
+export function resolveBetType(rawBetType: string, sport?: Sport): ResolverResult {
+  if (!rawBetType || rawBetType.trim() === '') {
     return {
       status: 'unresolved',
-      canonical: rawStatType || '',
-      raw: rawStatType || '',
+      canonical: rawBetType || '',
+      raw: rawBetType || '',
     };
   }
 
-  const trimmed = rawStatType.trim();
+  const trimmed = rawBetType.trim();
   
-  // Use existing normalizeStatType
-  const canonical = normalizeStatType(trimmed, sport);
+  // Use existing normalizeBetType
+  const canonical = normalizeBetType(trimmed, sport);
   
-  // Check if this is a known stat type (resolved case)
-  // A stat is resolved if:
-  // 1. It's in the known stat types database, OR
+  // Check if this is a known bet type (resolved case)
+  // A bet type is resolved if:
+  // 1. It's in the known bet types database, OR
   // 2. The canonical differs from the input (meaning normalization found a match)
-  if (isKnownStatType(trimmed) || canonical !== trimmed) {
+  if (isKnownBetType(trimmed) || canonical !== trimmed) {
     return {
       status: 'resolved',
       canonical: canonical,
@@ -183,16 +183,20 @@ export function resolveStatType(rawStatType: string, sport?: Sport): ResolverRes
 }
 
 /**
- * Convenience function to check if a stat type is resolved.
+ * Convenience function to check if a bet type is resolved.
  * 
- * @param rawStatType - The raw stat type
+ * @param rawBetType - The raw bet type
  * @param sport - Optional sport context
- * @returns true if the stat type resolves to a known canonical
+ * @returns true if the bet type resolves to a known canonical
  */
-export function isStatTypeResolved(rawStatType: string, sport?: Sport): boolean {
-  const result = resolveStatType(rawStatType, sport);
+export function isBetTypeResolved(rawBetType: string, sport?: Sport): boolean {
+  const result = resolveBetType(rawBetType, sport);
   return result.status === 'resolved';
 }
+
+// Backward compatibility alias
+export const resolveStatType = resolveBetType;
+export const isStatTypeResolved = isBetTypeResolved;
 
 // ============================================================================
 // PLAYER RESOLUTION (Phase 2)

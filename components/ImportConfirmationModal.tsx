@@ -28,7 +28,7 @@ import CreateCanonicalModal from "./CreateCanonicalModal";
 import { Sport } from "../data/referenceData";
 import {
   PlayerData,
-  StatTypeData,
+  BetTypeData,
 } from "../services/normalizationService";
 
 // Export summary type for parent components
@@ -216,13 +216,13 @@ export const ImportConfirmationModal: React.FC<
     resolverVersion,
     teams,
     players,
-    statTypes,
+    betTypes,
     addTeamAlias,
     addPlayerAlias,
-    addStatTypeAlias,
+    addBetTypeAlias,
     addTeam,
     addPlayer,
-    addStatType,
+    addBetType,
   } = useNormalizationData();
 
   // Resolution state
@@ -286,7 +286,7 @@ export const ImportConfirmationModal: React.FC<
       const playerSport = sport || item.sport || "NBA"; // Fallback if missing
       addPlayerAlias(targetCanonical, playerSport as Sport, item.rawValue);
     } else if (item.entityType === "stat") {
-      addStatTypeAlias(targetCanonical, item.rawValue);
+      addBetTypeAlias(targetCanonical, item.rawValue);
     }
     setResolvingItem(null);
   };
@@ -319,13 +319,13 @@ export const ImportConfirmationModal: React.FC<
       };
       addPlayer(data);
     } else if (item.entityType === "stat") {
-      const data: StatTypeData = {
+      const data: BetTypeData = {
         canonical,
         sport,
         description: extraData?.description || canonical,
         aliases: [item.rawValue, ...additionalAliases],
       };
-      addStatType(data);
+      addBetType(data);
     }
     setResolvingItem(null);
   };
@@ -2216,7 +2216,7 @@ export const ImportConfirmationModal: React.FC<
             item={resolvingItem}
             teams={teams}
             players={players}
-            statTypes={statTypes}
+            betTypes={betTypes}
             onConfirm={(item, target) =>
               handleMapConfirm(item, target, item.sport)
             }

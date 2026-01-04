@@ -28,7 +28,7 @@ import { Sport } from "../data/referenceData";
 import {
   useNormalizationData,
   TeamData,
-  StatTypeData,
+  BetTypeData,
   PlayerData,
 } from "../hooks/useNormalizationData";
 import {
@@ -205,12 +205,12 @@ const UnresolvedQueueManager: React.FC<UnresolvedQueueManagerProps> = ({
   // Get normalization data for mapping
   const {
     teams,
-    statTypes,
+    betTypes,
     players,
     updateTeam,
     updatePlayer,
     addTeam,
-    addStatType,
+    addBetType,
     addPlayer,
   } = useNormalizationData();
 
@@ -319,25 +319,25 @@ const UnresolvedQueueManager: React.FC<UnresolvedQueueManagerProps> = ({
           );
         }
       } else if (item.entityType === "stat") {
-        // Find target stat type and add alias
-        const targetStat = statTypes.find(
+        // Find target bet type and add alias
+        const targetBetType = betTypes.find(
           (s) => s.canonical === targetCanonical && s.sport === item.sport
         );
-        if (targetStat) {
-          const updatedStat: StatTypeData = {
-            ...targetStat,
-            aliases: [...targetStat.aliases, group.rawValue],
+        if (targetBetType) {
+          const updatedBetType: BetTypeData = {
+            ...targetBetType,
+            aliases: [...targetBetType.aliases, group.rawValue],
           };
-          // Note: updateStatType uses canonical only, sport is in the updated object
-          const index = statTypes.findIndex(
+          // Note: updateBetType uses canonical only, sport is in the updated object
+          const index = betTypes.findIndex(
             (s) =>
-              s.canonical === targetStat.canonical &&
-              s.sport === targetStat.sport
+              s.canonical === targetBetType.canonical &&
+              s.sport === targetBetType.sport
           );
           if (index !== -1) {
-            // Need to use the service directly for stat types with sport
-            const newStatTypes = [...statTypes];
-            newStatTypes[index] = updatedStat;
+            // Need to use the service directly for bet types with sport
+            const newBetTypes = [...betTypes];
+            newBetTypes[index] = updatedBetType;
             // This will be handled by the modal calling the appropriate function
           }
         }
@@ -351,7 +351,7 @@ const UnresolvedQueueManager: React.FC<UnresolvedQueueManagerProps> = ({
     [
       teams,
       players,
-      statTypes,
+      betTypes,
       updateTeam,
       updatePlayer,
       refreshQueue,
@@ -407,13 +407,13 @@ const UnresolvedQueueManager: React.FC<UnresolvedQueueManagerProps> = ({
         };
         addPlayer(newPlayer);
       } else if (item.entityType === "stat") {
-        const newStat: StatTypeData = {
+        const newBetType: BetTypeData = {
           canonical,
           sport,
           aliases,
           description: extraData?.description || canonical,
         };
-        addStatType(newStat);
+        addBetType(newBetType);
       }
 
       // Remove ALL items in the group from queue
@@ -421,7 +421,7 @@ const UnresolvedQueueManager: React.FC<UnresolvedQueueManagerProps> = ({
       setCreateModalGroup(null);
       refreshQueue();
     },
-    [addTeam, addPlayer, addStatType, refreshQueue, createModalGroup]
+    [addTeam, addPlayer, addBetType, refreshQueue, createModalGroup]
   );
 
   // Get resolution status for display
@@ -486,63 +486,66 @@ const UnresolvedQueueManager: React.FC<UnresolvedQueueManagerProps> = ({
   }
 
   return (
-    <div className="space-y-4">
-      {/* Filters */}
-      <div className="flex flex-wrap gap-4 items-center">
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-            Type:
-          </label>
-          <select
-            value={entityTypeFilter}
-            onChange={(e) =>
-              setEntityTypeFilter(e.target.value as EntityTypeFilter)
-            }
-            className="bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-md px-3 py-1.5 text-sm"
-          >
-            <option value="all">All Types</option>
-            <option value="team">Teams</option>
-            <option value="player">Players</option>
-            <option value="stat">Stat Types</option>
-          </select>
+    <div className="space-y-4 p-6">
+      {/* Filter Toolbar - Card style */}
+      <div className="bg-neutral-50 dark:bg-neutral-800 rounded-lg p-4 border border-neutral-200 dark:border-neutral-700">
+        <div className="flex flex-wrap gap-4 items-center">
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+              Type:
+            </label>
+            <select
+              value={entityTypeFilter}
+              onChange={(e) =>
+                setEntityTypeFilter(e.target.value as EntityTypeFilter)
+              }
+              className="bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-md px-3 py-1.5 text-sm shadow-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
+            >
+              <option value="all">All Types</option>
+              <option value="team">Teams</option>
+              <option value="player">Players</option>
+              <option value="stat">Stat Types</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+              Sport:
+            </label>
+            <select
+              value={sportFilter}
+              onChange={(e) => setSportFilter(e.target.value)}
+              className="bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-md px-3 py-1.5 text-sm shadow-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
+            >
+              <option value="all">All Sports</option>
+              {availableSports.map((sport) => (
+                <option key={sport} value={sport}>
+                  {sport}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex-1" />
+
+          <span className="text-sm text-neutral-600 dark:text-neutral-400 font-medium">
+            {groupedItems.length} group(s), {totalItemCount} item(s)
+          </span>
+
+          {groupedItems.length > 0 && (
+            <button
+              onClick={handleIgnoreAll}
+              className="px-4 py-1.5 text-sm text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-900/20 rounded-md font-medium transition-colors"
+            >
+              Ignore All ({totalItemCount})
+            </button>
+          )}
         </div>
-
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-            Sport:
-          </label>
-          <select
-            value={sportFilter}
-            onChange={(e) => setSportFilter(e.target.value)}
-            className="bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-md px-3 py-1.5 text-sm"
-          >
-            <option value="all">All Sports</option>
-            {availableSports.map((sport) => (
-              <option key={sport} value={sport}>
-                {sport}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex-1" />
-
-        <span className="text-sm text-neutral-500 dark:text-neutral-400">
-          {groupedItems.length} group(s), {totalItemCount} item(s)
-        </span>
-
-        {groupedItems.length > 0 && (
-          <button
-            onClick={handleIgnoreAll}
-            className="px-3 py-1.5 text-sm text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-900/20 rounded-md"
-          >
-            Ignore All ({totalItemCount})
-          </button>
-        )}
       </div>
 
-      {/* Grouped Queue List */}
-      <div className="max-h-96 overflow-y-auto border border-neutral-200 dark:border-neutral-700 rounded-lg">
+      {/* Grouped Queue List - Card container */}
+      <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-700 shadow-md overflow-hidden">
+        <div className="max-h-[600px] overflow-y-auto p-2">
         <table className="w-full text-sm">
           <thead className="bg-neutral-50 dark:bg-neutral-800 sticky top-0">
             <tr className="text-left text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wide">
@@ -652,27 +655,29 @@ const UnresolvedQueueManager: React.FC<UnresolvedQueueManagerProps> = ({
                       </div>
                     </td>
                   </tr>
-                  {/* Expanded context row */}
+                  {/* Expanded context row - Inset styling */}
                   {isExpanded && (
-                    <tr className="bg-neutral-100 dark:bg-neutral-800/70">
+                    <tr className="bg-neutral-100 dark:bg-neutral-950">
                       <td colSpan={7} className="px-4 py-3">
-                        <div className="text-xs space-y-1">
-                          <div className="font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                            Sample Contexts ({group.sampleContexts.length} of{" "}
-                            {group.count}):
-                          </div>
-                          {group.sampleContexts.map((ctx, i) => (
-                            <div
-                              key={i}
-                              className="flex items-center gap-4 text-neutral-600 dark:text-neutral-400"
-                            >
-                              <span className="font-medium">{ctx.book}</span>
-                              <span>{ctx.market || "—"}</span>
-                              <span className="text-neutral-400 truncate max-w-[200px]">
-                                Bet: {ctx.betId}
-                              </span>
+                        <div className="ml-2 mr-2 mb-2 bg-neutral-100 dark:bg-neutral-950 rounded-lg shadow-inner p-3">
+                          <div className="text-xs space-y-1">
+                            <div className="font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                              Sample Contexts ({group.sampleContexts.length} of{" "}
+                              {group.count}):
                             </div>
-                          ))}
+                            {group.sampleContexts.map((ctx, i) => (
+                              <div
+                                key={i}
+                                className="flex items-center gap-4 text-neutral-600 dark:text-neutral-400"
+                              >
+                                <span className="font-medium">{ctx.book}</span>
+                                <span>{ctx.market || "—"}</span>
+                                <span className="text-neutral-400 truncate max-w-[200px]">
+                                  Bet: {ctx.betId}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       </td>
                     </tr>
@@ -682,6 +687,7 @@ const UnresolvedQueueManager: React.FC<UnresolvedQueueManagerProps> = ({
             })}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Map to Existing Modal */}
@@ -690,7 +696,7 @@ const UnresolvedQueueManager: React.FC<UnresolvedQueueManagerProps> = ({
           item={groupToUnresolvedItem(mapModalGroup)}
           teams={teams}
           players={players}
-          statTypes={statTypes}
+          betTypes={betTypes}
           onConfirm={handleMapConfirm}
           onCancel={() => setMapModalGroup(null)}
           groupCount={mapModalGroup.count}

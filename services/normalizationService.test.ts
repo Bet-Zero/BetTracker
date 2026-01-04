@@ -3,14 +3,14 @@ import {
   normalizeTeamName,
   getSportForTeam,
   getTeamInfo,
-  normalizeStatType,
-  getStatTypeInfo,
-  getSportsForStatType,
+  normalizeBetType,
+  getBetTypeInfo,
+  getSportsForBetType,
   normalizeMainMarketType,
   normalizeFutureType,
   inferSportFromContext,
   isKnownTeam,
-  isKnownStatType,
+  isKnownBetType,
 } from './normalizationService';
 
 describe('normalizationService', () => {
@@ -95,63 +95,63 @@ describe('normalizationService', () => {
     });
   });
 
-  describe('normalizeStatType', () => {
+  describe('normalizeBetType', () => {
     it('should normalize "Rebs" to "Reb"', () => {
-      expect(normalizeStatType('Rebs')).toBe('Reb');
+      expect(normalizeBetType('Rebs')).toBe('Reb');
     });
 
     it('should normalize "Rebounds" to "Reb"', () => {
-      expect(normalizeStatType('Rebounds')).toBe('Reb');
+      expect(normalizeBetType('Rebounds')).toBe('Reb');
     });
 
     it('should normalize "REB" to "Reb"', () => {
-      expect(normalizeStatType('REB')).toBe('Reb');
+      expect(normalizeBetType('REB')).toBe('Reb');
     });
 
     it('should normalize "MADE THREES" to "3pt"', () => {
-      expect(normalizeStatType('MADE THREES')).toBe('3pt');
+      expect(normalizeBetType('MADE THREES')).toBe('3pt');
     });
 
     it('should normalize "Threes" to "3pt"', () => {
-      expect(normalizeStatType('Threes')).toBe('3pt');
+      expect(normalizeBetType('Threes')).toBe('3pt');
     });
 
     it('should normalize "3-Pointers" to "3pt"', () => {
-      expect(normalizeStatType('3-Pointers')).toBe('3pt');
+      expect(normalizeBetType('3-Pointers')).toBe('3pt');
     });
 
     it('should normalize "Top Scorer" to "Top Pts"', () => {
-      expect(normalizeStatType('Top Scorer')).toBe('Top Pts');
-      expect(normalizeStatType('Leading Scorer')).toBe('Top Pts');
-      expect(normalizeStatType('Most Points')).toBe('Top Pts');
+      expect(normalizeBetType('Top Scorer')).toBe('Top Pts');
+      expect(normalizeBetType('Leading Scorer')).toBe('Top Pts');
+      expect(normalizeBetType('Most Points')).toBe('Top Pts');
     });
 
     it('should normalize NFL stats', () => {
-      expect(normalizeStatType('Passing Yards')).toBe('Pass Yds');
-      expect(normalizeStatType('Rushing Touchdowns')).toBe('Rush TD');
-      expect(normalizeStatType('Receiving Yards')).toBe('Rec Yds');
-      expect(normalizeStatType('Anytime Touchdown')).toBe('ATTD');
+      expect(normalizeBetType('Passing Yards')).toBe('Pass Yds');
+      expect(normalizeBetType('Rushing Touchdowns')).toBe('Rush TD');
+      expect(normalizeBetType('Receiving Yards')).toBe('Rec Yds');
+      expect(normalizeBetType('Anytime Touchdown')).toBe('ATTD');
     });
 
     it('should normalize MLB stats', () => {
-      expect(normalizeStatType('Home Runs')).toBe('HR');
-      expect(normalizeStatType('Strikeouts')).toBe('K');
-      expect(normalizeStatType('RBIs')).toBe('RBI');
+      expect(normalizeBetType('Home Runs')).toBe('HR');
+      expect(normalizeBetType('Strikeouts')).toBe('K');
+      expect(normalizeBetType('RBIs')).toBe('RBI');
     });
 
     it('should handle sport context', () => {
-      expect(normalizeStatType('Points', 'NBA')).toBe('Pts');
-      expect(normalizeStatType('Assists', 'NHL')).toBe('Assists');
+      expect(normalizeBetType('Points', 'NBA')).toBe('Pts');
+      expect(normalizeBetType('Assists', 'NHL')).toBe('Assists');
     });
 
     it('should return original if not found', () => {
-      expect(normalizeStatType('Unknown Stat')).toBe('Unknown Stat');
+      expect(normalizeBetType('Unknown Stat')).toBe('Unknown Stat');
     });
   });
 
-  describe('getStatTypeInfo', () => {
-    it('should return stat info for Rebounds', () => {
-      const info = getStatTypeInfo('Rebounds');
+  describe('getBetTypeInfo', () => {
+    it('should return bet type info for Rebounds', () => {
+      const info = getBetTypeInfo('Rebounds');
       expect(info).toBeDefined();
       expect(info?.canonical).toBe('Reb');
       expect(info?.sport).toBe('NBA');
@@ -159,23 +159,23 @@ describe('normalizationService', () => {
     });
 
     it('should return undefined for unknown stat', () => {
-      expect(getStatTypeInfo('Unknown Stat')).toBeUndefined();
+      expect(getBetTypeInfo('Unknown Stat')).toBeUndefined();
     });
   });
 
-  describe('getSportsForStatType', () => {
+  describe('getSportsForBetType', () => {
     it('should return NBA for Points', () => {
-      const sports = getSportsForStatType('Points');
+      const sports = getSportsForBetType('Points');
       expect(sports).toContain('NBA');
     });
 
     it('should return NFL for Pass Yds', () => {
-      const sports = getSportsForStatType('Passing Yards');
+      const sports = getSportsForBetType('Passing Yards');
       expect(sports).toContain('NFL');
     });
 
     it('should return empty array for unknown stat', () => {
-      expect(getSportsForStatType('Unknown Stat')).toEqual([]);
+      expect(getSportsForBetType('Unknown Stat')).toEqual([]);
     });
   });
 
@@ -268,15 +268,15 @@ describe('normalizationService', () => {
     });
   });
 
-  describe('isKnownStatType', () => {
+  describe('isKnownBetType', () => {
     it('should return true for known stat types', () => {
-      expect(isKnownStatType('Points')).toBe(true);
-      expect(isKnownStatType('Rebounds')).toBe(true);
-      expect(isKnownStatType('Pass Yds')).toBe(true);
+      expect(isKnownBetType('Points')).toBe(true);
+      expect(isKnownBetType('Rebounds')).toBe(true);
+      expect(isKnownBetType('Pass Yds')).toBe(true);
     });
 
     it('should return false for unknown stat types', () => {
-      expect(isKnownStatType('Unknown Stat')).toBe(false);
+      expect(isKnownBetType('Unknown Stat')).toBe(false);
     });
   });
 });

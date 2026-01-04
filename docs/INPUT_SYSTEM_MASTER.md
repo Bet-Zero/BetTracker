@@ -4,14 +4,14 @@ This document serves as the canonical reference for the BetTracker Input Managem
 
 ## System Overview
 
-The Input Management System handles the normalization and resolution of entities (teams, players, stat types) from various sportsbooks during bet import. It ensures consistent naming across different sportsbook formats.
+The Input Management System handles the normalization and resolution of entities (teams, players, bet types) from various sportsbooks during bet import. It ensures consistent naming across different sportsbook formats.
 
 ### Core Components
 
 1. **Normalization Service** (`services/normalizationService.ts`)
 
    - Canonical data storage and lookup maps
-   - Team/Player/StatType resolution
+   - Team/Player/BetType resolution
    - localStorage persistence
 
 2. **Resolver** (`services/resolver.ts`)
@@ -36,7 +36,7 @@ The Input Management System handles the normalization and resolution of entities
 | Key                                  | Purpose                            |
 | ------------------------------------ | ---------------------------------- |
 | `bettracker-normalization-teams`     | Team canonical data + aliases      |
-| `bettracker-normalization-stattypes` | Stat type canonical data + aliases |
+| `bettracker-normalization-bettypes` | Bet type canonical data + aliases |
 | `bettracker-normalization-players`   | Player canonical data + aliases    |
 | `bettracker-unresolved-queue`        | Pending unresolved entities        |
 
@@ -227,7 +227,7 @@ npm run test:watch          # Watch mode for development
 
 Occasional "looks-the-same-but-doesn't-resolve" cases caused by inconsistent string normalization between:
 
-- Building lookup maps (players/teams/stattypes)
+- Building lookup maps (players/teams/bettypes)
 - Resolving raw imports
 - Grouping unresolved queue items
 
@@ -251,7 +251,7 @@ Occasional "looks-the-same-but-doesn't-resolve" cases caused by inconsistent str
 | Entity Type | Map-Build                                  | Resolve                 | Queue Grouping          | Mismatch? |
 | ----------- | ------------------------------------------ | ----------------------- | ----------------------- | --------- |
 | Team        | `.toLowerCase()`                           | `.trim().toLowerCase()` | `.toLowerCase().trim()` | **Y**     |
-| Stat Type   | `.toLowerCase()`                           | `.trim().toLowerCase()` | `.toLowerCase().trim()` | **Y**     |
+| Bet Type    | `.toLowerCase()`                           | `.trim().toLowerCase()` | `.toLowerCase().trim()` | **Y**     |
 | Player      | `normalizePlayerNameBasic().toLowerCase()` | Same                    | `.toLowerCase().trim()` | **Y**     |
 
 ### Recommended Fix
@@ -323,12 +323,12 @@ Rules:
 | Location | Purpose |
 |----------|---------|
 | `buildTeamLookupMap()` | Map key generation for teams |
-| `buildStatTypeLookupMap()` | Map key generation for stat types |
+| `buildBetTypeLookupMap()` | Map key generation for bet types |
 | `buildPlayerLookupMap()` | Map key generation for players |
 | `normalizeTeamName()` / `normalizeTeamNameWithMeta()` | Team resolution lookups |
-| `normalizeStatType()` | Stat type resolution lookups |
+| `normalizeBetType()` | Bet type resolution lookups |
 | `getTeamInfo()` / `getSportForTeam()` | Team info lookups |
-| `getStatTypeInfo()` | Stat type info lookups |
+| `getBetTypeInfo()` | Bet type info lookups |
 | `getPlayerInfo()` / `getPlayerCollision()` | Player resolution lookups |
 | `generateUnresolvedItemId()` | Queue item ID generation |
 | `generateGroupKey()` | Queue UI group key generation |

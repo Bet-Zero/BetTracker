@@ -13,7 +13,7 @@ import { resolveTeam, resolvePlayer } from "../services/resolver";
 import { Sport } from "../data/referenceData";
 import {
   TeamData,
-  StatTypeData,
+  BetTypeData,
   PlayerData,
 } from "../hooks/useNormalizationData";
 import { X, AlertTriangle, Link, Check } from "./icons";
@@ -22,7 +22,7 @@ interface MapToExistingModalProps {
   item: UnresolvedItem;
   teams: TeamData[];
   players: PlayerData[];
-  statTypes: StatTypeData[];
+  betTypes: BetTypeData[];
   onConfirm: (item: UnresolvedItem, targetCanonical: string) => void;
   onCancel: () => void;
   /** Callback to switch to create mode */
@@ -35,7 +35,7 @@ const MapToExistingModal: React.FC<MapToExistingModalProps> = ({
   item,
   teams,
   players,
-  statTypes,
+  betTypes,
   onConfirm,
   onCancel,
   onSwitchToCreate,
@@ -83,10 +83,10 @@ const MapToExistingModal: React.FC<MapToExistingModalProps> = ({
         extra: p.team,
       }));
     } else if (item.entityType === "stat") {
-      // Filter stat types by sport
+      // Filter bet types by sport
       const filtered = item.sport
-        ? statTypes.filter((s) => s.sport === item.sport)
-        : statTypes;
+        ? betTypes.filter((s) => s.sport === item.sport)
+        : betTypes;
       list = filtered.map((s) => ({
         canonical: s.canonical,
         sport: s.sport,
@@ -102,7 +102,7 @@ const MapToExistingModal: React.FC<MapToExistingModalProps> = ({
       if (!aIsCandidate && bIsCandidate) return 1;
       return a.canonical.localeCompare(b.canonical);
     });
-  }, [item, teams, players, statTypes, collisionCandidates]);
+  }, [item, teams, players, betTypes, collisionCandidates]);
 
   // Filter by search query
   const filteredCanonicals = useMemo(() => {

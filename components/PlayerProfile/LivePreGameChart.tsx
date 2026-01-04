@@ -114,19 +114,19 @@ const LivePreGameChart: React.FC<LivePreGameChartProps> = ({ bets }) => {
           <p>
             <b>Win %:</b> {winPct.toFixed(1)}%
           </p>
-          <div className={`flex justify-between items-center ${netColor}`}>
+          <div className="flex justify-between items-center">
             <b>Net:</b>
             <div className="flex items-center ml-1">
               <div className="w-20 h-6">
-                 <FitText maxFontSize={16} minFontSize={10} className="justify-end font-bold">
+                 <FitText maxFontSize={16} minFontSize={10} className={`justify-end font-bold ${netColor}`}>
                    ${stats.net.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                  </FitText>
               </div>
             </div>
           </div>
-          <div className={`flex justify-between items-center ${netColor}`}>
+          <div className="flex justify-between items-center">
             <b>ROI:</b>
-            <span className="font-bold">{stats.roi.toFixed(1)}%</span>
+            <span className={`font-bold ${netColor}`}>{stats.roi.toFixed(1)}%</span>
           </div>
         </div>
       </div>

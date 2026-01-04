@@ -16,12 +16,12 @@ import UnresolvedQueueManager from "./UnresolvedQueueManager";
 import { getUnresolvedQueueCount } from "../services/unresolvedQueue";
 import TeamsManager from "@/components/InputManagement/TeamsManager";
 import PlayersManager from "@/components/InputManagement/PlayersManager";
-import StatTypesManager from "@/components/InputManagement/StatTypesManager";
+import BetTypesManager from "@/components/InputManagement/BetTypesManager";
 import TailsManager from "@/components/InputManagement/TailsManager";
 
-type EntityTab = "unresolved" | "teams" | "players" | "statTypes" | "tails";
+type EntityTab = "unresolved" | "teams" | "players" | "betTypes" | "tails";
 
-// Tab button component
+// Tab button component - Pill-style with elevated active state
 const TabButton: React.FC<{
   active: boolean;
   onClick: () => void;
@@ -30,15 +30,19 @@ const TabButton: React.FC<{
 }> = ({ active, onClick, children, badge }) => (
   <button
     onClick={onClick}
-    className={`px-4 py-2 font-semibold text-sm border-b-2 transition-colors ${
+    className={`px-4 py-2 font-semibold text-sm rounded-lg transition-all duration-200 ${
       active
-        ? "border-primary-600 text-primary-600 dark:text-primary-400 dark:border-primary-400"
-        : "border-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200"
+        ? "bg-primary-600 text-white shadow-md shadow-primary-600/20 dark:shadow-primary-400/20"
+        : "text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-200"
     }`}
   >
     {children}
     {badge !== undefined && badge > 0 && (
-      <span className="ml-2 px-1.5 py-0.5 text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full border border-red-200 dark:border-red-800">
+      <span className={`ml-2 px-1.5 py-0.5 text-xs font-medium rounded-full border ${
+        active
+          ? "bg-white/20 text-white border-white/30"
+          : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800"
+      }`}>
         {badge}
       </span>
     )}
@@ -63,49 +67,54 @@ const InputManagementView: React.FC = () => {
   }, []);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-200px)] min-h-[500px]">
-      {/* Top Tabs */}
-      <div className="flex border-b border-neutral-200 dark:border-neutral-700 mb-4 bg-neutral-50 dark:bg-neutral-900/50 -mx-6 px-6 pt-2 sticky top-0 z-10">
-        <TabButton
-          active={activeTab === "unresolved"}
-          onClick={() => setActiveTab("unresolved")}
-          badge={unresolvedCount}
-        >
-          Unresolved Queue
-        </TabButton>
-        <TabButton
-          active={activeTab === "teams"}
-          onClick={() => setActiveTab("teams")}
-        >
-          Teams
-        </TabButton>
-        <TabButton
-          active={activeTab === "players"}
-          onClick={() => setActiveTab("players")}
-        >
-          Players
-        </TabButton>
-        <TabButton
-          active={activeTab === "statTypes"}
-          onClick={() => setActiveTab("statTypes")}
-        >
-          Bet Types
-        </TabButton>
-        <TabButton
-          active={activeTab === "tails"}
-          onClick={() => setActiveTab("tails")}
-        >
-          Tails
-        </TabButton>
-      </div>
+    <div className="bg-neutral-100 dark:bg-neutral-950 -mx-6 -my-6 px-6 py-6 min-h-full">
+      {/* Elevated Card Container */}
+      <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-lg border border-neutral-200 dark:border-neutral-800 overflow-hidden flex flex-col h-[calc(100vh-80px)] min-h-[700px]">
+        {/* Tab Bar - Elevated with subtle background */}
+        <div className="px-6 pt-4 pb-2 bg-neutral-50 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700">
+          <div className="flex gap-2">
+            <TabButton
+              active={activeTab === "unresolved"}
+              onClick={() => setActiveTab("unresolved")}
+              badge={unresolvedCount}
+            >
+              Unresolved Queue
+            </TabButton>
+            <TabButton
+              active={activeTab === "teams"}
+              onClick={() => setActiveTab("teams")}
+            >
+              Teams
+            </TabButton>
+            <TabButton
+              active={activeTab === "players"}
+              onClick={() => setActiveTab("players")}
+            >
+              Players
+            </TabButton>
+            <TabButton
+              active={activeTab === "betTypes"}
+              onClick={() => setActiveTab("betTypes")}
+            >
+              Bet Types
+            </TabButton>
+            <TabButton
+              active={activeTab === "tails"}
+              onClick={() => setActiveTab("tails")}
+            >
+              Tails
+            </TabButton>
+          </div>
+        </div>
 
-      {/* Tab Content */}
-      <div className="flex-1 overflow-hidden relative">
-        {activeTab === "unresolved" && <UnresolvedQueueManager />}
-        {activeTab === "teams" && <TeamsManager />}
-        {activeTab === "players" && <PlayersManager />}
-        {activeTab === "statTypes" && <StatTypesManager />}
-        {activeTab === "tails" && <TailsManager />}
+        {/* Tab Content */}
+        <div className="flex-1 overflow-hidden relative bg-white dark:bg-neutral-900">
+          {activeTab === "unresolved" && <UnresolvedQueueManager />}
+          {activeTab === "teams" && <TeamsManager />}
+          {activeTab === "players" && <PlayersManager />}
+          {activeTab === "betTypes" && <BetTypesManager />}
+          {activeTab === "tails" && <TailsManager />}
+        </div>
       </div>
     </div>
   );

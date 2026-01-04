@@ -4,7 +4,7 @@ import { useInputs } from '../hooks/useInputs';
 import { Bet, BetResult, BetType, BetLeg } from '../types';
 import { parseCsv } from '../services/csvParser';
 import { classifyBet } from '../services/marketClassification';
-import { AlertTriangle, CheckCircle2, Download } from '../components/icons';
+import { AlertTriangle, CheckCircle2, Download, ChevronDown, ChevronRight } from '../components/icons';
 import InputManagementSection from './InputManagementView';
 import { loadState, STORAGE_VERSION } from '../services/persistence';
 
@@ -20,6 +20,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ theme, toggleTheme }) => {
   const [isImporting, setIsImporting] = useState(false);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [isInputManagementOpen, setIsInputManagementOpen] = useState(false);
   
   const showNotification = (message: string, type: 'success' | 'error') => {
     setNotification({ message, type });
@@ -398,11 +399,27 @@ const SettingsView: React.FC<SettingsViewProps> = ({ theme, toggleTheme }) => {
       </div>
 
       <div className="pt-6 border-t border-neutral-200 dark:border-neutral-800">
-        <h2 className="text-2xl font-bold text-neutral-800 dark:text-neutral-200">Input Management</h2>
-        <p className="text-neutral-500 dark:text-neutral-400 mt-1">Customize the entities used for tracking and filtering throughout the app.</p>
-        <div className="mt-4">
-          <InputManagementSection />
-        </div>
+        <button
+          onClick={() => setIsInputManagementOpen(!isInputManagementOpen)}
+          className="w-full flex items-center justify-between p-4 bg-white dark:bg-neutral-900 rounded-lg shadow-md hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors text-left"
+        >
+          <div>
+            <h2 className="text-2xl font-bold text-neutral-800 dark:text-neutral-200">Input Management</h2>
+            <p className="text-neutral-500 dark:text-neutral-400 mt-1">Customize the entities used for tracking and filtering throughout the app.</p>
+          </div>
+          <div className="ml-4 flex-shrink-0">
+            {isInputManagementOpen ? (
+              <ChevronDown className="w-6 h-6 text-neutral-500 dark:text-neutral-400" />
+            ) : (
+              <ChevronRight className="w-6 h-6 text-neutral-500 dark:text-neutral-400" />
+            )}
+          </div>
+        </button>
+        {isInputManagementOpen && (
+          <div className="mt-4">
+            <InputManagementSection />
+          </div>
+        )}
       </div>
 
       <div className="pt-6 border-t border-neutral-200 dark:border-neutral-800">

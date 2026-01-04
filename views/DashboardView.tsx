@@ -364,47 +364,20 @@ const OverUnderBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
           <p>
             <b>Win %:</b> {winPct.toFixed(1)}%
           </p>
-          <div className={`flex justify-between items-center ${netColor}`}>
+          <div className="flex justify-between items-center">
             <b>Net:</b>
             <div className="flex items-center ml-1">
               <div className="w-20 h-6">
-                   {/* Used formatCurrency but removed leading '$' since it's outside in previous design, 
-                       but actually previous design had '$' outside FitText div? No, '$' was text node before FitText div?
-                       Wait, existing code: 
-                       <b>Net:</b>
-                       <div className="flex items-center ml-1">
-                         <div className="w-20 h-6">
-                            <FitText...>
-                               ${stats.net.toLocaleString...}
-                            </FitText>
-                         </div>
-                       </div>
-                       
-                       The '$' is INSIDE the FitText children in the existing code.
-                       Line 372: ${stats.net.toLocaleString...}
-                       So I can replace the whole string inside FitText with formatCurrency(stats.net).
-                       formatCurrency adds the '$'.
-                       However, formatCurrency handles negative with '-$'.
-                       The current logic simply prints '$' + formatted number.
-                       If negative, it would be '$-100.00' (weird) or maybe abs value?
-                       Let's check code.
-                       Line 372: ${stats.net.toLocaleString...}
-                       It takes the signed value. toLocaleString of -100 is "-100".
-                       So result: "$-100.00". This is actually bad formatting in the existing code?
-                       Or maybe standard JS behavior is "-100.00".
-                       So "$-100.00".
-                       formatCurrency does "-$100.00".
-                       I should replace `${...}` with formatCurrency(stats.net).
-                    */}
-                   <FitText maxFontSize={16} minFontSize={10} className="justify-end font-bold">
+                   <FitText maxFontSize={16} minFontSize={10} className={`justify-end font-bold ${netColor}`}>
                      {formatCurrency(stats.net)}
                    </FitText>
               </div>
             </div>
           </div>
-          <p className={netColor}>
-            <b>ROI:</b> {stats.roi.toFixed(1)}%
-          </p>
+          <div className="flex justify-between items-center">
+            <b>ROI:</b>
+            <span className={`font-bold ${netColor}`}>{stats.roi.toFixed(1)}%</span>
+          </div>
         </div>
       </div>
     );
@@ -560,19 +533,20 @@ const LiveVsPreMatchBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
           <p>
             <b>Win %:</b> {winPct.toFixed(1)}%
           </p>
-          <div className={`flex justify-between items-center ${netColor}`}>
+          <div className="flex justify-between items-center">
             <b>Net:</b>
             <div className="flex items-center ml-1">
               <div className="w-20 h-6">
-                 <FitText maxFontSize={16} minFontSize={10} className="justify-end font-bold">
+                 <FitText maxFontSize={16} minFontSize={10} className={`justify-end font-bold ${netColor}`}>
                    {formatCurrency(stats.net)}
                  </FitText>
               </div>
             </div>
           </div>
-          <p className={netColor}>
-            <b>ROI:</b> {stats.roi.toFixed(1)}%
-          </p>
+          <div className="flex justify-between items-center">
+            <b>ROI:</b>
+            <span className={`font-bold ${netColor}`}>{stats.roi.toFixed(1)}%</span>
+          </div>
         </div>
       </div>
     );

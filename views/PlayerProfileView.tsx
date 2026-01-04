@@ -260,17 +260,20 @@ const OverUnderBreakdown: React.FC<{ bets: Bet[], selectedPlayer: string | null 
                     <p><b>Bets:</b> {stats.count}</p>
                     <p><b>Record:</b> {stats.wins}-{stats.losses}</p>
                     <p><b>Win %:</b> {winPct.toFixed(1)}%</p>
-                    <div className={`flex justify-between items-center ${netColor}`}>
+                    <div className="flex justify-between items-center">
                         <b>Net:</b> 
                         <div className="flex items-center ml-1">
                             <div className="w-20 h-6">
-                                 <FitText maxFontSize={16} minFontSize={10} className="justify-end font-bold">
+                                 <FitText maxFontSize={16} minFontSize={10} className={`justify-end font-bold ${netColor}`}>
                                      {formatCurrency(stats.net)}
                                   </FitText>
                             </div>
                         </div>
                     </div>
-                    <p className={netColor}><b>ROI:</b> {stats.roi.toFixed(1)}%</p>
+                    <div className="flex justify-between items-center">
+                        <b>ROI:</b>
+                        <span className={`font-bold ${netColor}`}>{stats.roi.toFixed(1)}%</span>
+                    </div>
                 </div>
             </div>
         )

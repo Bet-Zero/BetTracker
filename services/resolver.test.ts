@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { 
   resolveTeam, 
-  resolveStatType,
+  resolveBetType,
   resolvePlayer,
   isTeamResolved, 
-  isStatTypeResolved,
+  isBetTypeResolved,
   getTeamAggregationKey 
 } from './resolver';
 
@@ -61,27 +61,27 @@ describe('resolver', () => {
     });
   });
 
-  describe('resolveStatType', () => {
-    it('returns resolved for known stat type', () => {
-      const result = resolveStatType('Points');
+  describe('resolveBetType', () => {
+    it('returns resolved for known bet type', () => {
+      const result = resolveBetType('Points');
       expect(result.status).toBe('resolved');
       expect(result.canonical).toBe('Pts');
     });
 
-    it('returns resolved for stat type alias', () => {
-      const result = resolveStatType('Rebounds');
+    it('returns resolved for bet type alias', () => {
+      const result = resolveBetType('Rebounds');
       expect(result.status).toBe('resolved');
       expect(result.canonical).toBe('Reb');
     });
 
-    it('returns unresolved for unknown stat type', () => {
-      const result = resolveStatType('Unknown Stat XYZ');
+    it('returns unresolved for unknown bet type', () => {
+      const result = resolveBetType('Unknown Stat XYZ');
       expect(result.status).toBe('unresolved');
       expect(result.canonical).toBe('Unknown Stat XYZ');
     });
 
     it('returns unresolved for empty string', () => {
-      const result = resolveStatType('');
+      const result = resolveBetType('');
       expect(result.status).toBe('unresolved');
     });
   });
@@ -97,14 +97,14 @@ describe('resolver', () => {
     });
   });
 
-  describe('isStatTypeResolved', () => {
-    it('returns true for known stat type', () => {
-      expect(isStatTypeResolved('Points')).toBe(true);
-      expect(isStatTypeResolved('Reb')).toBe(true);
+  describe('isBetTypeResolved', () => {
+    it('returns true for known bet type', () => {
+      expect(isBetTypeResolved('Points')).toBe(true);
+      expect(isBetTypeResolved('Reb')).toBe(true);
     });
 
     it('returns false for unknown stat type', () => {
-      expect(isStatTypeResolved('Unknown Stat')).toBe(false);
+      expect(isBetTypeResolved('Unknown Stat')).toBe(false);
     });
   });
 
@@ -159,15 +159,15 @@ describe('resolver', () => {
       });
     });
 
-    describe('resolveStatType with whitespace variants', () => {
+    describe('resolveBetType with whitespace variants', () => {
       it('resolves stat type with leading/trailing whitespace', () => {
-        const result = resolveStatType('  Points  ');
+        const result = resolveBetType('  Points  ');
         expect(result.status).toBe('resolved');
         expect(result.canonical).toBe('Pts');
       });
 
       it('resolves stat type with internal double spaces', () => {
-        const result = resolveStatType('Passing  Yards');
+        const result = resolveBetType('Passing  Yards');
         expect(result.status).toBe('resolved');
         expect(result.canonical).toBe('Pass Yds');
       });

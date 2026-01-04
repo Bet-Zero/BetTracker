@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
-import { useNormalizationData, StatTypeData } from '../hooks/useNormalizationData';
+import { useNormalizationData, BetTypeData } from '../hooks/useNormalizationData';
 import { Trash2, Edit2, Plus, X } from '../components/icons';
 
 const StatTypeAliasManager: React.FC = () => {
-  const { statTypes, addStatType, updateStatType, removeStatType } = useNormalizationData();
-  const [editingStatType, setEditingStatType] = useState<string | null>(null);
+  const { betTypes, addBetType, updateBetType, removeBetType } = useNormalizationData();
+  const [editingBetType, setEditingBetType] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   
-  const [formData, setFormData] = useState<StatTypeData>({
+  const [formData, setFormData] = useState<BetTypeData>({
     canonical: '',
     sport: 'NBA',
     description: '',
@@ -18,33 +18,33 @@ const StatTypeAliasManager: React.FC = () => {
   
   const sports = ['NBA', 'NFL', 'MLB', 'NHL', 'NCAAB', 'NCAAF', 'UFC', 'PGA', 'Soccer', 'Tennis', 'Other'];
   
-  const startEdit = (statType: StatTypeData) => {
-    setEditingStatType(statType.canonical);
-    setFormData({ ...statType });
+  const startEdit = (betType: BetTypeData) => {
+    setEditingBetType(betType.canonical);
+    setFormData({ ...betType });
     setNewAlias('');
   };
   
   const cancelEdit = () => {
-    setEditingStatType(null);
+    setEditingBetType(null);
     setIsAdding(false);
     setFormData({ canonical: '', sport: 'NBA', description: '', aliases: [] });
     setNewAlias('');
   };
   
-  const saveStatType = () => {
+  const saveBetType = () => {
     if (!formData.canonical.trim()) {
       alert('Canonical code is required');
       return;
     }
     
     if (isAdding) {
-      if (addStatType(formData)) {
+      if (addBetType(formData)) {
         cancelEdit();
       } else {
-        alert('Stat type already exists for this sport');
+        alert('Bet type already exists for this sport');
       }
-    } else if (editingStatType) {
-      updateStatType(editingStatType, formData);
+    } else if (editingBetType) {
+      updateBetType(editingBetType, formData);
       cancelEdit();
     }
   };
@@ -66,16 +66,16 @@ const StatTypeAliasManager: React.FC = () => {
     });
   };
   
-  const statTypesBySport = statTypes.reduce((acc, statType) => {
-    if (!acc[statType.sport]) acc[statType.sport] = [];
-    acc[statType.sport].push(statType);
+  const betTypesBySport = betTypes.reduce((acc, betType) => {
+    if (!acc[betType.sport]) acc[betType.sport] = [];
+    acc[betType.sport].push(betType);
     return acc;
-  }, {} as Record<string, StatTypeData[]>);
+  }, {} as Record<string, BetTypeData[]>);
   
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">Stat Types & Aliases</h3>
+        <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">Bet Types & Aliases</h3>
         <button
           onClick={() => {
             setIsAdding(true);
@@ -84,11 +84,11 @@ const StatTypeAliasManager: React.FC = () => {
           className="flex items-center space-x-2 px-3 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700"
         >
           <Plus className="w-4 h-4" />
-          <span>Add Stat Type</span>
+          <span>Add Bet Type</span>
         </button>
       </div>
       
-      {(isAdding || editingStatType) && (
+      {(isAdding || editingBetType) && (
         <div className="bg-neutral-100 dark:bg-neutral-800 p-4 rounded-lg space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -167,7 +167,7 @@ const StatTypeAliasManager: React.FC = () => {
               Cancel
             </button>
             <button
-              onClick={saveStatType}
+              onClick={saveBetType}
               className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700"
             >
               Save
@@ -177,40 +177,40 @@ const StatTypeAliasManager: React.FC = () => {
       )}
       
       <div className="max-h-96 overflow-y-auto space-y-4">
-        {Object.entries(statTypesBySport).sort().map(([sport, sportStatTypes]) => (
+        {Object.entries(betTypesBySport).sort().map(([sport, sportBetTypes]) => (
           <div key={sport}>
             <h4 className="font-bold text-neutral-800 dark:text-neutral-200 mb-2">{sport}</h4>
             <div className="space-y-2">
-              {sportStatTypes.map(statType => (
+              {sportBetTypes.map(betType => (
                 <div
-                  key={`${statType.canonical}-${statType.sport}`}
+                  key={`${betType.canonical}-${betType.sport}`}
                   className="flex justify-between items-start p-3 bg-white dark:bg-neutral-800 rounded-md"
                 >
                   <div className="flex-1">
-                    <div className="font-semibold text-neutral-900 dark:text-white">{statType.canonical}</div>
-                    {statType.description && (
+                    <div className="font-semibold text-neutral-900 dark:text-white">{betType.canonical}</div>
+                    {betType.description && (
                       <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                        {statType.description}
+                        {betType.description}
                       </div>
                     )}
-                    {statType.aliases.length > 0 && (
+                    {betType.aliases.length > 0 && (
                       <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                        <span className="font-medium">Aliases:</span> {statType.aliases.slice(0, 5).join(', ')}
-                        {statType.aliases.length > 5 && ` (+${statType.aliases.length - 5} more)`}
+                        <span className="font-medium">Aliases:</span> {betType.aliases.slice(0, 5).join(', ')}
+                        {betType.aliases.length > 5 && ` (+${betType.aliases.length - 5} more)`}
                       </div>
                     )}
                   </div>
                   <div className="flex space-x-2">
                     <button
-                      onClick={() => startEdit(statType)}
+                      onClick={() => startEdit(betType)}
                       className="text-primary-500 hover:text-primary-700"
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => {
-                        if (confirm(`Remove ${statType.canonical}?`)) {
-                          removeStatType(statType.canonical);
+                        if (confirm(`Remove ${betType.canonical}?`)) {
+                          removeBetType(betType.canonical);
                         }
                       }}
                       className="text-danger-500 hover:text-danger-700"
