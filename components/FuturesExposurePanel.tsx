@@ -13,6 +13,7 @@ import { Bet } from '../types';
 import {
   TrendingUp,
   Clock,
+  Calendar,
 } from '../components/icons';
 import { InfoTooltip } from '../components/debug/InfoTooltip';
 import {
@@ -31,8 +32,90 @@ type FuturesStat = {
   maxProfit: number;
 };
 
+type FuturesTimelineItem = {
+  id: string;
+  description: string;
+  sport: string;
+  stake: number;
+  potential: number;
+  profit: number;
+  resolutionDate: string | null;
+  daysUntil: number | null;
+};
+
+/**
+ * Estimate resolution date based on keyword matching in description.
+ * Uses current year for date estimation.
+ */
+function estimateResolutionDate(description: string, sport: string): Date | null {
+  const desc = description.toLowerCase();
+  const currentYear = new Date().getFullYear();
+  
+  // Championship events
+  if (desc.includes('super bowl') || desc.includes('nfl championship')) {
+    return new Date(currentYear, 1, 9); // February 9
+  }
+  if (desc.includes('nba finals') || desc.includes('nba championship')) {
+    return new Date(currentYear, 5, 15); // June 15
+  }
+  if (desc.includes('world series') || desc.includes('mlb championship')) {
+    return new Date(currentYear, 9, 30); // October 30
+  }
+  if (desc.includes('stanley cup') || desc.includes('nhl championship')) {
+    return new Date(currentYear, 5, 20); // June 20
+  }
+  
+  // Win totals (check sport)
+  if (desc.includes('win total')) {
+    const sportLower = sport.toLowerCase();
+    if (sportLower === 'nfl' || sportLower === 'football') {
+      return new Date(currentYear, 0, 8); // January 8
+    }
+    if (sportLower === 'nba' || sportLower === 'basketball') {
+      return new Date(currentYear, 3, 14); // April 14
+    }
+    if (sportLower === 'mlb' || sportLower === 'baseball') {
+      return new Date(currentYear, 9, 1); // October 1
+    }
+    if (sportLower === 'nhl' || sportLower === 'hockey') {
+      return new Date(currentYear, 3, 15); // April 15
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Calculate days until a target date.
+ * Returns null if date is in the past or invalid.
+ */
+function calculateDaysUntil(targetDate: Date | null): number | null {
+  if (!targetDate) return null;
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  targetDate.setHours(0, 0, 0, 0);
+  
+  const diffMs = targetDate.getTime() - today.getTime();
+  const daysUntil = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  
+  // If negative or zero, return null (event already passed or happening today)
+  if (daysUntil <= 0) return null;
+  
+  return daysUntil;
+}
+
+/**
+ * Format date for display
+ */
+function formatResolutionDate(date: Date | null): string {
+  if (!date) return 'TBD';
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
 const FuturesExposurePanel: React.FC<FuturesExposurePanelProps> = ({ bets }) => {
   const [breakdownView, setBreakdownView] = useState<'sport' | 'entity'>('sport');
+  const [showTimeline, setShowTimeline] = useState(true);
 
   const futuresData = useMemo(() => {
     // Dataset: pending futures only
@@ -89,6 +172,29 @@ const FuturesExposurePanel: React.FC<FuturesExposurePanelProps> = ({ bets }) => 
       stat.maxProfit = stat.potentialPayout - stat.exposure;
     }
 
+    // Timeline data - sorted by daysUntil ascending, nulls at bottom
+    const timelineItems: FuturesTimelineItem[] = openFutures.map((bet) => {
+      const resolutionDate = estimateResolutionDate(bet.description, bet.sport || '');
+      const daysUntil = calculateDaysUntil(resolutionDate);
+      
+      return {
+        id: bet.id,
+        description: bet.description,
+        sport: bet.sport || 'Unknown',
+        stake: bet.stake,
+        potential: bet.payout,
+        profit: bet.payout - bet.stake,
+        resolutionDate: resolutionDate ? resolutionDate.toISOString() : null,
+        daysUntil,
+      };
+    }).sort((a, b) => {
+      // Sort by daysUntil ascending, nulls at bottom
+      if (a.daysUntil === null && b.daysUntil === null) return 0;
+      if (a.daysUntil === null) return 1;
+      if (b.daysUntil === null) return -1;
+      return a.daysUntil - b.daysUntil;
+    });
+
     return {
       totalCount,
       totalExposure,
@@ -96,6 +202,7 @@ const FuturesExposurePanel: React.FC<FuturesExposurePanelProps> = ({ bets }) => 
       totalMaxProfit,
       bySport: Array.from(sportMap.values()).sort((a, b) => b.exposure - a.exposure),
       byEntity: Array.from(entityMap.values()).sort((a, b) => b.exposure - a.exposure),
+      timeline: timelineItems,
     };
   }, [bets]);
 
@@ -231,6 +338,81 @@ const FuturesExposurePanel: React.FC<FuturesExposurePanelProps> = ({ bets }) => 
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Futures Timeline Section */}
+      <div className="mt-6 pt-6 border-t border-neutral-200 dark:border-neutral-800">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-amber-500" />
+            <h3 className="text-lg font-semibold text-neutral-800 dark:text-neutral-200">
+              Futures Timeline
+            </h3>
+            <InfoTooltip
+              text="Estimated resolution dates based on event type"
+              position="right"
+            />
+          </div>
+          <button
+            onClick={() => setShowTimeline(!showTimeline)}
+            className="text-xs text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
+          >
+            {showTimeline ? 'Hide' : 'Show'}
+          </button>
+        </div>
+
+        {showTimeline && (
+          <div className="space-y-3">
+            {futuresData.timeline.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-center justify-between bg-neutral-50 dark:bg-neutral-800/50 rounded-lg p-4"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate">
+                    {item.description}
+                  </p>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+                    {item.sport}
+                  </p>
+                </div>
+                <div className="flex items-center gap-6 ml-4">
+                  <div className="text-right">
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400 uppercase">
+                      Resolution
+                    </p>
+                    <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                      {item.resolutionDate 
+                        ? formatResolutionDate(new Date(item.resolutionDate))
+                        : 'TBD'}
+                    </p>
+                    {item.daysUntil !== null && (
+                      <p className="text-xs text-amber-600 dark:text-amber-400">
+                        {item.daysUntil} days
+                      </p>
+                    )}
+                  </div>
+                  <div className="text-right min-w-[100px]">
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400 uppercase">
+                      Stake → Potential
+                    </p>
+                    <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                      ${item.stake.toFixed(2)} → ${item.potential.toFixed(2)}
+                    </p>
+                    <p className="text-xs text-accent-500 font-medium">
+                      +${item.profit.toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {futuresData.timeline.length === 0 && (
+              <p className="text-center text-neutral-500 dark:text-neutral-400 py-4">
+                No timeline data available.
+              </p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
