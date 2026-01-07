@@ -25,6 +25,7 @@ import { useDebouncedValue } from "../hooks/useDebouncedValue";
 
 // --- Fixed column widths (deterministic spreadsheet layout) ---
 const COL_W: Record<string, string> = {
+  rowSelector: "2.5ch", // Row selection column
   date: "5ch",
   site: "4ch",
   sport: "5ch",
@@ -41,6 +42,33 @@ const COL_W: Record<string, string> = {
   isLive: "4ch",
   tail: "7ch",
 };
+
+// Fields that support bulk apply (categorical/text fields)
+const BULK_APPLY_COLUMNS: readonly (keyof FlatBet)[] = [
+  "site",
+  "sport",
+  "category",
+  "type",
+  "isLive",
+  "tail",
+  "result",
+] as const;
+
+// Fields that can be cleared via bulk clear modal
+const CLEARABLE_FIELDS: readonly string[] = [
+  "site",
+  "sport",
+  "category",
+  "type",
+  "name",
+  "ou",
+  "line",
+  "odds",
+  "bet",
+  "result",
+  "isLive",
+  "tail",
+] as const;
 
 // Cell coordinate type
 type CellCoordinate = {
@@ -445,7 +473,7 @@ const OUCell: React.FC<{
 };
 
 const BetTableView: React.FC = () => {
-  const { bets, loading, updateBet } = useBets();
+  const { bets, loading, updateBet, createManualBet, duplicateBets, bulkUpdateBets } = useBets();
   const {
     sportsbooks,
     sports,
@@ -508,6 +536,13 @@ const BetTableView: React.FC = () => {
     const saved = localStorage.getItem("bettracker-expanded-parlays");
     return saved ? new Set(JSON.parse(saved)) : new Set();
   });
+
+  // Row selection state (Phase 1)
+  const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
+  const [rowSelectionAnchorId, setRowSelectionAnchorId] = useState<string | null>(null);
+  const [showClearFieldsModal, setShowClearFieldsModal] = useState(false);
+  const [fieldsToToggle, setFieldsToToggle] = useState<Set<string>>(new Set());
+
   const tableRef = useRef<HTMLTableElement>(null);
   const cellRefs = useRef<Map<string, React.RefObject<HTMLInputElement>>>(
     new Map()
@@ -1027,6 +1062,204 @@ const BetTableView: React.FC = () => {
     [focusedCell]
   );
 
+  // Helper: Check if a row is selected
+  const isRowSelected = useCallback(
+    (rowId: string): boolean => {
+      return selectedRowIds.has(rowId);
+    },
+    [selectedRowIds]
+  );
+
+  // Row selector click handler
+  const handleRowSelectorClick = useCallback(
+    (betId: string, rowIndex: number, e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (e.shiftKey && rowSelectionAnchorId) {
+        // Shift-click: select range between anchor and current
+        const anchorIndex = visibleBets.findIndex(
+          (b) => b.betId === rowSelectionAnchorId
+        );
+        if (anchorIndex !== -1) {
+          const minIdx = Math.min(anchorIndex, rowIndex);
+          const maxIdx = Math.max(anchorIndex, rowIndex);
+          const newSelection = new Set<string>();
+          for (let i = minIdx; i <= maxIdx; i++) {
+            newSelection.add(visibleBets[i].betId);
+          }
+          setSelectedRowIds(newSelection);
+        }
+      } else if (e.metaKey || e.ctrlKey) {
+        // Cmd/Ctrl-click: toggle row selection
+        setSelectedRowIds((prev) => {
+          const newSelection = new Set(prev);
+          if (newSelection.has(betId)) {
+            newSelection.delete(betId);
+          } else {
+            newSelection.add(betId);
+          }
+          return newSelection;
+        });
+        setRowSelectionAnchorId(betId);
+      } else {
+        // Regular click: single selection
+        setSelectedRowIds(new Set([betId]));
+        setRowSelectionAnchorId(betId);
+      }
+    },
+    [rowSelectionAnchorId, visibleBets]
+  );
+
+  // Handle duplicate rows (Cmd/Ctrl+D)
+  const handleDuplicateRows = useCallback(() => {
+    let betIdsToDuplicate: string[] = [];
+
+    if (selectedRowIds.size > 0) {
+      // Duplicate selected rows
+      betIdsToDuplicate = Array.from(selectedRowIds);
+    } else if (focusedCell) {
+      // Duplicate the row containing the focused cell
+      const row = visibleBets[focusedCell.rowIndex];
+      if (row) {
+        betIdsToDuplicate = [row.betId];
+      }
+    }
+
+    if (betIdsToDuplicate.length > 0) {
+      const newIds = duplicateBets(betIdsToDuplicate);
+      // Select the newly created rows
+      setSelectedRowIds(new Set(newIds));
+      // Focus the first editable cell of the first duplicated row
+      if (newIds.length > 0) {
+        setTimeout(() => {
+          setFocusedCell({ rowIndex: 0, columnKey: "site" });
+        }, 50);
+      }
+    }
+  }, [selectedRowIds, focusedCell, visibleBets, duplicateBets]);
+
+  // Handle bulk apply value (Cmd/Ctrl+Enter)
+  const handleBulkApplyValue = useCallback(() => {
+    if (selectedRowIds.size === 0 || !focusedCell) return;
+
+    const row = visibleBets[focusedCell.rowIndex];
+    if (!row) return;
+
+    const columnKey = focusedCell.columnKey;
+    const value = row[columnKey];
+
+    // Only allow bulk apply for safe categorical/text fields
+    if (!BULK_APPLY_COLUMNS.includes(columnKey)) {
+      console.warn(`Bulk apply not supported for column: ${columnKey}`);
+      return;
+    }
+
+    // Build updates for all selected rows
+    const updatesById: Record<string, Partial<Bet>> = {};
+
+    selectedRowIds.forEach((betId) => {
+      switch (columnKey) {
+        case "site":
+          const book = sportsbooks.find(
+            (b) =>
+              b.name.toLowerCase() === String(value).toLowerCase() ||
+              b.abbreviation.toLowerCase() === String(value).toLowerCase()
+          );
+          updatesById[betId] = { book: book ? book.name : String(value) };
+          break;
+        case "sport":
+          updatesById[betId] = { sport: String(value) };
+          break;
+        case "category":
+          updatesById[betId] = { marketCategory: value as MarketCategory };
+          break;
+        case "type":
+          updatesById[betId] = { type: String(value) };
+          break;
+        case "isLive":
+          updatesById[betId] = { isLive: Boolean(value) };
+          break;
+        case "tail":
+          updatesById[betId] = { tail: String(value) || undefined };
+          break;
+        case "result":
+          updatesById[betId] = { result: value as BetResult };
+          break;
+      }
+    });
+
+    bulkUpdateBets(updatesById);
+  }, [selectedRowIds, focusedCell, visibleBets, sportsbooks, bulkUpdateBets]);
+
+  // Handle bulk clear fields
+  const handleBulkClearFields = useCallback(() => {
+    if (selectedRowIds.size === 0 || fieldsToToggle.size === 0) return;
+
+    const updatesById: Record<string, Partial<Bet>> = {};
+
+    selectedRowIds.forEach((betId) => {
+      const updates: Partial<Bet> = {};
+
+      fieldsToToggle.forEach((field) => {
+        switch (field) {
+          case "site":
+            updates.book = "";
+            break;
+          case "sport":
+            updates.sport = "";
+            break;
+          case "category":
+            updates.marketCategory = "Props";
+            break;
+          case "type":
+            updates.type = "";
+            break;
+          case "name":
+            updates.name = "";
+            updates.description = "";
+            break;
+          case "ou":
+            updates.ou = undefined;
+            break;
+          case "line":
+            updates.line = "";
+            break;
+          case "odds":
+            updates.odds = null;
+            break;
+          case "bet":
+            updates.stake = 0;
+            break;
+          case "result":
+            updates.result = "pending";
+            break;
+          case "isLive":
+            updates.isLive = false;
+            break;
+          case "tail":
+            updates.tail = "";
+            break;
+        }
+      });
+
+      updatesById[betId] = updates;
+    });
+
+    bulkUpdateBets(updatesById);
+    setShowClearFieldsModal(false);
+    setFieldsToToggle(new Set());
+  }, [selectedRowIds, fieldsToToggle, bulkUpdateBets]);
+
+  // Handle add manual bet
+  const handleAddManualBet = useCallback(() => {
+    const newId = createManualBet();
+    // Focus the first editable cell of the new row
+    setTimeout(() => {
+      setFocusedCell({ rowIndex: 0, columnKey: "site" });
+    }, 50);
+  }, [createManualBet]);
+
   // Keyboard navigation handler
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -1077,6 +1310,20 @@ const BetTableView: React.FC = () => {
       if ((e.ctrlKey || e.metaKey) && e.key === "v") {
         e.preventDefault();
         handlePaste();
+        return;
+      }
+
+      // Handle duplicate (Ctrl+D or Cmd+D)
+      if ((e.ctrlKey || e.metaKey) && e.key === "d") {
+        e.preventDefault();
+        handleDuplicateRows();
+        return;
+      }
+
+      // Handle bulk apply value (Ctrl+Enter or Cmd+Enter)
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        handleBulkApplyValue();
         return;
       }
 
@@ -1137,7 +1384,7 @@ const BetTableView: React.FC = () => {
           break;
       }
     },
-    [focusedCell, navigateToCell, editableColumns, visibleBets.length]
+    [focusedCell, navigateToCell, editableColumns, visibleBets.length, handleDuplicateRows, handleBulkApplyValue]
   );
 
   // Helper: Get cell value as string
@@ -1597,6 +1844,111 @@ const BetTableView: React.FC = () => {
         </div>
       </div>
 
+      {/* Actions row: Add Bet button + Selected row actions */}
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={handleAddManualBet}
+          className="px-3 py-1 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow-sm transition-colors flex items-center gap-1"
+        >
+          <span className="text-lg leading-none">+</span>
+          <span>Add Bet</span>
+        </button>
+
+        {selectedRowIds.size > 0 && (
+          <>
+            <div className="h-5 w-px bg-neutral-300 dark:bg-neutral-700" />
+            <span className="text-xs text-neutral-500 dark:text-neutral-400">
+              {selectedRowIds.size} row{selectedRowIds.size !== 1 ? "s" : ""} selected
+            </span>
+            <button
+              type="button"
+              onClick={handleDuplicateRows}
+              className="px-2 py-1 text-xs font-medium text-neutral-700 dark:text-neutral-300 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded border border-neutral-300 dark:border-neutral-600 transition-colors"
+              title="Duplicate selected rows (Cmd/Ctrl+D)"
+            >
+              Duplicate
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowClearFieldsModal(true)}
+              className="px-2 py-1 text-xs font-medium text-neutral-700 dark:text-neutral-300 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded border border-neutral-300 dark:border-neutral-600 transition-colors"
+              title="Clear selected fields"
+            >
+              Clear Fields…
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedRowIds(new Set())}
+              className="px-2 py-1 text-xs font-medium text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors"
+              title="Deselect all"
+            >
+              ✕ Clear selection
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* Clear Fields Modal */}
+      {showClearFieldsModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl p-4 max-w-sm w-full mx-4 border border-neutral-200 dark:border-neutral-700">
+            <h3 className="text-lg font-semibold mb-3 text-neutral-900 dark:text-white">
+              Clear Fields
+            </h3>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-3">
+              Select fields to clear for {selectedRowIds.size} selected row{selectedRowIds.size !== 1 ? "s" : ""}:
+            </p>
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              {CLEARABLE_FIELDS.map(
+                (field) => (
+                  <label
+                    key={field}
+                    className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={fieldsToToggle.has(field)}
+                      onChange={(e) => {
+                        const newFields = new Set(fieldsToToggle);
+                        if (e.target.checked) {
+                          newFields.add(field);
+                        } else {
+                          newFields.delete(field);
+                        }
+                        setFieldsToToggle(newFields);
+                      }}
+                      className="rounded border-neutral-300 dark:border-neutral-600"
+                    />
+                    <span className="capitalize">{field === "ou" ? "O/U" : field}</span>
+                  </label>
+                )
+              )}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowClearFieldsModal(false);
+                  setFieldsToToggle(new Set());
+                }}
+                className="px-3 py-1.5 text-sm font-medium text-neutral-700 dark:text-neutral-300 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleBulkClearFields}
+                disabled={fieldsToToggle.size === 0}
+                className="px-3 py-1.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:bg-neutral-400 disabled:cursor-not-allowed rounded transition-colors"
+              >
+                Clear Selected
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grow bg-white dark:bg-neutral-900 rounded-lg shadow-md overflow-hidden flex flex-col">
         <div
           className="flex-1 overflow-y-auto min-w-0"
@@ -1608,6 +1960,7 @@ const BetTableView: React.FC = () => {
             style={{ tableLayout: "fixed", width: "100%" }}
           >
             <colgroup>
+              <col style={{ width: COL_W.rowSelector }} />
               {headers.map((header) => (
                 <col
                   key={header.key}
@@ -1617,6 +1970,13 @@ const BetTableView: React.FC = () => {
             </colgroup>
             <thead className="text-xs font-semibold tracking-wide text-neutral-700 uppercase bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-400 sticky top-0 z-10 border-b border-neutral-300 dark:border-neutral-700">
               <tr className="leading-tight">
+                <th
+                  scope="col"
+                  className="px-0.5 py-1 border-r border-neutral-300 dark:border-neutral-700 text-center"
+                  style={{ width: COL_W.rowSelector }}
+                >
+                  {/* Empty header for row selector */}
+                </th>
                 {headers.map((header, index) => {
                   const headerPaddingX = "px-1";
                   const numericRightAligned = new Set<keyof FlatBet>([
@@ -1668,13 +2028,13 @@ const BetTableView: React.FC = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={headers.length} className="text-center p-8">
+                  <td colSpan={headers.length + 1} className="text-center p-8">
                     Loading bets...
                   </td>
                 </tr>
               ) : visibleBets.length === 0 ? (
                 <tr>
-                  <td colSpan={headers.length} className="text-center p-8">
+                  <td colSpan={headers.length + 1} className="text-center p-8">
                     No bets found matching your criteria.
                   </td>
                 </tr>
@@ -1773,13 +2133,28 @@ const BetTableView: React.FC = () => {
                     ? "bg-white dark:bg-neutral-900"
                     : "bg-neutral-200 dark:bg-neutral-800/50";
 
+                  // Check if this row is selected
+                  const rowIsSelected = isRowSelected(row.betId);
+
                   return (
                     <tr
                       key={row.id}
                       className={`border-b dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-800/50 ${bgClass} ${
                         row._isParlayHeader ? "font-semibold" : ""
-                      }`}
+                      } ${rowIsSelected ? "!bg-blue-100 dark:!bg-blue-900/30" : ""}`}
                     >
+                      {/* Row selector cell */}
+                      <td
+                        className="px-0.5 py-0.5 text-center border-r border-neutral-300 dark:border-neutral-700 cursor-pointer select-none hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                        onClick={(e) => handleRowSelectorClick(row.betId, rowIndex, e)}
+                        title={rowIsSelected ? "Click to deselect (Cmd/Ctrl+click to toggle)" : "Click to select (Shift+click for range)"}
+                      >
+                        {rowIsSelected ? (
+                          <span className="text-blue-600 dark:text-blue-400 text-xs">✓</span>
+                        ) : (
+                          <span className="text-neutral-300 dark:text-neutral-600 text-xs opacity-0 hover:opacity-100">◦</span>
+                        )}
+                      </td>
                       <td
                         className={
                           getCellClasses("date") + " whitespace-nowrap min-w-0"

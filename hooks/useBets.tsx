@@ -26,6 +26,9 @@ interface BetsContextType {
   addBets: (newBets: Bet[]) => number;
   updateBet: (betId: string, updates: Partial<Bet>) => void;
   clearBets: () => void;
+  createManualBet: () => string;
+  duplicateBets: (betIds: string[]) => string[];
+  bulkUpdateBets: (updatesById: Record<string, Partial<Bet>>) => void;
   loading: boolean;
 }
 
@@ -258,9 +261,128 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
     }
   }, []);
 
+  // Create a new manual bet with safe defaults
+  const createManualBet = useCallback((): string => {
+    // Generate ID once outside the functional update using crypto.randomUUID for uniqueness
+    const newId = `manual-${crypto.randomUUID()}`;
+    
+    const newBet: Bet = {
+      id: newId,
+      book: "",
+      betId: "",
+      placedAt: new Date().toISOString(),
+      betType: "single",
+      marketCategory: "Props",
+      sport: "",
+      description: "",
+      stake: 0,
+      payout: 0,
+      result: "pending",
+      legs: [],
+    };
+
+    setBets((prevBets) => {
+      // Check if bet already exists (dedup for StrictMode double invocations)
+      if (prevBets.some(b => b.id === newId)) {
+        return prevBets;
+      }
+      const updatedBets = [newBet, ...prevBets];
+      saveBets(updatedBets);
+      return updatedBets;
+    });
+
+    return newId;
+  }, []);
+
+  // Duplicate selected bets with new IDs
+  const duplicateBets = useCallback((betIds: string[]): string[] => {
+    // Generate new IDs outside the functional update using crypto.randomUUID for uniqueness
+    const idMap = new Map<string, string>();
+    betIds.forEach((betId) => {
+      idMap.set(betId, `dup-${crypto.randomUUID()}`);
+    });
+    const newIds = Array.from(idMap.values());
+
+    setBets((prevBets) => {
+      // Check if any of the new IDs already exist (dedup for StrictMode)
+      if (newIds.some(newId => prevBets.some(b => b.id === newId))) {
+        return prevBets;
+      }
+
+      const toDuplicate = prevBets.filter((b) => betIds.includes(b.id));
+      if (toDuplicate.length === 0) return prevBets;
+
+      const duplicated = toDuplicate.map((bet) => {
+        const newId = idMap.get(bet.id) || `dup-${crypto.randomUUID()}`;
+        return {
+          ...bet,
+          id: newId,
+          betId: "", // Clear sportsbook-provided ID for duplicates
+          placedAt: new Date().toISOString(),
+          result: "pending" as const, // Reset result for duplicate
+          payout: 0, // Clear payout
+        };
+      });
+
+      const updatedBets = [...duplicated, ...prevBets].sort(
+        (a, b) =>
+          new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime()
+      );
+      saveBets(updatedBets);
+      return updatedBets;
+    });
+
+    return newIds;
+  }, []);
+
+  // Bulk update multiple bets in a single save operation
+  const bulkUpdateBets = useCallback(
+    (updatesById: Record<string, Partial<Bet>>) => {
+      setBets((prevBets) => {
+        const updatedBets = prevBets.map((bet) => {
+          const updates = updatesById[bet.id];
+          if (!updates) return bet;
+
+          const updatedBet = { ...bet, ...updates };
+
+          // Handle tail field deletion
+          if (updatedBet.tail === "") {
+            delete updatedBet.tail;
+          }
+
+          // Auto-recalculate payout if stake/odds/result change
+          const needsPayoutRecalc =
+            "stake" in updates || "odds" in updates || "result" in updates;
+          if (needsPayoutRecalc) {
+            updatedBet.payout = recalculatePayout(
+              updatedBet.stake,
+              updatedBet.odds,
+              updatedBet.result
+            );
+          }
+
+          return updatedBet;
+        });
+
+        saveBets(updatedBets);
+        return updatedBets;
+      });
+    },
+    []
+  );
+
   return (
     <BetsContext.Provider
-      value={{ bets, addBets, updateBet, clearBets, loading }}
+      value={{
+        bets,
+        addBets,
+        updateBet,
+        clearBets,
+        createManualBet,
+        duplicateBets,
+        bulkUpdateBets,
+        loading,
+      }}
     >
       {children}
     </BetsContext.Provider>
