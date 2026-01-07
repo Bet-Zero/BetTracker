@@ -25,7 +25,7 @@ import { useDebouncedValue } from "../hooks/useDebouncedValue";
 
 // --- Fixed column widths (deterministic spreadsheet layout) ---
 const COL_W: Record<string, string> = {
-  rowSelector: "1.5ch", // Row selection column (narrow)
+  rowSelector: "1ch", // Row selection column (narrow)
   date: "5ch",
   site: "4ch",
   sport: "5ch",
@@ -2397,11 +2397,7 @@ const BetTableView: React.FC = () => {
                         onClick={(e) => handleRowSelectorClick(row.betId, rowIndex, e)}
                         title={rowIsSelected ? "Click to deselect (Cmd/Ctrl+click to toggle)" : "Click to select (Shift+click for range)"}
                       >
-                        {rowIsSelected ? (
-                          <span className="text-blue-600 dark:text-blue-400 text-xs">✓</span>
-                        ) : (
-                          <span className="text-neutral-300 dark:text-neutral-600 text-xs opacity-0 group-hover:opacity-100">◦</span>
-                        )}
+                        {/* Selection indicator removed - rely on background color */}
                         {/* Insert buttons - appear on hover when row is selected */}
                         {rowIsSelected && (
                           <div className="absolute left-full top-1/2 -translate-y-1/2 ml-1 flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-20">
