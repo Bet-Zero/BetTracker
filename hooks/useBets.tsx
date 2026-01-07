@@ -263,8 +263,8 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
 
   // Create a new manual bet with safe defaults
   const createManualBet = useCallback((): string => {
-    // Generate ID once outside the functional update
-    const newId = `manual-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    // Generate ID once outside the functional update using crypto.randomUUID for uniqueness
+    const newId = `manual-${crypto.randomUUID()}`;
     
     const newBet: Bet = {
       id: newId,
@@ -296,11 +296,10 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
 
   // Duplicate selected bets with new IDs
   const duplicateBets = useCallback((betIds: string[]): string[] => {
-    // Generate new IDs outside the functional update
+    // Generate new IDs outside the functional update using crypto.randomUUID for uniqueness
     const idMap = new Map<string, string>();
-    const now = Date.now();
-    betIds.forEach((betId, index) => {
-      idMap.set(betId, `dup-${now}-${index}-${Math.random().toString(36).substring(2, 9)}`);
+    betIds.forEach((betId) => {
+      idMap.set(betId, `dup-${crypto.randomUUID()}`);
     });
     const newIds = Array.from(idMap.values());
 
@@ -314,7 +313,7 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
       if (toDuplicate.length === 0) return prevBets;
 
       const duplicated = toDuplicate.map((bet) => {
-        const newId = idMap.get(bet.id) || `dup-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+        const newId = idMap.get(bet.id) || `dup-${crypto.randomUUID()}`;
         return {
           ...bet,
           id: newId,

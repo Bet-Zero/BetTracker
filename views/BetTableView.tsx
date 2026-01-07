@@ -43,6 +43,33 @@ const COL_W: Record<string, string> = {
   tail: "7ch",
 };
 
+// Fields that support bulk apply (categorical/text fields)
+const BULK_APPLY_COLUMNS: readonly (keyof FlatBet)[] = [
+  "site",
+  "sport",
+  "category",
+  "type",
+  "isLive",
+  "tail",
+  "result",
+] as const;
+
+// Fields that can be cleared via bulk clear modal
+const CLEARABLE_FIELDS: readonly string[] = [
+  "site",
+  "sport",
+  "category",
+  "type",
+  "name",
+  "ou",
+  "line",
+  "odds",
+  "bet",
+  "result",
+  "isLive",
+  "tail",
+] as const;
+
 // Cell coordinate type
 type CellCoordinate = {
   rowIndex: number;
@@ -1123,17 +1150,7 @@ const BetTableView: React.FC = () => {
     const value = row[columnKey];
 
     // Only allow bulk apply for safe categorical/text fields
-    const safeColumns: (keyof FlatBet)[] = [
-      "site",
-      "sport",
-      "category",
-      "type",
-      "isLive",
-      "tail",
-      "result",
-    ];
-
-    if (!safeColumns.includes(columnKey)) {
+    if (!BULK_APPLY_COLUMNS.includes(columnKey)) {
       console.warn(`Bulk apply not supported for column: ${columnKey}`);
       return;
     }
@@ -1883,7 +1900,7 @@ const BetTableView: React.FC = () => {
               Select fields to clear for {selectedRowIds.size} selected row{selectedRowIds.size !== 1 ? "s" : ""}:
             </p>
             <div className="grid grid-cols-2 gap-2 mb-4">
-              {["site", "sport", "category", "type", "name", "ou", "line", "odds", "bet", "result", "isLive", "tail"].map(
+              {CLEARABLE_FIELDS.map(
                 (field) => (
                   <label
                     key={field}
