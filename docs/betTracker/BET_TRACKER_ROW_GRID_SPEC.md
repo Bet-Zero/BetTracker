@@ -69,11 +69,11 @@ const COL_W: Record<string, string> = {
 
 ### Row Data Source
 Row data flows from:
-1. **`useBets()` hook** (lines 448) → provides `bets`, `loading`, `updateBet`
-2. **`flattenedBets` memo** (lines 548-630) → transforms `Bet[]` to `FlatBet[]` via `betToFinalRows()`
-3. **`filteredBets` memo** (lines 768-771) → applies search/filter predicates
-4. **`sortedBets` memo** (lines 773-797) → applies sort config
-5. **`visibleBets` memo** (lines 800-811) → filters out collapsed parlay children
+1. **`useBets()` hook** (BetTableView.tsx line 448) → provides `bets`, `loading`, `updateBet`
+2. **`flattenedBets` memo** (BetTableView.tsx lines 548-630) → transforms `Bet[]` to `FlatBet[]` via `betToFinalRows()`
+3. **`filteredBets` memo** (BetTableView.tsx lines 768-771) → applies search/filter predicates
+4. **`sortedBets` memo** (BetTableView.tsx lines 773-797) → applies sort config
+5. **`visibleBets` memo** (BetTableView.tsx lines 800-811) → filters out collapsed parlay children
 
 ### Virtualization
 **NO virtualization is currently used.** The table renders all visible rows directly via `.map()` at line 1682. This is a potential performance concern for large datasets.
@@ -249,7 +249,7 @@ export function saveState(state: PersistedState): Result<void> {
 
 ### Debouncing/Throttling
 - **No debouncing** on individual cell edits - each `updateBet()` call triggers immediate save
-- **Search input** is debounced (200ms) via `useDebouncedValue` hook (line 517)
+- **Search input** is debounced (200ms) via `useDebouncedValue` hook (BetTableView.tsx line 517)
 
 ### Edit Flow Summary
 ```
@@ -325,7 +325,7 @@ saveBets() → localStorage
 ## 5) Existing Selection / Keyboard / Clipboard
 
 ### Cell Selection (EXISTS)
-The grid **already has cell-based selection** implemented at lines 496-501, 991-1017:
+The grid **already has cell-based selection** implemented in BetTableView.tsx at lines 496-501, 991-1017:
 
 ```typescript
 // State
@@ -353,7 +353,7 @@ const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
 ```
 
 ### Keyboard Navigation (EXISTS)
-Keyboard handling exists at lines 1031-1141:
+Keyboard handling exists in BetTableView.tsx at lines 1031-1141:
 
 **Supported keys**:
 - `ArrowUp/Down/Left/Right` - Navigate cells
@@ -370,7 +370,7 @@ Keyboard handling exists at lines 1031-1141:
 - `Shift+Enter` - Does not move up (only down is implemented)
 
 ### Clipboard Support (PARTIAL)
-Clipboard **copy and paste exist** at lines 1163-1274:
+Clipboard **copy and paste exist** in BetTableView.tsx at lines 1163-1274:
 
 **Copy** (handleCopy):
 - Copies focused cell or selection range
@@ -418,7 +418,7 @@ Clipboard **copy and paste exist** at lines 1163-1274:
 ### Controlled Input Rerender Risks
 - Each cell is a controlled input with local state + value sync from props
 - Rapid state updates can cause cursor position issues
-- Current mitigation: `useEffect` syncs `text` state when `value` prop changes (line 122-124)
+- Current mitigation: `useEffect` syncs `text` state when `value` prop changes (BetTableView.tsx lines 122-124)
 
 ---
 
