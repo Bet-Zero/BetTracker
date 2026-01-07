@@ -473,7 +473,7 @@ const OUCell: React.FC<{
 };
 
 const BetTableView: React.FC = () => {
-  const { bets, loading, updateBet, createManualBet, duplicateBets, bulkUpdateBets } = useBets();
+  const { bets, loading, updateBet, createManualBet, duplicateBets, bulkUpdateBets, deleteBets, undoLastAction, canUndo, lastUndoLabel, pushUndoSnapshot } = useBets();
   const {
     sportsbooks,
     sports,
@@ -503,7 +503,7 @@ const BetTableView: React.FC = () => {
   const [sortConfig, setSortConfig] = useState<{
     key: keyof FlatBet;
     direction: "asc" | "desc";
-  } | null>({ key: "date", direction: "desc" });
+  } | null>({ key: "date", direction: "asc" });
 
   // Consolidate categories for display: remove SGP/SGP+ as they are covered by Parlays
   // Consolidate categories for display: remove SGP/SGP+ as they are covered by Parlays
@@ -542,6 +542,13 @@ const BetTableView: React.FC = () => {
   const [rowSelectionAnchorId, setRowSelectionAnchorId] = useState<string | null>(null);
   const [showClearFieldsModal, setShowClearFieldsModal] = useState(false);
   const [fieldsToToggle, setFieldsToToggle] = useState<Set<string>>(new Set());
+
+  // Phase 1.1: Batch count for Add and Duplicate
+  const [batchCount, setBatchCount] = useState<number>(1);
+
+  // Phase 1.1: Delete confirmation state
+  const [pendingDeleteIds, setPendingDeleteIds] = useState<string[] | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const tableRef = useRef<HTMLTableElement>(null);
   const cellRefs = useRef<Map<string, React.RefObject<HTMLInputElement>>>(
@@ -1112,7 +1119,7 @@ const BetTableView: React.FC = () => {
   );
 
   // Handle duplicate rows (Cmd/Ctrl+D)
-  const handleDuplicateRows = useCallback(() => {
+  const handleDuplicateRows = useCallback((multiplier: number = 1) => {
     let betIdsToDuplicate: string[] = [];
 
     if (selectedRowIds.size > 0) {
@@ -1127,13 +1134,20 @@ const BetTableView: React.FC = () => {
     }
 
     if (betIdsToDuplicate.length > 0) {
-      const newIds = duplicateBets(betIdsToDuplicate);
+      // Duplicate the block N times (multiplier)
+      const allNewIds: string[] = [];
+      for (let i = 0; i < multiplier; i++) {
+        const newIds = duplicateBets(betIdsToDuplicate);
+        allNewIds.push(...newIds);
+      }
       // Select the newly created rows
-      setSelectedRowIds(new Set(newIds));
-      // Focus the first editable cell of the first duplicated row
-      if (newIds.length > 0) {
+      setSelectedRowIds(new Set(allNewIds));
+      // Focus the first editable cell of the first duplicated row (at bottom)
+      if (allNewIds.length > 0) {
         setTimeout(() => {
-          setFocusedCell({ rowIndex: 0, columnKey: "site" });
+          // Find the first new row
+          const idx = visibleBets.findIndex(b => allNewIds.includes(b.betId));
+          setFocusedCell({ rowIndex: idx >= 0 ? idx : visibleBets.length - allNewIds.length, columnKey: "site" });
         }, 50);
       }
     }
@@ -1189,7 +1203,7 @@ const BetTableView: React.FC = () => {
       }
     });
 
-    bulkUpdateBets(updatesById);
+    bulkUpdateBets(updatesById, "Bulk Apply");
   }, [selectedRowIds, focusedCell, visibleBets, sportsbooks, bulkUpdateBets]);
 
   // Handle bulk clear fields
@@ -1246,19 +1260,105 @@ const BetTableView: React.FC = () => {
       updatesById[betId] = updates;
     });
 
-    bulkUpdateBets(updatesById);
+    bulkUpdateBets(updatesById, `Clear Fields (${selectedRowIds.size})`);
     setShowClearFieldsModal(false);
     setFieldsToToggle(new Set());
   }, [selectedRowIds, fieldsToToggle, bulkUpdateBets]);
 
+  // Handle delete selected rows
+  const handleDeleteRows = useCallback(() => {
+    let betIdsToDelete: string[] = [];
+
+    if (selectedRowIds.size > 0) {
+      betIdsToDelete = Array.from(selectedRowIds);
+    } else if (focusedCell) {
+      // Delete the row containing the focused cell
+      const row = visibleBets[focusedCell.rowIndex];
+      if (row) {
+        betIdsToDelete = [row.betId];
+      }
+    }
+
+    if (betIdsToDelete.length > 0) {
+      // Set up confirmation
+      setPendingDeleteIds(betIdsToDelete);
+      setShowDeleteConfirm(true);
+    }
+  }, [selectedRowIds, focusedCell, visibleBets]);
+
+  // Confirm delete
+  const handleConfirmDelete = useCallback(() => {
+    if (!pendingDeleteIds || pendingDeleteIds.length === 0) return;
+    
+    // Build a Set for O(1) lookup of delete IDs
+    const deleteIdSet = new Set(pendingDeleteIds);
+    
+    // Find next row to focus after deletion
+    let nextFocusRowIndex = -1;
+    if (focusedCell) {
+      const currentRowBetId = visibleBets[focusedCell.rowIndex]?.betId;
+      if (currentRowBetId && deleteIdSet.has(currentRowBetId)) {
+        // Count deletions before each index for offset calculation
+        let deletedBefore = 0;
+        
+        // Find next row that won't be deleted
+        for (let i = focusedCell.rowIndex + 1; i < visibleBets.length; i++) {
+          if (deleteIdSet.has(visibleBets[i].betId)) {
+            deletedBefore++;
+          } else {
+            // Calculate adjusted index by subtracting deleted rows before this point
+            nextFocusRowIndex = i - deletedBefore - 1; // -1 for the current row being deleted
+            break;
+          }
+        }
+        // If no next row, try previous
+        if (nextFocusRowIndex === -1) {
+          for (let i = focusedCell.rowIndex - 1; i >= 0; i--) {
+            if (!deleteIdSet.has(visibleBets[i].betId)) {
+              nextFocusRowIndex = i;
+              break;
+            }
+          }
+        }
+      }
+    }
+    
+    deleteBets(pendingDeleteIds);
+    setSelectedRowIds(new Set());
+    setPendingDeleteIds(null);
+    setShowDeleteConfirm(false);
+    
+    // Focus nearby row
+    if (nextFocusRowIndex >= 0) {
+      setTimeout(() => {
+        setFocusedCell({ rowIndex: nextFocusRowIndex, columnKey: "site" });
+      }, 50);
+    } else {
+      setFocusedCell(null);
+    }
+  }, [pendingDeleteIds, focusedCell, visibleBets, deleteBets]);
+
+  // Cancel delete
+  const handleCancelDelete = useCallback(() => {
+    setPendingDeleteIds(null);
+    setShowDeleteConfirm(false);
+  }, []);
+
   // Handle add manual bet
-  const handleAddManualBet = useCallback(() => {
-    const newId = createManualBet();
-    // Focus the first editable cell of the new row
+  const handleAddManualBet = useCallback((count: number = 1) => {
+    const newIds: string[] = [];
+    for (let i = 0; i < count; i++) {
+      newIds.push(createManualBet());
+    }
+    // Select all newly created rows and focus first new row's Site cell
+    setSelectedRowIds(new Set(newIds));
+    // Focus the first new row (at bottom after sorting by date ascending)
     setTimeout(() => {
-      setFocusedCell({ rowIndex: 0, columnKey: "site" });
+      // Find the row index of the first new bet
+      const idx = visibleBets.findIndex(b => b.betId === newIds[0]);
+      setFocusedCell({ rowIndex: idx >= 0 ? idx : visibleBets.length - count, columnKey: "site" });
     }, 50);
-  }, [createManualBet]);
+  }, [createManualBet, visibleBets]);
 
   // Keyboard navigation handler
   const handleKeyDown = useCallback(
@@ -1316,7 +1416,14 @@ const BetTableView: React.FC = () => {
       // Handle duplicate (Ctrl+D or Cmd+D)
       if ((e.ctrlKey || e.metaKey) && e.key === "d") {
         e.preventDefault();
-        handleDuplicateRows();
+        handleDuplicateRows(batchCount);
+        return;
+      }
+
+      // Handle undo (Ctrl+Z or Cmd+Z)
+      if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undoLastAction();
         return;
       }
 
@@ -1324,6 +1431,13 @@ const BetTableView: React.FC = () => {
       if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
         e.preventDefault();
         handleBulkApplyValue();
+        return;
+      }
+
+      // Handle delete (Delete or Backspace when not typing in an input)
+      if ((e.key === "Delete" || e.key === "Backspace") && !(target instanceof HTMLInputElement)) {
+        e.preventDefault();
+        handleDeleteRows();
         return;
       }
 
@@ -1384,7 +1498,7 @@ const BetTableView: React.FC = () => {
           break;
       }
     },
-    [focusedCell, navigateToCell, editableColumns, visibleBets.length, handleDuplicateRows, handleBulkApplyValue]
+    [focusedCell, navigateToCell, editableColumns, visibleBets.length, handleDuplicateRows, handleBulkApplyValue, handleDeleteRows, undoLastAction, batchCount]
   );
 
   // Helper: Get cell value as string
@@ -1844,16 +1958,40 @@ const BetTableView: React.FC = () => {
         </div>
       </div>
 
-      {/* Actions row: Add Bet button + Selected row actions */}
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={handleAddManualBet}
-          className="px-3 py-1 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow-sm transition-colors flex items-center gap-1"
-        >
-          <span className="text-lg leading-none">+</span>
-          <span>Add Bet</span>
-        </button>
+      {/* Actions row: Add Bet button + Batch count + Selected row actions + Undo */}
+      <div className="flex items-center gap-3 flex-wrap">
+        {/* Add Bet with batch count */}
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => handleAddManualBet(batchCount)}
+            className="px-3 py-1 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow-sm transition-colors flex items-center gap-1"
+          >
+            <span className="text-lg leading-none">+</span>
+            <span>Add Bet</span>
+          </button>
+          <input
+            type="number"
+            min={1}
+            max={100}
+            value={batchCount}
+            onChange={(e) => setBatchCount(Math.max(1, Math.min(100, parseInt(e.target.value, 10) || 1)))}
+            className="w-12 px-1 py-1 text-xs text-center bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            title="Number of rows to add/duplicate"
+          />
+        </div>
+
+        {/* Undo button */}
+        {canUndo && (
+          <button
+            type="button"
+            onClick={undoLastAction}
+            className="px-2 py-1 text-xs font-medium text-neutral-700 dark:text-neutral-300 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded border border-neutral-300 dark:border-neutral-600 transition-colors"
+            title={`Undo: ${lastUndoLabel || 'Last action'} (Cmd/Ctrl+Z)`}
+          >
+            ↩ Undo{lastUndoLabel ? ` (${lastUndoLabel})` : ''}
+          </button>
+        )}
 
         {selectedRowIds.size > 0 && (
           <>
@@ -1863,11 +2001,11 @@ const BetTableView: React.FC = () => {
             </span>
             <button
               type="button"
-              onClick={handleDuplicateRows}
+              onClick={() => handleDuplicateRows(batchCount)}
               className="px-2 py-1 text-xs font-medium text-neutral-700 dark:text-neutral-300 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded border border-neutral-300 dark:border-neutral-600 transition-colors"
-              title="Duplicate selected rows (Cmd/Ctrl+D)"
+              title={`Duplicate selected rows ×${batchCount} (Cmd/Ctrl+D)`}
             >
-              Duplicate
+              Duplicate{batchCount > 1 ? ` ×${batchCount}` : ''}
             </button>
             <button
               type="button"
@@ -1876,6 +2014,14 @@ const BetTableView: React.FC = () => {
               title="Clear selected fields"
             >
               Clear Fields…
+            </button>
+            <button
+              type="button"
+              onClick={handleDeleteRows}
+              className="px-2 py-1 text-xs font-medium text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 rounded border border-red-300 dark:border-red-700 transition-colors"
+              title="Delete selected rows (Delete/Backspace)"
+            >
+              Delete
             </button>
             <button
               type="button"
@@ -1888,6 +2034,36 @@ const BetTableView: React.FC = () => {
           </>
         )}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && pendingDeleteIds && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-xl p-4 max-w-sm w-full mx-4 border border-neutral-200 dark:border-neutral-700">
+            <h3 className="text-lg font-semibold mb-3 text-neutral-900 dark:text-white">
+              Delete {pendingDeleteIds.length} bet{pendingDeleteIds.length !== 1 ? "s" : ""}?
+            </h3>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">
+              This action can be undone with Cmd/Ctrl+Z.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={handleCancelDelete}
+                className="px-3 py-1.5 text-sm font-medium text-neutral-700 dark:text-neutral-300 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                className="px-3 py-1.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Clear Fields Modal */}
       {showClearFieldsModal && (
