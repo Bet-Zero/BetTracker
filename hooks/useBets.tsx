@@ -21,6 +21,11 @@ import {
   STORAGE_KEY 
 } from "../services/persistence";
 
+interface UndoEntry {
+  actionLabel: string;
+  prevBetsSnapshot: Bet[];
+}
+
 interface BetsContextType {
   bets: Bet[];
   addBets: (newBets: Bet[]) => number;
@@ -29,10 +34,19 @@ interface BetsContextType {
   createManualBet: () => string;
   duplicateBets: (betIds: string[]) => string[];
   bulkUpdateBets: (updatesById: Record<string, Partial<Bet>>) => void;
+  deleteBets: (betIds: string[]) => void;
+  // Undo functionality
+  undoLastAction: () => void;
+  canUndo: boolean;
+  lastUndoLabel: string | undefined;
+  // Snapshot management for external consumers
+  pushUndoSnapshot: (label: string) => void;
   loading: boolean;
 }
 
 const BetsContext = createContext<BetsContextType | undefined>(undefined);
+
+const MAX_UNDO_STACK_SIZE = 20;
 
 export const BetsProvider: React.FC<{ children: ReactNode }> = ({
   children,
@@ -40,6 +54,9 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
   const [bets, setBets] = useState<Bet[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const { addPlayer, addTeam } = useInputs();
+
+  // Undo stack (in-memory only, not persisted)
+  const [undoStack, setUndoStack] = useState<UndoEntry[]>([]);
 
   useEffect(() => {
     // Load state using persistence service
@@ -129,6 +146,39 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
       showStorageError(errorInfo);
     }
   };
+
+  // Push a snapshot onto the undo stack before a destructive action
+  const pushUndoSnapshotInternal = useCallback((label: string, prevBets: Bet[]) => {
+    setUndoStack((prev) => {
+      const newStack = [...prev, { actionLabel: label, prevBetsSnapshot: JSON.parse(JSON.stringify(prevBets)) }];
+      // Limit stack size
+      if (newStack.length > MAX_UNDO_STACK_SIZE) {
+        return newStack.slice(-MAX_UNDO_STACK_SIZE);
+      }
+      return newStack;
+    });
+  }, []);
+
+  // Public pushUndoSnapshot that captures current bets
+  const pushUndoSnapshot = useCallback((label: string) => {
+    pushUndoSnapshotInternal(label, bets);
+  }, [bets, pushUndoSnapshotInternal]);
+
+  // Undo the last action by restoring the previous snapshot
+  const undoLastAction = useCallback(() => {
+    setUndoStack((prev) => {
+      if (prev.length === 0) return prev;
+      const lastEntry = prev[prev.length - 1];
+      // Restore the snapshot
+      saveBets(lastEntry.prevBetsSnapshot);
+      // Return the stack without the last entry
+      return prev.slice(0, -1);
+    });
+  }, []);
+
+  // Computed undo state
+  const canUndo = undoStack.length > 0;
+  const lastUndoLabel = undoStack.length > 0 ? undoStack[undoStack.length - 1].actionLabel : undefined;
 
   const addBets = useCallback(
     (newBets: Bet[]) => {
@@ -263,6 +313,9 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
 
   // Create a new manual bet with safe defaults
   const createManualBet = useCallback((): string => {
+    // Push undo snapshot before the action
+    pushUndoSnapshot("Add Bet");
+    
     // Generate ID once outside the functional update using crypto.randomUUID for uniqueness
     const newId = `manual-${crypto.randomUUID()}`;
     
@@ -286,16 +339,22 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
       if (prevBets.some(b => b.id === newId)) {
         return prevBets;
       }
-      const updatedBets = [newBet, ...prevBets];
+      const updatedBets = [newBet, ...prevBets].sort(
+        (a, b) =>
+          new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime()
+      );
       saveBets(updatedBets);
       return updatedBets;
     });
 
     return newId;
-  }, []);
+  }, [pushUndoSnapshot]);
 
   // Duplicate selected bets with new IDs
   const duplicateBets = useCallback((betIds: string[]): string[] => {
+    // Push undo snapshot before the action
+    pushUndoSnapshot(`Duplicate ${betIds.length}`);
+    
     // Generate new IDs outside the functional update using crypto.randomUUID for uniqueness
     const idMap = new Map<string, string>();
     betIds.forEach((betId) => {
@@ -333,11 +392,15 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
     });
 
     return newIds;
-  }, []);
+  }, [pushUndoSnapshot]);
 
   // Bulk update multiple bets in a single save operation
   const bulkUpdateBets = useCallback(
-    (updatesById: Record<string, Partial<Bet>>) => {
+    (updatesById: Record<string, Partial<Bet>>, actionLabel?: string) => {
+      // Push undo snapshot before the action
+      const count = Object.keys(updatesById).length;
+      pushUndoSnapshot(actionLabel || `Bulk Update ${count}`);
+      
       setBets((prevBets) => {
         const updatedBets = prevBets.map((bet) => {
           const updates = updatesById[bet.id];
@@ -368,8 +431,20 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
         return updatedBets;
       });
     },
-    []
+    [pushUndoSnapshot]
   );
+
+  // Delete bets by ID
+  const deleteBets = useCallback((betIds: string[]) => {
+    // Push undo snapshot before deletion
+    pushUndoSnapshot(`Delete ${betIds.length}`);
+    
+    setBets((prevBets) => {
+      const updatedBets = prevBets.filter((bet) => !betIds.includes(bet.id));
+      saveBets(updatedBets);
+      return updatedBets;
+    });
+  }, [pushUndoSnapshot]);
 
   return (
     <BetsContext.Provider
@@ -381,6 +456,11 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
         createManualBet,
         duplicateBets,
         bulkUpdateBets,
+        deleteBets,
+        undoLastAction,
+        canUndo,
+        lastUndoLabel,
+        pushUndoSnapshot,
         loading,
       }}
     >

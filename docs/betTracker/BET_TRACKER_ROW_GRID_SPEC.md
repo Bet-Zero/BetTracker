@@ -586,9 +586,9 @@ const handlePasteToCreateRows = useCallback(async () => {
 - **Function**: `createManualBet()` in `useBets.tsx`
 - **Behavior**: 
   - Creates a new Bet object with safe defaults
-  - ID format: `manual-{timestamp}-{random}` to avoid collision with imported bets
+  - ID format: `manual-{UUID}` to avoid collision with imported bets
   - Default values: `betType: "single"`, `marketCategory: "Props"`, `result: "pending"`, `stake: 0`, `payout: 0`
-  - Inserts at top of list (newest first)
+  - Appears at bottom of list (ascending sort by date - oldest first)
   - Persists to localStorage immediately
   - Focus moves to first editable cell (Site column) after creation
 
@@ -607,7 +607,7 @@ const handlePasteToCreateRows = useCallback(async () => {
 - **Button**: "Duplicate" button (visible when rows selected)
 - **Behavior**:
   - Duplicates all selected rows (or focused row if none selected)
-  - New IDs: `dup-{timestamp}-{index}-{random}`
+  - New IDs: `dup-{UUID}`
   - Clears `betId` (sportsbook-provided ID)
   - Resets `result` to `"pending"` and `payout` to `0`
   - Sets `placedAt` to current time
@@ -653,8 +653,80 @@ const handlePasteToCreateRows = useCallback(async () => {
 
 ---
 
+## Phase 1.1 Implemented Behavior
+
+**Date Implemented**: 2026-01-07
+
+### New Features Implemented
+
+#### 1. Default Sort Order Changed to Ascending (Oldest First)
+- **Change**: Default sort is now ascending by date (`{ key: "date", direction: "asc" }`)
+- **Result**: Oldest bets appear at top, newest at bottom
+- **New bets**: Appear at the bottom of the list (since they have `placedAt = now`)
+- **Duplicates**: Appear at bottom (same logic - new `placedAt`)
+
+#### 2. Batch Add Bet Count
+- **UI**: Numeric input (1-100) next to the "+ Add Bet" button
+- **Default**: 1
+- **Behavior**: Clicking "+ Add Bet" creates N new manual bets in one operation
+- **After creation**: All new rows selected, focus on Site cell of first new row
+
+#### 3. Batch Duplicate Multiplier
+- **UI**: Same batch count input controls both Add and Duplicate operations
+- **Duplicate button**: Shows "Duplicate ×N" when N > 1
+- **Shortcut**: `Cmd/Ctrl + D` uses current batch count
+- **Behavior**: Duplicates the selected block N times
+- **After duplication**: All new duplicated rows selected, focus on Site cell of first new row
+
+#### 4. Delete Selected Rows
+- **Button**: "Delete" button (red styling) visible when rows are selected
+- **Keyboard**: `Delete` or `Backspace` triggers delete (when not typing in an input)
+- **Confirmation**: Modal appears asking "Delete N bet(s)?" with Cancel/Delete buttons
+- **Behavior**:
+  - Deletes selected rows (or focused row if none selected)
+  - Clears selection after deletion
+  - Focus moves to nearest remaining row (next, or previous if no next)
+- **Function**: `deleteBets(betIds: string[])` in `useBets.tsx`
+
+#### 5. Undo System
+- **Stack**: In-memory undo stack (up to 20 entries), not persisted
+- **Supported actions**: Add Bet, Duplicate, Bulk Apply, Clear Fields, Delete
+- **Snapshot approach**: Each undoable action captures `prevBetsSnapshot` before execution
+- **Functions**:
+  - `pushUndoSnapshot(label: string)` - Capture snapshot before action
+  - `undoLastAction()` - Restore previous snapshot
+  - `canUndo: boolean` - Whether undo is available
+  - `lastUndoLabel: string | undefined` - Label of last action for display
+- **UI**: "↩ Undo (Label)" button appears when undo is available
+- **Keyboard**: `Cmd/Ctrl + Z` triggers undo (when not typing in an input)
+
+### Updated Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `Cmd/Ctrl + D` | Duplicate selected rows ×N (uses batch count) |
+| `Cmd/Ctrl + Enter` | Apply focused cell value to all selected rows |
+| `Cmd/Ctrl + Z` | Undo last action |
+| `Delete` / `Backspace` | Delete selected rows (shows confirmation) |
+
+### UI Changes
+- **Batch count input**: Small numeric input (w-12) next to Add Bet button
+- **Duplicate button**: Shows multiplier when batch count > 1
+- **Delete button**: Red-styled button in action bar when rows selected
+- **Undo button**: Shows "↩ Undo (action label)" when undo is available
+- **Delete confirmation modal**: Simple confirm dialog with Cancel/Delete buttons
+
+### Technical Notes
+- Undo uses deep clone of bets array for snapshot safety
+- Stack limited to 20 entries to prevent memory issues
+- All undoable operations call `pushUndoSnapshot()` before mutation
+- `bulkUpdateBets()` accepts optional `actionLabel` parameter for undo labeling
+
+---
+
 ## Document Metadata
 - **Created**: 2026-01-07
 - **Author**: Copilot Agent (PREFLIGHT Investigation)
 - **Updated**: 2026-01-07 (Phase 1 Implementation)
+- **Updated**: 2026-01-07 (Phase 1.1 Implementation)
 - **Related Files**: BetTableView.tsx, useBets.tsx, useInputs.tsx, types.ts, persistence.ts
