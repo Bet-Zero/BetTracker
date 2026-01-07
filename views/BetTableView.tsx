@@ -1472,14 +1472,14 @@ const BetTableView: React.FC = () => {
       // Handle insert row below (Ctrl+I or Cmd+I) - default insert action
       if ((e.ctrlKey || e.metaKey) && e.key === "i" && !e.shiftKey) {
         e.preventDefault();
-        handleInsertRowAbove();
+        handleInsertRowBelow();
         return;
       }
 
       // Handle insert row above (Ctrl+Shift+I or Cmd+Shift+I)
       if ((e.ctrlKey || e.metaKey) && e.key === "I" && e.shiftKey) {
         e.preventDefault();
-        handleInsertRowBelow();
+        handleInsertRowAbove();
         return;
       }
 
@@ -2409,7 +2409,7 @@ const BetTableView: React.FC = () => {
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleInsertRowBelow();
+                                handleInsertRowAbove();
                               }}
                               className="w-5 h-4 flex items-center justify-center text-[10px] font-bold text-neutral-600 dark:text-neutral-400 bg-white dark:bg-neutral-800 hover:bg-blue-100 dark:hover:bg-blue-900/50 hover:text-blue-600 dark:hover:text-blue-400 rounded border border-neutral-300 dark:border-neutral-600 shadow-sm transition-colors"
                               title="Insert row above (⌘/Ctrl+Shift+I)"
@@ -2420,7 +2420,7 @@ const BetTableView: React.FC = () => {
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleInsertRowAbove();
+                                handleInsertRowBelow();
                               }}
                               className="w-5 h-4 flex items-center justify-center text-[10px] font-bold text-neutral-600 dark:text-neutral-400 bg-white dark:bg-neutral-800 hover:bg-blue-100 dark:hover:bg-blue-900/50 hover:text-blue-600 dark:hover:text-blue-400 rounded border border-neutral-300 dark:border-neutral-600 shadow-sm transition-colors"
                               title="Insert row below (⌘/Ctrl+I)"

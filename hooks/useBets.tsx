@@ -20,6 +20,7 @@ import {
   STORAGE_VERSION, 
   STORAGE_KEY 
 } from "../services/persistence";
+import { ImportError } from "../services/errors";
 
 interface UndoEntry {
   actionLabel: string;
@@ -69,13 +70,14 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
         
         if (!result.ok) {
           // Handle errors (including corruption which triggers a backup)
-          console.error("Failed to load bets:", result.error);
+          const error = (result as { ok: false; error: ImportError }).error;
+          console.error("Failed to load bets:", error);
           setBets([]); // Start clean (default state)
           
           // Show user-friendly error
           showStorageError({
-            message: result.error.message,
-            suggestion: result.error.code === 'STORAGE_CORRUPTED' 
+            message: error.message,
+            suggestion: error.code === 'STORAGE_CORRUPTED' 
               ? 'Your previous data was corrupted and has been backed up. The application has been reset to a clean state.' 
               : 'Please check your browser console for details.'
           });
@@ -145,7 +147,8 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
     setBets(updatedBets);
 
     if (!result.ok) {
-      const errorInfo = handleStorageError(result.error.details || result.error.message, 'save');
+      const error = (result as { ok: false; error: ImportError }).error;
+      const errorInfo = handleStorageError(error.details || error.message, 'save');
       showStorageError(errorInfo);
     }
   };
@@ -420,7 +423,7 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
       
       // Sort bets by date to find neighbors
       const sortedBets = [...prevBets].sort(
-        (a, b) => new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime()
+        (a, b) => new Date(a.placedAt).getTime() - new Date(b.placedAt).getTime()
       );
       const sortedRefIndex = sortedBets.findIndex(b => b.id === referenceBetId);
       
@@ -430,7 +433,7 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
       let newTimestamp: number;
       
       if (position === 'above') {
-        // Insert above = newer timestamp (appears before in sorted list)
+        // Insert above = older timestamp (appears before in ascending sorted list)
         // Find the bet that's currently above (index - 1 in sorted array)
         const aboveBet = sortedRefIndex > 0 ? sortedBets[sortedRefIndex - 1] : null;
         if (aboveBet) {
@@ -438,11 +441,11 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
           // Place timestamp halfway between
           newTimestamp = Math.floor((refTime + aboveTime) / 2);
         } else {
-          // No bet above, use 1 second after reference
-          newTimestamp = refTime + 1000;
+          // No bet above, use 1 second before reference
+          newTimestamp = refTime - 1000;
         }
       } else {
-        // Insert below = older timestamp (appears after in sorted list)
+        // Insert below = newer timestamp (appears after in ascending sorted list)
         // Find the bet that's currently below (index + 1 in sorted array)
         const belowBet = sortedRefIndex < sortedBets.length - 1 ? sortedBets[sortedRefIndex + 1] : null;
         if (belowBet) {
@@ -450,8 +453,8 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
           // Place timestamp halfway between
           newTimestamp = Math.floor((refTime + belowTime) / 2);
         } else {
-          // No bet below, use 1 second before reference
-          newTimestamp = refTime - 1000;
+          // No bet below, use 1 second after reference
+          newTimestamp = refTime + 1000;
         }
       }
       
@@ -478,7 +481,7 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
       insertedId = newId;
       
       const updatedBets = [...prevBets, newBet].sort(
-        (a, b) => new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime()
+        (a, b) => new Date(a.placedAt).getTime() - new Date(b.placedAt).getTime()
       );
       saveBets(updatedBets);
       return updatedBets;
