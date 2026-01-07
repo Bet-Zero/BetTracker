@@ -1290,24 +1290,31 @@ const BetTableView: React.FC = () => {
   const handleConfirmDelete = useCallback(() => {
     if (!pendingDeleteIds || pendingDeleteIds.length === 0) return;
     
+    // Build a Set for O(1) lookup of delete IDs
+    const deleteIdSet = new Set(pendingDeleteIds);
+    
     // Find next row to focus after deletion
     let nextFocusRowIndex = -1;
     if (focusedCell) {
       const currentRowBetId = visibleBets[focusedCell.rowIndex]?.betId;
-      if (currentRowBetId && pendingDeleteIds.includes(currentRowBetId)) {
+      if (currentRowBetId && deleteIdSet.has(currentRowBetId)) {
+        // Count deletions before each index for offset calculation
+        let deletedBefore = 0;
+        
         // Find next row that won't be deleted
         for (let i = focusedCell.rowIndex + 1; i < visibleBets.length; i++) {
-          if (!pendingDeleteIds.includes(visibleBets[i].betId)) {
-            nextFocusRowIndex = i - pendingDeleteIds.filter((id) => 
-              visibleBets.findIndex(b => b.betId === id) < i
-            ).length;
+          if (deleteIdSet.has(visibleBets[i].betId)) {
+            deletedBefore++;
+          } else {
+            // Calculate adjusted index by subtracting deleted rows before this point
+            nextFocusRowIndex = i - deletedBefore - 1; // -1 for the current row being deleted
             break;
           }
         }
         // If no next row, try previous
         if (nextFocusRowIndex === -1) {
           for (let i = focusedCell.rowIndex - 1; i >= 0; i--) {
-            if (!pendingDeleteIds.includes(visibleBets[i].betId)) {
+            if (!deleteIdSet.has(visibleBets[i].betId)) {
               nextFocusRowIndex = i;
               break;
             }
@@ -1968,7 +1975,7 @@ const BetTableView: React.FC = () => {
             min={1}
             max={100}
             value={batchCount}
-            onChange={(e) => setBatchCount(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
+            onChange={(e) => setBatchCount(Math.max(1, Math.min(100, parseInt(e.target.value, 10) || 1)))}
             className="w-12 px-1 py-1 text-xs text-center bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
             title="Number of rows to add/duplicate"
           />

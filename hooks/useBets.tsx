@@ -150,7 +150,12 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
   // Push a snapshot onto the undo stack before a destructive action
   const pushUndoSnapshotInternal = useCallback((label: string, prevBets: Bet[]) => {
     setUndoStack((prev) => {
-      const newStack = [...prev, { actionLabel: label, prevBetsSnapshot: JSON.parse(JSON.stringify(prevBets)) }];
+      // Use structuredClone for safe deep cloning (modern browsers)
+      // Falls back to JSON parse/stringify for older environments
+      const snapshot = typeof structuredClone === 'function' 
+        ? structuredClone(prevBets) 
+        : JSON.parse(JSON.stringify(prevBets));
+      const newStack = [...prev, { actionLabel: label, prevBetsSnapshot: snapshot }];
       // Limit stack size
       if (newStack.length > MAX_UNDO_STACK_SIZE) {
         return newStack.slice(-MAX_UNDO_STACK_SIZE);
