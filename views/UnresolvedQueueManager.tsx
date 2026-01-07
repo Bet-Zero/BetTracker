@@ -486,7 +486,7 @@ const UnresolvedQueueManager: React.FC<UnresolvedQueueManagerProps> = ({
   }
 
   return (
-    <div className="space-y-4 p-6">
+    <div className="h-full flex flex-col space-y-4 p-6">
       {/* Filter Toolbar - Card style */}
       <div className="bg-neutral-50 dark:bg-neutral-800 rounded-lg p-4 border border-neutral-200 dark:border-neutral-700">
         <div className="flex flex-wrap gap-4 items-center">
@@ -544,8 +544,8 @@ const UnresolvedQueueManager: React.FC<UnresolvedQueueManagerProps> = ({
       </div>
 
       {/* Grouped Queue List - Card container */}
-      <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-700 shadow-md overflow-hidden">
-        <div className="max-h-[600px] overflow-y-auto p-2">
+      <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-700 shadow-md overflow-hidden flex-1 flex flex-col min-h-0">
+        <div className="flex-1 overflow-y-auto p-2">
         <table className="w-full text-sm">
           <thead className="bg-neutral-50 dark:bg-neutral-800 sticky top-0">
             <tr className="text-left text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wide">
