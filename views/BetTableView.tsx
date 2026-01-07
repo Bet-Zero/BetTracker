@@ -25,7 +25,7 @@ import { useDebouncedValue } from "../hooks/useDebouncedValue";
 
 // --- Fixed column widths (deterministic spreadsheet layout) ---
 const COL_W: Record<string, string> = {
-  rowSelector: "2.5ch", // Row selection column
+  rowSelector: "1.5ch", // Row selection column (narrow)
   date: "5ch",
   site: "4ch",
   sport: "5ch",
@@ -1111,12 +1111,19 @@ const BetTableView: React.FC = () => {
         });
         setRowSelectionAnchorId(betId);
       } else {
-        // Regular click: single selection
-        setSelectedRowIds(new Set([betId]));
-        setRowSelectionAnchorId(betId);
+        // Regular click: toggle if already selected, otherwise select
+        if (selectedRowIds.has(betId) && selectedRowIds.size === 1) {
+          // Clicking on the only selected row deselects it
+          setSelectedRowIds(new Set());
+          setRowSelectionAnchorId(null);
+        } else {
+          // Select only this row
+          setSelectedRowIds(new Set([betId]));
+          setRowSelectionAnchorId(betId);
+        }
       }
     },
-    [rowSelectionAnchorId, visibleBets]
+    [rowSelectionAnchorId, visibleBets, selectedRowIds]
   );
 
   // Handle duplicate rows (Cmd/Ctrl+D)
@@ -1465,14 +1472,14 @@ const BetTableView: React.FC = () => {
       // Handle insert row below (Ctrl+I or Cmd+I) - default insert action
       if ((e.ctrlKey || e.metaKey) && e.key === "i" && !e.shiftKey) {
         e.preventDefault();
-        handleInsertRowBelow();
+        handleInsertRowAbove();
         return;
       }
 
       // Handle insert row above (Ctrl+Shift+I or Cmd+Shift+I)
       if ((e.ctrlKey || e.metaKey) && e.key === "I" && e.shiftKey) {
         e.preventDefault();
-        handleInsertRowAbove();
+        handleInsertRowBelow();
         return;
       }
 
@@ -2393,7 +2400,34 @@ const BetTableView: React.FC = () => {
                         {rowIsSelected ? (
                           <span className="text-blue-600 dark:text-blue-400 text-xs">✓</span>
                         ) : (
-                          <span className="text-neutral-300 dark:text-neutral-600 text-xs opacity-0 hover:opacity-100">◦</span>
+                          <span className="text-neutral-300 dark:text-neutral-600 text-xs opacity-0 group-hover:opacity-100">◦</span>
+                        )}
+                        {/* Insert buttons - appear on hover when row is selected */}
+                        {rowIsSelected && (
+                          <div className="absolute left-full top-1/2 -translate-y-1/2 ml-1 flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleInsertRowBelow();
+                              }}
+                              className="w-5 h-4 flex items-center justify-center text-[10px] font-bold text-neutral-600 dark:text-neutral-400 bg-white dark:bg-neutral-800 hover:bg-blue-100 dark:hover:bg-blue-900/50 hover:text-blue-600 dark:hover:text-blue-400 rounded border border-neutral-300 dark:border-neutral-600 shadow-sm transition-colors"
+                              title="Insert row above (⌘/Ctrl+Shift+I)"
+                            >
+                              ↑
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleInsertRowAbove();
+                              }}
+                              className="w-5 h-4 flex items-center justify-center text-[10px] font-bold text-neutral-600 dark:text-neutral-400 bg-white dark:bg-neutral-800 hover:bg-blue-100 dark:hover:bg-blue-900/50 hover:text-blue-600 dark:hover:text-blue-400 rounded border border-neutral-300 dark:border-neutral-600 shadow-sm transition-colors"
+                              title="Insert row below (⌘/Ctrl+I)"
+                            >
+                              ↓
+                            </button>
+                          </div>
                         )}
                       </td>
                       <td
