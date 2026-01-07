@@ -32,7 +32,10 @@ interface BetsContextType {
   updateBet: (betId: string, updates: Partial<Bet>) => void;
   clearBets: () => void;
   createManualBet: () => string;
+  batchCreateManualBets: (count: number) => string[];
+  insertBetAt: (referenceBetId: string, position: 'above' | 'below') => string | null;
   duplicateBets: (betIds: string[]) => string[];
+  batchDuplicateBets: (betIds: string[], multiplier: number) => string[];
   bulkUpdateBets: (updatesById: Record<string, Partial<Bet>>) => void;
   deleteBets: (betIds: string[]) => void;
   // Undo functionality
@@ -355,7 +358,135 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
     return newId;
   }, [pushUndoSnapshot]);
 
-  // Duplicate selected bets with new IDs
+  // Batch create multiple manual bets with a single undo entry
+  const batchCreateManualBets = useCallback((count: number): string[] => {
+    pushUndoSnapshot(`Add ${count} Bet${count > 1 ? 's' : ''}`);
+    
+    const newIds: string[] = [];
+    
+    setBets((prevBets) => {
+      const newBets: Bet[] = [];
+      
+      for (let i = 0; i < count; i++) {
+        const newId = `manual-${crypto.randomUUID()}`;
+        
+        if (prevBets.some(b => b.id === newId) || newBets.some(b => b.id === newId)) {
+          continue;
+        }
+        
+        newIds.push(newId);
+        newBets.push({
+          id: newId,
+          book: "",
+          betId: "",
+          placedAt: new Date().toISOString(),
+          betType: "single",
+          marketCategory: "Props",
+          sport: "",
+          description: "",
+          stake: 0,
+          payout: 0,
+          result: "pending",
+          legs: [],
+        });
+      }
+      
+      const updatedBets = [...newBets, ...prevBets].sort(
+        (a, b) =>
+          new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime()
+      );
+      saveBets(updatedBets);
+      return updatedBets;
+    });
+    
+    return newIds;
+  }, [pushUndoSnapshot]);
+
+  // Insert a new bet above or below an existing bet
+  const insertBetAt = useCallback((referenceBetId: string, position: 'above' | 'below'): string | null => {
+    // Push undo snapshot before the action
+    pushUndoSnapshot(`Insert Bet ${position === 'above' ? 'Above' : 'Below'}`);
+    
+    const newId = `manual-${crypto.randomUUID()}`;
+    let insertedId: string | null = null;
+    
+    setBets((prevBets) => {
+      // Find the reference bet
+      const refIndex = prevBets.findIndex(b => b.id === referenceBetId);
+      if (refIndex === -1) {
+        console.warn(`Reference bet ${referenceBetId} not found`);
+        return prevBets;
+      }
+      
+      // Sort bets by date to find neighbors
+      const sortedBets = [...prevBets].sort(
+        (a, b) => new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime()
+      );
+      const sortedRefIndex = sortedBets.findIndex(b => b.id === referenceBetId);
+      
+      const refBet = sortedBets[sortedRefIndex];
+      const refTime = new Date(refBet.placedAt).getTime();
+      
+      let newTimestamp: number;
+      
+      if (position === 'above') {
+        // Insert above = newer timestamp (appears before in sorted list)
+        // Find the bet that's currently above (index - 1 in sorted array)
+        const aboveBet = sortedRefIndex > 0 ? sortedBets[sortedRefIndex - 1] : null;
+        if (aboveBet) {
+          const aboveTime = new Date(aboveBet.placedAt).getTime();
+          // Place timestamp halfway between
+          newTimestamp = Math.floor((refTime + aboveTime) / 2);
+        } else {
+          // No bet above, use 1 second after reference
+          newTimestamp = refTime + 1000;
+        }
+      } else {
+        // Insert below = older timestamp (appears after in sorted list)
+        // Find the bet that's currently below (index + 1 in sorted array)
+        const belowBet = sortedRefIndex < sortedBets.length - 1 ? sortedBets[sortedRefIndex + 1] : null;
+        if (belowBet) {
+          const belowTime = new Date(belowBet.placedAt).getTime();
+          // Place timestamp halfway between
+          newTimestamp = Math.floor((refTime + belowTime) / 2);
+        } else {
+          // No bet below, use 1 second before reference
+          newTimestamp = refTime - 1000;
+        }
+      }
+      
+      // Check for dedup (StrictMode)
+      if (prevBets.some(b => b.id === newId)) {
+        return prevBets;
+      }
+      
+      const newBet: Bet = {
+        id: newId,
+        book: "",
+        betId: "",
+        placedAt: new Date(newTimestamp).toISOString(),
+        betType: "single",
+        marketCategory: "Props",
+        sport: "",
+        description: "",
+        stake: 0,
+        payout: 0,
+        result: "pending",
+        legs: [],
+      };
+      
+      insertedId = newId;
+      
+      const updatedBets = [...prevBets, newBet].sort(
+        (a, b) => new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime()
+      );
+      saveBets(updatedBets);
+      return updatedBets;
+    });
+    
+    return insertedId || newId;
+  }, [pushUndoSnapshot]);
+
   const duplicateBets = useCallback((betIds: string[]): string[] => {
     // Push undo snapshot before the action
     pushUndoSnapshot(`Duplicate ${betIds.length}`);
@@ -397,6 +528,50 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
     });
 
     return newIds;
+  }, [pushUndoSnapshot]);
+
+  // Batch duplicate bets with a single undo entry
+  const batchDuplicateBets = useCallback((betIds: string[], multiplier: number): string[] => {
+    const label = multiplier > 1 
+      ? `Duplicate ${betIds.length} Bet${betIds.length > 1 ? 's' : ''} ×${multiplier}`
+      : `Duplicate ${betIds.length} Bet${betIds.length > 1 ? 's' : ''}`;
+    
+    pushUndoSnapshot(label);
+    
+    const allNewIds: string[] = [];
+    
+    setBets((prevBets) => {
+      const targetBets = betIds.map(id => prevBets.find(b => b.id === id)).filter((b): b is Bet => !!b);
+      if (targetBets.length === 0) return prevBets;
+      
+      const newBets: Bet[] = [];
+      
+      for (let m = 0; m < multiplier; m++) {
+        for (const bet of targetBets) {
+          const newId = `manual-${crypto.randomUUID()}`;
+          
+          if (prevBets.some(b => b.id === newId) || newBets.some(b => b.id === newId)) {
+            continue;
+          }
+          
+          allNewIds.push(newId);
+          newBets.push({
+            ...bet,
+            id: newId,
+            placedAt: new Date().toISOString(),
+          });
+        }
+      }
+      
+      const updatedBets = [...newBets, ...prevBets].sort(
+        (a, b) =>
+          new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime()
+      );
+      saveBets(updatedBets);
+      return updatedBets;
+    });
+    
+    return allNewIds;
   }, [pushUndoSnapshot]);
 
   // Bulk update multiple bets in a single save operation
@@ -459,7 +634,10 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
         updateBet,
         clearBets,
         createManualBet,
+        batchCreateManualBets,
+        insertBetAt,
         duplicateBets,
+        batchDuplicateBets,
         bulkUpdateBets,
         deleteBets,
         undoLastAction,

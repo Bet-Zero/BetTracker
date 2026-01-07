@@ -472,8 +472,9 @@ const OUCell: React.FC<{
   );
 };
 
+
 const BetTableView: React.FC = () => {
-  const { bets, loading, updateBet, createManualBet, duplicateBets, bulkUpdateBets, deleteBets, undoLastAction, canUndo, lastUndoLabel, pushUndoSnapshot } = useBets();
+  const { bets, loading, updateBet, createManualBet, batchCreateManualBets, insertBetAt, duplicateBets, batchDuplicateBets, bulkUpdateBets, deleteBets, undoLastAction, canUndo, lastUndoLabel, pushUndoSnapshot } = useBets();
   const {
     sportsbooks,
     sports,
@@ -1120,38 +1121,23 @@ const BetTableView: React.FC = () => {
 
   // Handle duplicate rows (Cmd/Ctrl+D)
   const handleDuplicateRows = useCallback((multiplier: number = 1) => {
-    let betIdsToDuplicate: string[] = [];
-
-    if (selectedRowIds.size > 0) {
-      // Duplicate selected rows
-      betIdsToDuplicate = Array.from(selectedRowIds);
-    } else if (focusedCell) {
-      // Duplicate the row containing the focused cell
-      const row = visibleBets[focusedCell.rowIndex];
-      if (row) {
-        betIdsToDuplicate = [row.betId];
-      }
-    }
-
-    if (betIdsToDuplicate.length > 0) {
-      // Duplicate the block N times (multiplier)
-      const allNewIds: string[] = [];
-      for (let i = 0; i < multiplier; i++) {
-        const newIds = duplicateBets(betIdsToDuplicate);
-        allNewIds.push(...newIds);
-      }
-      // Select the newly created rows
-      setSelectedRowIds(new Set(allNewIds));
-      // Focus the first editable cell of the first duplicated row (at bottom)
-      if (allNewIds.length > 0) {
-        setTimeout(() => {
-          // Find the first new row
-          const idx = visibleBets.findIndex(b => allNewIds.includes(b.betId));
-          setFocusedCell({ rowIndex: idx >= 0 ? idx : visibleBets.length - allNewIds.length, columnKey: "site" });
-        }, 50);
-      }
-    }
-  }, [selectedRowIds, focusedCell, visibleBets, duplicateBets]);
+    const idsToClone = selectedRowIds.size > 0 
+      ? Array.from(selectedRowIds) 
+      : focusedCell ? [visibleBets[focusedCell.rowIndex]?.betId].filter(Boolean) 
+      : [];
+    
+    if (idsToClone.length === 0) return;
+    
+    const newIds = multiplier === 1
+      ? duplicateBets(idsToClone)
+      : batchDuplicateBets(idsToClone, multiplier);
+    
+    setSelectedRowIds(new Set(newIds));
+    setTimeout(() => {
+      const idx = visibleBets.findIndex(b => b.betId === newIds[0]);
+      setFocusedCell({ rowIndex: idx >= 0 ? idx : 0, columnKey: "site" });
+    }, 50);
+  }, [selectedRowIds, focusedCell, visibleBets, duplicateBets, batchDuplicateBets]);
 
   // Handle bulk apply value (Cmd/Ctrl+Enter)
   const handleBulkApplyValue = useCallback(() => {
@@ -1346,21 +1332,70 @@ const BetTableView: React.FC = () => {
 
   // Handle add manual bet
   const handleAddManualBet = useCallback((count: number = 1) => {
-    const newIds: string[] = [];
-    for (let i = 0; i < count; i++) {
-      newIds.push(createManualBet());
-    }
-    // Select all newly created rows and focus first new row's Site cell
+    const newIds = count === 1 
+      ? [createManualBet()]
+      : batchCreateManualBets(count);
+    
     setSelectedRowIds(new Set(newIds));
-    // Focus the first new row (at bottom after sorting by date ascending)
     setTimeout(() => {
-      // Find the row index of the first new bet
       const idx = visibleBets.findIndex(b => b.betId === newIds[0]);
       setFocusedCell({ rowIndex: idx >= 0 ? idx : visibleBets.length - count, columnKey: "site" });
     }, 50);
-  }, [createManualBet, visibleBets]);
+  }, [createManualBet, batchCreateManualBets, visibleBets]);
 
-  // Keyboard navigation handler
+  // Handle insert row above selected/focused row
+  const handleInsertRowAbove = useCallback(() => {
+    // Get reference bet ID from selection or focused cell
+    let referenceBetId: string | null = null;
+    
+    if (selectedRowIds.size > 0) {
+      // Use first selected row
+      referenceBetId = Array.from(selectedRowIds)[0];
+    } else if (focusedCell) {
+      const row = visibleBets[focusedCell.rowIndex];
+      if (row) referenceBetId = row.betId;
+    }
+    
+    if (!referenceBetId) return;
+    
+    const newId = insertBetAt(referenceBetId, 'above');
+    if (newId) {
+      setSelectedRowIds(new Set([newId]));
+      setTimeout(() => {
+        const idx = visibleBets.findIndex(b => b.betId === newId);
+        // New row should appear at the current focused row's position (pushing old row down)
+        setFocusedCell({ rowIndex: idx >= 0 ? idx : 0, columnKey: "site" });
+      }, 50);
+    }
+  }, [selectedRowIds, focusedCell, visibleBets, insertBetAt]);
+
+  // Handle insert row below selected/focused row
+  const handleInsertRowBelow = useCallback(() => {
+    // Get reference bet ID from selection or focused cell
+    let referenceBetId: string | null = null;
+    
+    if (selectedRowIds.size > 0) {
+      // Use last selected row (to insert after the selection)
+      const selectedArray = Array.from(selectedRowIds);
+      referenceBetId = selectedArray[selectedArray.length - 1];
+    } else if (focusedCell) {
+      const row = visibleBets[focusedCell.rowIndex];
+      if (row) referenceBetId = row.betId;
+    }
+    
+    if (!referenceBetId) return;
+    
+    const newId = insertBetAt(referenceBetId, 'below');
+    if (newId) {
+      setSelectedRowIds(new Set([newId]));
+      setTimeout(() => {
+        const idx = visibleBets.findIndex(b => b.betId === newId);
+        // Focus the newly inserted row
+        setFocusedCell({ rowIndex: idx >= 0 ? idx : 0, columnKey: "site" });
+      }, 50);
+    }
+  }, [selectedRowIds, focusedCell, visibleBets, insertBetAt]);
+
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       // Don't handle if user is typing in an input/textarea
@@ -1424,6 +1459,20 @@ const BetTableView: React.FC = () => {
       if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
         e.preventDefault();
         undoLastAction();
+        return;
+      }
+
+      // Handle insert row below (Ctrl+I or Cmd+I) - default insert action
+      if ((e.ctrlKey || e.metaKey) && e.key === "i" && !e.shiftKey) {
+        e.preventDefault();
+        handleInsertRowBelow();
+        return;
+      }
+
+      // Handle insert row above (Ctrl+Shift+I or Cmd+Shift+I)
+      if ((e.ctrlKey || e.metaKey) && e.key === "I" && e.shiftKey) {
+        e.preventDefault();
+        handleInsertRowAbove();
         return;
       }
 
@@ -1498,7 +1547,7 @@ const BetTableView: React.FC = () => {
           break;
       }
     },
-    [focusedCell, navigateToCell, editableColumns, visibleBets.length, handleDuplicateRows, handleBulkApplyValue, handleDeleteRows, undoLastAction, batchCount]
+    [focusedCell, navigateToCell, editableColumns, visibleBets.length, handleDuplicateRows, handleBulkApplyValue, handleDeleteRows, undoLastAction, batchCount, handleInsertRowAbove, handleInsertRowBelow]
   );
 
   // Helper: Get cell value as string
@@ -2319,16 +2368,43 @@ const BetTableView: React.FC = () => {
                         row._isParlayHeader ? "font-semibold" : ""
                       } ${rowIsSelected ? "!bg-blue-100 dark:!bg-blue-900/30" : ""}`}
                     >
-                      {/* Row selector cell */}
+                      {/* Row selector cell with insert buttons */}
                       <td
-                        className="px-0.5 py-0.5 text-center border-r border-neutral-300 dark:border-neutral-700 cursor-pointer select-none hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                        className="px-0.5 py-0.5 text-center border-r border-neutral-300 dark:border-neutral-700 cursor-pointer select-none hover:bg-blue-50 dark:hover:bg-blue-900/20 relative group"
                         onClick={(e) => handleRowSelectorClick(row.betId, rowIndex, e)}
                         title={rowIsSelected ? "Click to deselect (Cmd/Ctrl+click to toggle)" : "Click to select (Shift+click for range)"}
                       >
                         {rowIsSelected ? (
                           <span className="text-blue-600 dark:text-blue-400 text-xs">✓</span>
                         ) : (
-                          <span className="text-neutral-300 dark:text-neutral-600 text-xs opacity-0 hover:opacity-100">◦</span>
+                          <span className="text-neutral-300 dark:text-neutral-600 text-xs opacity-0 group-hover:opacity-100">◦</span>
+                        )}
+                        {/* Insert buttons - appear on hover when row is selected */}
+                        {rowIsSelected && (
+                          <div className="absolute left-full top-1/2 -translate-y-1/2 ml-1 flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleInsertRowAbove();
+                              }}
+                              className="w-5 h-4 flex items-center justify-center text-[10px] font-bold text-neutral-600 dark:text-neutral-400 bg-white dark:bg-neutral-800 hover:bg-blue-100 dark:hover:bg-blue-900/50 hover:text-blue-600 dark:hover:text-blue-400 rounded border border-neutral-300 dark:border-neutral-600 shadow-sm transition-colors"
+                              title="Insert row above (⌘/Ctrl+Shift+I)"
+                            >
+                              ↑
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleInsertRowBelow();
+                              }}
+                              className="w-5 h-4 flex items-center justify-center text-[10px] font-bold text-neutral-600 dark:text-neutral-400 bg-white dark:bg-neutral-800 hover:bg-blue-100 dark:hover:bg-blue-900/50 hover:text-blue-600 dark:hover:text-blue-400 rounded border border-neutral-300 dark:border-neutral-600 shadow-sm transition-colors"
+                              title="Insert row below (⌘/Ctrl+I)"
+                            >
+                              ↓
+                            </button>
+                          </div>
                         )}
                       </td>
                       <td
