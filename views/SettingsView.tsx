@@ -241,8 +241,6 @@ const SettingsView: React.FC<SettingsViewProps> = ({ theme, toggleTheme }) => {
   };
 
   const handleClearDataConfirm = () => {
-    console.log("handleClearDataConfirm called");
-    
     if (!clearBets) {
       console.error("ERROR: clearBets is not defined!");
       alert("Error: clearBets function is not available. Check console for details.");
@@ -251,24 +249,20 @@ const SettingsView: React.FC<SettingsViewProps> = ({ theme, toggleTheme }) => {
     }
     
     const betCountBefore = bets.length;
-    console.log("Clearing bets...", betCountBefore);
     
     try {
       clearBets();
-      console.log("clearBets() called successfully");
       setShowClearConfirm(false);
       
       // Wait a moment then verify
       setTimeout(() => {
         const storedBets = localStorage.getItem("bettracker-bets");
-        console.log("localStorage after clear:", storedBets);
         
         if (storedBets) {
           const remainingCount = JSON.parse(storedBets).length;
           console.error("ERROR: localStorage still contains bets after clear!", remainingCount);
           setNotification({ message: `Error: Failed to clear bets. ${remainingCount} bets still in storage.`, type: 'error' });
         } else {
-          console.log(`✅ Successfully cleared ${betCountBefore} bets`);
           setNotification({ message: `Success! All ${betCountBefore} bet(s) have been cleared.`, type: 'success' });
         }
       }, 100);
@@ -465,6 +459,27 @@ const SettingsView: React.FC<SettingsViewProps> = ({ theme, toggleTheme }) => {
           </div>
         </div>
       )}
+
+      {/* Footer */}
+      <footer className="pt-6 border-t border-neutral-200 dark:border-neutral-800 text-center text-sm text-neutral-500 dark:text-neutral-400">
+        <a
+          href="https://github.com/Bet-Zero/BetTracker/blob/main/PRIVACY.md"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:text-primary-500 underline"
+        >
+          Privacy Policy
+        </a>
+        {' | '}
+        <a
+          href="https://github.com/Bet-Zero/BetTracker/blob/main/LICENSE"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:text-primary-500 underline"
+        >
+          License
+        </a>
+      </footer>
     </div>
   );
 };
