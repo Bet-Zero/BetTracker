@@ -2050,6 +2050,22 @@ const BetTableView: React.FC = () => {
             </span>
             <button
               type="button"
+              onClick={handleInsertRowAbove}
+              className="px-2 py-1 text-xs font-medium text-neutral-700 dark:text-neutral-300 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded border border-neutral-300 dark:border-neutral-600 transition-colors"
+              title="Insert row above (Cmd/Ctrl+Shift+I)"
+            >
+              ↑ Insert Above
+            </button>
+            <button
+              type="button"
+              onClick={handleInsertRowBelow}
+              className="px-2 py-1 text-xs font-medium text-neutral-700 dark:text-neutral-300 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded border border-neutral-300 dark:border-neutral-600 transition-colors"
+              title="Insert row below (Cmd/Ctrl+I)"
+            >
+              ↓ Insert Below
+            </button>
+            <button
+              type="button"
               onClick={() => handleDuplicateRows(batchCount)}
               className="px-2 py-1 text-xs font-medium text-neutral-700 dark:text-neutral-300 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded border border-neutral-300 dark:border-neutral-600 transition-colors"
               title={`Duplicate selected rows ×${batchCount} (Cmd/Ctrl+D)`}
@@ -2368,43 +2384,16 @@ const BetTableView: React.FC = () => {
                         row._isParlayHeader ? "font-semibold" : ""
                       } ${rowIsSelected ? "!bg-blue-100 dark:!bg-blue-900/30" : ""}`}
                     >
-                      {/* Row selector cell with insert buttons */}
+                      {/* Row selector cell */}
                       <td
-                        className="px-0.5 py-0.5 text-center border-r border-neutral-300 dark:border-neutral-700 cursor-pointer select-none hover:bg-blue-50 dark:hover:bg-blue-900/20 relative group"
+                        className="px-0.5 py-0.5 text-center border-r border-neutral-300 dark:border-neutral-700 cursor-pointer select-none hover:bg-blue-50 dark:hover:bg-blue-900/20"
                         onClick={(e) => handleRowSelectorClick(row.betId, rowIndex, e)}
                         title={rowIsSelected ? "Click to deselect (Cmd/Ctrl+click to toggle)" : "Click to select (Shift+click for range)"}
                       >
                         {rowIsSelected ? (
                           <span className="text-blue-600 dark:text-blue-400 text-xs">✓</span>
                         ) : (
-                          <span className="text-neutral-300 dark:text-neutral-600 text-xs opacity-0 group-hover:opacity-100">◦</span>
-                        )}
-                        {/* Insert buttons - appear on hover when row is selected */}
-                        {rowIsSelected && (
-                          <div className="absolute left-full top-1/2 -translate-y-1/2 ml-1 flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleInsertRowAbove();
-                              }}
-                              className="w-5 h-4 flex items-center justify-center text-[10px] font-bold text-neutral-600 dark:text-neutral-400 bg-white dark:bg-neutral-800 hover:bg-blue-100 dark:hover:bg-blue-900/50 hover:text-blue-600 dark:hover:text-blue-400 rounded border border-neutral-300 dark:border-neutral-600 shadow-sm transition-colors"
-                              title="Insert row above (⌘/Ctrl+Shift+I)"
-                            >
-                              ↑
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleInsertRowBelow();
-                              }}
-                              className="w-5 h-4 flex items-center justify-center text-[10px] font-bold text-neutral-600 dark:text-neutral-400 bg-white dark:bg-neutral-800 hover:bg-blue-100 dark:hover:bg-blue-900/50 hover:text-blue-600 dark:hover:text-blue-400 rounded border border-neutral-300 dark:border-neutral-600 shadow-sm transition-colors"
-                              title="Insert row below (⌘/Ctrl+I)"
-                            >
-                              ↓
-                            </button>
-                          </div>
+                          <span className="text-neutral-300 dark:text-neutral-600 text-xs opacity-0 hover:opacity-100">◦</span>
                         )}
                       </td>
                       <td
