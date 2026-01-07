@@ -575,7 +575,86 @@ const handlePasteToCreateRows = useCallback(async () => {
 
 ---
 
+## Phase 1 Implemented Behavior
+
+**Date Implemented**: 2026-01-07
+
+### New Features Implemented
+
+#### 1. Manual Row Creation
+- **Button**: `+ Add Bet` button in the action area
+- **Function**: `createManualBet()` in `useBets.tsx`
+- **Behavior**: 
+  - Creates a new Bet object with safe defaults
+  - ID format: `manual-{timestamp}-{random}` to avoid collision with imported bets
+  - Default values: `betType: "single"`, `marketCategory: "Props"`, `result: "pending"`, `stake: 0`, `payout: 0`
+  - Inserts at top of list (newest first)
+  - Persists to localStorage immediately
+  - Focus moves to first editable cell (Site column) after creation
+
+#### 2. Row Selection
+- **State**: `selectedRowIds: Set<string>` and `rowSelectionAnchorId: string | null`
+- **UI**: Row selector column (narrow left gutter) with checkmark indicator
+- **Selection behaviors**:
+  - **Click**: Selects single row, clears other selections
+  - **Shift+click**: Selects contiguous range between anchor and clicked row
+  - **Cmd/Ctrl+click**: Toggles individual row selection (adds/removes from selection)
+- **Visual feedback**: Selected rows have blue background highlight and checkmark in selector column
+
+#### 3. Duplicate Selected Rows
+- **Function**: `duplicateBets(betIds: string[])` in `useBets.tsx`
+- **Shortcut**: `Cmd/Ctrl + D`
+- **Button**: "Duplicate" button (visible when rows selected)
+- **Behavior**:
+  - Duplicates all selected rows (or focused row if none selected)
+  - New IDs: `dup-{timestamp}-{index}-{random}`
+  - Clears `betId` (sportsbook-provided ID)
+  - Resets `result` to `"pending"` and `payout` to `0`
+  - Sets `placedAt` to current time
+  - Preserves all other fields (sport, category, type, stake, odds, etc.)
+  - Selection moves to newly created rows
+  - Focus moves to first editable cell of first duplicated row
+
+#### 4. Bulk Clear Fields
+- **UI**: "Clear Fields…" button (visible when rows selected) opens modal
+- **Modal**: Checklist of clearable fields (site, sport, category, type, name, ou, line, odds, bet, result, isLive, tail)
+- **Function**: `bulkUpdateBets(updatesById)` in `useBets.tsx` for batched updates
+- **Clear rules**:
+  - String fields → `""`
+  - Numeric fields (odds, stake) → `0` or `null`
+  - `result` → `"pending"`
+  - `isLive` → `false`
+  - `category` → `"Props"` (default)
+- **Note**: Single save operation for all selected rows
+
+#### 5. Bulk Apply Value
+- **Shortcut**: `Cmd/Ctrl + Enter` (when rows selected and cell focused)
+- **Supported columns**: site, sport, category, type, isLive, tail, result
+- **Behavior**: Applies the value from the focused cell to the same column in all selected rows
+- **Batching**: Uses `bulkUpdateBets()` for single save operation
+
+### New Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `Cmd/Ctrl + D` | Duplicate selected rows (or focused row) |
+| `Cmd/Ctrl + Enter` | Apply focused cell value to all selected rows |
+
+### UI Changes
+- **Row selector column**: Narrow (2.5ch width) left gutter column for row selection
+- **Action bar**: Shows when rows selected with: count label, "Duplicate", "Clear Fields…", "✕ Clear selection"
+- **Selected row highlight**: Blue background (`bg-blue-100 dark:bg-blue-900/30`)
+- **No styling regressions**: All existing column widths preserved
+
+### Technical Notes
+- Deduplication logic added to prevent React.StrictMode double-invocation issues
+- `saveBets()` called within functional state updates for consistency
+- Row selection uses `betId` (original Bet.id) for stable references across re-renders
+
+---
+
 ## Document Metadata
 - **Created**: 2026-01-07
 - **Author**: Copilot Agent (PREFLIGHT Investigation)
+- **Updated**: 2026-01-07 (Phase 1 Implementation)
 - **Related Files**: BetTableView.tsx, useBets.tsx, useInputs.tsx, types.ts, persistence.ts
