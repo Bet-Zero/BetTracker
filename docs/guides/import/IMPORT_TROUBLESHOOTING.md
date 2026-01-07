@@ -1,3 +1,5 @@
+<!-- PERMANENT DOC - DO NOT DELETE -->
+
 # Import Troubleshooting Guide
 
 > **Symptom-based debugging** for import issues. For workflow help, see [IMPORT_OPERATOR_GUIDE.md](./IMPORT_OPERATOR_GUIDE.md).
@@ -356,4 +358,4 @@ The following collisions are known to occur when sport context is unavailable or
 
 - [IMPORT_OPERATOR_GUIDE.md](./IMPORT_OPERATOR_GUIDE.md) — Daily operations
 - [IMPORT_DEV_GUIDE.md](./IMPORT_DEV_GUIDE.md) — Architecture & onboarding
-- [IMPORT_SYSTEM_GAP_ANALYSIS_V3.md](../audits/IMPORT_SYSTEM_GAP_ANALYSIS_V3.md) — Foundation audit
+- [IMPORT_SYSTEM_GAP_ANALYSIS_V3.md](../../audits/IMPORT_SYSTEM_GAP_ANALYSIS_V3.md) — Foundation audit

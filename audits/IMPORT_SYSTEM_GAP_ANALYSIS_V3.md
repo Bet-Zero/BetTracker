@@ -1,3 +1,5 @@
+<!-- PERMANENT DOC - DO NOT DELETE -->
+
 # Import System Gap Analysis v3 (Foundation Closeout Audit)
 
 **Date:** 2025-12-26  
@@ -14,9 +16,9 @@
 >
 > | Guide | Purpose |
 > |-------|---------|
-> | [IMPORT_OPERATOR_GUIDE.md](../docs/IMPORT_OPERATOR_GUIDE.md) | Daily workflow, quick fixes, backup procedures |
-> | [IMPORT_DEV_GUIDE.md](../docs/IMPORT_DEV_GUIDE.md) | Architecture overview, parser checklist, test strategy |
-> | [IMPORT_TROUBLESHOOTING.md](../docs/IMPORT_TROUBLESHOOTING.md) | Symptom-based debugging reference |
+> | [IMPORT_OPERATOR_GUIDE.md](../docs/guides/import/IMPORT_OPERATOR_GUIDE.md) | Daily workflow, quick fixes, backup procedures |
+> | [IMPORT_DEV_GUIDE.md](../docs/guides/import/IMPORT_DEV_GUIDE.md) | Architecture overview, parser checklist, test strategy |
+> | [IMPORT_TROUBLESHOOTING.md](../docs/guides/import/IMPORT_TROUBLESHOOTING.md) | Symptom-based debugging reference |
 
 ---
 

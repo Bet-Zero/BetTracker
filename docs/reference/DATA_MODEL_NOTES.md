@@ -1,3 +1,5 @@
+<!-- PERMANENT DOC - DO NOT DELETE -->
+
 # Data Model Notes
 
 This document provides concrete guidance on key data model semantics and conventions used throughout the BetTracker codebase.

@@ -1,3 +1,5 @@
+<!-- PERMANENT DOC - DO NOT DELETE -->
+
 # Custom Cursor Commands Guide
 
 This document explains each custom Cursor command, what it does, when to use it, and the recommended order of operations.

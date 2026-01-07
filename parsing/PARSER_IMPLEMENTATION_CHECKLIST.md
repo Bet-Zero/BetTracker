@@ -1,3 +1,5 @@
+<!-- PERMANENT DOC - DO NOT DELETE -->
+
 # Parser Implementation Checklist
 
 Use this checklist when implementing a parser for a new sportsbook. This ensures consistency and completeness across all parsers.

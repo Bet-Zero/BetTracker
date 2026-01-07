@@ -1,3 +1,5 @@
+<!-- PERMANENT DOC - DO NOT DELETE -->
+
 # Import Developer Guide
 
 > **Architecture & Onboarding** for developers extending the import system. For daily operations, see [IMPORT_OPERATOR_GUIDE.md](./IMPORT_OPERATOR_GUIDE.md).
@@ -165,7 +167,7 @@ Storage schema:
 
 - [ ] **7. Update Documentation**
   - Add to this guide's sportsbook table
-  - Update `IMPORT_SYSTEM_GAP_ANALYSIS_V3.md` if needed
+  - Update `../../audits/IMPORT_SYSTEM_GAP_ANALYSIS_V3.md` if needed
 
 ### Parser Responsibilities
 
@@ -236,6 +238,6 @@ Run all: `npx vitest run`
 
 - [IMPORT_OPERATOR_GUIDE.md](./IMPORT_OPERATOR_GUIDE.md) — Daily operations
 - [IMPORT_TROUBLESHOOTING.md](./IMPORT_TROUBLESHOOTING.md) — Symptom-based debugging
-- [IMPORT_SYSTEM_GAP_ANALYSIS_V3.md](../audits/IMPORT_SYSTEM_GAP_ANALYSIS_V3.md) — Foundation audit
+- [IMPORT_SYSTEM_GAP_ANALYSIS_V3.md](../../audits/IMPORT_SYSTEM_GAP_ANALYSIS_V3.md) — Foundation audit
 - [PARSER_TARGET_FIELDS.md](../parsing/PARSER_TARGET_FIELDS.md) — Field extraction reference
 - [PARSER_IMPLEMENTATION_CHECKLIST.md](../parsing/PARSER_IMPLEMENTATION_CHECKLIST.md) — Detailed parser checklist

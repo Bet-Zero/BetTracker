@@ -1,3 +1,5 @@
+<!-- PERMANENT DOC - DO NOT DELETE -->
+
 # Import Operator Guide
 
 > **Quick Reference** for daily import operations. For technical details, see [IMPORT_DEV_GUIDE.md](./IMPORT_DEV_GUIDE.md).
@@ -194,4 +196,4 @@ Settings → Data Management → **Export Full Backup (JSON)**
 
 - [IMPORT_DEV_GUIDE.md](./IMPORT_DEV_GUIDE.md) — Architecture & developer onboarding
 - [IMPORT_TROUBLESHOOTING.md](./IMPORT_TROUBLESHOOTING.md) — Symptom-based debugging guide
-- [IMPORT_SYSTEM_GAP_ANALYSIS_V3.md](../audits/IMPORT_SYSTEM_GAP_ANALYSIS_V3.md) — Foundation audit (technical reference)
+- [IMPORT_SYSTEM_GAP_ANALYSIS_V3.md](../../audits/IMPORT_SYSTEM_GAP_ANALYSIS_V3.md) — Foundation audit (technical reference)

@@ -1,3 +1,5 @@
+<!-- PERMANENT DOC - DO NOT DELETE -->
+
 # BetTracker
 
 A web application for tracking sports bets from multiple sportsbooks. Parse HTML from your settled bets pages and track your betting history with a spreadsheet-like interface.
@@ -86,8 +88,8 @@ See `docs/` for detailed documentation:
 
 - `ARCHITECTURE.md` - Parsing architecture and data flow
 - `PARSERS.md` - Parser requirements and implementation guide
-- `DATA_MODEL_NOTES.md` - Data model semantics (BetType vs isLive, entityType handling, result conventions, parlay attribution)
+- `reference/DATA_MODEL_NOTES.md` - Data model semantics (BetType vs isLive, entityType handling, result conventions, parlay attribution)
 
 ### Architecture Notes
 
-- **Entity Statistics**: Entity stats (player/team breakdowns) exclude parlay bets from stake and net calculations—only single bets count toward money totals. Parlay legs still contribute to leg-accuracy metrics (win/loss records). See [DATA_MODEL_NOTES.md](./docs/DATA_MODEL_NOTES.md#parlay-leg-attribution-semantics) for attribution semantics details.
+- **Entity Statistics**: Entity stats (player/team breakdowns) exclude parlay bets from stake and net calculations—only single bets count toward money totals. Parlay legs still contribute to leg-accuracy metrics (win/loss records). See [DATA_MODEL_NOTES.md](./docs/reference/DATA_MODEL_NOTES.md#parlay-leg-attribution-semantics) for attribution semantics details.

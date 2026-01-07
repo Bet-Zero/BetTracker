@@ -1,3 +1,5 @@
+<!-- PERMANENT DOC - DO NOT DELETE -->
+
 # DraftKings Parser Review - Implementation Summary
 
 ## Executive Summary

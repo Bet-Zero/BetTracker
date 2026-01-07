@@ -1,3 +1,5 @@
+<!-- PERMANENT DOC - DO NOT DELETE -->
+
 # Input System Master Documentation
 
 This document serves as the canonical reference for the BetTracker Input Management System, covering the normalization pipeline, unresolved queue, and entity resolution mechanisms.

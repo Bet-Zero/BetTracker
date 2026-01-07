@@ -1,3 +1,5 @@
+<!-- PERMANENT DOC - DO NOT DELETE -->
+
 # Sports, Teams, and Stats Normalization System
 
 This document describes the normalization system for standardizing sports, teams, and stat types across different sportsbooks.

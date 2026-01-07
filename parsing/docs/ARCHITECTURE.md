@@ -1,3 +1,5 @@
+<!-- PERMANENT DOC - DO NOT DELETE -->
+
 # Parsing Architecture - Simplified Design
 
 ## Overview

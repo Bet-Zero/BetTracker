@@ -1,3 +1,5 @@
+<!-- PERMANENT DOC - DO NOT DELETE -->
+
 # Normalization System - Practical Examples
 
 This document provides practical examples of how the normalization system solves real-world problems when tracking bets across multiple sportsbooks.

@@ -1,3 +1,5 @@
+<!-- PERMANENT DOC - DO NOT DELETE -->
+
 # Parser Target Fields Specification
 
 This document defines the target output format for all sportsbook parsers. Use this as a reference when implementing parsers for new sportsbooks.

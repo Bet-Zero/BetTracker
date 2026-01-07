@@ -1,3 +1,5 @@
+<!-- PERMANENT DOC - DO NOT DELETE -->
+
 # Import System Regression Checklist
 
 This document provides a quick manual regression checklist for verifying the import pipeline after changes. For automated coverage, see the test suite in `services/importPipeline.test.ts`.

@@ -1,3 +1,5 @@
+<!-- PERMANENT DOC - DO NOT DELETE -->
+
 # Migration Notes
 
 ## Breaking Change: BetLeg.odds Type Change

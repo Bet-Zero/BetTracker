@@ -1,3 +1,5 @@
+<!-- PERMANENT DOC - DO NOT DELETE -->
+
 # HTML Parsers
 
 This directory contains parsers for converting sportsbook HTML pages into normalized `Bet` objects.

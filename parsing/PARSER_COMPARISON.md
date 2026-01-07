@@ -1,3 +1,5 @@
+<!-- PERMANENT DOC - DO NOT DELETE -->
+
 # DraftKings vs FanDuel Parser Comparison
 
 This document compares the DraftKings and FanDuel parsers, highlighting key differences in implementation and naming conventions.

@@ -1110,16 +1110,19 @@ const DashboardView: React.FC = () => {
                 icon={<Scale className="w-6 h-6" />}
                 subtitle={`${processedData.overallStats.roi.toFixed(1)}% ROI`}
                 subtitleClassName={processedData.overallStats.roi > 0 ? "text-accent-500" : processedData.overallStats.roi < 0 ? "text-danger-500" : undefined}
+                className="shadow-[0_10px_40px_rgba(0,0,0,0.4)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.3)]"
               />
               <StatCard
                 title="Total Wagered"
                 value={`$${processedData.overallStats.totalWagered.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                 icon={<BarChart2 className="w-6 h-6" />}
+                className="shadow-[0_10px_40px_rgba(0,0,0,0.4)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.3)]"
               />
               <StatCard
                 title="Total Bets"
                 value={processedData.overallStats.totalBets.toString()}
                 icon={<BarChart2 className="w-6 h-6" />}
+                className="shadow-[0_10px_40px_rgba(0,0,0,0.4)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.3)]"
               />
               <StatCard
                 title="Win Rate"
@@ -1127,6 +1130,7 @@ const DashboardView: React.FC = () => {
                 icon={<BarChart2 className="w-6 h-6" />}
                 valueClassName={processedData.overallStats.winRate > 50 ? "text-accent-500" : processedData.overallStats.winRate < 50 ? "text-danger-500" : undefined}
                 subtitle={`${processedData.overallStats.wins}-${processedData.overallStats.losses}`}
+                className="shadow-[0_10px_40px_rgba(0,0,0,0.4)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.3)]"
               />
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
