@@ -5,6 +5,7 @@ import React, {
   useEffect,
   ReactNode,
   useCallback,
+  useRef,
 } from "react";
 import { Bet } from "../types";
 import { useInputs } from "./useInputs";
@@ -52,6 +53,9 @@ const BetsContext = createContext<BetsContextType | undefined>(undefined);
 
 const MAX_UNDO_STACK_SIZE = 20;
 
+// Time window (ms) to ignore duplicate insertBetAt calls (handles React StrictMode, rapid clicks)
+const INSERT_DEDUP_WINDOW_MS = 100;
+
 export const BetsProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
@@ -61,6 +65,10 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
 
   // Undo stack (in-memory only, not persisted)
   const [undoStack, setUndoStack] = useState<UndoEntry[]>([]);
+
+  // Dedup guard: Tracks recent insertBetAt operations to prevent double-execution
+  // from React StrictMode or rapid duplicate calls
+  const lastInsertRef = useRef<{ timestamp: number; referenceBetId: string; position: 'above' | 'below' } | null>(null);
 
   useEffect(() => {
     // Load state using persistence service
@@ -405,8 +413,26 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
     return newIds;
   }, [pushUndoSnapshot]);
 
-  // Insert a new bet above or below an existing bet
+  /**
+   * Insert a new bet above or below an existing bet.
+   * @param referenceBetId - The ID of the bet to insert relative to
+   * @param position - 'above' or 'below' the reference bet
+   * @returns The new bet's ID, or null if the operation was skipped (dedup guard)
+   */
   const insertBetAt = useCallback((referenceBetId: string, position: 'above' | 'below'): string | null => {
+    // Dedup guard: Prevent rapid duplicate calls (e.g., React StrictMode, double events)
+    const now = Date.now();
+    if (
+      lastInsertRef.current &&
+      lastInsertRef.current.referenceBetId === referenceBetId &&
+      lastInsertRef.current.position === position &&
+      now - lastInsertRef.current.timestamp < INSERT_DEDUP_WINDOW_MS
+    ) {
+      console.debug('[insertBetAt] Skipping duplicate call within dedup window');
+      return null;
+    }
+    lastInsertRef.current = { timestamp: now, referenceBetId, position };
+    
     // Push undo snapshot before the action
     pushUndoSnapshot(`Insert Bet ${position === 'above' ? 'Above' : 'Below'}`);
     
