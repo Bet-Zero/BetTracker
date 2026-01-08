@@ -15,16 +15,20 @@ import {
   BetLeg,
   BetType,
 } from "../types";
-import { Wifi } from "../components/icons";
+import { Wifi, AlertTriangle } from "../components/icons";
 import { calculateProfit } from "../utils/betCalculations";
 import { betToFinalRows } from "../parsing/shared/betToFinalRows";
 import { abbreviateMarket, normalizeCategoryForDisplay } from "../services/marketClassification";
 import { formatDateShort, formatOdds, formatCurrency, parseDateInput } from "../utils/formatters";
 import { createBetTableFilterPredicate } from "../utils/filterPredicates";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
-import { addToUnresolvedQueue, generateUnresolvedItemId } from "../services/unresolvedQueue";
+import { addToUnresolvedQueue, generateUnresolvedItemId, removeFromUnresolvedQueue } from "../services/unresolvedQueue";
 import { resolvePlayer, resolveTeam } from "../services/resolver";
-import type { UnresolvedEntityType } from "../services/unresolvedQueue";
+import type { UnresolvedEntityType, UnresolvedItem } from "../services/unresolvedQueue";
+import MapToExistingModal from "../components/MapToExistingModal";
+import CreateCanonicalModal from "../components/CreateCanonicalModal";
+import { useNormalizationData, TeamData, PlayerData, BetTypeData } from "../hooks/useNormalizationData";
+import { Sport } from "../data/referenceData";
 
 // --- Fixed column widths (deterministic spreadsheet layout) ---
 const COL_W: Record<string, string> = {
@@ -510,6 +514,16 @@ const BetTableView: React.FC = () => {
     addTeam,
     tails,
   } = useInputs();
+  const {
+    teams: normalizationTeams,
+    players: normalizationPlayers,
+    betTypes: normalizationBetTypes,
+    addTeam: addNormalizationTeam,
+    addPlayer: addNormalizationPlayer,
+    addTeamAlias,
+    addPlayerAlias,
+    resolverVersion,
+  } = useNormalizationData();
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState<{
     sport: string | "all";
@@ -565,6 +579,14 @@ const BetTableView: React.FC = () => {
   const [rowSelectionAnchorId, setRowSelectionAnchorId] = useState<string | null>(null);
   const [showClearFieldsModal, setShowClearFieldsModal] = useState(false);
   const [fieldsToToggle, setFieldsToToggle] = useState<Set<string>>(new Set());
+  
+  // Name resolution modal state
+  const [resolvingNameItem, setResolvingNameItem] = useState<{
+    row: FlatBet;
+    legIndex: number | null;
+    entityType: "player" | "team";
+  } | null>(null);
+  const [resolutionMode, setResolutionMode] = useState<"map" | "create">("map");
 
   // Phase 1.1: Batch count for Add and Duplicate
   const [batchCount, setBatchCount] = useState<number>(1);
@@ -773,6 +795,19 @@ const BetTableView: React.FC = () => {
     }
   };
 
+  // Helper to check if a name is unresolved (for real-time badge display)
+  const isNameUnresolved = useCallback(
+    (name: string, sport: string): boolean => {
+      if (!name || !name.trim() || !sport || !sport.trim()) return false;
+      const playerResult = resolvePlayer(name, { sport: sport as Sport });
+      const teamResult = resolveTeam(name);
+      return (
+        playerResult.status !== "resolved" && teamResult.status !== "resolved"
+      );
+    },
+    [resolverVersion]
+  );
+
   // Helper to determine entity type and add to unresolvedQueue if needed
   const handleNameCommitWithQueue = useCallback((
     val: string,
@@ -836,6 +871,124 @@ const BetTableView: React.FC = () => {
       addToUnresolvedQueue([queueItem]);
     }
   }, [autoAddEntity]);
+
+  // Handler to open resolution modal
+  const handleOpenResolutionModal = useCallback(
+    (row: FlatBet, legIndex: number | null) => {
+      // Determine entity type from market context
+      const lowerMarket = (row.type || "").toLowerCase();
+      const teamKeywords = [
+        "moneyline",
+        "ml",
+        "spread",
+        "total",
+        "run line",
+        "money line",
+        "outright winner",
+        "to win",
+      ];
+      const isTeam = teamKeywords.some((kw) => lowerMarket.includes(kw));
+
+      setResolvingNameItem({
+        row,
+        legIndex,
+        entityType: isTeam ? "team" : "player",
+      });
+      setResolutionMode("map");
+    },
+    []
+  );
+
+  // Handler for map confirmation
+  const handleMapConfirm = useCallback(
+    (item: UnresolvedItem, targetCanonical: string) => {
+      if (!resolvingNameItem) return;
+      const sport = resolvingNameItem.row.sport as Sport;
+
+      if (item.entityType === "team") {
+        addTeamAlias(targetCanonical, item.rawValue);
+      } else if (item.entityType === "player") {
+        addPlayerAlias(targetCanonical, sport, item.rawValue);
+      }
+
+      // Clear unresolved queue entry
+      const queueId = generateUnresolvedItemId(
+        item.rawValue,
+        resolvingNameItem.row.betId,
+        resolvingNameItem.legIndex ?? 0
+      );
+      removeFromUnresolvedQueue([queueId]);
+
+      setResolvingNameItem(null);
+    },
+    [resolvingNameItem, addTeamAlias, addPlayerAlias]
+  );
+
+  // Handler for create confirmation
+  const handleCreateConfirm = useCallback(
+    (
+      item: UnresolvedItem,
+      canonical: string,
+      sport: Sport,
+      additionalAliases: string[],
+      extraData?: {
+        teamId?: string;
+        description?: string;
+        abbreviations?: string[];
+      }
+    ) => {
+      if (!resolvingNameItem) return;
+
+      const aliases = [
+        item.rawValue,
+        ...additionalAliases.filter((a) => a !== item.rawValue),
+      ];
+
+      if (item.entityType === "team") {
+        const newTeam: TeamData = {
+          canonical,
+          sport,
+          aliases,
+          abbreviations: extraData?.abbreviations || [],
+        };
+        addNormalizationTeam(newTeam);
+      } else if (item.entityType === "player") {
+        // Resolve team name from ID if present
+        let teamName: string | undefined = undefined;
+        if (extraData?.teamId) {
+          const foundTeam = normalizationTeams.find(
+            (t) => t.id === extraData?.teamId
+          );
+          if (foundTeam) teamName = foundTeam.canonical;
+        }
+
+        const newPlayer: PlayerData = {
+          canonical,
+          sport,
+          aliases,
+          team: teamName,
+          teamId: extraData?.teamId,
+        };
+        addNormalizationPlayer(newPlayer);
+      }
+
+      // Clear unresolved queue entry
+      const queueId = generateUnresolvedItemId(
+        item.rawValue,
+        resolvingNameItem.row.betId,
+        resolvingNameItem.legIndex ?? 0
+      );
+      removeFromUnresolvedQueue([queueId]);
+
+      setResolvingNameItem(null);
+    },
+    [
+      resolvingNameItem,
+      addNormalizationTeam,
+      addNormalizationPlayer,
+      normalizationTeams,
+    ]
+  );
 
   const availableTypes = useMemo(() => {
     if (filters.sport === "all") {
@@ -2985,11 +3138,46 @@ const BetTableView: React.FC = () => {
                             ) : (
                               // Display mode: "Team1 / Team2"
                               <>
-                                {row.name || "—"}
+                                <span className="flex items-center gap-1">
+                                  {row.name || "—"}
+                                  {row.name &&
+                                    isNameUnresolved(row.name, row.sport) && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleOpenResolutionModal(row, null);
+                                        }}
+                                        className="flex-shrink-0 text-amber-500 hover:text-amber-600"
+                                        title="Unresolved - click to resolve"
+                                      >
+                                        <AlertTriangle className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
+                                </span>
                                 <span className="text-neutral-400 dark:text-neutral-500 mx-0.5">
                                   /
                                 </span>
-                                {row.name2 || "—"}
+                                <span className="flex items-center gap-1">
+                                  {row.name2 || "—"}
+                                  {row.name2 &&
+                                    isNameUnresolved(row.name2, row.sport) && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          // For name2, we need to create a temporary row-like object
+                                          const name2Row = {
+                                            ...row,
+                                            name: row.name2 || "",
+                                          };
+                                          handleOpenResolutionModal(name2Row, null);
+                                        }}
+                                        className="flex-shrink-0 text-amber-500 hover:text-amber-600"
+                                        title="Unresolved - click to resolve"
+                                      >
+                                        <AlertTriangle className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
+                                </span>
                               </>
                             )}
                           </span>
@@ -3034,10 +3222,25 @@ const BetTableView: React.FC = () => {
                             />
                           ) : (
                             // Display Mode
-                            <span className="block truncate">
-                              {row.name || (
-                                <span className="opacity-0">Empty</span>
-                              )}
+                            <span className="flex items-center gap-1 min-w-0">
+                              <span className="truncate">
+                                {row.name || (
+                                  <span className="opacity-0">Empty</span>
+                                )}
+                              </span>
+                              {row.name &&
+                                isNameUnresolved(row.name, row.sport) && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenResolutionModal(row, legIndex);
+                                    }}
+                                    className="flex-shrink-0 text-amber-500 hover:text-amber-600"
+                                    title="Unresolved - click to resolve"
+                                  >
+                                    <AlertTriangle className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
                             </span>
                           )}
                       </td>
@@ -3403,6 +3606,54 @@ const BetTableView: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* Name Resolution Modals */}
+      {resolvingNameItem && resolutionMode === "map" && (
+        <MapToExistingModal
+          item={{
+            id: generateUnresolvedItemId(
+              resolvingNameItem.row.name,
+              resolvingNameItem.row.betId,
+              resolvingNameItem.legIndex ?? 0
+            ),
+            rawValue: resolvingNameItem.row.name,
+            entityType: resolvingNameItem.entityType,
+            encounteredAt: new Date().toISOString(),
+            book: resolvingNameItem.row.site,
+            betId: resolvingNameItem.row.betId,
+            legIndex: resolvingNameItem.legIndex ?? 0,
+            sport: resolvingNameItem.row.sport,
+            market: resolvingNameItem.row.type,
+          }}
+          teams={normalizationTeams}
+          players={normalizationPlayers}
+          betTypes={normalizationBetTypes}
+          onConfirm={handleMapConfirm}
+          onCancel={() => setResolvingNameItem(null)}
+          onSwitchToCreate={() => setResolutionMode("create")}
+        />
+      )}
+      {resolvingNameItem && resolutionMode === "create" && (
+        <CreateCanonicalModal
+          item={{
+            id: generateUnresolvedItemId(
+              resolvingNameItem.row.name,
+              resolvingNameItem.row.betId,
+              resolvingNameItem.legIndex ?? 0
+            ),
+            rawValue: resolvingNameItem.row.name,
+            entityType: resolvingNameItem.entityType,
+            encounteredAt: new Date().toISOString(),
+            book: resolvingNameItem.row.site,
+            betId: resolvingNameItem.row.betId,
+            legIndex: resolvingNameItem.legIndex ?? 0,
+            sport: resolvingNameItem.row.sport,
+            market: resolvingNameItem.row.type,
+          }}
+          onConfirm={handleCreateConfirm}
+          onCancel={() => setResolvingNameItem(null)}
+        />
+      )}
     </div>
   );
 };

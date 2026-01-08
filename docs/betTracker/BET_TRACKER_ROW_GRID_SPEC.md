@@ -1042,6 +1042,97 @@ When a Name is committed and the sport is known:
 
 ---
 
+## Phase 3.2 Implemented Behavior — Real-Time Unresolved Name Resolution
+
+**Date Implemented**: 2026-01-08
+
+### Overview
+
+The BetTable now displays visual markers for unresolved Name values and enables in-place resolution via the same Map/Create modals used in Import Confirmation.
+
+### Unresolved Detection
+
+Names are considered unresolved when:
+- The name is non-empty AND
+- The sport is known AND
+- Both `resolvePlayer(name, { sport })` and `resolveTeam(name)` return status `"unresolved"`
+
+**Source of Truth**: The resolver functions (`resolvePlayer`, `resolveTeam`) are used directly, NOT the unresolvedQueue. This ensures real-time accuracy even if queue entries are stale or missing.
+
+### Visual Marker
+
+When a Name is unresolved:
+- A small amber warning icon (`AlertTriangle`) appears after the name text
+- The icon is clickable and shows a tooltip: "Unresolved - click to resolve"
+- The marker appears in both regular Name cells and totals bet Name/Name2 cells
+- The marker does NOT force edit mode; it's visible in display mode
+
+### Resolution Flow
+
+1. **Click Badge**: User clicks the unresolved marker
+2. **Modal Opens**: `MapToExistingModal` opens (default mode)
+3. **User Chooses**:
+   - **Map to Existing**: Select an existing canonical and add the raw value as an alias
+   - **Create New**: Switch to `CreateCanonicalModal` to create a new canonical entry
+4. **After Confirmation**:
+   - Normalization data is updated (via `addTeamAlias`/`addPlayerAlias` or `addTeam`/`addPlayer`)
+   - The unresolvedQueue entry is removed (via `removeFromUnresolvedQueue`)
+   - The marker disappears immediately (due to `resolverVersion` refresh)
+
+### Entity Type Determination
+
+The entity type (player vs team) is determined from market context:
+- **Team markets**: "moneyline", "ml", "spread", "total", "run line", "money line", "outright winner", "to win"
+- **Player markets**: All other markets default to player
+
+### Totals Bets Handling
+
+For totals bets (Main Markets with type "Total"):
+- Both `name` and `name2` cells are checked for unresolved status
+- Each has its own badge if unresolved
+- Clicking a badge opens the resolution modal for that specific name
+
+### Implementation Details
+
+**New State**:
+```typescript
+const [resolvingNameItem, setResolvingNameItem] = useState<{
+  row: FlatBet;
+  legIndex: number | null;
+  entityType: "player" | "team";
+} | null>(null);
+const [resolutionMode, setResolutionMode] = useState<"map" | "create">("map");
+```
+
+**Helper Function**:
+```typescript
+const isNameUnresolved = useCallback((name: string, sport: string): boolean => {
+  if (!name || !name.trim() || !sport || !sport.trim()) return false;
+  const playerResult = resolvePlayer(name, { sport: sport as Sport });
+  const teamResult = resolveTeam(name);
+  return playerResult.status !== "resolved" && teamResult.status !== "resolved";
+}, [resolverVersion]);
+```
+
+**Reused Components**:
+- `MapToExistingModal` - For mapping to existing canonical
+- `CreateCanonicalModal` - For creating new canonical
+- Both modals are reused from ImportConfirmationModal without modification
+
+**Normalization Integration**:
+- Uses `useNormalizationData()` hook for:
+  - `addTeamAlias`, `addPlayerAlias` (for mapping)
+  - `addTeam`, `addPlayer` (for creating)
+  - `resolverVersion` (for triggering re-renders)
+
+### Files Changed
+
+| File | Changes |
+|------|---------|
+| `views/BetTableView.tsx` | Added unresolved detection, badge display, modal handlers, and modal rendering |
+
+---
+
 ## Document Metadata
 - **Created**: 2026-01-07
 - **Author**: Copilot Agent (PREFLIGHT Investigation)
@@ -1052,4 +1143,5 @@ When a Name is committed and the sport is known:
 - **Updated**: 2026-01-08 (Phase 2.2 Date Editing + Delete Guard)
 - **Updated**: 2026-01-08 (Phase 3 Locked Input Management)
 - **Updated**: 2026-01-08 (Phase 3.1 Name Manual Entry Fix)
+- **Updated**: 2026-01-08 (Phase 3.2 Real-Time Unresolved Name Resolution)
 - **Related Files**: BetTableView.tsx, useBets.tsx, useInputs.tsx, types.ts, persistence.ts, InputManagementView.tsx
