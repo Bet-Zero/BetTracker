@@ -168,14 +168,14 @@ describe('marketClassification', () => {
         expect(determineType('Threes', 'Props', 'NBA')).toBe('3pt');
       });
 
-      it('should return empty string for unknown prop types', () => {
-        expect(determineType('Unknown Stat', 'Props', 'NBA')).toBe('');
+      it('should return input string for unknown prop types', () => {
+        expect(determineType('Unknown Stat', 'Props', 'NBA')).toBe('Unknown Stat');
       });
 
       it('should handle sport-specific TD types', () => {
         expect(determineType('td', 'Props', 'NBA')).toBe('TD');
         expect(determineType('TD', 'Props', 'NBA')).toBe('TD');
-        expect(determineType('td', 'Props', 'NFL')).toBe('');
+        expect(determineType('td', 'Props', 'NFL')).toBe('td');
       });
     });
 
@@ -190,8 +190,8 @@ describe('marketClassification', () => {
         expect(determineType('ML', 'Main Markets', 'NBA')).toBe('Moneyline');
       });
 
-      it('should default to Spread for unknown main markets', () => {
-        expect(determineType('Unknown Market', 'Main Markets', 'NBA')).toBe('Spread');
+      it('should return input string for unknown main markets', () => {
+        expect(determineType('Unknown Main', 'Main Markets', 'NBA')).toBe('Unknown Main');
       });
     });
 
@@ -212,8 +212,8 @@ describe('marketClassification', () => {
         expect(determineType('Make Playoffs', 'Futures', 'NBA')).toBe('Make Playoffs');
       });
 
-      it('should default to Future for unknown futures', () => {
-        expect(determineType('Unknown Future', 'Futures', 'NBA')).toBe('Future');
+      it('should return input string for unknown futures', () => {
+        expect(determineType('Unknown Future', 'Futures', 'NBA')).toBe('Unknown Future');
       });
     });
   });

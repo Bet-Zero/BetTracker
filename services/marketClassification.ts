@@ -25,7 +25,8 @@ import {
   FUTURES_TYPES,
   BASKETBALL_SPORTS,
 } from './marketClassification.config';
-import { getTeamInfo } from './normalizationService';
+import { getTeamInfo, normalizeBetType } from './normalizationService';
+import { Sport } from '../data/referenceData';
 
 // ============================================================================
 // CACHED REGEX PATTERNS (for performance)
@@ -231,19 +232,31 @@ export function determineType(market: string, category: string, sport: string): 
   const lowerMarket = market.toLowerCase();
   const normalizedMarket = lowerMarket.trim();
   
-  if (category === 'Props') {
-    return determinePropsType(lowerMarket, normalizedMarket, sport);
+  const result = (() => {
+    if (category === 'Props') {
+      return determinePropsType(lowerMarket, normalizedMarket, sport);
+    }
+    
+    if (category === 'Main Markets') {
+      return determineMainMarketType(lowerMarket);
+    }
+    
+    if (category === 'Futures') {
+      return determineFutureType(lowerMarket);
+    }
+    
+    return '';
+  })();
+  
+  // FAILSAFE: If we couldn't determine a type code, return the original input
+  // This ensures that manual user edits to the Type column are never "lost"
+  // just because they don't match our internal mappings.
+  // Use the preserved case from the input if possible, or title case it.
+  if (!result) {
+    return market;
   }
   
-  if (category === 'Main Markets') {
-    return determineMainMarketType(lowerMarket);
-  }
-  
-  if (category === 'Futures') {
-    return determineFutureType(lowerMarket);
-  }
-  
-  return '';
+  return result;
 }
 
 /**
@@ -274,6 +287,18 @@ export function determineParlayType(betType: BetType): string {
  * @internal
  */
 function determinePropsType(lowerMarket: string, normalizedMarket: string, sport: string): string {
+  // Use dynamic normalization service
+  // This ensures that the Type column in the Bet Table matches the abbreviations used elsewhere
+  const normalized = normalizeBetType(lowerMarket, sport as Sport);
+  
+  // If normalization returns something different/canonical, use it
+  if (normalized && normalized !== lowerMarket) {
+    return normalized;
+  }
+
+  // Fallback to legacy logic/static maps if normalization didn't find a match (or returned same)
+  // This preserves existing behavior for un-configured types
+  
   // Direct code/alias mappings for special props - check first for exact matches
   const directMap: Record<string, string> = {
     'fb': 'FB',
@@ -334,7 +359,7 @@ function determineMainMarketType(lowerMarket: string): string {
     }
   }
   // Default fallback
-  return 'Spread';
+  return '';
 }
 
 /**
@@ -349,7 +374,7 @@ function determineFutureType(lowerMarket: string): string {
     }
   }
   // Generic fallback
-  return 'Future';
+  return '';
 }
 
 // ============================================================================
@@ -521,71 +546,8 @@ export function normalizeCategoryForDisplay(marketCategory: string): string {
   return 'Props';
 }
 
-/**
- * Market type abbreviation mappings for display.
- * 
- * Maps lowercase market text to abbreviated display codes.
- * Centralized here to avoid duplication across display components.
- * 
- * @internal
- */
-const MARKET_ABBREVIATIONS: Record<string, string> = {
-  'player points': 'Pts',
-  'points': 'Pts',
-  'player rebounds': 'Reb',
-  'rebounds': 'Reb',
-  'player assists': 'Ast',
-  'assists': 'Ast',
-  'passing touchdowns': 'Pass TD',
-  'receiving yards': 'Rec Yds',
-  'moneyline': 'ML',
-  'player threes': '3pt',
-  'triple double': 'TD',
-  'to record a triple-double': 'TD',
-  'double double': 'DD',
-  'rushing yards': 'Rush Yds',
-  'anytime touchdown scorer': 'ATTD',
-  'home runs': 'HR',
-  'player home runs': 'HR',
-  'player strikeouts': 'Ks',
-  'strikeouts': 'Ks',
-  'player hits': 'Hits',
-  'hits': 'Hits',
-  'total points': 'Total',
-  'total goals': 'Total',
-  'run line': 'RL',
-  'spread': 'Spread',
-  'passing yards': 'Pass Yds',
-  'outright winner': 'Future',
-  'to win outright': 'Future',
-  'first basket': 'FB',
-  'first basket (fb)': 'FB',
-  'top scorer': 'Top Pts',
-  'top scorer (top pts)': 'Top Pts',
-  'top points': 'Top Pts',
-};
-
-/**
- * Abbreviates a market type for compact display.
- * 
- * This is the SINGLE SOURCE OF TRUTH for market type abbreviations.
- * All UI layers must use this function to ensure consistent abbreviation display.
- * 
- * Logic:
- * 1. First checks for explicit abbreviation in parentheses (e.g., "Triple Double (TD)" → "TD")
- * 2. Then looks up lowercase market text in the abbreviation mapping
- * 3. Falls back to returning the original market text if no abbreviation found
- * 
- * @param market - The market type text to abbreviate
- * @returns Abbreviated market type for display
- * 
- * @example
- * abbreviateMarket('Triple Double (TD)') // returns 'TD'
- * abbreviateMarket('Player Points') // returns 'Pts'
- * abbreviateMarket('moneyline') // returns 'ML'
- * abbreviateMarket('Unknown Market') // returns 'Unknown Market'
- */
-export function abbreviateMarket(market: string): string {
+// [Removed static MARKET_ABBREVIATIONS in favor of dynamic normalization]
+export function abbreviateMarket(market: string, sport?: string): string {
   if (!market) return '';
 
   // Extract abbreviation from parentheses, e.g., "Triple Double (TD)" -> "TD"
@@ -594,6 +556,7 @@ export function abbreviateMarket(market: string): string {
     return parenMatch[1];
   }
 
-  const lowerMarket = market.toLowerCase();
-  return MARKET_ABBREVIATIONS[lowerMarket] || market;
+  // Use dynamic normalization service
+  // This respects user-configured canonical names and aliases
+  return normalizeBetType(market, sport as Sport);
 }

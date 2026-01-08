@@ -46,6 +46,7 @@ import {
   EntityStats,
 } from "../services/entityStatsService";
 import { normalizeTeamName, getTeamInfo } from "../services/normalizationService";
+import { abbreviateMarket } from "../services/marketClassification";
 // Phase 1: Resolver for team aggregation
 // Phase 2: Extended with player aggregation
 import { getTeamAggregationKey, getPlayerAggregationKey } from "../services/resolver";
@@ -804,7 +805,7 @@ const BySportView: React.FC = () => {
     // Breakdowns
     // Market Stats: group by market name (since sport is constant)
     const marketMap = computeStatsByDimension(filteredBets, (bet) => {
-      if (bet.legs?.length) return bet.legs.map((leg) => leg.market);
+      if (bet.legs?.length) return bet.legs.map((leg) => abbreviateMarket(leg.market, bet.sport));
       return null;
     });
 

@@ -21,6 +21,7 @@ import {
   computeStatsByDimension,
   mapToStatsArray,
 } from '../services/aggregationService';
+import { abbreviateMarket } from '../services/marketClassification';
 import { getNetNumeric, getEntityMoneyContribution } from '../services/displaySemantics';
 import { computeOverUnderStats } from '../services/overUnderStatsService';
 // Task C: UI Clarity tooltips
@@ -450,8 +451,9 @@ const PlayerProfileView: React.FC<PlayerProfileViewProps> = ({ selectedPlayer, s
         const marketMap = computeStatsByDimension(playerBets, (bet) => {
              if (bet.legs) {
                      return bet.legs
-                    .filter(leg => leg.entities?.some(e => getPlayerAggregationKey(e, '[Unresolved]', { sport: bet.sport as any }) === selectedPlayer))
-                    .map(leg => leg.market);
+                     .filter(leg => leg.entities?.some(e => getPlayerAggregationKey(e, '[Unresolved]', { sport: bet.sport as any }) === selectedPlayer))
+// Task C: Pass sport context for correct abbreviation
+                    .map(leg => abbreviateMarket(leg.market || '', bet.sport));
              }
              return null;
         });

@@ -38,7 +38,7 @@ interface BetsContextType {
   insertBetAt: (referenceBetId: string, position: 'above' | 'below') => string | null;
   duplicateBets: (betIds: string[]) => string[];
   batchDuplicateBets: (betIds: string[], multiplier: number) => string[];
-  bulkUpdateBets: (updatesById: Record<string, Partial<Bet>>) => void;
+  bulkUpdateBets: (updatesById: Record<string, Partial<Bet>>, actionLabel?: string) => void;
   deleteBets: (betIds: string[]) => void;
   // Undo functionality
   undoLastAction: () => void;

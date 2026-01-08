@@ -277,10 +277,18 @@ const TypableDropdown: React.FC<{
   const ref = inputRef || internalRef;
 
   // Update internal state if the external value prop changes
+  // Update internal state if the external value prop changes
+  // REMOVED: This causes a race condition where addBetType triggers a re-render
+  // with the old 'value' before the new bet data is propagated, resetting 'text'
+  // to the old value, which is then saved back by handleBlur/onSave.
+  // Since TypableDropdown is unmounted/remounted when editing starts/ends,
+  // initialization via useState(value || "") is sufficient.
+  /*
   React.useEffect(() => {
     setText(value || "");
     setFilterText(""); // Reset filter when value changes externally
   }, [value]);
+  */
 
   // Focus input when isFocused becomes true
   React.useEffect(() => {
@@ -773,15 +781,15 @@ const BetTableView: React.FC = () => {
 
   // Abbreviated types for display in dropdown
   const abbreviatedTypes = useMemo(() => {
-    const types = availableTypes.map((type) => abbreviateMarket(type));
+    const types = availableTypes.map((type) => abbreviateMarket(type, filters.sport === 'all' ? undefined : filters.sport));
     return types;
-  }, [availableTypes]);
+  }, [availableTypes, filters.sport]);
 
   // Abbreviated types by sport for dropdown options
   const getAbbreviatedTypesForSport = useCallback(
     (sport: string) => {
       const types = betTypes[sport] || [];
-      return types.map((type) => abbreviateMarket(type));
+      return types.map((type) => abbreviateMarket(type, sport));
     },
     [betTypes]
   );
@@ -1381,7 +1389,7 @@ const BetTableView: React.FC = () => {
     
     if (selectedRowIds.size > 0) {
       // Use first selected row
-      referenceBetId = Array.from(selectedRowIds)[0];
+      referenceBetId = Array.from(selectedRowIds)[0] as string;
     } else if (focusedCell) {
       const row = visibleBets[focusedCell.rowIndex];
       if (row) referenceBetId = row.betId;
@@ -1408,7 +1416,7 @@ const BetTableView: React.FC = () => {
     if (selectedRowIds.size > 0) {
       // Use last selected row (to insert after the selection)
       const selectedArray = Array.from(selectedRowIds);
-      referenceBetId = selectedArray[selectedArray.length - 1];
+      referenceBetId = selectedArray[selectedArray.length - 1] as string;
     } else if (focusedCell) {
       const row = visibleBets[focusedCell.rowIndex];
       if (row) referenceBetId = row.betId;
@@ -2647,22 +2655,38 @@ const BetTableView: React.FC = () => {
                         {isCellEditing(rowIndex, "type") ? (
                           <TypableDropdown
                             value={abbreviateMarket(row.type)}
-                            onSave={(val) => {
-                              // Convert abbreviation back to full name if it exists
-                              const fullName =
-                                typeAbbreviationToFull[val.toLowerCase()] || val;
-                              if (isLeg) {
-                                addBetType(row.sport, fullName);
-                                handleLegUpdate(row.betId, legIndex, {
-                                  market: fullName,
-                                });
-                              } else {
-                                // Update bet.type (stat type), NOT betType (bet form)
-                                addBetType(row.sport, fullName);
-                                updateBet(row.betId, { type: fullName });
-                              }
-                              setEditingCell(null);
-                            }}
+                              onSave={(val) => {
+                                // Convert abbreviation back to full name if it exists
+                                const fullName =
+                                  typeAbbreviationToFull[val.toLowerCase()] || val;
+
+                                // Only add to dropdown if it's a new custom value
+                                // to prevent duplication/pollution
+                                const currentOptions = suggestionLists.types(row.sport);
+                                const isNew = !currentOptions.some(opt => opt.toLowerCase() === fullName.toLowerCase());
+                                if (isNew && fullName.trim()) {
+                                  addBetType(row.sport, fullName);
+                                }
+
+                                if (isLeg) {
+                                  handleLegUpdate(row.betId, legIndex, {
+                                    market: fullName,
+                                  });
+                                } else {
+                                  // Update bet.type AND leg.market for single bets
+                                  // The view uses leg.market, so we must sync them.
+                                  const bet = bets.find((b) => b.id === row.betId);
+                                  const updates: any = { type: fullName };
+                                  
+                                  // Sync to first leg if it exists and isn't a parlay
+                                  if (bet?.legs?.length === 1 && bet.betType !== 'parlay' && bet.betType !== 'sgp' && bet.betType !== 'sgp_plus') {
+                                    updates.legs = [{ ...bet.legs[0], market: fullName }];
+                                  }
+                                  
+                                  updateBet(row.betId, updates);
+                                }
+                                setEditingCell(null);
+                              }}
                             options={
                               isLeg
                                 ? suggestionLists.types(row.sport)
@@ -2859,7 +2883,12 @@ const BetTableView: React.FC = () => {
                               <>
                                 {row.name || "—"}
                                 <span className="text-neutral-400 dark:text-neutral-500 mx-0.5">
-                            </span>
+                                  /
+                                </span>
+                                {row.name2 || "—"}
+                              </>
+                            )}
+                          </span>
                           ) : isCellEditing(rowIndex, "name") ? (
                             // Single input for non-totals bets (Edit Mode)
                             <EditableCell
@@ -2876,9 +2905,21 @@ const BetTableView: React.FC = () => {
                                     entities: [val],
                                   });
                                 } else {
-                                  // Update bet.name (player/team name), NOT description
+                                  // Update bet.name AND leg.entities[0] for single bets
                                   autoAddEntity(row.sport, val, row.type);
-                                  updateBet(row.betId, { name: val });
+                                  
+                                  const bet = bets.find((b) => b.id === row.betId);
+                                  const updates: any = { name: val };
+                                  
+                                  if (bet?.legs?.length === 1 && bet.betType !== 'parlay' && bet.betType !== 'sgp' && bet.betType !== 'sgp_plus') {
+                                     // Preserve other entities if they exist (unlikely for single leg, but safe)
+                                     const currentEntities = bet.legs[0].entities || [];
+                                     const newEntities = [...currentEntities];
+                                     newEntities[0] = val;
+                                     updates.legs = [{ ...bet.legs[0], entities: newEntities }];
+                                  }
+                                  
+                                  updateBet(row.betId, updates);
                                 }
                                 setEditingCell(null);
                               }}
@@ -2902,6 +2943,7 @@ const BetTableView: React.FC = () => {
                           " text-center whitespace-nowrap min-w-0"
                         }
                         onClick={(e) => handleCellClick(rowIndex, "ou", e)}
+                        onDoubleClick={() => handleCellDoubleClick(rowIndex, "ou")}
                       >
                         {isCellFocused(rowIndex, "ou") && (
                           <div
@@ -2937,7 +2979,14 @@ const BetTableView: React.FC = () => {
                                   ou: ouValue,
                                 });
                               } else {
-                                updateBet(row.betId, { ou: ouValue });
+                                const bet = bets.find((b) => b.id === row.betId);
+                                const updates: any = { ou: ouValue };
+                                
+                                if (bet?.legs?.length === 1 && bet.betType !== 'parlay' && bet.betType !== 'sgp' && bet.betType !== 'sgp_plus') {
+                                    updates.legs = [{ ...bet.legs[0], ou: ouValue }];
+                                }
+                                
+                                updateBet(row.betId, updates);
                               }
                               setEditingCell(null);
                             }}
@@ -2966,6 +3015,7 @@ const BetTableView: React.FC = () => {
                           " whitespace-nowrap text-right tabular-nums min-w-0"
                         }
                         onClick={(e) => handleCellClick(rowIndex, "line", e)}
+                        onDoubleClick={() => handleCellDoubleClick(rowIndex, "line")}
                       >
                         {isCellFocused(rowIndex, "line") && (
                           <div
@@ -2989,11 +3039,18 @@ const BetTableView: React.FC = () => {
                                 handleLegUpdate(row.betId, legIndex, {
                                   target: val,
                                 });
-                              }
-                              // Note: Main bet update logic would go here if we supported updating
-                              // bet line directly, currently only legs for now or updateBet default way
-                              if (!isLeg) {
-                                updateBet(row.betId, { line: val });
+                              } else {
+                                const bet = bets.find((b) => b.id === row.betId);
+                                const updates: any = { line: val };
+                                
+                                // Sync to leg target for single bets
+                                 if (bet?.legs?.length === 1 && bet.betType !== 'parlay' && bet.betType !== 'sgp' && bet.betType !== 'sgp_plus') {
+                                    // target field in leg is number | string, line field in bet is string
+                                    // Attempt to keep them consistent
+                                    updates.legs = [{ ...bet.legs[0], target: val }];
+                                }
+                                
+                                updateBet(row.betId, updates);
                               }
                               setEditingCell(null);
                             }}
@@ -3009,6 +3066,7 @@ const BetTableView: React.FC = () => {
                           " whitespace-nowrap text-right tabular-nums min-w-0"
                         }
                         onClick={(e) => handleCellClick(rowIndex, "odds", e)}
+                        onDoubleClick={() => handleCellDoubleClick(rowIndex, "odds")}
                       >
                         {isCellFocused(rowIndex, "odds") && (
                           <div
@@ -3082,6 +3140,7 @@ const BetTableView: React.FC = () => {
                           " whitespace-nowrap text-right tabular-nums border-l border-neutral-200 dark:border-neutral-700 min-w-0"
                         }
                         onClick={(e) => handleCellClick(rowIndex, "bet", e)}
+                        onDoubleClick={() => handleCellDoubleClick(rowIndex, "bet")}
                       >
                         {isCellFocused(rowIndex, "bet") && (
                           <div
@@ -3140,6 +3199,7 @@ const BetTableView: React.FC = () => {
                           resultBgClass
                         }
                         onClick={(e) => handleCellClick(rowIndex, "result", e)}
+                        onDoubleClick={() => handleCellDoubleClick(rowIndex, "result")}
                       >
                         <div className={resultTextClass}>
                           <ResultCell
@@ -3150,7 +3210,14 @@ const BetTableView: React.FC = () => {
                                   result: val,
                                 });
                               } else {
-                                updateBet(row.betId, { result: val });
+                                const bet = bets.find((b) => b.id === row.betId);
+                                const updates: any = { result: val };
+                                
+                                if (bet?.legs?.length === 1 && bet.betType !== 'parlay' && bet.betType !== 'sgp' && bet.betType !== 'sgp_plus') {
+                                    updates.legs = [{ ...bet.legs[0], result: val }];
+                                }
+                                
+                                updateBet(row.betId, updates);
                               }
                             }}
                           />
