@@ -18,8 +18,11 @@ import TeamsManager from "@/components/InputManagement/TeamsManager";
 import PlayersManager from "@/components/InputManagement/PlayersManager";
 import BetTypesManager from "@/components/InputManagement/BetTypesManager";
 import TailsManager from "@/components/InputManagement/TailsManager";
+import SportsManager from "@/components/InputManagement/SportsManager";
+import SitesManager from "@/components/InputManagement/SitesManager";
+import CategoriesManager from "@/components/InputManagement/CategoriesManager";
 
-type EntityTab = "unresolved" | "teams" | "players" | "betTypes" | "tails";
+type EntityTab = "unresolved" | "teams" | "players" | "betTypes" | "tails" | "sports" | "sites" | "categories";
 
 // Tab button component - Pill-style with elevated active state
 const TabButton: React.FC<{
@@ -104,6 +107,24 @@ const InputManagementView: React.FC = () => {
             >
               Tails
             </TabButton>
+            <TabButton
+              active={activeTab === "sports"}
+              onClick={() => setActiveTab("sports")}
+            >
+              Sports
+            </TabButton>
+            <TabButton
+              active={activeTab === "sites"}
+              onClick={() => setActiveTab("sites")}
+            >
+              Sites
+            </TabButton>
+            <TabButton
+              active={activeTab === "categories"}
+              onClick={() => setActiveTab("categories")}
+            >
+              Categories
+            </TabButton>
           </div>
         </div>
 
@@ -114,6 +135,9 @@ const InputManagementView: React.FC = () => {
           {activeTab === "players" && <PlayersManager />}
           {activeTab === "betTypes" && <BetTypesManager />}
           {activeTab === "tails" && <TailsManager />}
+          {activeTab === "sports" && <SportsManager />}
+          {activeTab === "sites" && <SitesManager />}
+          {activeTab === "categories" && <CategoriesManager />}
         </div>
       </div>
     </div>

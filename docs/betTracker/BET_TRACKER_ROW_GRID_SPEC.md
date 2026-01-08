@@ -807,6 +807,241 @@ Each of these columns now uses conditional rendering based on `isCellEditing(row
 
 ---
 
+## Phase 2.2 Implemented Behavior — Date Editing + Delete Guard
+
+**Date Implemented**: 2026-01-08
+
+### Date Column Editing
+
+The Date column is now fully editable with the same spreadsheet interaction pattern as other columns.
+
+#### Interaction Rules
+
+| Action | Result |
+|--------|--------|
+| Single click on date cell | Selects cell (focus ring), does NOT enter edit |
+| Double-click on date cell | Enters edit mode |
+| Enter on focused date cell | Enters edit mode |
+| Escape while editing date | Cancels edit, reverts to original value, stays focused |
+
+#### Date Parsing
+
+- **Input formats accepted**: `MM/DD/YY`, `MM/DD/YYYY`, `M/D/YY`, `M/D/YYYY`
+- **Time handling**: Set to 12:00:00 local time (avoids midnight timezone rollover issues)
+- **Invalid input**: Reverts to original value (no error shown)
+- **Display format**: `MM/DD` (via existing `formatDateShort`)
+- **Parsing function**: `parseDateInput()` in `utils/formatters.ts`
+
+#### Implementation Details
+
+- Date column added to `editableColumns` (removed from exclusion filter)
+- Date cell uses `EditableCell` component when editing
+- On save: parses input via `parseDateInput()`, updates `bet.placedAt` if valid
+- Preserves existing display formatting and parlay child handling
+
+### Sport Column Validation (Verified)
+
+The Sport column already had proper validation in place:
+- Uses `TypableDropdown` with `allowCustom={false}` (line 2593)
+- Typeahead filtering works correctly
+- Enter selects first filtered match
+- Invalid values (e.g., "ZZZ") revert on blur/enter - no new sports created
+
+### Delete/Backspace Guard
+
+Fixed issue where Delete/Backspace keys triggered row deletion modal even while editing text.
+
+#### Guard Conditions
+
+Delete/Backspace triggers row deletion ONLY when ALL of these are true:
+1. `editingCell === null` (not in edit mode)
+2. Event target is NOT an `HTMLInputElement`
+3. Event target is NOT an `HTMLTextAreaElement`
+4. Event target is NOT an `HTMLSelectElement`
+5. Event target is NOT contenteditable
+6. At least one row is selected OR a cell is focused
+
+#### Behavior
+
+- **While editing any cell**: Delete/Backspace deletes characters normally (no modal)
+- **While not editing with rows selected**: Delete/Backspace opens confirmation modal
+- **While not editing with cell focused**: Delete/Backspace opens confirmation modal
+
+### Files Changed
+
+| File | Changes |
+|------|---------|
+| `views/BetTableView.tsx` | Added date to editableColumns, implemented date cell edit rendering, fixed delete guard |
+| `utils/formatters.ts` | Added `parseDateInput()` function |
+
+---
+
+## Phase 3 Implemented Behavior — Locked Input Management for Sports/Sites/Categories
+
+**Date Implemented**: 2026-01-08
+
+### Locked Fields Policy
+
+The following fields in the BetTable are **managed-only** and cannot be created by typing in the table:
+- **Sport**: Must be selected from managed Sports list
+- **Site** (Sportsbook): Must be selected from managed Sites list  
+- **Category** (MarketCategory): Must be selected from managed Categories list
+
+**Fields that remain flexible** (typing allowed):
+- **Name**: Player/team name (auto-added to suggestions on commit)
+- **Type**: Stat type (auto-added to suggestions on commit)
+
+### Input Management UI
+
+Sports, Sites, and Categories are managed in the **Input Management** view (`views/InputManagementView.tsx`):
+
+1. **Sports Tab** (`components/InputManagement/SportsManager.tsx`):
+   - List all sports
+   - Add new sport (explicit button)
+   - Delete sport (blocked if used by existing bets)
+   - Shows bet count for each sport
+
+2. **Sites Tab** (`components/InputManagement/SitesManager.tsx`):
+   - List all sportsbooks (name, abbreviation, URL)
+   - Add new site (explicit button with name/abbreviation/URL fields)
+   - Delete site (blocked if used by existing bets)
+   - Shows bet count for each site
+
+3. **Categories Tab** (`components/InputManagement/CategoriesManager.tsx`):
+   - Display fixed enum values: Props, Main Markets, Futures, Parlays
+   - Read-only (no add/delete) - categories are fixed by system
+   - Shows bet count for each category
+
+### Removal Behavior (Option A - Block)
+
+When a user attempts to delete a Sport or Site that is currently used by existing bets:
+- **Block removal** with alert: "Cannot remove: X bets currently use this [sport/site]."
+- The option remains in the list but cannot be deleted until all bets using it are removed or changed.
+
+### No Accidental New Options Rule
+
+In `BetTableView.tsx`, the dropdown components for Sport/Site/Category enforce strict picklist behavior:
+
+- **`allowCustom={false}`** for Sport, Site, and Category dropdowns
+- Typing an invalid value and pressing Enter:
+  - Does NOT create the value
+  - Does NOT add it to the options list
+  - Reverts to the original value
+- Enter selects first filtered match when typing partial text
+- Invalid typed values never appear in dropdown options (no pollution)
+
+### Implementation Details
+
+**BetTableView.tsx changes**:
+- Site dropdown: Changed `allowCustom={true}` → `allowCustom={false}` (line ~2594)
+- Category dropdown: Changed `allowCustom={true}` → `allowCustom={false}` (line ~2673)
+- Removed `addSport(val)` call from Sport onSave handler (line ~2623)
+- Removed `addCategory(val)` call from Category onSave handler (line ~2661)
+- Removed `addSport`/`addCategory` calls from bulk apply handler (lines ~1763, ~1767)
+- Removed unused `addSport`/`addCategory` from useInputs destructuring
+
+**New Manager Components**:
+- `components/InputManagement/SportsManager.tsx` - Full CRUD with in-use blocking
+- `components/InputManagement/SitesManager.tsx` - Full CRUD with in-use blocking
+- `components/InputManagement/CategoriesManager.tsx` - Read-only display of enum values
+
+**InputManagementView.tsx changes**:
+- Added "Sports", "Sites", "Categories" tabs
+- Updated `EntityTab` type to include new tabs
+- Imported and rendered new manager components
+
+### Files Changed
+
+| File | Changes |
+|------|---------|
+| `components/InputManagement/SportsManager.tsx` | New component - Sports CRUD with in-use blocking |
+| `components/InputManagement/SitesManager.tsx` | New component - Sites CRUD with in-use blocking |
+| `components/InputManagement/CategoriesManager.tsx` | New component - Categories read-only display |
+| `views/InputManagementView.tsx` | Added Sports/Sites/Categories tabs |
+| `views/BetTableView.tsx` | Set allowCustom=false for Site/Category, removed auto-add calls |
+
+---
+
+## Phase 3.1 Implemented Behavior — Name Manual Entry Fix
+
+**Date Implemented**: 2026-01-08
+
+### Name Column Editing Fix
+
+Fixed the Name column to fully support manual entry with proper persistence and unresolvedQueue integration.
+
+#### Root Cause
+
+The Name cell was missing the `onDoubleClick` handler that all other editable cells have, preventing double-click entry into edit mode.
+
+#### Interaction Rules
+
+| Action | Result |
+|--------|--------|
+| Single click on name cell | Selects cell (focus ring), does NOT enter edit |
+| Double-click on name cell | Enters edit mode |
+| Enter on focused name cell | Enters edit mode |
+| Escape while editing name | Cancels edit, reverts to original value, stays focused |
+
+#### Data Persistence
+
+When a Name is committed:
+
+1. **For single bets without legs** (`legs: []`):
+   - Updates `bet.name` field
+   - Name display comes from `bet.name` via `betToFinalRows` (line 298)
+
+2. **For single bets with one leg**:
+   - Updates `bet.name` field
+   - Also syncs to `bet.legs[0].entities[0]` to ensure consistency
+   - Name display comes from `leg.entities[0]` via `betToFinalRows` (line 202)
+
+3. **For parlay legs**:
+   - Updates `bet.legs[legIndex].entities[0]`
+   - Name display comes from `leg.entities[0]` via `betToFinalRows`
+
+#### Saved Suggestions Behavior
+
+On commit of a non-empty Name:
+- Name is automatically added to player/team suggestions via `autoAddEntity()`
+- Entity type (player vs team) is determined by market keywords:
+  - Team markets: "moneyline", "ml", "spread", "total", etc.
+  - Player markets: "player", "prop", "points", "rebounds", etc.
+- Suggestions appear in Name dropdown on next edit
+
+#### UnresolvedQueue Integration
+
+When a Name is committed and the sport is known:
+1. Attempts to resolve the name using `resolvePlayer()` and `resolveTeam()` from `services/resolver.ts`
+2. If unresolved (neither player nor team resolves):
+   - Determines entity type based on market context (team markets → "team", otherwise → "player")
+   - Adds item to unresolvedQueue with:
+     - `context: "manual-entry"`
+     - `sport`: Current sport
+     - `rawValue`: The typed name
+     - `betId`: Bet ID
+     - `legIndex`: 0 for single bets, leg index for parlay legs
+     - `market`: Current bet type/market
+     - `book`: Current sportsbook
+
+#### Implementation Details
+
+- Added `onDoubleClick` handler to Name cell td (line ~2749)
+- Created `handleNameCommitWithQueue()` helper function to:
+  - Add name to suggestions (via `autoAddEntity`)
+  - Check resolution status
+  - Add to unresolvedQueue if unresolved
+- Updated Name `onSave` handler to use new helper
+- Updated totals bet name handlers (name and name2) to use queue integration
+
+### Files Changed
+
+| File | Changes |
+|------|---------|
+| `views/BetTableView.tsx` | Added `onDoubleClick` to Name cell, added unresolvedQueue integration, created `handleNameCommitWithQueue` helper |
+
+---
+
 ## Document Metadata
 - **Created**: 2026-01-07
 - **Author**: Copilot Agent (PREFLIGHT Investigation)
@@ -814,4 +1049,7 @@ Each of these columns now uses conditional rendering based on `isCellEditing(row
 - **Updated**: 2026-01-07 (Phase 1.1 Implementation)
 - **Updated**: 2026-01-08 (Phase 2 Spreadsheet UX Polish)
 - **Updated**: 2026-01-08 (Phase 2.1 Extended Column Support)
-- **Related Files**: BetTableView.tsx, useBets.tsx, useInputs.tsx, types.ts, persistence.ts
+- **Updated**: 2026-01-08 (Phase 2.2 Date Editing + Delete Guard)
+- **Updated**: 2026-01-08 (Phase 3 Locked Input Management)
+- **Updated**: 2026-01-08 (Phase 3.1 Name Manual Entry Fix)
+- **Related Files**: BetTableView.tsx, useBets.tsx, useInputs.tsx, types.ts, persistence.ts, InputManagementView.tsx

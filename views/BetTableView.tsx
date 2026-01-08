@@ -19,9 +19,12 @@ import { Wifi } from "../components/icons";
 import { calculateProfit } from "../utils/betCalculations";
 import { betToFinalRows } from "../parsing/shared/betToFinalRows";
 import { abbreviateMarket, normalizeCategoryForDisplay } from "../services/marketClassification";
-import { formatDateShort, formatOdds, formatCurrency } from "../utils/formatters";
+import { formatDateShort, formatOdds, formatCurrency, parseDateInput } from "../utils/formatters";
 import { createBetTableFilterPredicate } from "../utils/filterPredicates";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
+import { addToUnresolvedQueue, generateUnresolvedItemId } from "../services/unresolvedQueue";
+import { resolvePlayer, resolveTeam } from "../services/resolver";
+import type { UnresolvedEntityType } from "../services/unresolvedQueue";
 
 // --- Fixed column widths (deterministic spreadsheet layout) ---
 const COL_W: Record<string, string> = {
@@ -502,8 +505,6 @@ const BetTableView: React.FC = () => {
     betTypes,
     players,
     teams,
-    addSport,
-    addCategory,
     addBetType,
     addPlayer,
     addTeam,
@@ -772,6 +773,70 @@ const BetTableView: React.FC = () => {
     }
   };
 
+  // Helper to determine entity type and add to unresolvedQueue if needed
+  const handleNameCommitWithQueue = useCallback((
+    val: string,
+    row: FlatBet,
+    legIndex: number | null
+  ) => {
+    if (!val || !val.trim()) return;
+
+    // Add to suggestions (existing behavior)
+    autoAddEntity(row.sport, val, row.type);
+
+    // If sport is known, check resolution and add to queue if unresolved
+    if (row.sport && row.sport.trim()) {
+      const sport = row.sport as any; // Sport type from resolver
+      
+      // Try to resolve as player and team
+      const playerResult = resolvePlayer(val, { sport });
+      const teamResult = resolveTeam(val);
+      
+      const playerResolved = playerResult.status === "resolved";
+      const teamResolved = teamResult.status === "resolved";
+      
+      // If either resolves, it's not unresolved
+      if (playerResolved || teamResolved) {
+        // Name is resolved, no need to add to queue
+        return;
+      }
+      
+      // Neither resolved - determine type based on market context
+      const lowerMarket = row.type.toLowerCase();
+      const teamMarketKeywords = [
+        "moneyline",
+        "ml",
+        "spread",
+        "total",
+        "run line",
+        "money line",
+        "outright winner",
+        "to win",
+      ];
+      const isTeamMarket = teamMarketKeywords.some((keyword) =>
+        lowerMarket.includes(keyword)
+      );
+      
+      const entityType: UnresolvedEntityType = isTeamMarket ? "team" : "player";
+      
+      // Add to unresolvedQueue (we only reach here if neither resolved)
+      const queueItem = {
+        id: generateUnresolvedItemId(val, row.betId, legIndex ?? 0),
+        rawValue: val,
+        entityType: entityType,
+        encounteredAt: new Date().toISOString(),
+        book: row.site,
+        betId: row.betId,
+        legIndex: legIndex ?? 0,
+        sport: row.sport,
+        market: row.type,
+        context: "manual-entry",
+      };
+      
+      addToUnresolvedQueue([queueItem]);
+    }
+  }, [autoAddEntity]);
+
   const availableTypes = useMemo(() => {
     if (filters.sport === "all") {
       return Array.from(new Set(Object.values(betTypes).flat())).sort();
@@ -982,7 +1047,6 @@ const BetTableView: React.FC = () => {
     return headers
       .filter(
         (h) =>
-          h.key !== "date" &&
           h.key !== "toWin" &&
           h.key !== "net" &&
           h.key !== "isLive"
@@ -1523,7 +1587,15 @@ const BetTableView: React.FC = () => {
       }
 
       // Handle delete (Delete or Backspace when not typing in an input)
-      if ((e.key === "Delete" || e.key === "Backspace") && !(target instanceof HTMLInputElement)) {
+      // Check if user is actively editing or focused on an input element
+      const isEditingContent = 
+        editingCell != null ||
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        (target instanceof HTMLElement && target.isContentEditable);
+
+      if ((e.key === "Delete" || e.key === "Backspace") && !isEditingContent) {
         e.preventDefault();
         handleDeleteRows();
         return;
@@ -1753,11 +1825,9 @@ const BetTableView: React.FC = () => {
           updateBet(row.betId, { book: book ? book.name : value });
           break;
         case "sport":
-          addSport(value);
           updateBet(row.betId, { sport: value });
           break;
         case "category":
-          addCategory(value);
           updateBet(row.betId, { marketCategory: value as MarketCategory });
           break;
         case "type":
@@ -1813,7 +1883,6 @@ const BetTableView: React.FC = () => {
     },
     [
       sportsbooks,
-      addSport,
       updateBet,
       handleLegUpdate,
       addBetType,
@@ -2494,21 +2563,54 @@ const BetTableView: React.FC = () => {
                       </td>
                       <td
                         className={
-                          getCellClasses("date") + " whitespace-nowrap min-w-0"
+                          getCellClasses("date") + " whitespace-nowrap min-w-0 cursor-default"
                         }
+                        onClick={(e) => handleCellClick(rowIndex, "date", e)}
+                        onDoubleClick={() => handleCellDoubleClick(rowIndex, "date")}
                       >
-                        <div className="flex items-center gap-2 min-w-0">
-                          {row._isParlayChild && !row._isParlayHeader && (
-                            <span className="text-neutral-400 dark:text-neutral-500">
-                              ↳
-                            </span>
-                          )}
-                          <span className="min-w-0">
-                            {!row._isParlayChild || row._isParlayHeader
+                        {isCellFocused(rowIndex, "date") && (
+                          <div
+                            className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
+                            onMouseDown={(e) =>
+                              handleDragFillStart(rowIndex, "date", e)
+                            }
+                          />
+                        )}
+                        {isCellEditing(rowIndex, "date") ? (
+                          <EditableCell
+                            value={!row._isParlayChild || row._isParlayHeader
                               ? formatDateShort(row.date)
                               : ""}
-                          </span>
-                        </div>
+                            type="text"
+                            isFocused={true}
+                            onFocus={() =>
+                              setFocusedCell({ rowIndex, columnKey: "date" })
+                            }
+                            inputRef={getCellRef(rowIndex, "date")}
+                            onSave={(val) => {
+                              if (!row._isParlayChild || row._isParlayHeader) {
+                                const parsed = parseDateInput(val, row.date);
+                                if (parsed) {
+                                  updateBet(row.betId, { placedAt: parsed });
+                                }
+                              }
+                              setEditingCell(null);
+                            }}
+                          />
+                        ) : (
+                          <div className="flex items-center gap-2 min-w-0">
+                            {row._isParlayChild && !row._isParlayHeader && (
+                              <span className="text-neutral-400 dark:text-neutral-500">
+                                ↳
+                              </span>
+                            )}
+                            <span className="min-w-0">
+                              {!row._isParlayChild || row._isParlayHeader
+                                ? formatDateShort(row.date)
+                                : ""}
+                            </span>
+                          </div>
+                        )}
                       </td>
                       <td
                         className={
@@ -2551,7 +2653,7 @@ const BetTableView: React.FC = () => {
                               setEditingCell(null);
                             }}
                             options={suggestionLists.sites}
-                            allowCustom={true}
+                            allowCustom={false}
                           />
                         ) : (
                           <span className="block truncate font-bold">
@@ -2580,7 +2682,6 @@ const BetTableView: React.FC = () => {
                           <TypableDropdown
                             value={row.sport}
                             onSave={(val) => {
-                              addSport(val);
                               updateBet(row.betId, { sport: val });
                               setEditingCell(null);
                             }}
@@ -2618,7 +2719,6 @@ const BetTableView: React.FC = () => {
                           <TypableDropdown
                             value={normalizeCategoryForDisplay(row.category)}
                             onSave={(val) => {
-                              addCategory(val);
                               updateBet(row.betId, {
                                 marketCategory: val as MarketCategory,
                               });
@@ -2630,7 +2730,7 @@ const BetTableView: React.FC = () => {
                               setFocusedCell({ rowIndex, columnKey: "category" })
                             }
                             inputRef={getCellRef(rowIndex, "category")}
-                            allowCustom={true}
+                            allowCustom={false}
                           />
                         ) : (
                           <span className="block truncate">{normalizeCategoryForDisplay(row.category)}</span>
@@ -2713,6 +2813,10 @@ const BetTableView: React.FC = () => {
                           if (row._isParlayHeader && row._parlayGroupId) return;
                           handleCellClick(rowIndex, "name", e);
                         }}
+                        onDoubleClick={() => {
+                          if (row._isParlayHeader && row._parlayGroupId) return;
+                          handleCellDoubleClick(rowIndex, "name");
+                        }}
                       >
                         {isCellFocused(rowIndex, "name") && (
                           <div
@@ -2776,7 +2880,7 @@ const BetTableView: React.FC = () => {
                                   onBlur={(e) => {
                                     const val = e.target.value;
                                     if (val !== row.name) {
-                                      autoAddEntity(row.sport, val, row.type);
+                                      handleNameCommitWithQueue(val, row, null);
                                       const bet = bets.find(
                                         (b) => b.id === row.betId
                                       );
@@ -2837,7 +2941,7 @@ const BetTableView: React.FC = () => {
                                   onBlur={(e) => {
                                     const val = e.target.value;
                                     if (val !== row.name2) {
-                                      autoAddEntity(row.sport, val, row.type);
+                                      handleNameCommitWithQueue(val, row, null);
                                       const bet = bets.find(
                                         (b) => b.id === row.betId
                                       );
@@ -2900,13 +3004,13 @@ const BetTableView: React.FC = () => {
                               inputRef={getCellRef(rowIndex, "name")}
                               onSave={(val) => {
                                 if (isLeg) {
-                                  autoAddEntity(row.sport, val, row.type);
+                                  handleNameCommitWithQueue(val, row, legIndex);
                                   handleLegUpdate(row.betId, legIndex, {
                                     entities: [val],
                                   });
                                 } else {
                                   // Update bet.name AND leg.entities[0] for single bets
-                                  autoAddEntity(row.sport, val, row.type);
+                                  handleNameCommitWithQueue(val, row, null);
                                   
                                   const bet = bets.find((b) => b.id === row.betId);
                                   const updates: any = { name: val };

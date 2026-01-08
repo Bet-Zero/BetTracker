@@ -77,6 +77,101 @@ export function formatDateShortWithYear(isoOrDateLike: string | Date | null | un
  */
 export const formatDateExport = formatDateShortWithYear;
 
+/**
+ * Parses user date input and returns a new ISO string with updated date.
+ * Accepts formats: MM/DD/YY, MM/DD/YYYY, M/D/YY, M/D/YYYY, MM/DD, M/D
+ * Time is set to 12:00:00 local time to avoid timezone edge cases.
+ * @param input - User input string (e.g., "01/15/26", "1/15/2026", or "01/15")
+ * @param originalIso - Original ISO string to use as fallback for year when input is MM/DD format
+ * @returns New ISO string with updated date, or null if parsing fails
+ */
+export function parseDateInput(input: string, originalIso: string): string | null {
+  if (!input || !input.trim()) return null;
+
+  // Remove whitespace
+  const trimmed = input.trim();
+
+  // Try pattern with year first: MM/DD/YY, MM/DD/YYYY, M/D/YY, M/D/YYYY
+  const datePatternWithYear = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/;
+  const matchWithYear = trimmed.match(datePatternWithYear);
+
+  if (matchWithYear) {
+    const [, monthStr, dayStr, yearStr] = matchWithYear;
+    const month = parseInt(monthStr, 10);
+    const day = parseInt(dayStr, 10);
+    const yearFull = yearStr.length === 2 
+      ? 2000 + parseInt(yearStr, 10)  // Assume 2000s for 2-digit years
+      : parseInt(yearStr, 10);
+
+    // Validate month and day ranges
+    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+
+    try {
+      // Create date at 12:00:00 local time to avoid timezone edge cases
+      const newDate = new Date(yearFull, month - 1, day, 12, 0, 0);
+      
+      // Validate the date is actually valid (catches invalid dates like Feb 30)
+      if (
+        newDate.getFullYear() !== yearFull ||
+        newDate.getMonth() !== month - 1 ||
+        newDate.getDate() !== day
+      ) {
+        return null;
+      }
+
+      // Return ISO string
+      return newDate.toISOString();
+    } catch {
+      return null;
+    }
+  }
+
+  // Try pattern without year: MM/DD, M/D (use year from originalIso)
+  const datePatternWithoutYear = /^(\d{1,2})\/(\d{1,2})$/;
+  const matchWithoutYear = trimmed.match(datePatternWithoutYear);
+
+  if (matchWithoutYear) {
+    const [, monthStr, dayStr] = matchWithoutYear;
+    const month = parseInt(monthStr, 10);
+    const day = parseInt(dayStr, 10);
+
+    // Validate month and day ranges
+    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+
+    // Extract year from originalIso
+    let yearFull: number;
+    try {
+      const originalDate = new Date(originalIso);
+      if (isNaN(originalDate.getTime())) return null;
+      yearFull = originalDate.getFullYear();
+    } catch {
+      return null;
+    }
+
+    try {
+      // Create date at 12:00:00 local time to avoid timezone edge cases
+      const newDate = new Date(yearFull, month - 1, day, 12, 0, 0);
+      
+      // Validate the date is actually valid (catches invalid dates like Feb 30)
+      if (
+        newDate.getFullYear() !== yearFull ||
+        newDate.getMonth() !== month - 1 ||
+        newDate.getDate() !== day
+      ) {
+        return null;
+      }
+
+      // Return ISO string
+      return newDate.toISOString();
+    } catch {
+      return null;
+    }
+  }
+
+  // No pattern matched
+  return null;
+}
+
 // =============================================================================
 // ODDS FORMATTER
 // =============================================================================
