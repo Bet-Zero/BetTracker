@@ -41,6 +41,24 @@ This phase implements the following improvements to the Bet Tracker row grid:
 - **Storage**: In-memory only (not persisted to localStorage)
 - **Scope**: Covers Add, Duplicate, Bulk Apply, Clear Fields, Delete
 
+#### Deep Clone Method
+- **Primary**: `structuredClone(prevBets)` (modern browsers)
+- **Fallback**: `JSON.parse(JSON.stringify(prevBets))`
+- **Function**: `pushUndoSnapshotInternal()` in `hooks/useBets.tsx` (line ~165)
+- **Rationale**: `structuredClone` is faster and handles more edge cases (e.g., Date objects), with JSON fallback for older browser compatibility.
+
+#### Keyboard Shortcut Guardrails
+
+| Shortcut | Guardrail Rule |
+|----------|----------------|
+| `Delete` / `Backspace` | **Ignored** when focus is inside an `<input>` element. Otherwise triggers delete-selected-rows flow. This allows normal text editing in cells while preventing accidental row deletion. |
+| `Cmd/Ctrl + Z` | If actively editing a text input (`<input>`, `<textarea>`, or `<select>`), the handler **exits early** allowing native browser text undo. Otherwise triggers global grid undo via `undoLastAction()`. |
+
+**Implementation Detail** (in `handleKeyDown`, `BetTableView.tsx` lines ~1406-1498):
+- Early return at lines 1410-1437 checks if `target.tagName` is INPUT/TEXTAREA/SELECT
+- Delete check at line 1494: `!(target instanceof HTMLInputElement)`
+- This ensures cell-level text editing uses native undo/delete, while grid-level operations use the custom undo stack
+
 ---
 
 ## 3) UI Control Placement Details

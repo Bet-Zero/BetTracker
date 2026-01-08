@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback } from "react";
 import { Bet, Sportsbook, MarketCategory, BetLeg } from "../types";
-import { X, AlertTriangle, CheckCircle2, Wifi, XCircle, Info } from "./icons";
+import { X, AlertTriangle, CheckCircle2, Wifi, XCircle, Info, Clock } from "./icons";
 import { classifyLeg } from "../services/marketClassification";
 import { validateBetsForImport } from "../utils/importValidation";
 import {
@@ -11,9 +11,11 @@ import {
 import { TeamData } from "../services/normalizationService";
 // Phase 1: Resolver and Unresolved Queue imports
 // Phase 2: Extended with player resolution
+// Phase 4: Extended with bet type resolution
 import {
   resolveTeam,
   resolvePlayer,
+  resolveBetType,
   ResolverResult,
 } from "../services/resolver";
 import {
@@ -25,6 +27,7 @@ import {
 import { useNormalizationData } from "../hooks/useNormalizationData";
 import MapToExistingModal from "./MapToExistingModal";
 import CreateCanonicalModal from "./CreateCanonicalModal";
+import EntityCombobox, { ResolutionAction, EntityType } from "./EntityCombobox";
 import { Sport } from "../data/referenceData";
 import {
   PlayerData,
@@ -231,6 +234,13 @@ export const ImportConfirmationModal: React.FC<
   );
   const [resolutionMode, setResolutionMode] = useState<"map" | "create">("map");
 
+  // Phase 4: Track resolution decisions per bet/field
+  // Key format: "{betId}:{field}" where field is "Name" or "Type"
+  // Value: "map" | "create" | "defer" | null
+  const [resolutionDecisions, setResolutionDecisions] = useState<
+    Record<string, ResolutionAction | null>
+  >({});
+
   // Handle initiating resolution
   const handleInitiateResolve = (
     bet: Bet,
@@ -288,6 +298,12 @@ export const ImportConfirmationModal: React.FC<
     } else if (item.entityType === "stat") {
       addBetTypeAlias(targetCanonical, item.rawValue);
     }
+    
+    // Phase 4: Record resolution decision
+    const field = item.entityType === "stat" ? "Type" : "Name";
+    const key = `${item.betId}:${field}`;
+    setResolutionDecisions(prev => ({ ...prev, [key]: "map" }));
+    
     setResolvingItem(null);
   };
 
@@ -327,7 +343,35 @@ export const ImportConfirmationModal: React.FC<
       };
       addBetType(data);
     }
+    
+    // Phase 4: Record resolution decision
+    const field = item.entityType === "stat" ? "Type" : "Name";
+    const key = `${item.betId}:${field}`;
+    setResolutionDecisions(prev => ({ ...prev, [key]: "create" }));
+    
     setResolvingItem(null);
+  };
+
+  // Phase 4: Handle defer action - marks field for deferred resolution
+  const handleDefer = (betId: string, field: string, value: string, entityType: EntityType) => {
+    const key = `${betId}:${field}`;
+    setResolutionDecisions(prev => ({ ...prev, [key]: "defer" }));
+  };
+
+  // Phase 4: Clear resolution decision (when user edits to a known value)
+  const clearResolutionDecision = (betId: string, field: string) => {
+    const key = `${betId}:${field}`;
+    setResolutionDecisions(prev => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
+
+  // Phase 4: Get resolution decision for a bet/field
+  const getResolutionDecision = (betId: string, field: string): ResolutionAction | null => {
+    const key = `${betId}:${field}`;
+    return resolutionDecisions[key] || null;
   };
 
   // Map sportsbook names to abbreviations
@@ -617,6 +661,68 @@ export const ImportConfirmationModal: React.FC<
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bets, availableSports, availablePlayers, resolverVersion]);
+
+  // Phase 4: Count unresolved Name/Type fields that haven't been deferred
+  // These block import until resolved or explicitly deferred
+  const getUnresolvedWithoutDefer = useCallback(() => {
+    const unresolved: { betId: string; field: string; value: string; legIndex?: number }[] = [];
+    
+    bets.forEach((bet, betIndex) => {
+      const visibleLegs = getVisibleLegs(bet);
+      const isParlay = 
+        bet.betType === "sgp" ||
+        bet.betType === "sgp_plus" ||
+        visibleLegs.length > 1;
+      
+      if (isParlay) {
+        // Check each leg for issues
+        visibleLegs.forEach((_, legIndex) => {
+          const legIssues = getBetIssues(bet, legIndex);
+          legIssues.forEach((issue) => {
+            if (issue.field === "Name" || issue.field === "Type") {
+              const decision = getResolutionDecision(bet.id, issue.field);
+              if (!decision) {
+                const leg = visibleLegs[legIndex]?.leg;
+                unresolved.push({
+                  betId: bet.id,
+                  field: issue.field,
+                  value: issue.field === "Name" 
+                    ? leg?.entities?.[0] || "" 
+                    : leg?.market || "",
+                  legIndex,
+                });
+              }
+            }
+          });
+        });
+      } else {
+        // Single bet issues
+        const issues = getBetIssues(bet);
+        issues.forEach((issue) => {
+          if (issue.field === "Name" || issue.field === "Type") {
+            const decision = getResolutionDecision(bet.id, issue.field);
+            if (!decision) {
+              unresolved.push({
+                betId: bet.id,
+                field: issue.field,
+                value: issue.field === "Name"
+                  ? bet.name || visibleLegs[0]?.leg.entities?.[0] || ""
+                  : bet.type || "",
+              });
+            }
+          }
+        });
+      }
+    });
+    
+    return unresolved;
+  }, [bets, resolutionDecisions, resolverVersion]);
+
+  // Phase 4: Count of unresolved items for UI
+  const unresolvedWithoutDeferCount = useMemo(() => {
+    return getUnresolvedWithoutDefer().length;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [getUnresolvedWithoutDefer]);
 
   // Handle editing a bet field or leg field
   const handleEditBet = (
@@ -1246,9 +1352,20 @@ export const ImportConfirmationModal: React.FC<
                                   >
                                     {type || "(needs review)"}
                                   </span>
+                                  {/* Phase 4: Show Deferred badge if marked */}
+                                  {getResolutionDecision(bet.id, "Type") === "defer" && (
+                                    <span
+                                      className="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 px-1.5 py-0.5 rounded flex items-center gap-0.5"
+                                      title="Will be added to Unresolved Queue"
+                                    >
+                                      <Clock className="w-3 h-3" />
+                                      Deferred
+                                    </span>
+                                  )}
                                   {betIssues.find(
                                     (i) => i.field === "Type"
-                                  ) && (
+                                  ) && !getResolutionDecision(bet.id, "Type") && (
+                                    <>
                                       <button
                                         onClick={() => {
                                           // RESOLVE STAT TYPE
@@ -1264,15 +1381,22 @@ export const ImportConfirmationModal: React.FC<
                                           }
                                         }}
                                         className="flex-shrink-0"
-                                        title={
-                                          betIssues.find(
-                                            (i) => i.field === "Type"
-                                          )?.message
-                                        }
+                                        title="Map or Create"
                                       >
                                         <AlertTriangle className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
                                       </button>
-                                    )}
+                                      {/* Phase 4: Defer button */}
+                                      {type && (
+                                        <button
+                                          onClick={() => handleDefer(bet.id, "Type", type, "betType")}
+                                          className="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 px-1.5 py-0.5 rounded hover:bg-yellow-200 dark:hover:bg-yellow-900/50"
+                                          title="Defer to Unresolved Queue"
+                                        >
+                                          Defer
+                                        </button>
+                                      )}
+                                    </>
+                                  )}
                                 </div>
                               )}
                             </>
@@ -1369,9 +1493,19 @@ export const ImportConfirmationModal: React.FC<
                                   >
                                     {name || ""}
                                   </span>
+                                  {/* Phase 4: Show Deferred badge if marked */}
+                                  {getResolutionDecision(bet.id, "Name") === "defer" && (
+                                    <span
+                                      className="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 px-1.5 py-0.5 rounded flex items-center gap-0.5"
+                                      title="Will be added to Unresolved Queue"
+                                    >
+                                      <Clock className="w-3 h-3" />
+                                      Deferred
+                                    </span>
+                                  )}
                                   {betIssues.find(
                                     (i) => i.field === "Name"
-                                  ) && (
+                                  ) && !getResolutionDecision(bet.id, "Name") && (
                                     <>
                                       {/* COLLISION_BADGE_START - Collision badge displayed on bet rows with ambiguous team matches */}
                                       {betIssues.find(
@@ -1426,14 +1560,29 @@ export const ImportConfirmationModal: React.FC<
                                           }
                                         }}
                                         className="flex-shrink-0"
-                                        title={
-                                          betIssues.find(
-                                            (i) => i.field === "Name"
-                                          )?.message
-                                        }
+                                        title="Map or Create"
                                       >
                                         <AlertTriangle className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
                                       </button>
+                                      {/* Phase 4: Defer button */}
+                                      {name && (
+                                        <button
+                                          onClick={() => {
+                                            const legCategory = classifyLeg(
+                                              visibleLegs[0]?.leg.market || bet.type || "",
+                                              bet.sport
+                                            );
+                                            const isTeamEntity =
+                                              legCategory === "Main Markets" ||
+                                              bet.marketCategory?.toLowerCase().includes("main");
+                                            handleDefer(bet.id, "Name", name, isTeamEntity ? "team" : "player");
+                                          }}
+                                          className="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 px-1.5 py-0.5 rounded hover:bg-yellow-200 dark:hover:bg-yellow-900/50"
+                                          title="Defer to Unresolved Queue"
+                                        >
+                                          Defer
+                                        </button>
+                                      )}
                                     </>
                                   )}
                                 </div>
@@ -2043,171 +2192,165 @@ export const ImportConfirmationModal: React.FC<
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
-          <div className="text-sm">
-            {/* Blocker status - RED - blocks import */}
-            {hasBlockers && (
-              <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
-                <XCircle className="w-4 h-4" />
-                <span className="font-medium">
-                  {validationSummary.betsWithBlockers} bet
-                  {validationSummary.betsWithBlockers !== 1 ? "s" : ""} cannot
-                  be imported
+        <div className="p-6 border-t border-neutral-200 dark:border-neutral-800 flex flex-col gap-3">
+          {/* Phase 4: Unresolved blocking banner */}
+          {unresolvedWithoutDeferCount > 0 && (
+            <div className="flex items-center gap-2 p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
+              <Clock className="w-5 h-5 text-orange-600 dark:text-orange-400 flex-shrink-0" />
+              <div className="flex-1">
+                <span className="font-medium text-orange-800 dark:text-orange-300">
+                  {unresolvedWithoutDeferCount} unresolved value{unresolvedWithoutDeferCount !== 1 ? "s" : ""} need action
                 </span>
-                <span className="text-neutral-500 dark:text-neutral-400 text-xs">
-                  ({validationSummary.totalBlockers} blocking issue
-                  {validationSummary.totalBlockers !== 1 ? "s" : ""})
+                <span className="text-sm text-orange-700 dark:text-orange-400 ml-2">
+                  Please Map, Create, or Defer each unknown Name/Type before importing.
                 </span>
               </div>
-            )}
-            {/* Warning status - YELLOW - allows import */}
-            {!hasBlockers && hasWarnings && (
-              <div className="flex items-center gap-2 text-yellow-600 dark:text-yellow-400">
-                <AlertTriangle className="w-4 h-4" />
-                <span>
-                  {validationSummary.totalWarnings} warning
-                  {validationSummary.totalWarnings !== 1 ? "s" : ""} (can still
-                  import)
-                </span>
-              </div>
-            )}
-            {/* All good - GREEN */}
-            {!hasBlockers && !hasWarnings && duplicateCount === 0 && (
-              <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
-                <CheckCircle2 className="w-4 h-4" />
-                <span>All bets look good!</span>
-              </div>
-            )}
-            {/* Duplicates info */}
-            {duplicateCount > 0 && !hasBlockers && (
-              <div className="flex items-center gap-2 text-neutral-600 dark:text-neutral-400 mt-1">
-                <Info className="w-4 h-4" />
-                <span>
-                  {duplicateCount} duplicate{duplicateCount !== 1 ? "s" : ""}{" "}
-                  will be skipped
-                </span>
-              </div>
-            )}
-          </div>
-          <div className="flex gap-3">
-            <button
-              onClick={onCancel}
-              className="px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={() => {
-                // Phase 1: Queue unresolved entities before confirming import
-                const unresolvedItems: UnresolvedItem[] = [];
-                const now = new Date().toISOString();
+            </div>
+          )}
+          
+          <div className="flex items-center justify-between">
+            <div className="text-sm">
+              {/* Blocker status - RED - blocks import */}
+              {hasBlockers && (
+                <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                  <XCircle className="w-4 h-4" />
+                  <span className="font-medium">
+                    {validationSummary.betsWithBlockers} bet
+                    {validationSummary.betsWithBlockers !== 1 ? "s" : ""} cannot
+                    be imported
+                  </span>
+                  <span className="text-neutral-500 dark:text-neutral-400 text-xs">
+                    ({validationSummary.totalBlockers} blocking issue
+                    {validationSummary.totalBlockers !== 1 ? "s" : ""})
+                  </span>
+                </div>
+              )}
+              {/* Warning status - YELLOW - allows import */}
+              {!hasBlockers && hasWarnings && (
+                <div className="flex items-center gap-2 text-yellow-600 dark:text-yellow-400">
+                  <AlertTriangle className="w-4 h-4" />
+                  <span>
+                    {validationSummary.totalWarnings} warning
+                    {validationSummary.totalWarnings !== 1 ? "s" : ""} (can still
+                    import)
+                  </span>
+                </div>
+              )}
+              {/* All good - GREEN */}
+              {!hasBlockers && !hasWarnings && duplicateCount === 0 && unresolvedWithoutDeferCount === 0 && (
+                <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>All bets look good!</span>
+                </div>
+              )}
+              {/* Duplicates info */}
+              {duplicateCount > 0 && !hasBlockers && (
+                <div className="flex items-center gap-2 text-neutral-600 dark:text-neutral-400 mt-1">
+                  <Info className="w-4 h-4" />
+                  <span>
+                    {duplicateCount} duplicate{duplicateCount !== 1 ? "s" : ""}{" "}
+                    will be skipped
+                  </span>
+                </div>
+              )}
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={onCancel}
+                className="px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  // Phase 4: Only queue items explicitly marked as defer
+                  const deferredItems: UnresolvedItem[] = [];
+                  const now = new Date().toISOString();
 
-                bets.forEach((bet) => {
-                  if (!bet.legs) return;
+                  // Collect deferred items from resolution decisions
+                  Object.entries(resolutionDecisions).forEach(([key, decision]) => {
+                    if (decision === "defer") {
+                      const [betId, field] = key.split(":");
+                      const bet = bets.find(b => b.id === betId);
+                      if (!bet) return;
 
-                  bet.legs.forEach((leg, legIndex) => {
-                    if (!leg.entities) return;
-
-                    leg.entities.forEach((entity) => {
-                      if (!entity || !entity.trim()) return;
-
-                      // Check if entity type is team (for team resolution)
-                      const legCategory = classifyLeg(leg.market, bet.sport);
+                      const visibleLegs = getVisibleLegs(bet);
+                      const legCategory = classifyLeg(
+                        visibleLegs[0]?.leg.market || bet.type || "",
+                        bet.sport
+                      );
                       const isTeamEntity =
                         legCategory === "Main Markets" ||
-                        leg.market?.toLowerCase() === "spread" ||
-                        leg.market?.toLowerCase() === "total" ||
-                        leg.market?.toLowerCase() === "moneyline";
+                        bet.marketCategory?.toLowerCase().includes("main");
 
-                      if (isTeamEntity) {
-                        const result = resolveTeam(entity);
-                        if (
-                          result.status === "unresolved" ||
-                          result.status === "ambiguous"
-                        ) {
-                          unresolvedItems.push({
-                            id: generateUnresolvedItemId(
-                              entity,
-                              bet.id,
-                              legIndex
-                            ),
-                            rawValue: entity,
-                            entityType: "team",
+                      if (field === "Name") {
+                        const value = bet.name || visibleLegs[0]?.leg.entities?.[0] || "";
+                        if (value) {
+                          deferredItems.push({
+                            id: generateUnresolvedItemId(value, betId),
+                            rawValue: value,
+                            entityType: isTeamEntity ? "team" : "player",
                             encounteredAt: now,
                             book: bet.book,
-                            betId: bet.id,
-                            legIndex: legIndex,
-                            market: leg.market,
+                            betId: betId,
+                            market: visibleLegs[0]?.leg.market || bet.type,
                             sport: bet.sport,
-                            context: `${bet.book} - ${
-                              leg.market || "Unknown market"
-                            }`,
+                            context: "import-deferred",
                           });
                         }
-                      } else {
-                        // Phase 2: Player resolution
-                        const result = resolvePlayer(entity, {
-                          sport: bet.sport as any,
-                        });
-                        if (
-                          result.status === "unresolved" ||
-                          result.status === "ambiguous"
-                        ) {
-                          unresolvedItems.push({
-                            id: generateUnresolvedItemId(
-                              entity,
-                              bet.id,
-                              legIndex
-                            ),
-                            rawValue: entity,
-                            entityType: "player",
+                      } else if (field === "Type") {
+                        const value = bet.type || visibleLegs[0]?.leg.market || "";
+                        if (value) {
+                          deferredItems.push({
+                            id: generateUnresolvedItemId(value, betId),
+                            rawValue: value,
+                            entityType: "stat",
                             encounteredAt: now,
                             book: bet.book,
-                            betId: bet.id,
-                            legIndex: legIndex,
-                            market: leg.market,
+                            betId: betId,
+                            market: value,
                             sport: bet.sport,
-                            context: `${bet.book} - ${
-                              leg.market || "Unknown market"
-                            }`,
+                            context: "import-deferred",
                           });
                         }
                       }
-                    });
+                    }
                   });
-                });
 
-                // Queue unresolved items (duplicates are handled internally)
-                if (unresolvedItems.length > 0) {
-                  addToUnresolvedQueue(unresolvedItems);
+                  // Queue deferred items (duplicates are handled internally)
+                  if (deferredItems.length > 0) {
+                    addToUnresolvedQueue(deferredItems);
+                  }
+
+                  // Proceed with import
+                  onConfirm(importSummary);
+                }}
+                disabled={hasBlockers || importSummary.netNew === 0 || unresolvedWithoutDeferCount > 0}
+                type="button"
+                className={`px-4 py-2 rounded-lg ${
+                  hasBlockers || importSummary.netNew === 0 || unresolvedWithoutDeferCount > 0
+                    ? "bg-neutral-400 text-neutral-200 cursor-not-allowed"
+                    : "bg-primary-600 text-white hover:bg-primary-700"
+                }`}
+                title={
+                  hasBlockers
+                    ? "Fix blocking issues before importing"
+                    : unresolvedWithoutDeferCount > 0
+                    ? "Resolve or Defer all unknown values before importing"
+                    : importSummary.netNew === 0
+                    ? "No new bets to import"
+                    : undefined
                 }
-
-                // Proceed with import
-                onConfirm(importSummary);
-              }}
-              disabled={hasBlockers || importSummary.netNew === 0}
-              type="button"
-              className={`px-4 py-2 rounded-lg ${
-                hasBlockers || importSummary.netNew === 0
-                  ? "bg-neutral-400 text-neutral-200 cursor-not-allowed"
-                  : "bg-primary-600 text-white hover:bg-primary-700"
-              }`}
-              title={
-                hasBlockers
-                  ? "Fix blocking issues before importing"
-                  : importSummary.netNew === 0
-                  ? "No new bets to import"
-                  : undefined
-              }
-            >
-              {hasBlockers
-                ? `Cannot Import (${validationSummary.betsWithBlockers} blocked)`
-                : importSummary.netNew === 0
-                ? "No New Bets"
-                : `Import ${importSummary.netNew} Bet${
-                    importSummary.netNew !== 1 ? "s" : ""
-                  }`}
-            </button>
+              >
+                {hasBlockers
+                  ? `Cannot Import (${validationSummary.betsWithBlockers} blocked)`
+                  : unresolvedWithoutDeferCount > 0
+                    ? `Resolve ${unresolvedWithoutDeferCount} Unknown${unresolvedWithoutDeferCount !== 1 ? "s" : ""}`
+                    : importSummary.netNew === 0
+                      ? "No New Bets"
+                      : `Import ${importSummary.netNew} Bet${importSummary.netNew !== 1 ? "s" : ""}`}
+              </button>
+            </div>
           </div>
         </div>
         {/* Resolution Modals */}
