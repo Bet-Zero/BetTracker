@@ -48,6 +48,12 @@ describe('unresolvedQueue', () => {
       const id2 = generateUnresolvedItemId('lebron', 'bet-123');
       expect(id1).toBe(id2);
     });
+
+    it('generates different IDs for different legIndex values', () => {
+      const leg0 = generateUnresolvedItemId('Points', 'bet-123', 0);
+      const leg1 = generateUnresolvedItemId('Points', 'bet-123', 1);
+      expect(leg0).not.toBe(leg1);
+    });
   });
 
   describe('getUnresolvedQueue', () => {
@@ -133,6 +139,23 @@ describe('unresolvedQueue', () => {
       const added = addToUnresolvedQueue(items);
       expect(added).toBe(2);
       expect(getUnresolvedQueue()).toHaveLength(2);
+    });
+
+    it('accepts betType as a valid entityType', () => {
+      const item: UnresolvedItem = {
+        id: 'bettype-test',
+        rawValue: 'Points',
+        entityType: 'betType',
+        encounteredAt: '2024-01-01T00:00:00Z',
+        book: 'DraftKings',
+        betId: 'bet-456',
+        legIndex: 0,
+      };
+      
+      const added = addToUnresolvedQueue([item]);
+      expect(added).toBe(1);
+      const queue = getUnresolvedQueue();
+      expect(queue[0].entityType).toBe('betType');
     });
   });
 

@@ -234,8 +234,9 @@ export const ImportConfirmationModal: React.FC<
   );
   const [resolutionMode, setResolutionMode] = useState<"map" | "create">("map");
 
-  // Phase 4: Track resolution decisions per bet/field
-  // Key format: "{betId}:{field}" where field is "Name" or "Type"
+  // Phase 4: Track resolution decisions per bet/field/leg
+  // Key format: "{betId}:{field}:{legIndex}" where field is "Name" or "Type"
+  // For single-leg bets, legIndex = 0
   // Value: "map" | "create" | "defer" | null
   const [resolutionDecisions, setResolutionDecisions] = useState<
     Record<string, ResolutionAction | null>
@@ -259,11 +260,11 @@ export const ImportConfirmationModal: React.FC<
       classification === "Main Markets" ||
       bet.marketCategory?.toLowerCase().includes("main");
 
-    let entityType: "team" | "player" | "stat" = "team";
+    let entityType: "team" | "player" | "betType" = "team";
     if (field === "Name") {
       entityType = isTeamEntity ? "team" : "player";
     } else if (field === "Type") {
-      entityType = "stat";
+      entityType = "betType";
     }
 
     // Construct temporary unresolved item
@@ -295,13 +296,14 @@ export const ImportConfirmationModal: React.FC<
       // Need sport for players
       const playerSport = sport || item.sport || "NBA"; // Fallback if missing
       addPlayerAlias(targetCanonical, playerSport as Sport, item.rawValue);
-    } else if (item.entityType === "stat") {
+    } else if (item.entityType === "betType") {
       addBetTypeAlias(targetCanonical, item.rawValue);
     }
     
-    // Phase 4: Record resolution decision
-    const field = item.entityType === "stat" ? "Type" : "Name";
-    const key = `${item.betId}:${field}`;
+    // Phase 4: Record resolution decision with leg-level key
+    const field = item.entityType === "betType" ? "Type" : "Name";
+    const legIndex = item.legIndex ?? 0;
+    const key = `${item.betId}:${field}:${legIndex}`;
     setResolutionDecisions(prev => ({ ...prev, [key]: "map" }));
     
     setResolvingItem(null);
@@ -334,7 +336,7 @@ export const ImportConfirmationModal: React.FC<
         aliases: [item.rawValue, ...additionalAliases],
       };
       addPlayer(data);
-    } else if (item.entityType === "stat") {
+    } else if (item.entityType === "betType") {
       const data: BetTypeData = {
         canonical,
         sport,
@@ -344,23 +346,24 @@ export const ImportConfirmationModal: React.FC<
       addBetType(data);
     }
     
-    // Phase 4: Record resolution decision
-    const field = item.entityType === "stat" ? "Type" : "Name";
-    const key = `${item.betId}:${field}`;
+    // Phase 4: Record resolution decision with leg-level key
+    const field = item.entityType === "betType" ? "Type" : "Name";
+    const legIndex = item.legIndex ?? 0;
+    const key = `${item.betId}:${field}:${legIndex}`;
     setResolutionDecisions(prev => ({ ...prev, [key]: "create" }));
     
     setResolvingItem(null);
   };
 
-  // Phase 4: Handle defer action - marks field for deferred resolution
-  const handleDefer = (betId: string, field: string, value: string, entityType: EntityType) => {
-    const key = `${betId}:${field}`;
+  // Phase 4: Handle defer action - marks field for deferred resolution (leg-level)
+  const handleDefer = (betId: string, field: string, legIndex: number, value: string, entityType: EntityType) => {
+    const key = `${betId}:${field}:${legIndex}`;
     setResolutionDecisions(prev => ({ ...prev, [key]: "defer" }));
   };
 
   // Phase 4: Clear resolution decision (when user edits to a known value)
-  const clearResolutionDecision = (betId: string, field: string) => {
-    const key = `${betId}:${field}`;
+  const clearResolutionDecision = (betId: string, field: string, legIndex: number) => {
+    const key = `${betId}:${field}:${legIndex}`;
     setResolutionDecisions(prev => {
       const next = { ...prev };
       delete next[key];
@@ -368,9 +371,9 @@ export const ImportConfirmationModal: React.FC<
     });
   };
 
-  // Phase 4: Get resolution decision for a bet/field
-  const getResolutionDecision = (betId: string, field: string): ResolutionAction | null => {
-    const key = `${betId}:${field}`;
+  // Phase 4: Get resolution decision for a bet/field/leg
+  const getResolutionDecision = (betId: string, field: string, legIndex: number): ResolutionAction | null => {
+    const key = `${betId}:${field}:${legIndex}`;
     return resolutionDecisions[key] || null;
   };
 
@@ -680,7 +683,8 @@ export const ImportConfirmationModal: React.FC<
           const legIssues = getBetIssues(bet, legIndex);
           legIssues.forEach((issue) => {
             if (issue.field === "Name" || issue.field === "Type") {
-              const decision = getResolutionDecision(bet.id, issue.field);
+              // Use leg-level key for decision lookup
+              const decision = getResolutionDecision(bet.id, issue.field, legIndex);
               if (!decision) {
                 const leg = visibleLegs[legIndex]?.leg;
                 unresolved.push({
@@ -696,11 +700,11 @@ export const ImportConfirmationModal: React.FC<
           });
         });
       } else {
-        // Single bet issues
+        // Single bet issues - use legIndex = 0
         const issues = getBetIssues(bet);
         issues.forEach((issue) => {
           if (issue.field === "Name" || issue.field === "Type") {
-            const decision = getResolutionDecision(bet.id, issue.field);
+            const decision = getResolutionDecision(bet.id, issue.field, 0);
             if (!decision) {
               unresolved.push({
                 betId: bet.id,
@@ -708,6 +712,7 @@ export const ImportConfirmationModal: React.FC<
                 value: issue.field === "Name"
                   ? bet.name || visibleLegs[0]?.leg.entities?.[0] || ""
                   : bet.type || "",
+                legIndex: 0,
               });
             }
           }
@@ -1353,7 +1358,7 @@ export const ImportConfirmationModal: React.FC<
                                     {type || "(needs review)"}
                                   </span>
                                   {/* Phase 4: Show Deferred badge if marked */}
-                                  {getResolutionDecision(bet.id, "Type") === "defer" && (
+                                  {getResolutionDecision(bet.id, "Type", 0) === "defer" && (
                                     <span
                                       className="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 px-1.5 py-0.5 rounded flex items-center gap-0.5"
                                       title="Will be added to Unresolved Queue"
@@ -1364,7 +1369,7 @@ export const ImportConfirmationModal: React.FC<
                                   )}
                                   {betIssues.find(
                                     (i) => i.field === "Type"
-                                  ) && !getResolutionDecision(bet.id, "Type") && (
+                                  ) && !getResolutionDecision(bet.id, "Type", 0) && (
                                     <>
                                       <button
                                         onClick={() => {
@@ -1388,7 +1393,7 @@ export const ImportConfirmationModal: React.FC<
                                       {/* Phase 4: Defer button */}
                                       {type && (
                                         <button
-                                          onClick={() => handleDefer(bet.id, "Type", type, "betType")}
+                                          onClick={() => handleDefer(bet.id, "Type", 0, type, "betType")}
                                           className="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 px-1.5 py-0.5 rounded hover:bg-yellow-200 dark:hover:bg-yellow-900/50"
                                           title="Defer to Unresolved Queue"
                                         >
@@ -1494,7 +1499,7 @@ export const ImportConfirmationModal: React.FC<
                                     {name || ""}
                                   </span>
                                   {/* Phase 4: Show Deferred badge if marked */}
-                                  {getResolutionDecision(bet.id, "Name") === "defer" && (
+                                  {getResolutionDecision(bet.id, "Name", 0) === "defer" && (
                                     <span
                                       className="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 px-1.5 py-0.5 rounded flex items-center gap-0.5"
                                       title="Will be added to Unresolved Queue"
@@ -1505,7 +1510,7 @@ export const ImportConfirmationModal: React.FC<
                                   )}
                                   {betIssues.find(
                                     (i) => i.field === "Name"
-                                  ) && !getResolutionDecision(bet.id, "Name") && (
+                                  ) && !getResolutionDecision(bet.id, "Name", 0) && (
                                     <>
                                       {/* COLLISION_BADGE_START - Collision badge displayed on bet rows with ambiguous team matches */}
                                       {betIssues.find(
@@ -1575,7 +1580,7 @@ export const ImportConfirmationModal: React.FC<
                                             const isTeamEntity =
                                               legCategory === "Main Markets" ||
                                               bet.marketCategory?.toLowerCase().includes("main");
-                                            handleDefer(bet.id, "Name", name, isTeamEntity ? "team" : "player");
+                                            handleDefer(bet.id, "Name", 0, name, isTeamEntity ? "team" : "player");
                                           }}
                                           className="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 px-1.5 py-0.5 rounded hover:bg-yellow-200 dark:hover:bg-yellow-900/50"
                                           title="Defer to Unresolved Queue"
@@ -2267,16 +2272,24 @@ export const ImportConfirmationModal: React.FC<
                   const deferredItems: UnresolvedItem[] = [];
                   const now = new Date().toISOString();
 
-                  // Collect deferred items from resolution decisions
+                  // Collect deferred items from resolution decisions (leg-level keys)
                   Object.entries(resolutionDecisions).forEach(([key, decision]) => {
                     if (decision === "defer") {
-                      const [betId, field] = key.split(":");
+                      // Parse leg-level key format: {betId}:{field}:{legIndex}
+                      const parts = key.split(":");
+                      const betId = parts[0];
+                      const field = parts[1];
+                      const legIndex = parseInt(parts[2], 10) || 0;
+                      
                       const bet = bets.find(b => b.id === betId);
                       if (!bet) return;
 
                       const visibleLegs = getVisibleLegs(bet);
+                      const targetLeg = visibleLegs[legIndex]?.leg;
+                      
+                      // Use the specific leg for classification
                       const legCategory = classifyLeg(
-                        visibleLegs[0]?.leg.market || bet.type || "",
+                        targetLeg?.market || bet.type || "",
                         bet.sport
                       );
                       const isTeamEntity =
@@ -2284,30 +2297,34 @@ export const ImportConfirmationModal: React.FC<
                         bet.marketCategory?.toLowerCase().includes("main");
 
                       if (field === "Name") {
-                        const value = bet.name || visibleLegs[0]?.leg.entities?.[0] || "";
+                        // Get name from specific leg or bet-level fallback
+                        const value = targetLeg?.entities?.[0] || bet.name || "";
                         if (value) {
                           deferredItems.push({
-                            id: generateUnresolvedItemId(value, betId),
+                            id: generateUnresolvedItemId(value, betId, legIndex),
                             rawValue: value,
                             entityType: isTeamEntity ? "team" : "player",
                             encounteredAt: now,
                             book: bet.book,
                             betId: betId,
-                            market: visibleLegs[0]?.leg.market || bet.type,
+                            legIndex: legIndex,
+                            market: targetLeg?.market || bet.type,
                             sport: bet.sport,
                             context: "import-deferred",
                           });
                         }
                       } else if (field === "Type") {
-                        const value = bet.type || visibleLegs[0]?.leg.market || "";
+                        // Get type from specific leg or bet-level fallback
+                        const value = targetLeg?.market || bet.type || "";
                         if (value) {
                           deferredItems.push({
-                            id: generateUnresolvedItemId(value, betId),
+                            id: generateUnresolvedItemId(value, betId, legIndex),
                             rawValue: value,
-                            entityType: "stat",
+                            entityType: "betType",
                             encounteredAt: now,
                             book: bet.book,
                             betId: betId,
+                            legIndex: legIndex,
                             market: value,
                             sport: bet.sport,
                             context: "import-deferred",

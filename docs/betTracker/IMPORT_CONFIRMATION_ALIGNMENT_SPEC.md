@@ -402,8 +402,6 @@ Resolution uses sport context when available.
 2. For any remaining unresolved → call `addToUnresolvedQueue()`
 3. Show banner: "X entities added to Unresolved Queue for later resolution"
 
----
-
 ## Implementation Status (2026-01-08)
 
 ### ✅ Completed
@@ -419,24 +417,62 @@ Resolution uses sport context when available.
 | Blocking banner in footer | ✅ Done |
 | Queue only deferred items on confirm | ✅ Done |
 | EntityCombobox component created | ✅ Done |
+| **Leg-level resolution key format** | ✅ Done (2026-01-08) |
+| **EntityType 'betType' (replaces 'stat')** | ✅ Done (2026-01-08) |
 
 ### ⏳ Deferred
 
 | Feature | Reason |
 |---------|--------|
 | Inline EntityCombobox in cells | Existing edit flow preserved; less UI disruption |
-| Leg-level Defer granularity | Bet-level tracking sufficient for MVP |
 
 ### 📄 Related Documents
 
-- [EXECUTION_RETURN_IMPORT_CONFIRMATION_ALIGNMENT.md](./EXECUTION_RETURN_IMPORT_CONFIRMATION_ALIGNMENT.md) - Full return package
+- [EXECUTION_RETURN_IMPORT_CONFIRMATION_ALIGNMENT.md](./EXECUTION_RETURN_IMPORT_CONFIRMATION_ALIGNMENT.md) - Initial return package
+- [EXECUTION_RETURN_IMPORT_CONFIRMATION_LEG_LEVEL.md](./EXECUTION_RETURN_IMPORT_CONFIRMATION_LEG_LEVEL.md) - Leg-level resolution return package
+
+---
+
+## Leg-Level Resolution Key Format (Updated 2026-01-08)
+
+### Key Format
+
+**Previous**: `{betId}:{field}` (e.g., `bet-123:Name`)  
+**Current**: `{betId}:{field}:{legIndex}` (e.g., `bet-123:Name:0`)
+
+- For single-leg bets, `legIndex` = 0
+- For parlays/SGPs, each leg has its own index
+
+### Functions Updated
+
+- `handleDefer(betId, field, legIndex, value, entityType)`
+- `clearResolutionDecision(betId, field, legIndex)`
+- `getResolutionDecision(betId, field, legIndex)`
+- `handleMapConfirm()` - uses `item.legIndex ?? 0`
+- `handleCreateConfirm()` - uses `item.legIndex ?? 0`
+- `getUnresolvedWithoutDefer()` - uses leg-level keys for parlays
+
+---
+
+## EntityType Schema (Updated 2026-01-08)
+
+### UnresolvedEntityType
+
+**Previous**: `'team' | 'stat' | 'player' | 'unknown'`  
+**Current**: `'team' | 'betType' | 'player' | 'unknown'`
+
+### Backward Compatibility
+
+- Legacy items with `entityType: 'stat'` are still valid when reading
+- New writes always use `'betType'`
+- `isValidUnresolvedItem()` accepts both `'stat'` and `'betType'`
 
 ---
 
 ## Document Metadata
 
 - **Created**: 2026-01-07
-- **Updated**: 2026-01-08 (Implementation Complete)
+- **Updated**: 2026-01-08 (Leg-Level Resolution + EntityType)
 - **Author**: Copilot Agent
 - **Related Files**: ImportConfirmationModal.tsx, EntityCombobox.tsx, ImportView.tsx, useBets.tsx, useNormalizationData.tsx, normalizationService.ts, resolver.ts, unresolvedQueue.ts
 

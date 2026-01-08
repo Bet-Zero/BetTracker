@@ -25,8 +25,13 @@ export const UNRESOLVED_QUEUE_KEY = 'bettracker-unresolved-queue' as const;
 
 /**
  * Type of unresolved entity.
+ * Note: 'stat' is deprecated but kept for backward compatibility when reading.
+ * New writes should use 'betType'.
  */
-export type UnresolvedEntityType = 'team' | 'stat' | 'player' | 'unknown';
+export type UnresolvedEntityType = 'team' | 'betType' | 'player' | 'unknown';
+
+/** Legacy entityType values for backward-compatible reading */
+type LegacyEntityType = 'stat';
 
 /**
  * An item in the unresolved queue.
@@ -36,7 +41,7 @@ export interface UnresolvedItem {
   id: string;
   /** The raw entity text that couldn't be resolved */
   rawValue: string;
-  /** Type of entity: team, stat, or unknown */
+  /** Type of entity: team, betType, player, or unknown */
   entityType: UnresolvedEntityType;
   /** When this was first encountered (ISO timestamp) */
   encounteredAt: string;
@@ -95,7 +100,8 @@ function isValidUnresolvedItem(item: unknown): item is UnresolvedItem {
     typeof obj.id === 'string' &&
     typeof obj.rawValue === 'string' &&
     typeof obj.entityType === 'string' &&
-    ['team', 'stat', 'player', 'unknown'].includes(obj.entityType as string) &&
+    // Accept both current 'betType' and legacy 'stat' for backward compatibility
+    ['team', 'betType', 'stat', 'player', 'unknown'].includes(obj.entityType as string) &&
     typeof obj.encounteredAt === 'string' &&
     typeof obj.book === 'string' &&
     typeof obj.betId === 'string'
