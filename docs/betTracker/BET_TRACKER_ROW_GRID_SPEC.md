@@ -721,6 +721,89 @@ const handlePasteToCreateRows = useCallback(async () => {
 - Stack limited to 20 entries to prevent memory issues
 - All undoable operations call `pushUndoSnapshot()` before mutation
 - `bulkUpdateBets()` accepts optional `actionLabel` parameter for undo labeling
+---
+
+## Phase 2 Implemented Behavior — Spreadsheet UX Polish
+
+**Date Implemented**: 2026-01-08
+
+### Selection vs Edit Mode
+
+The grid now has two distinct modes for cell interaction:
+
+1. **Focused/Selected** — Cell has visual focus (blue ring) but is NOT in edit mode
+2. **Editing** — Cell input is active and accepts keystrokes
+
+#### Interaction Rules
+
+| Action | Result |
+|--------|--------|
+| Single click on cell | Selects cell (focus ring), does NOT enter edit |
+| Double-click on cell | Enters edit mode |
+| Enter on focused cell | Enters edit mode |
+| Escape while editing | Cancels edit, reverts to original value, stays focused |
+| Tab/Arrow keys | Navigate between cells |
+
+#### Cursor Styling
+- **Not editing**: Cell shows `cursor-default` (standard pointer)
+- **Editing**: Input shows standard I-beam cursor
+
+### TypableDropdown Typeahead Improvements
+
+The `TypableDropdown` component (used for Sport, Site, Category, Type, etc.) now has improved Enter behavior:
+
+1. **Auto-select first match**: When user types and filters results, pressing Enter selects the first filtered option (if no item is explicitly highlighted)
+2. **Highlighted item takes priority**: If user arrows to highlight a specific option, Enter selects that option
+3. **Invalid input rejection**: When `allowCustom=false`:
+   - Typing an invalid value and pressing Enter does NOT create the value
+   - The input reverts to the original value
+
+### Sport Field Restrictions
+
+The Sport dropdown now uses `allowCustom=false`:
+- Typing "UF" → filters to show "UFC" → Enter selects "UFC"
+- Typing "ZZZ" → no match → Enter does nothing (rejecting invalid input)
+- New sports can only be created via Input Management, not by typing
+
+### Updated State
+
+New state in `BetTableView`:
+```typescript
+const [editingCell, setEditingCell] = useState<CellCoordinate | null>(null);
+```
+
+Helper function:
+```typescript
+const isCellEditing = useCallback((rowIndex, columnKey) => {
+  return editingCell?.rowIndex === rowIndex && editingCell?.columnKey === columnKey;
+}, [editingCell]);
+```
+
+### Files Changed
+
+| File | Changes |
+|------|---------|
+| `views/BetTableView.tsx` | Added `editingCell` state, `isCellEditing` helper, `handleCellDoubleClick`, modified `handleCellClick`, updated keyboard handling, updated cell rendering for focus vs edit states |
+
+### Phase 2.1 Extended Column Support
+
+**Date Implemented**: 2026-01-08
+
+This phase extended the "Select vs Edit" pattern to all remaining editable columns, ensuring a consistent spreadsheet experience across the entire grid.
+
+#### Targeted Columns
+The following columns now support the single-click select / double-click edit pattern:
+- **Name**: Player/Team name input
+- **O/U**: Over/Under dropdown
+- **Line**: Text input for totals/spreads
+- **Odds**: Numeric input
+- **Bet**: Stake input
+- **Tail**: Dropdown for tail source
+
+#### Rendering Logic
+Each of these columns now uses conditional rendering based on `isCellEditing(rowIndex, columnKey)`:
+- **Default (Not Editing)**: Renders a static `<span>` (fast, read-only).
+- **Editing**: Renders the controlled editor component (`EditableCell` or `TypableDropdown`) with `autoFocus`.
 
 ---
 
@@ -729,4 +812,6 @@ const handlePasteToCreateRows = useCallback(async () => {
 - **Author**: Copilot Agent (PREFLIGHT Investigation)
 - **Updated**: 2026-01-07 (Phase 1 Implementation)
 - **Updated**: 2026-01-07 (Phase 1.1 Implementation)
+- **Updated**: 2026-01-08 (Phase 2 Spreadsheet UX Polish)
+- **Updated**: 2026-01-08 (Phase 2.1 Extended Column Support)
 - **Related Files**: BetTableView.tsx, useBets.tsx, useInputs.tsx, types.ts, persistence.ts

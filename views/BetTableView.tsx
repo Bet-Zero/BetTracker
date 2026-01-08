@@ -346,21 +346,33 @@ const TypableDropdown: React.FC<{
     }
 
     if (e.key === "Enter") {
-      if (
-        isOpen &&
-        highlightedIndex >= 0 &&
-        filteredOptions[highlightedIndex]
-      ) {
+      e.preventDefault();
+      
+      // If there's a highlighted option, select it
+      if (isOpen && highlightedIndex >= 0 && filteredOptions[highlightedIndex]) {
         handleSelect(filteredOptions[highlightedIndex]);
+        return;
+      }
+      
+      // If no highlighted option but there are filtered options, select the first one
+      if (isOpen && filteredOptions.length > 0 && filterText) {
+        handleSelect(filteredOptions[0]);
+        return;
+      }
+      
+      // If allowCustom is true, or text matches an option exactly, or text is empty
+      if (allowCustom || options.includes(text) || !text) {
+        onSave(text);
+        setIsOpen(false);
+        ref.current?.blur();
       } else {
-        // Save current text
-        if (allowCustom || options.includes(text) || !text) {
-          onSave(text);
-        }
+        // Not allowed to create custom values - don't save, just close
+        // Revert to original value
+        setText(value || "");
+        setFilterText("");
         setIsOpen(false);
         ref.current?.blur();
       }
-      e.preventDefault();
       return;
     }
 
@@ -523,6 +535,7 @@ const BetTableView: React.FC = () => {
 
   // Spreadsheet state management
   const [focusedCell, setFocusedCell] = useState<CellCoordinate | null>(null);
+  const [editingCell, setEditingCell] = useState<CellCoordinate | null>(null); // Cell actively being edited
   const [selectionRange, setSelectionRange] = useState<SelectionRange>(null);
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectionAnchor, setSelectionAnchor] = useState<CellCoordinate | null>(
@@ -1070,6 +1083,17 @@ const BetTableView: React.FC = () => {
     [focusedCell]
   );
 
+  // Helper: Check if cell is being edited
+  const isCellEditing = useCallback(
+    (rowIndex: number, columnKey: keyof FlatBet): boolean => {
+      return (
+        editingCell?.rowIndex === rowIndex &&
+        editingCell?.columnKey === columnKey
+      );
+    },
+    [editingCell]
+  );
+
   // Helper: Check if a row is selected
   const isRowSelected = useCallback(
     (rowId: string): boolean => {
@@ -1524,9 +1548,24 @@ const BetTableView: React.FC = () => {
           }
           break;
         case "Enter":
+          // Enter on focused cell: enter edit mode (if not already editing)
           if (!(target instanceof HTMLInputElement)) {
             e.preventDefault();
-            navigateToCell(rowIndex, columnKey, "down");
+            if (focusedCell && !editingCell) {
+              // Enter edit mode
+              setEditingCell({ rowIndex, columnKey });
+            } else {
+              // Already editing or just finished - move down
+              setEditingCell(null);
+              navigateToCell(rowIndex, columnKey, "down");
+            }
+          }
+          break;
+        case "Escape":
+          // Cancel edit, stay focused
+          if (editingCell) {
+            e.preventDefault();
+            setEditingCell(null);
           }
           break;
         case "Home":
@@ -1554,7 +1593,7 @@ const BetTableView: React.FC = () => {
           break;
       }
     },
-    [focusedCell, navigateToCell, editableColumns, visibleBets.length, handleDuplicateRows, handleBulkApplyValue, handleDeleteRows, undoLastAction, batchCount, handleInsertRowAbove, handleInsertRowBelow]
+    [focusedCell, editingCell, navigateToCell, editableColumns, visibleBets.length, handleDuplicateRows, handleBulkApplyValue, handleDeleteRows, undoLastAction, batchCount, handleInsertRowAbove, handleInsertRowBelow]
   );
 
   // Helper: Get cell value as string
@@ -1774,10 +1813,13 @@ const BetTableView: React.FC = () => {
     ]
   );
 
-  // Cell click handler
+  // Cell click handler - single click selects only, does NOT enter edit mode
   const handleCellClick = useCallback(
     (rowIndex: number, columnKey: keyof FlatBet, e: React.MouseEvent) => {
       if (!isCellEditable(columnKey)) return;
+
+      // Clear editing state on single click (select only)
+      setEditingCell(null);
 
       if (e.shiftKey && selectionAnchor) {
         // Shift+Click: extend selection
@@ -1802,7 +1844,7 @@ const BetTableView: React.FC = () => {
         }
         setFocusedCell({ rowIndex, columnKey });
       } else {
-        // Regular click: single selection
+        // Regular click: single selection (no edit mode)
         setFocusedCell({ rowIndex, columnKey });
         setSelectionAnchor({ rowIndex, columnKey });
         setSelectionRange({
@@ -1812,6 +1854,22 @@ const BetTableView: React.FC = () => {
       }
     },
     [isCellEditable, selectionAnchor, selectionRange]
+  );
+
+  // Cell double-click handler - enters edit mode
+  const handleCellDoubleClick = useCallback(
+    (rowIndex: number, columnKey: keyof FlatBet) => {
+      if (!isCellEditable(columnKey)) return;
+
+      setFocusedCell({ rowIndex, columnKey });
+      setEditingCell({ rowIndex, columnKey });
+      setSelectionAnchor({ rowIndex, columnKey });
+      setSelectionRange({
+        start: { rowIndex, columnKey },
+        end: { rowIndex, columnKey },
+      });
+    },
+    [isCellEditable]
   );
 
   // Drag-to-fill handlers
@@ -2447,9 +2505,10 @@ const BetTableView: React.FC = () => {
                       <td
                         className={
                           getCellClasses("site") +
-                          " font-bold whitespace-nowrap min-w-0"
+                          " font-bold whitespace-nowrap min-w-0 cursor-default"
                         }
                         onClick={(e) => handleCellClick(rowIndex, "site", e)}
+                        onDoubleClick={() => handleCellDoubleClick(rowIndex, "site")}
                       >
                         {isCellFocused(rowIndex, "site") && (
                           <div
@@ -2459,37 +2518,47 @@ const BetTableView: React.FC = () => {
                             }
                           />
                         )}
-                        <TypableDropdown
-                          value={
-                            !row._isParlayChild || row._isParlayHeader
+                        {isCellEditing(rowIndex, "site") ? (
+                          <TypableDropdown
+                            value={
+                              !row._isParlayChild || row._isParlayHeader
+                                ? siteShortNameMap[row.site] || row.site
+                                : ""
+                            }
+                            isFocused={true}
+                            onFocus={() =>
+                              setFocusedCell({ rowIndex, columnKey: "site" })
+                            }
+                            inputRef={getCellRef(rowIndex, "site")}
+                            onSave={(val) => {
+                              const book = sportsbooks.find(
+                                (b) =>
+                                  b.name.toLowerCase() === val.toLowerCase() ||
+                                  b.abbreviation.toLowerCase() ===
+                                    val.toLowerCase()
+                              );
+                              updateBet(row.betId, {
+                                book: book ? book.name : val,
+                              });
+                              setEditingCell(null);
+                            }}
+                            options={suggestionLists.sites}
+                            allowCustom={true}
+                          />
+                        ) : (
+                          <span className="block truncate font-bold">
+                            {!row._isParlayChild || row._isParlayHeader
                               ? siteShortNameMap[row.site] || row.site
-                              : ""
-                          }
-                          isFocused={isCellFocused(rowIndex, "site")}
-                          onFocus={() =>
-                            setFocusedCell({ rowIndex, columnKey: "site" })
-                          }
-                          inputRef={getCellRef(rowIndex, "site")}
-                          onSave={(val) => {
-                            const book = sportsbooks.find(
-                              (b) =>
-                                b.name.toLowerCase() === val.toLowerCase() ||
-                                b.abbreviation.toLowerCase() ===
-                                  val.toLowerCase()
-                            );
-                            updateBet(row.betId, {
-                              book: book ? book.name : val,
-                            });
-                          }}
-                          options={suggestionLists.sites}
-                          allowCustom={true}
-                        />
+                              : ""}
+                          </span>
+                        )}
                       </td>
                       <td
                         className={
-                          getCellClasses("sport") + " whitespace-nowrap min-w-0"
+                          getCellClasses("sport") + " whitespace-nowrap min-w-0 cursor-default"
                         }
                         onClick={(e) => handleCellClick(rowIndex, "sport", e)}
+                        onDoubleClick={() => handleCellDoubleClick(rowIndex, "sport")}
                       >
                         {isCellFocused(rowIndex, "sport") && (
                           <div
@@ -2499,29 +2568,35 @@ const BetTableView: React.FC = () => {
                             }
                           />
                         )}
-                        <TypableDropdown
-                          value={row.sport}
-                          onSave={(val) => {
-                            addSport(val);
-                            updateBet(row.betId, { sport: val });
-                          }}
-                          options={suggestionLists.sports}
-                          isFocused={isCellFocused(rowIndex, "sport")}
-                          onFocus={() =>
-                            setFocusedCell({ rowIndex, columnKey: "sport" })
-                          }
-                          inputRef={getCellRef(rowIndex, "sport")}
-                          allowCustom={true}
-                        />
+                        {isCellEditing(rowIndex, "sport") ? (
+                          <TypableDropdown
+                            value={row.sport}
+                            onSave={(val) => {
+                              addSport(val);
+                              updateBet(row.betId, { sport: val });
+                              setEditingCell(null);
+                            }}
+                            options={suggestionLists.sports}
+                            isFocused={true}
+                            onFocus={() =>
+                              setFocusedCell({ rowIndex, columnKey: "sport" })
+                            }
+                            inputRef={getCellRef(rowIndex, "sport")}
+                            allowCustom={false}
+                          />
+                        ) : (
+                          <span className="block truncate">{row.sport}</span>
+                        )}
                       </td>
                       <td
                         className={
                           getCellClasses("category") +
-                          " whitespace-nowrap min-w-0"
+                          " whitespace-nowrap min-w-0 cursor-default"
                         }
                         onClick={(e) =>
                           handleCellClick(rowIndex, "category", e)
                         }
+                        onDoubleClick={() => handleCellDoubleClick(rowIndex, "category")}
                       >
                         {isCellFocused(rowIndex, "category") && (
                           <div
@@ -2531,29 +2606,35 @@ const BetTableView: React.FC = () => {
                             }
                           />
                         )}
-                        <TypableDropdown
-                          value={normalizeCategoryForDisplay(row.category)}
-                          onSave={(val) => {
-                            addCategory(val);
-                            updateBet(row.betId, {
-                              marketCategory: val as MarketCategory,
-                            });
-                          }}
-                          options={suggestionLists.categories}
-                          isFocused={isCellFocused(rowIndex, "category")}
-                          onFocus={() =>
-                            setFocusedCell({ rowIndex, columnKey: "category" })
-                          }
-                          inputRef={getCellRef(rowIndex, "category")}
-                          allowCustom={true}
-                        />
+                        {isCellEditing(rowIndex, "category") ? (
+                          <TypableDropdown
+                            value={normalizeCategoryForDisplay(row.category)}
+                            onSave={(val) => {
+                              addCategory(val);
+                              updateBet(row.betId, {
+                                marketCategory: val as MarketCategory,
+                              });
+                              setEditingCell(null);
+                            }}
+                            options={suggestionLists.categories}
+                            isFocused={true}
+                            onFocus={() =>
+                              setFocusedCell({ rowIndex, columnKey: "category" })
+                            }
+                            inputRef={getCellRef(rowIndex, "category")}
+                            allowCustom={true}
+                          />
+                        ) : (
+                          <span className="block truncate">{normalizeCategoryForDisplay(row.category)}</span>
+                        )}
                       </td>
                       <td
                         className={
                           getCellClasses("type") +
-                          " capitalize whitespace-nowrap min-w-0"
+                          " capitalize whitespace-nowrap min-w-0 cursor-default"
                         }
                         onClick={(e) => handleCellClick(rowIndex, "type", e)}
+                        onDoubleClick={() => handleCellDoubleClick(rowIndex, "type")}
                       >
                         {isCellFocused(rowIndex, "type") && (
                           <div
@@ -2563,35 +2644,40 @@ const BetTableView: React.FC = () => {
                             }
                           />
                         )}
-                        <TypableDropdown
-                          value={abbreviateMarket(row.type)}
-                          onSave={(val) => {
-                            // Convert abbreviation back to full name if it exists
-                            const fullName =
-                              typeAbbreviationToFull[val.toLowerCase()] || val;
-                            if (isLeg) {
-                              addBetType(row.sport, fullName);
-                              handleLegUpdate(row.betId, legIndex, {
-                                market: fullName,
-                              });
-                            } else {
-                              // Update bet.type (stat type), NOT betType (bet form)
-                              addBetType(row.sport, fullName);
-                              updateBet(row.betId, { type: fullName });
+                        {isCellEditing(rowIndex, "type") ? (
+                          <TypableDropdown
+                            value={abbreviateMarket(row.type)}
+                            onSave={(val) => {
+                              // Convert abbreviation back to full name if it exists
+                              const fullName =
+                                typeAbbreviationToFull[val.toLowerCase()] || val;
+                              if (isLeg) {
+                                addBetType(row.sport, fullName);
+                                handleLegUpdate(row.betId, legIndex, {
+                                  market: fullName,
+                                });
+                              } else {
+                                // Update bet.type (stat type), NOT betType (bet form)
+                                addBetType(row.sport, fullName);
+                                updateBet(row.betId, { type: fullName });
+                              }
+                              setEditingCell(null);
+                            }}
+                            options={
+                              isLeg
+                                ? suggestionLists.types(row.sport)
+                                : suggestionLists.types(row.sport) // Use stat types for single bets too
                             }
-                          }}
-                          options={
-                            isLeg
-                              ? suggestionLists.types(row.sport)
-                              : suggestionLists.types(row.sport) // Use stat types for single bets too
-                          }
-                          isFocused={isCellFocused(rowIndex, "type")}
-                          onFocus={() =>
-                            setFocusedCell({ rowIndex, columnKey: "type" })
-                          }
-                          inputRef={getCellRef(rowIndex, "type")}
-                          allowCustom={true}
-                        />
+                            isFocused={true}
+                            onFocus={() =>
+                              setFocusedCell({ rowIndex, columnKey: "type" })
+                            }
+                            inputRef={getCellRef(rowIndex, "type")}
+                            allowCustom={true}
+                          />
+                        ) : (
+                          <span className="block truncate">{abbreviateMarket(row.type)}</span>
+                        )}
                       </td>
                       <td
                         className={
@@ -2773,39 +2859,42 @@ const BetTableView: React.FC = () => {
                               <>
                                 {row.name || "—"}
                                 <span className="text-neutral-400 dark:text-neutral-500 mx-0.5">
-                                  /
-                                </span>
-                                {row.name2 || "—"}
-                              </>
-                            )}
-                          </span>
-                        ) : (
-                          // Single input for non-totals bets
-                          <EditableCell
-                            value={row.name}
-                            isFocused={isCellFocused(rowIndex, "name")}
-                            onFocus={() =>
-                              setFocusedCell({ rowIndex, columnKey: "name" })
-                            }
-                            inputRef={getCellRef(rowIndex, "name")}
-                            onSave={(val) => {
-                              if (isLeg) {
-                                autoAddEntity(row.sport, val, row.type);
-                                handleLegUpdate(row.betId, legIndex, {
-                                  entities: [val],
-                                });
-                              } else {
-                                // Update bet.name (player/team name), NOT description
-                                autoAddEntity(row.sport, val, row.type);
-                                updateBet(row.betId, { name: val });
+                            </span>
+                          ) : isCellEditing(rowIndex, "name") ? (
+                            // Single input for non-totals bets (Edit Mode)
+                            <EditableCell
+                              value={row.name}
+                              isFocused={true}
+                              onFocus={() =>
+                                setFocusedCell({ rowIndex, columnKey: "name" })
                               }
-                            }}
-                            suggestions={[
-                              ...suggestionLists.players(row.sport),
-                              ...suggestionLists.teams(row.sport),
-                            ]}
-                          />
-                        )}
+                              inputRef={getCellRef(rowIndex, "name")}
+                              onSave={(val) => {
+                                if (isLeg) {
+                                  autoAddEntity(row.sport, val, row.type);
+                                  handleLegUpdate(row.betId, legIndex, {
+                                    entities: [val],
+                                  });
+                                } else {
+                                  // Update bet.name (player/team name), NOT description
+                                  autoAddEntity(row.sport, val, row.type);
+                                  updateBet(row.betId, { name: val });
+                                }
+                                setEditingCell(null);
+                              }}
+                              suggestions={[
+                                ...suggestionLists.players(row.sport),
+                                ...suggestionLists.teams(row.sport),
+                              ]}
+                            />
+                          ) : (
+                            // Display Mode
+                            <span className="block truncate">
+                              {row.name || (
+                                <span className="opacity-0">Empty</span>
+                              )}
+                            </span>
+                          )}
                       </td>
                       <td
                         className={
@@ -2822,43 +2911,54 @@ const BetTableView: React.FC = () => {
                             }
                           />
                         )}
-                        <TypableDropdown
-                          value={
-                            row.ou === "Over"
+                        {isCellEditing(rowIndex, "ou") ? (
+                          <TypableDropdown
+                            value={
+                              row.ou === "Over"
+                                ? "O"
+                                : row.ou === "Under"
+                                ? "U"
+                                : ""
+                            }
+                            onSave={(val) => {
+                              let ouValue: "Over" | "Under" | undefined;
+                              if (val === "O" || val.toLowerCase() === "over") {
+                                ouValue = "Over";
+                              } else if (
+                                val === "U" ||
+                                val.toLowerCase() === "under"
+                              ) {
+                                ouValue = "Under";
+                              } else {
+                                ouValue = undefined;
+                              }
+                              if (isLeg) {
+                                handleLegUpdate(row.betId, legIndex, {
+                                  ou: ouValue,
+                                });
+                              } else {
+                                updateBet(row.betId, { ou: ouValue });
+                              }
+                              setEditingCell(null);
+                            }}
+                            options={["O", "U"]}
+                            isFocused={true}
+                            onFocus={() =>
+                              setFocusedCell({ rowIndex, columnKey: "ou" })
+                            }
+                            inputRef={getCellRef(rowIndex, "ou")}
+                            allowCustom={false}
+                            className="text-center font-semibold"
+                          />
+                        ) : (
+                          <span className="block font-semibold">
+                            {row.ou === "Over"
                               ? "O"
                               : row.ou === "Under"
                               ? "U"
-                              : ""
-                          }
-                          onSave={(val) => {
-                            let ouValue: "Over" | "Under" | undefined;
-                            if (val === "O" || val.toLowerCase() === "over") {
-                              ouValue = "Over";
-                            } else if (
-                              val === "U" ||
-                              val.toLowerCase() === "under"
-                            ) {
-                              ouValue = "Under";
-                            } else {
-                              ouValue = undefined;
-                            }
-                            if (isLeg) {
-                              handleLegUpdate(row.betId, legIndex, {
-                                ou: ouValue,
-                              });
-                            } else {
-                              updateBet(row.betId, { ou: ouValue });
-                            }
-                          }}
-                          options={["O", "U"]}
-                          isFocused={isCellFocused(rowIndex, "ou")}
-                          onFocus={() =>
-                            setFocusedCell({ rowIndex, columnKey: "ou" })
-                          }
-                          inputRef={getCellRef(rowIndex, "ou")}
-                          allowCustom={false}
-                          className="text-center font-semibold"
-                        />
+                              : ""}
+                          </span>
+                        )}
                       </td>
                       <td
                         className={
@@ -2875,23 +2975,33 @@ const BetTableView: React.FC = () => {
                             }
                           />
                         )}
-                        <EditableCell
-                          value={row.line || ""}
-                          type="text"
-                          isFocused={isCellFocused(rowIndex, "line")}
-                          onFocus={() =>
-                            setFocusedCell({ rowIndex, columnKey: "line" })
-                          }
-                          inputRef={getCellRef(rowIndex, "line")}
-                          onSave={(val) => {
-                            if (isLeg) {
-                              handleLegUpdate(row.betId, legIndex, {
-                                target: val,
-                              });
+                        {isCellEditing(rowIndex, "line") ? (
+                          <EditableCell
+                            value={row.line || ""}
+                            type="text"
+                            isFocused={true}
+                            onFocus={() =>
+                              setFocusedCell({ rowIndex, columnKey: "line" })
                             }
-                          }}
-                          className="text-right tabular-nums"
-                        />
+                            inputRef={getCellRef(rowIndex, "line")}
+                            onSave={(val) => {
+                              if (isLeg) {
+                                handleLegUpdate(row.betId, legIndex, {
+                                  target: val,
+                                });
+                              }
+                              // Note: Main bet update logic would go here if we supported updating
+                              // bet line directly, currently only legs for now or updateBet default way
+                              if (!isLeg) {
+                                updateBet(row.betId, { line: val });
+                              }
+                              setEditingCell(null);
+                            }}
+                            className="text-right tabular-nums"
+                          />
+                        ) : (
+                          <span className="block truncate">{row.line}</span>
+                        )}
                       </td>
                       <td
                         className={
@@ -2942,12 +3052,12 @@ const BetTableView: React.FC = () => {
                               ↳
                             </span>
                           )
-                        ) : (
+                        ) : isCellEditing(rowIndex, "odds") ? (
                           <EditableCell
                             value={formatOdds(row.odds)}
                             type="number"
                             formatAsOdds={true}
-                            isFocused={isCellFocused(rowIndex, "odds")}
+                            isFocused={true}
                             onFocus={() =>
                               setFocusedCell({ rowIndex, columnKey: "odds" })
                             }
@@ -2958,9 +3068,12 @@ const BetTableView: React.FC = () => {
                                 // Always update the main bet's odds, which drives the "To Win" calculation.
                                 updateBet(row.betId, { odds: numVal });
                               }
+                              setEditingCell(null);
                             }}
                             className="text-right tabular-nums"
                           />
+                        ) : (
+                          <span className="block">{formatOdds(row.odds)}</span>
                         )}
                       </td>
                       <td
@@ -2982,11 +3095,11 @@ const BetTableView: React.FC = () => {
                           <span className="text-neutral-300 dark:text-neutral-600">
                             ↳
                           </span>
-                        ) : (
+                        ) : isCellEditing(rowIndex, "bet") ? (
                           <EditableCell
                             value={formatCurrency(row.bet)}
                             type="number"
-                            isFocused={isCellFocused(rowIndex, "bet")}
+                            isFocused={true}
                             onFocus={() =>
                               setFocusedCell({
                                 rowIndex,
@@ -2998,9 +3111,12 @@ const BetTableView: React.FC = () => {
                               const numVal = parseFloat(val.replace(/[$,]/g, ""));
                               if (!isNaN(numVal))
                                 updateBet(row.betId, { stake: numVal });
+                              setEditingCell(null);
                             }}
                             className="text-right tabular-nums"
                           />
+                        ) : (
+                          <span className="block">{formatCurrency(row.bet)}</span>
                         )}
                       </td>
                       <td
@@ -3089,19 +3205,24 @@ const BetTableView: React.FC = () => {
                             }
                           />
                         )}
-                        <TypableDropdown
-                          value={row.tail || ""}
-                          isFocused={isCellFocused(rowIndex, "tail")}
-                          onFocus={() =>
-                            setFocusedCell({ rowIndex, columnKey: "tail" })
-                          }
-                          inputRef={getCellRef(rowIndex, "tail")}
-                          onSave={(newValue) => {
-                            updateBet(row.betId, { tail: newValue });
-                          }}
-                          options={tailOptions}
-                          allowCustom={true}
-                        />
+                        {isCellEditing(rowIndex, "tail") ? (
+                          <TypableDropdown
+                            value={row.tail || ""}
+                            isFocused={true}
+                            onFocus={() =>
+                              setFocusedCell({ rowIndex, columnKey: "tail" })
+                            }
+                            inputRef={getCellRef(rowIndex, "tail")}
+                            onSave={(newValue) => {
+                              updateBet(row.betId, { tail: newValue });
+                              setEditingCell(null);
+                            }}
+                            options={tailOptions}
+                            allowCustom={true}
+                          />
+                        ) : (
+                          <span className="block truncate">{row.tail}</span>
+                        )}
                       </td>
                     </tr>
                   );
