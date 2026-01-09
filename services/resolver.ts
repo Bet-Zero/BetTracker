@@ -22,6 +22,8 @@ import {
   getPlayerCollision,
   isKnownPlayer,
   normalizePlayerNameBasic,
+  getTeamInfo,
+  getSportForTeam,
 } from './normalizationService';
 
 // ============================================================================
@@ -100,6 +102,111 @@ export function resolveTeam(rawTeamName: string): ResolverResult {
   }
   
   // No match found (unresolved case)
+  return {
+    status: 'unresolved',
+    canonical: trimmed,
+    raw: trimmed,
+  };
+}
+
+/**
+ * Resolve a team name through the chokepoint with sport filtering.
+ * 
+ * This prevents cross-sport alias collisions (e.g., "Hawks" in NBA context
+ * should not match NFL Seahawks aliases).
+ * 
+ * Resolution order:
+ * 1. If sport provided and team resolves with matching sport → resolved
+ * 2. If sport provided and team resolves but different sport → unresolved (cross-sport collision)
+ * 3. If no sport provided, falls back to standard resolveTeam behavior
+ * 
+ * @param rawTeamName - The raw team name from sportsbook data
+ * @param sport - The sport context to scope the resolution to
+ * @returns ResolverResult with status and canonical value
+ */
+export function resolveTeamForSport(
+  rawTeamName: string, 
+  sport?: Sport
+): ResolverResult {
+  if (!rawTeamName || rawTeamName.trim() === '') {
+    return {
+      status: 'unresolved',
+      canonical: rawTeamName || '',
+      raw: rawTeamName || '',
+    };
+  }
+
+  const trimmed = rawTeamName.trim();
+  
+  // If no sport context provided, use standard resolution
+  if (!sport) {
+    return resolveTeam(rawTeamName);
+  }
+  
+  // Use existing normalizeTeamNameWithMeta for collision detection
+  const normResult = normalizeTeamNameWithMeta(trimmed);
+  
+  // Get the matched team info to check its sport
+  const teamInfo = getTeamInfo(trimmed);
+  
+  // Check for collision (ambiguous case) - filter to only same-sport candidates
+  if (normResult.collision && normResult.collision.candidates.length > 1) {
+    // Filter candidates by sport - get teams that match this sport
+    const sportsForCandidates = normResult.collision.candidates
+      .filter(candidate => {
+        const candidateSport = getSportForTeam(candidate);
+        return candidateSport === sport;
+      });
+    
+    if (sportsForCandidates.length > 1) {
+      // Multiple same-sport candidates - still ambiguous
+      return {
+        status: 'ambiguous',
+        canonical: normResult.canonical,
+        raw: trimmed,
+        collision: {
+          input: normResult.collision.input,
+          candidates: sportsForCandidates,
+        },
+      };
+    } else if (sportsForCandidates.length === 1) {
+      // Exactly one same-sport candidate - resolved
+      return {
+        status: 'resolved',
+        canonical: sportsForCandidates[0],
+        raw: trimmed,
+      };
+    }
+    // No same-sport candidates - fall through to unresolved
+  }
+  
+  // Check if this is a known team with matching sport (resolved case)
+  if (teamInfo) {
+    // Check if the team's sport matches the context sport
+    if (teamInfo.sport === sport) {
+      return {
+        status: 'resolved',
+        canonical: teamInfo.canonical,
+        raw: trimmed,
+      };
+    }
+    // Team found but different sport - treat as unresolved in this context
+    // This prevents "Hawks" in NBA from matching NFL Seahawks
+  }
+  
+  // Check if normalization found a match with correct sport
+  if (normResult.canonical !== trimmed) {
+    const normalizedSport = getSportForTeam(normResult.canonical);
+    if (normalizedSport === sport) {
+      return {
+        status: 'resolved',
+        canonical: normResult.canonical,
+        raw: trimmed,
+      };
+    }
+  }
+  
+  // No match found for this sport (unresolved case)
   return {
     status: 'unresolved',
     canonical: trimmed,

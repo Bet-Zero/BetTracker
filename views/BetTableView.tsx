@@ -15,7 +15,7 @@ import {
   BetLeg,
   BetType,
 } from "../types";
-import { Wifi, AlertTriangle } from "../components/icons";
+import { Wifi, AlertTriangle, HelpCircle } from "../components/icons";
 import { calculateProfit } from "../utils/betCalculations";
 import { betToFinalRows } from "../parsing/shared/betToFinalRows";
 import { abbreviateMarket, normalizeCategoryForDisplay } from "../services/marketClassification";
@@ -23,7 +23,7 @@ import { formatDateShort, formatOdds, formatCurrency, parseDateInput } from "../
 import { createBetTableFilterPredicate } from "../utils/filterPredicates";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import { addToUnresolvedQueue, generateUnresolvedItemId, removeFromUnresolvedQueue } from "../services/unresolvedQueue";
-import { resolvePlayer, resolveTeam } from "../services/resolver";
+import { resolvePlayer, resolveTeam, resolveTeamForSport } from "../services/resolver";
 import type { UnresolvedEntityType, UnresolvedItem } from "../services/unresolvedQueue";
 import MapToExistingModal from "../components/MapToExistingModal";
 import CreateCanonicalModal from "../components/CreateCanonicalModal";
@@ -136,6 +136,7 @@ const EditableCell: React.FC<{
   onFocus?: () => void;
   inputRef?: React.RefObject<HTMLInputElement>;
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  initialValue?: string; // Initial character(s) for type-to-edit (replaces current value)
 }> = ({
   value,
   onSave,
@@ -147,24 +148,33 @@ const EditableCell: React.FC<{
   onFocus,
   inputRef,
   onKeyDown,
+  initialValue,
 }) => {
-  const [text, setText] = useState(value?.toString() || "");
+  // If initialValue is provided, use it (overwrite mode for spreadsheet feel)
+  const [text, setText] = useState(initialValue ?? (value?.toString() || ""));
   const listId = useMemo(() => `suggestions-${Math.random()}`, []);
   const internalRef = useRef<HTMLInputElement>(null);
   const ref = inputRef || internalRef;
 
-  // Update internal state if the external value prop changes
+  // Update internal state if the external value prop changes (skip if we have initialValue)
   React.useEffect(() => {
-    setText(value?.toString() || "");
-  }, [value]);
+    if (initialValue === undefined) {
+      setText(value?.toString() || "");
+    }
+  }, [value, initialValue]);
 
   // Focus input when isFocused becomes true
   React.useEffect(() => {
     if (isFocused && ref.current) {
       ref.current.focus();
-      ref.current.select();
+      // If initialValue provided, place cursor at end; otherwise select all
+      if (initialValue !== undefined) {
+        ref.current.setSelectionRange(text.length, text.length);
+      } else {
+        ref.current.select();
+      }
     }
-  }, [isFocused, ref]);
+  }, [isFocused, ref, initialValue, text.length]);
 
   const handleBlur = () => {
     let formattedText = text;
@@ -232,24 +242,8 @@ const EditableCell: React.FC<{
   );
 };
 
-const ResultCell: React.FC<{
-  value: BetResult;
-  onSave: (newValue: BetResult) => void;
-}> = ({ value, onSave }) => {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onSave(e.target.value as BetResult)}
-      className="bg-transparent w-full p-0 m-0 border-none focus:ring-0 focus:outline-none capitalize font-semibold rounded max-w-full min-w-0"
-      style={{ boxSizing: "border-box", maxWidth: "100%", minWidth: 0 }}
-    >
-      <option value="win">Win</option>
-      <option value="loss">Loss</option>
-      <option value="push">Push</option>
-      <option value="pending">Pending</option>
-    </select>
-  );
-};
+// Result Cell - uses TypableDropdown for typeahead support
+// Forward declare, actual component defined after TypableDropdown
 
 // Typable Dropdown Component (Combobox)
 const TypableDropdown: React.FC<{
@@ -263,6 +257,7 @@ const TypableDropdown: React.FC<{
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   placeholder?: string;
   allowCustom?: boolean; // Allow typing values not in the list
+  initialQuery?: string; // Initial character(s) for type-to-edit (replaces current value)
 }> = ({
   value,
   onSave,
@@ -274,11 +269,13 @@ const TypableDropdown: React.FC<{
   onKeyDown,
   placeholder = "",
   allowCustom = true,
+  initialQuery,
 }) => {
-  const [text, setText] = useState(value || "");
-  const [isOpen, setIsOpen] = useState(false);
-  const [highlightedIndex, setHighlightedIndex] = useState(-1);
-  const [filterText, setFilterText] = useState(""); // Separate filter text from display text
+  // If initialQuery is provided, start with it as text (overwrite mode for spreadsheet feel)
+  const [text, setText] = useState(initialQuery || value || "");
+  const [isOpen, setIsOpen] = useState(!!initialQuery); // Open immediately if type-to-edit
+  const [highlightedIndex, setHighlightedIndex] = useState(initialQuery ? 0 : -1); // Pre-highlight first match
+  const [filterText, setFilterText] = useState(initialQuery || ""); // Start filtering if type-to-edit
   const internalRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const ref = inputRef || internalRef;
@@ -301,11 +298,18 @@ const TypableDropdown: React.FC<{
   React.useEffect(() => {
     if (isFocused && ref.current) {
       ref.current.focus();
-      ref.current.select();
+      // If initialQuery provided, place cursor at end; otherwise select all
+      if (initialQuery) {
+        ref.current.setSelectionRange(text.length, text.length);
+      } else {
+        ref.current.select();
+      }
       setIsOpen(true); // Open dropdown when focused
-      setFilterText(""); // Show all options when first focused
+      if (!initialQuery) {
+        setFilterText(""); // Show all options when first focused (unless type-to-edit)
+      }
     }
-  }, [isFocused, ref]);
+  }, [isFocused, ref, initialQuery, text.length]);
 
   // Filter options based on typed text
   const filteredOptions = useMemo(() => {
@@ -468,6 +472,52 @@ const TypableDropdown: React.FC<{
   );
 };
 
+// Result Cell - uses TypableDropdown for typeahead support
+const ResultCell: React.FC<{
+  value: BetResult;
+  onSave: (newValue: BetResult) => void;
+  isFocused?: boolean;
+  onFocus?: () => void;
+  inputRef?: React.RefObject<HTMLInputElement>;
+  initialQuery?: string;
+}> = ({ value, onSave, isFocused, onFocus, inputRef, initialQuery }) => {
+  // Map result values to display labels
+  const resultLabels: Record<string, string> = {
+    win: "Win",
+    loss: "Loss",
+    push: "Push",
+    pending: "Pending",
+  };
+  
+  const handleSave = (val: string) => {
+    // Map back from display labels to actual result values
+    const lowerVal = val.toLowerCase();
+    if (lowerVal === "win" || lowerVal === "w") {
+      onSave("win");
+    } else if (lowerVal === "loss" || lowerVal === "l") {
+      onSave("loss");
+    } else if (lowerVal === "push" || lowerVal.startsWith("pu")) {
+      onSave("push");
+    } else if (lowerVal === "pending" || lowerVal.startsWith("pe")) {
+      onSave("pending");
+    }
+  };
+
+  return (
+    <TypableDropdown
+      value={resultLabels[value] || value}
+      onSave={handleSave}
+      options={["Win", "Loss", "Push", "Pending"]}
+      className="text-center capitalize font-semibold"
+      isFocused={isFocused}
+      onFocus={onFocus}
+      inputRef={inputRef}
+      allowCustom={false}
+      initialQuery={initialQuery}
+    />
+  );
+};
+
 const OUCell: React.FC<{
   value?: "Over" | "Under";
   onSave: (newValue: "Over" | "Under" | undefined) => void;
@@ -475,10 +525,15 @@ const OUCell: React.FC<{
   onFocus?: () => void;
   inputRef?: React.RefObject<HTMLInputElement>;
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
-}> = ({ value, onSave, isFocused, onFocus, inputRef, onKeyDown }) => {
+  initialQuery?: string;
+}> = ({ value, onSave, isFocused, onFocus, inputRef, onKeyDown, initialQuery }) => {
   const handleSave = (val: string) => {
     if (val === "Over" || val === "Under") {
       onSave(val);
+    } else if (val.toLowerCase() === "o" || val.toLowerCase() === "over") {
+      onSave("Over");
+    } else if (val.toLowerCase() === "u" || val.toLowerCase() === "under") {
+      onSave("Under");
     } else if (!val || val === "") {
       onSave(undefined);
     }
@@ -495,6 +550,7 @@ const OUCell: React.FC<{
       inputRef={inputRef}
       onKeyDown={onKeyDown}
       allowCustom={false}
+      initialQuery={initialQuery}
     />
   );
 };
@@ -559,6 +615,7 @@ const BetTableView: React.FC = () => {
   // Spreadsheet state management
   const [focusedCell, setFocusedCell] = useState<CellCoordinate | null>(null);
   const [editingCell, setEditingCell] = useState<CellCoordinate | null>(null); // Cell actively being edited
+  const [editSeed, setEditSeed] = useState<string | null>(null); // First character typed for type-to-edit
   const [selectionRange, setSelectionRange] = useState<SelectionRange>(null);
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectionAnchor, setSelectionAnchor] = useState<CellCoordinate | null>(
@@ -596,9 +653,16 @@ const BetTableView: React.FC = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const tableRef = useRef<HTMLTableElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const cellRefs = useRef<Map<string, React.RefObject<HTMLInputElement>>>(
     new Map()
   );
+
+  // Helper to exit edit mode and clear the type-to-edit seed
+  const exitEditMode = useCallback(() => {
+    setEditingCell(null);
+    setEditSeed(null);
+  }, []);
 
   // Debounce search term (200ms delay) - P2-4
   const debouncedSearchTerm = useDebouncedValue(searchTerm, 200);
@@ -795,17 +859,59 @@ const BetTableView: React.FC = () => {
     }
   };
 
-  // Helper to check if a name is unresolved (for real-time badge display)
+  // Helper to check name resolution status (for real-time badge display)
+  // Returns status: 'resolved' | 'ambiguous' | 'unresolved'
+  // Checks managed teams list first (authoritative suppression)
+  // Uses sport-scoped team resolution to prevent cross-sport alias collisions
+  const getNameResolutionStatus = useCallback(
+    (name: string, sport: string): { status: 'resolved' | 'ambiguous' | 'unresolved'; name: string } => {
+      if (!name || !name.trim() || !sport || !sport.trim()) {
+        return { status: 'resolved', name };
+      }
+      
+      const trimmedName = name.trim();
+      const normalizedName = trimmedName.toLowerCase();
+      
+      // Check managed teams list first (authoritative suppression)
+      // If the team exists in the user's managed teams for this sport, don't flag it
+      const managedTeamsForSport = teams[sport] || [];
+      if (managedTeamsForSport.some(t => t.toLowerCase() === normalizedName)) {
+        return { status: 'resolved', name: trimmedName };
+      }
+      
+      // Check managed players list (authoritative suppression)
+      const managedPlayersForSport = players[sport] || [];
+      if (managedPlayersForSport.some(p => p.toLowerCase() === normalizedName)) {
+        return { status: 'resolved', name: trimmedName };
+      }
+      
+      // Use sport-scoped team resolution to prevent cross-sport alias collisions
+      const teamResult = resolveTeamForSport(trimmedName, sport as Sport);
+      const playerResult = resolvePlayer(trimmedName, { sport: sport as Sport });
+      
+      // If either is resolved, name is resolved
+      if (teamResult.status === 'resolved' || playerResult.status === 'resolved') {
+        return { status: 'resolved', name: trimmedName };
+      }
+      
+      // If either is ambiguous, name is ambiguous
+      if (teamResult.status === 'ambiguous' || playerResult.status === 'ambiguous') {
+        return { status: 'ambiguous', name: trimmedName };
+      }
+      
+      // Neither resolved nor ambiguous - unresolved
+      return { status: 'unresolved', name: trimmedName };
+    },
+    [teams, players, resolverVersion]
+  );
+  
+  // Legacy helper for simple boolean check (used in handleNameCommitWithQueue)
   const isNameUnresolved = useCallback(
     (name: string, sport: string): boolean => {
-      if (!name || !name.trim() || !sport || !sport.trim()) return false;
-      const playerResult = resolvePlayer(name, { sport: sport as Sport });
-      const teamResult = resolveTeam(name);
-      return (
-        playerResult.status !== "resolved" && teamResult.status !== "resolved"
-      );
+      const result = getNameResolutionStatus(name, sport);
+      return result.status !== 'resolved';
     },
-    [resolverVersion]
+    [getNameResolutionStatus]
   );
 
   // Helper to determine entity type and add to unresolvedQueue if needed
@@ -1596,6 +1702,10 @@ const BetTableView: React.FC = () => {
     setTimeout(() => {
       const idx = visibleBets.findIndex(b => b.betId === newIds[0]);
       setFocusedCell({ rowIndex: idx >= 0 ? idx : visibleBets.length - count, columnKey: "site" });
+      // Scroll to bottom to show new row and Add Bet button
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+      }
     }, 50);
   }, [createManualBet, batchCreateManualBets, visibleBets]);
 
@@ -1688,6 +1798,14 @@ const BetTableView: React.FC = () => {
 
       if (!focusedCell) return;
 
+      // Check if user is actively editing or focused on an input element
+      const isEditingContent =
+        editingCell != null ||
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        (target instanceof HTMLElement && target.isContentEditable);
+
       const { rowIndex, columnKey } = focusedCell;
 
       // Handle copy (Ctrl+C or Cmd+C)
@@ -1713,6 +1831,7 @@ const BetTableView: React.FC = () => {
 
       // Handle undo (Ctrl+Z or Cmd+Z)
       if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
+        if (isEditingContent) return; // Allow native undo for input
         e.preventDefault();
         undoLastAction();
         return;
@@ -1740,14 +1859,6 @@ const BetTableView: React.FC = () => {
       }
 
       // Handle delete (Delete or Backspace when not typing in an input)
-      // Check if user is actively editing or focused on an input element
-      const isEditingContent = 
-        editingCell != null ||
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLTextAreaElement ||
-        target instanceof HTMLSelectElement ||
-        (target instanceof HTMLElement && target.isContentEditable);
-
       if ((e.key === "Delete" || e.key === "Backspace") && !isEditingContent) {
         e.preventDefault();
         handleDeleteRows();
@@ -1789,7 +1900,7 @@ const BetTableView: React.FC = () => {
               setEditingCell({ rowIndex, columnKey });
             } else {
               // Already editing or just finished - move down
-              setEditingCell(null);
+              exitEditMode();
               navigateToCell(rowIndex, columnKey, "down");
             }
           }
@@ -1798,7 +1909,7 @@ const BetTableView: React.FC = () => {
           // Cancel edit, stay focused
           if (editingCell) {
             e.preventDefault();
-            setEditingCell(null);
+            exitEditMode();
           }
           break;
         case "Home":
@@ -1824,9 +1935,27 @@ const BetTableView: React.FC = () => {
             });
           }
           break;
+        default:
+          // TYPE-TO-EDIT: If not editing, focused on a cell, and a printable character is typed,
+          // enter edit mode immediately with that character as the seed.
+          // Criteria: single char key, no modifiers (except Shift for capitals), not a special key
+          if (
+            !editingCell &&
+            focusedCell &&
+            isCellEditable(columnKey) &&
+            !e.ctrlKey &&
+            !e.metaKey &&
+            !e.altKey &&
+            e.key.length === 1 // Single printable character
+          ) {
+            e.preventDefault();
+            setEditSeed(e.key);
+            setEditingCell({ rowIndex, columnKey });
+          }
+          break;
       }
     },
-    [focusedCell, editingCell, navigateToCell, editableColumns, visibleBets.length, handleDuplicateRows, handleBulkApplyValue, handleDeleteRows, undoLastAction, batchCount, handleInsertRowAbove, handleInsertRowBelow]
+    [focusedCell, editingCell, navigateToCell, editableColumns, visibleBets.length, handleDuplicateRows, handleBulkApplyValue, handleDeleteRows, undoLastAction, batchCount, handleInsertRowAbove, handleInsertRowBelow, isCellEditable]
   );
 
   // Helper: Get cell value as string
@@ -2049,7 +2178,7 @@ const BetTableView: React.FC = () => {
       if (!isCellEditable(columnKey)) return;
 
       // Clear editing state on single click (select only)
-      setEditingCell(null);
+      exitEditMode();
 
       if (e.shiftKey && selectionAnchor) {
         // Shift+Click: extend selection
@@ -2242,7 +2371,7 @@ const BetTableView: React.FC = () => {
   }, [dragFillData, handleDragFillMove, handleDragFillEnd]);
 
   return (
-    <div className="p-4 h-full flex flex-col space-y-3 bg-neutral-100 dark:bg-neutral-950">
+    <div className="p-3 h-full flex flex-col space-y-2 bg-neutral-100 dark:bg-neutral-950 relative">
       <div className="flex flex-col lg:flex-row lg:items-center gap-4">
         <h1 className="text-lg font-bold text-neutral-900 dark:text-white whitespace-nowrap shrink-0">
           Bet Table
@@ -2302,28 +2431,8 @@ const BetTableView: React.FC = () => {
         </div>
       </div>
 
-      {/* Actions row: Add Bet button + Batch count + Selected row actions + Undo */}
+      {/* Actions row: Selected row actions + Undo */}
       <div className="flex items-center gap-3 flex-wrap">
-        {/* Add Bet with batch count */}
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => handleAddManualBet(batchCount)}
-            className="px-3 py-1 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow-sm transition-colors flex items-center gap-1"
-          >
-            <span className="text-lg leading-none">+</span>
-            <span>Add Bet</span>
-          </button>
-          <input
-            type="number"
-            min={1}
-            max={100}
-            value={batchCount}
-            onChange={(e) => setBatchCount(Math.max(1, Math.min(100, parseInt(e.target.value, 10) || 1)))}
-            className="w-12 px-1 py-1 text-xs text-center bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-            title="Number of rows to add/duplicate"
-          />
-        </div>
 
         {/* Undo button */}
         {canUndo && (
@@ -2487,6 +2596,7 @@ const BetTableView: React.FC = () => {
 
       <div className="grow bg-white dark:bg-neutral-900 rounded-lg shadow-md overflow-hidden flex flex-col">
         <div
+          ref={scrollContainerRef}
           className="flex-1 overflow-y-auto min-w-0"
           style={{ width: "100%" }}
         >
@@ -2747,8 +2857,9 @@ const BetTableView: React.FC = () => {
                                   updateBet(row.betId, { placedAt: parsed });
                                 }
                               }
-                              setEditingCell(null);
+                              exitEditMode();
                             }}
+                            initialValue={editSeed ?? undefined}
                           />
                         ) : (
                           <div className="flex items-center gap-2 min-w-0">
@@ -2803,10 +2914,11 @@ const BetTableView: React.FC = () => {
                               updateBet(row.betId, {
                                 book: book ? book.name : val,
                               });
-                              setEditingCell(null);
+                              exitEditMode();
                             }}
                             options={suggestionLists.sites}
                             allowCustom={false}
+                            initialQuery={editSeed ?? undefined}
                           />
                         ) : (
                           <span className="block truncate font-bold">
@@ -2836,7 +2948,7 @@ const BetTableView: React.FC = () => {
                             value={row.sport}
                             onSave={(val) => {
                               updateBet(row.betId, { sport: val });
-                              setEditingCell(null);
+                              exitEditMode();
                             }}
                             options={suggestionLists.sports}
                             isFocused={true}
@@ -2845,6 +2957,7 @@ const BetTableView: React.FC = () => {
                             }
                             inputRef={getCellRef(rowIndex, "sport")}
                             allowCustom={false}
+                            initialQuery={editSeed ?? undefined}
                           />
                         ) : (
                           <span className="block truncate">{row.sport}</span>
@@ -2875,7 +2988,7 @@ const BetTableView: React.FC = () => {
                               updateBet(row.betId, {
                                 marketCategory: val as MarketCategory,
                               });
-                              setEditingCell(null);
+                              exitEditMode();
                             }}
                             options={suggestionLists.categories}
                             isFocused={true}
@@ -2884,6 +2997,7 @@ const BetTableView: React.FC = () => {
                             }
                             inputRef={getCellRef(rowIndex, "category")}
                             allowCustom={false}
+                            initialQuery={editSeed ?? undefined}
                           />
                         ) : (
                           <span className="block truncate">{normalizeCategoryForDisplay(row.category)}</span>
@@ -2938,7 +3052,7 @@ const BetTableView: React.FC = () => {
                                   
                                   updateBet(row.betId, updates);
                                 }
-                                setEditingCell(null);
+                                exitEditMode();
                               }}
                             options={
                               isLeg
@@ -2951,6 +3065,7 @@ const BetTableView: React.FC = () => {
                             }
                             inputRef={getCellRef(rowIndex, "type")}
                             allowCustom={true}
+                            initialQuery={editSeed ?? undefined}
                           />
                         ) : (
                           <span className="block truncate">{abbreviateMarket(row.type)}</span>
@@ -3135,57 +3250,60 @@ const BetTableView: React.FC = () => {
                                   autoFocus={isCellFocused(rowIndex, "name2")}
                                 />
                               </span>
-                            ) : (
-                              // Display mode: "Team1 / Team2"
-                              <>
-                                <span className="flex items-center gap-1">
-                                  {row.name || "—"}
-                                  {row.name &&
-                                    isNameUnresolved(row.name, row.sport) && (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
+                            ) : (() => {
+                              // Display mode: "Team1 / Team2" (single line)
+                              // Compute resolution status for both teams
+                              const name1Status = row.name ? getNameResolutionStatus(row.name, row.sport) : null;
+                              const name2Status = row.name2 ? getNameResolutionStatus(row.name2, row.sport) : null;
+                              
+                              // Build tooltip text
+                              const tooltipParts: string[] = [];
+                              if (name1Status?.status === 'ambiguous') tooltipParts.push(`Ambiguous: ${row.name}`);
+                              if (name1Status?.status === 'unresolved') tooltipParts.push(`Unresolved: ${row.name}`);
+                              if (name2Status?.status === 'ambiguous') tooltipParts.push(`Ambiguous: ${row.name2}`);
+                              if (name2Status?.status === 'unresolved') tooltipParts.push(`Unresolved: ${row.name2}`);
+                              
+                              // Determine badge type
+                              const hasAmbiguous = name1Status?.status === 'ambiguous' || name2Status?.status === 'ambiguous';
+                              const hasUnresolved = name1Status?.status === 'unresolved' || name2Status?.status === 'unresolved';
+                              const needsBadge = hasAmbiguous || hasUnresolved;
+                              
+                              return (
+                                <span className="inline-flex items-center gap-1 whitespace-nowrap overflow-hidden text-ellipsis max-w-full">
+                                  <span className="truncate">
+                                    {row.name || "—"} / {row.name2 || "—"}
+                                  </span>
+                                  {needsBadge && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        // Open resolution modal for the first problematic name
+                                        if (name1Status?.status !== 'resolved') {
                                           handleOpenResolutionModal(row, null);
-                                        }}
-                                        className="flex-shrink-0 text-amber-500 hover:text-amber-600"
-                                        title="Unresolved - click to resolve"
-                                      >
-                                        <AlertTriangle className="w-3.5 h-3.5" />
-                                      </button>
-                                    )}
-                                </span>
-                                <span className="text-neutral-400 dark:text-neutral-500 mx-0.5">
-                                  /
-                                </span>
-                                <span className="flex items-center gap-1">
-                                  {row.name2 || "—"}
-                                  {row.name2 &&
-                                    isNameUnresolved(row.name2, row.sport) && (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          // For name2, we need to create a temporary row-like object
-                                          const name2Row = {
-                                            ...row,
-                                            name: row.name2 || "",
-                                          };
+                                        } else if (name2Status?.status !== 'resolved') {
+                                          const name2Row = { ...row, name: row.name2 || "" };
                                           handleOpenResolutionModal(name2Row, null);
-                                        }}
-                                        className="flex-shrink-0 text-amber-500 hover:text-amber-600"
-                                        title="Unresolved - click to resolve"
-                                      >
+                                        }
+                                      }}
+                                      className={`flex-shrink-0 ${hasAmbiguous ? 'text-blue-500 hover:text-blue-600' : 'text-amber-500 hover:text-amber-600'}`}
+                                      title={tooltipParts.join('; ') || 'Click to resolve'}
+                                    >
+                                      {hasAmbiguous ? (
+                                        <HelpCircle className="w-3.5 h-3.5" />
+                                      ) : (
                                         <AlertTriangle className="w-3.5 h-3.5" />
-                                      </button>
-                                    )}
+                                      )}
+                                    </button>
+                                  )}
                                 </span>
-                              </>
-                            )}
+                              );
+                            })()}
                           </span>
-                          ) : isCellEditing(rowIndex, "name") ? (
-                            // Single input for non-totals bets (Edit Mode)
-                            <EditableCell
-                              value={row.name}
-                              isFocused={true}
+                        ) : isCellEditing(rowIndex, "name") ? (
+                          // Single input for non-totals bets (Edit Mode)
+                          <EditableCell
+                            value={row.name}
+                            isFocused={true}
                               onFocus={() =>
                                 setFocusedCell({ rowIndex, columnKey: "name" })
                               }
@@ -3213,12 +3331,13 @@ const BetTableView: React.FC = () => {
                                   
                                   updateBet(row.betId, updates);
                                 }
-                                setEditingCell(null);
+                                exitEditMode();
                               }}
                               suggestions={[
                                 ...suggestionLists.players(row.sport),
                                 ...suggestionLists.teams(row.sport),
                               ]}
+                              initialValue={editSeed ?? undefined}
                             />
                           ) : (
                             // Display Mode
@@ -3295,7 +3414,7 @@ const BetTableView: React.FC = () => {
                                 
                                 updateBet(row.betId, updates);
                               }
-                              setEditingCell(null);
+                              exitEditMode();
                             }}
                             options={["O", "U"]}
                             isFocused={true}
@@ -3305,6 +3424,7 @@ const BetTableView: React.FC = () => {
                             inputRef={getCellRef(rowIndex, "ou")}
                             allowCustom={false}
                             className="text-center font-semibold"
+                            initialQuery={editSeed ?? undefined}
                           />
                         ) : (
                           <span className="block font-semibold">
@@ -3359,9 +3479,10 @@ const BetTableView: React.FC = () => {
                                 
                                 updateBet(row.betId, updates);
                               }
-                              setEditingCell(null);
+                              exitEditMode();
                             }}
                             className="text-right tabular-nums"
+                            initialValue={editSeed ?? undefined}
                           />
                         ) : (
                           <span className="block truncate">{row.line}</span>
@@ -3433,9 +3554,10 @@ const BetTableView: React.FC = () => {
                                 // Always update the main bet's odds, which drives the "To Win" calculation.
                                 updateBet(row.betId, { odds: numVal });
                               }
-                              setEditingCell(null);
+                              exitEditMode();
                             }}
                             className="text-right tabular-nums"
+                            initialValue={editSeed ?? undefined}
                           />
                         ) : (
                           <span className="block">{formatOdds(row.odds)}</span>
@@ -3477,9 +3599,10 @@ const BetTableView: React.FC = () => {
                               const numVal = parseFloat(val.replace(/[$,]/g, ""));
                               if (!isNaN(numVal))
                                 updateBet(row.betId, { stake: numVal });
-                              setEditingCell(null);
+                              exitEditMode();
                             }}
                             className="text-right tabular-nums"
+                            initialValue={editSeed ?? undefined}
                           />
                         ) : (
                           <span className="block">{formatCurrency(row.bet)}</span>
@@ -3509,25 +3632,33 @@ const BetTableView: React.FC = () => {
                         onDoubleClick={() => handleCellDoubleClick(rowIndex, "result")}
                       >
                         <div className={resultTextClass}>
-                          <ResultCell
-                            value={displayResult}
-                            onSave={(val) => {
-                              if (isLeg) {
-                                handleLegUpdate(row.betId, legIndex, {
-                                  result: val,
-                                });
-                              } else {
-                                const bet = bets.find((b) => b.id === row.betId);
-                                const updates: any = { result: val };
-                                
-                                if (bet?.legs?.length === 1 && bet.betType !== 'parlay' && bet.betType !== 'sgp' && bet.betType !== 'sgp_plus') {
-                                    updates.legs = [{ ...bet.legs[0], result: val }];
+                          {isCellEditing(rowIndex, "result") ? (
+                            <ResultCell
+                              value={displayResult}
+                              onSave={(val) => {
+                                if (isLeg) {
+                                  handleLegUpdate(row.betId, legIndex, {
+                                    result: val,
+                                  });
+                                } else {
+                                  const bet = bets.find((b) => b.id === row.betId);
+                                  const updates: any = { result: val };
+                                  
+                                  if (bet?.legs?.length === 1 && bet.betType !== 'parlay' && bet.betType !== 'sgp' && bet.betType !== 'sgp_plus') {
+                                      updates.legs = [{ ...bet.legs[0], result: val }];
+                                  }
+                                  
+                                  updateBet(row.betId, updates);
                                 }
-                                
-                                updateBet(row.betId, updates);
-                              }
-                            }}
-                          />
+                                exitEditMode();
+                              }}
+                              isFocused={true}
+                              inputRef={getCellRef(rowIndex, "result")}
+                              initialQuery={editSeed ?? undefined}
+                            />
+                          ) : (
+                             <span className="block font-semibold">{displayResult}</span>
+                          )}
                         </div>
                       </td>
                       <td
@@ -3589,10 +3720,11 @@ const BetTableView: React.FC = () => {
                             inputRef={getCellRef(rowIndex, "tail")}
                             onSave={(newValue) => {
                               updateBet(row.betId, { tail: newValue });
-                              setEditingCell(null);
+                              exitEditMode();
                             }}
                             options={tailOptions}
                             allowCustom={true}
+                            initialQuery={editSeed ?? undefined}
                           />
                         ) : (
                           <span className="block truncate">{row.tail}</span>
@@ -3602,10 +3734,24 @@ const BetTableView: React.FC = () => {
                   );
                 })
               )}
+              {/* Add Bet row - subtle row at bottom of table */}
+              <tr
+                onClick={() => handleAddManualBet(batchCount)}
+                className="border-b dark:border-neutral-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer transition-colors group"
+              >
+                <td
+                  colSpan={headers.length + 1}
+                  className="px-2 py-1.5 text-neutral-400 dark:text-neutral-500 group-hover:text-blue-600 dark:group-hover:text-blue-400"
+                >
+                  <span className="text-lg leading-none mr-1">+</span>
+                  <span className="text-sm">Add Bet</span>
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>
       </div>
+
 
       {/* Name Resolution Modals */}
       {resolvingNameItem && resolutionMode === "map" && (

@@ -1133,6 +1133,82 @@ const isNameUnresolved = useCallback((name: string, sport: string): boolean => {
 
 ---
 
+## Phase 4 Implemented Behavior — Totals Row UX + Sport-Scoped Team Resolution
+
+**Date Implemented**: 2026-01-09
+
+### Overview
+
+Fixed two issues in BetTableView:
+1. Totals bets (two-team rows like "Warriors / Magic") now render as a single line, preserving table density
+2. Team resolution is now sport-scoped to prevent cross-sport alias collisions (e.g., "Hawks" in NBA won't match NFL Seahawks)
+
+### Single-Line Totals Display
+
+Totals bets (Main Markets with type "Total") now display team names on a single line:
+
+```
+"{team1} / {team2}"      [badge if needed]
+```
+
+**Styling applied**:
+- `whitespace-nowrap` - prevents line wrapping
+- `overflow-hidden` / `text-ellipsis` - truncates long names
+- `inline-flex` layout with single combined badge
+
+### Sport-Scoped Team Resolution
+
+New function `resolveTeamForSport(name, sport)` in `services/resolver.ts`:
+- Filters team matches by the provided sport context
+- If a team matches but belongs to a different sport, returns `unresolved` status
+- Prevents "Hawks" in NBA context from matching NFL Seahawks aliases
+
+#### Resolution Order
+1. If sport provided and team resolves with matching sport → `resolved`
+2. If sport provided and team resolves but different sport → `unresolved`
+3. If no sport provided, falls back to standard `resolveTeam` behavior
+
+### Managed Teams/Players Suppression
+
+The `getNameResolutionStatus()` helper now checks managed lists first:
+- If a team/player exists in the user's managed list (from `useInputs`) for that sport, no warning is shown
+- Case-insensitive, trimmed comparison
+- This prevents false warnings for user-defined entities
+
+### Ambiguous vs Unresolved States
+
+Resolution now returns three distinct states:
+
+| Status | Badge | Color | Description |
+|--------|-------|-------|-------------|
+| `resolved` | None | - | Team/player found in reference data or managed list |
+| `ambiguous` | HelpCircle | Blue | Multiple teams match this name (collision) |
+| `unresolved` | AlertTriangle | Amber | No match found in reference data |
+
+**Tooltip format for totals**:
+- Shows which team(s) have issues: `"Ambiguous: Hawks; Unresolved: TeamB"`
+- Click opens resolution modal for the first problematic team
+
+### Totals Two-Team Evaluation
+
+For totals bets, both `name` and `name2` are evaluated independently:
+1. Each team is checked against managed teams list (suppression)
+2. Each team is checked via sport-scoped resolution
+3. States are combined for badge display:
+   - If either is ambiguous → show blue HelpCircle
+   - If either is unresolved → show amber AlertTriangle
+   - Tooltip lists all problematic teams
+
+### Files Changed
+
+| File | Changes |
+|------|---------|
+| `services/resolver.ts` | Added `resolveTeamForSport()` function with sport filtering |
+| `views/BetTableView.tsx` | Added `getNameResolutionStatus()`, updated totals display to single-line, added HelpCircle import |
+| `components/icons.tsx` | Added `HelpCircle` icon for ambiguous state |
+
+---
+
 ## Document Metadata
 - **Created**: 2026-01-07
 - **Author**: Copilot Agent (PREFLIGHT Investigation)
@@ -1144,4 +1220,24 @@ const isNameUnresolved = useCallback((name: string, sport: string): boolean => {
 - **Updated**: 2026-01-08 (Phase 3 Locked Input Management)
 - **Updated**: 2026-01-08 (Phase 3.1 Name Manual Entry Fix)
 - **Updated**: 2026-01-08 (Phase 3.2 Real-Time Unresolved Name Resolution)
-- **Related Files**: BetTableView.tsx, useBets.tsx, useInputs.tsx, types.ts, persistence.ts, InputManagementView.tsx
+- **Updated**: 2026-01-09 (Phase 4 Totals Row UX + Sport-Scoped Team Resolution)
+- **Related Files**: BetTableView.tsx, useBets.tsx, useInputs.tsx, types.ts, persistence.ts, InputManagementView.tsx, resolver.ts
+
+
+### Phase 2.2 Type-to-Edit Behavior
+
+**Date Implemented**: 2026-01-09
+
+This phase completes the spreadsheet interaction model by allowing users to type immediately into selected cells.
+
+#### Features
+1.  **Direct Typing**: Selecting a cell and typing a character triggers edit mode immediately.
+2.  **Overwrite Behavior**: For text/numeric cells, the initial keystroke overwrites the previous value.
+3.  **Dropdown Filtering**: For dropdowns, the initial keystroke filters the options immediately (e.g., typing 'N' in Sport filters to NBA/NFL).
+4.  **Result Cell**: Converted to standard View/Edit pattern (view as text, edit as dropdown).
+5.  **Keyboard Safety**: Global shortcuts (Undo, Delete) are disabled while editing cell content to prevent accidental data loss.
+
+#### Technical Details
+-   **State**: `editSeed` stores the triggering character.
+-   **Props**: `initialQuery` (Dropdowns) and `initialValue` (Inputs) pass the seed to editors.
+-   **Guard**: `isEditingContent` check prevents global key handlers during local edits.
