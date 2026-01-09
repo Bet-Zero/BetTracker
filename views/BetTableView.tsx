@@ -320,22 +320,44 @@ const TypableDropdown: React.FC<{
   }, [value]);
   */
 
-  // Focus input when isFocused becomes true
+  const [dropdownPosition, setDropdownPosition] = useState<{
+    top: number;
+    left: number;
+    width: number;
+  } | null>(null);
+
+  // Update dropdown position when input position changes
   React.useEffect(() => {
-    if (isFocused && ref.current) {
-      ref.current.focus();
-      // If initialQuery provided, place cursor at end; otherwise select all
-      if (initialQuery) {
-        ref.current.setSelectionRange(text.length, text.length);
-      } else {
-        ref.current.select();
-      }
-      setIsOpen(true); // Open dropdown when focused
-      if (!initialQuery) {
-        setFilterText(""); // Show all options when first focused (unless type-to-edit)
-      }
+    if (ref.current && isOpen) {
+      const rect = ref.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + window.scrollY,
+        left: rect.left + window.scrollX,
+        width: rect.width,
+      });
     }
-  }, [isFocused, ref, initialQuery, text.length]);
+  }, [isOpen, ref]);
+
+  // Close dropdown when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node) &&
+        ref.current &&
+        !ref.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+        setHighlightedIndex(-1);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [isOpen, ref]);
 
   // Filter options based on typed text
   const filteredOptions = useMemo(() => {
@@ -480,11 +502,15 @@ const TypableDropdown: React.FC<{
         style={{ boxSizing: "border-box", maxWidth: "100%", minWidth: 0 }}
         placeholder={placeholder}
       />
-      {isOpen && filteredOptions.length > 0 && (
+      {isOpen && filteredOptions.length > 0 && dropdownPosition && (
         <div
           ref={dropdownRef}
-          className="absolute z-50 w-max min-w-full mt-1 bg-white dark:bg-neutral-800 rounded-lg shadow-lg border border-neutral-200 dark:border-neutral-700 max-h-60 overflow-y-auto"
-          style={{ top: "100%", left: 0 }}
+          className="fixed z-50 w-max min-w-full mt-1 bg-white dark:bg-neutral-800 rounded-lg shadow-lg border border-neutral-200 dark:border-neutral-700 max-h-60 overflow-y-auto"
+          style={{
+            top: dropdownPosition.top,
+            left: dropdownPosition.left,
+            width: dropdownPosition.width,
+          }}
         >
           {filteredOptions.map((option, index) => (
             <div
@@ -522,7 +548,7 @@ const ResultCell: React.FC<{
     win: "Win",
     loss: "Loss",
     push: "Push",
-    pending: "Pending",
+    pending: "Pend",
   };
 
   const handleSave = (val: string) => {
@@ -1402,8 +1428,8 @@ const BetTableView: React.FC = () => {
     { key: "name", label: "Name", style: {} }, // Flexible width - fills remaining space
     {
       key: "ou",
-      label: "O/U",
-      style: { whiteSpace: "nowrap" },
+      label: "O/U\u00A0",
+      style: { whiteSpace: "nowrap", textAlign: "center" },
     },
     { key: "line", label: "Line", style: { textAlign: "right" } },
     { key: "odds", label: "Odds", style: { textAlign: "right" } },
@@ -2733,10 +2759,10 @@ const BetTableView: React.FC = () => {
         </div>
       )}
 
-      <div className="grow bg-white dark:bg-neutral-900 rounded-lg shadow-md flex flex-col">
+      <div className="grow bg-white dark:bg-neutral-900 rounded-lg shadow-md overflow-hidden flex flex-col">
         <div
           ref={scrollContainerRef}
-          className="flex-1 overflow-x-hidden overflow-y-auto min-w-0 overlay-scrollbar"
+          className="flex-1 overflow-y-auto min-w-0 overlay-scrollbar"
           style={{ width: "100%" }}
           onScroll={handleScrollbarVisibility}
         >
@@ -2788,21 +2814,21 @@ const BetTableView: React.FC = () => {
                     <th
                       key={header.key}
                       scope="col"
-                      className={`${headerPaddingX} py-1 relative whitespace-nowrap${alignmentClass}${
-                        isMoneyBlockStart
+                      className={
+                        headerPaddingX +
+                        " py-1 relative whitespace-nowrap" +
+                        alignmentClass +
+                        (isMoneyBlockStart
                           ? " border-l border-neutral-300 dark:border-neutral-700"
-                          : ""
-                      }${
-                        !isLastColumn
+                          : "") +
+                        (!isLastColumn
                           ? " border-r border-neutral-300 dark:border-neutral-700"
-                          : ""
-                      }`}
+                          : "")
+                      }
                       style={{
                         ...header.style,
                         // Width is controlled via <colgroup> to keep header/body aligned
-                        ...(header.key === "bet"
-                          ? { paddingRight: "calc(1ch + 0.125rem)" }
-                          : {}),
+                        // No extra right padding for Bet header
                       }}
                     >
                       {header.label}
@@ -2832,6 +2858,17 @@ const BetTableView: React.FC = () => {
                     : -1;
                   const net = row.net;
                   const displayResult = isLeg ? row.result : row.overallResult;
+
+                  // Map result values to display labels
+                  const resultLabels: Record<string, string> = {
+                    win: "Win",
+                    loss: "Loss",
+                    push: "Push",
+                    pending: "Pend",
+                  };
+
+                  const displayResultLabel =
+                    resultLabels[displayResult] || displayResult;
                   const resultBgClass =
                     displayResult === "win"
                       ? "bg-green-500/10"
@@ -3955,7 +3992,7 @@ const BetTableView: React.FC = () => {
                             />
                           ) : (
                             <span className="block font-semibold">
-                              {displayResult}
+                              {displayResultLabel}
                             </span>
                           )}
                         </div>
