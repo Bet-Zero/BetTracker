@@ -1,5 +1,15 @@
-import { Bet } from '../types';
-import { classifyBet } from '../services/marketClassification';
+import { Bet, MarketCategory } from "../types";
+import { classifyBet } from "../services/marketClassification";
+
+/**
+ * Valid market categories - bets with any other value will be reclassified
+ */
+const VALID_MARKET_CATEGORIES: MarketCategory[] = [
+  "Props",
+  "Main Markets",
+  "Futures",
+  "Parlays",
+];
 
 /**
  * Checks if the given bets array contains sample data
@@ -8,10 +18,10 @@ import { classifyBet } from '../services/marketClassification';
  */
 export const isSampleData = (bets: Bet[]): boolean => {
   // Check for isSample flag first (new method)
-  if (bets.some(bet => bet.isSample === true)) {
+  if (bets.some((bet) => bet.isSample === true)) {
     return true;
   }
-  
+
   // Fallback to hardcoded IDs for backward compatibility
   const sampleBetIds = [
     "DK-PENDING-NFL-2025-11-15-1",
@@ -34,7 +44,7 @@ export const isSampleData = (bets: Bet[]): boolean => {
     "FD-SGP-MLB-2025-09-05",
     "FD-LIVE-NBA-2025-11-01",
   ];
-  
+
   return bets.some((bet) => sampleBetIds.includes(bet.id));
 };
 
@@ -49,31 +59,35 @@ export const isSampleData = (bets: Bet[]): boolean => {
 export const migrateBets = (bets: Bet[]): Bet[] => {
   return bets.map((bet) => {
     let migratedBet = { ...bet };
-    
+
     // Migration: If bet doesn't have legs but has top-level fields, create a leg from them
     if (!bet.legs || bet.legs.length === 0) {
       if (bet.name || bet.type || bet.line) {
-        migratedBet.legs = [{
-          entities: bet.name ? [bet.name] : undefined,
-          market: bet.type || '',
-          target: bet.line,
-          ou: bet.ou,
-          result: bet.result,
-        }];
+        migratedBet.legs = [
+          {
+            entities: bet.name ? [bet.name] : undefined,
+            market: bet.type || "",
+            target: bet.line,
+            ou: bet.ou,
+            result: bet.result,
+          },
+        ];
       }
     }
-    
+
     // Migration: Backfill isLive from betType for existing bets
-    if (migratedBet.isLive === undefined && migratedBet.betType === 'live') {
+    if (migratedBet.isLive === undefined && migratedBet.betType === "live") {
       migratedBet.isLive = true;
     }
-    
-    // Retroactively classify bets that don't have a category
-    if (!migratedBet.marketCategory) {
+
+    // Retroactively classify bets that don't have a category OR have an invalid category
+    if (
+      !migratedBet.marketCategory ||
+      !VALID_MARKET_CATEGORIES.includes(migratedBet.marketCategory)
+    ) {
       migratedBet.marketCategory = classifyBet(migratedBet);
     }
-    
+
     return migratedBet;
   });
 };
-

@@ -24,7 +24,11 @@ import {
   BarChart2,
 } from "../components/icons";
 import { Bet } from "../types";
-import { formatCurrency, formatDateChartKey, formatNet } from "../utils/formatters";
+import {
+  formatCurrency,
+  formatDateChartKey,
+  formatNet,
+} from "../utils/formatters";
 import {
   createBetTypePredicate,
   createDateRangePredicate,
@@ -42,12 +46,27 @@ import {
   computeVolumeOverTime,
 } from "../services/aggregationService";
 import { getNetNumeric, isParlayBetType } from "../services/displaySemantics";
-import { computeOverUnderStats, filterBetsByMarketCategory, OverUnderMarketFilter } from "../services/overUnderStatsService";
-import { computeEntityStatsMap, EntityStats } from "../services/entityStatsService";
-import { normalizeTeamName, getTeamInfo } from "../services/normalizationService";
+import {
+  computeOverUnderStats,
+  filterBetsByMarketCategory,
+  OverUnderMarketFilter,
+} from "../services/overUnderStatsService";
+import {
+  computeEntityStatsMap,
+  EntityStats,
+} from "../services/entityStatsService";
+import {
+  normalizeTeamName,
+  getTeamInfo,
+} from "../services/normalizationService";
+import { normalizeCategoryForDisplay } from "../services/marketClassification";
 // Phase 1: Resolver for team aggregation
 // Phase 2: Extended with player aggregation
-import { resolveTeam, getTeamAggregationKey, getPlayerAggregationKey } from "../services/resolver";
+import {
+  resolveTeam,
+  getTeamAggregationKey,
+  getPlayerAggregationKey,
+} from "../services/resolver";
 // Dashboard UI Clarity Phase: DEV-ONLY debug overlay and tooltips
 import { DashboardTruthOverlay } from "../components/debug/DashboardTruthOverlay";
 import { InfoTooltip } from "../components/debug/InfoTooltip";
@@ -67,7 +86,12 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         {payload.map((pld: any, index: number) => (
           <p key={index} style={{ color: pld.color || pld.fill }}>
             {`${pld.name}: ${
-              typeof pld.value === "number" ? pld.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : pld.value
+              typeof pld.value === "number"
+                ? pld.value.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })
+                : pld.value
             }`}
           </p>
         ))}
@@ -161,7 +185,7 @@ const StatsTable: React.FC<StatsTableProps> = ({
         onChange={(e) => setSearchTerm(e.target.value)}
         className="my-4 p-2 border border-neutral-300 dark:border-neutral-700 rounded-md bg-neutral-50 dark:bg-neutral-800 w-full"
       />
-      <div className="overflow-y-auto flex-grow">
+      <div className="overflow-y-auto grow">
         <table className="w-full text-sm text-left">
           <thead className="text-xs text-neutral-500 dark:text-neutral-400 uppercase sticky top-0 bg-white dark:bg-neutral-900">
             <tr>
@@ -169,7 +193,8 @@ const StatsTable: React.FC<StatsTableProps> = ({
                 className="px-4 py-2 cursor-pointer"
                 onClick={() => requestSort("name")}
               >
-                {firstColumnHeader || searchPlaceholder.split(" ")[1].replace("...", "")}{" "}
+                {firstColumnHeader ||
+                  searchPlaceholder.split(" ")[1].replace("...", "")}{" "}
                 {sortConfig.key === "name"
                   ? sortConfig.direction === "desc"
                     ? "▼"
@@ -368,15 +393,21 @@ const OverUnderBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
             <b>Net:</b>
             <div className="flex items-center ml-1">
               <div className="w-20 h-6">
-                   <FitText maxFontSize={16} minFontSize={10} className={`justify-end font-bold ${netColor}`}>
-                     {formatCurrency(stats.net)}
-                   </FitText>
+                <FitText
+                  maxFontSize={16}
+                  minFontSize={10}
+                  className={`justify-end font-bold ${netColor}`}
+                >
+                  {formatCurrency(stats.net)}
+                </FitText>
               </div>
             </div>
           </div>
           <div className="flex justify-between items-center">
             <b>ROI:</b>
-            <span className={`font-bold ${netColor}`}>{stats.roi.toFixed(1)}%</span>
+            <span className={`font-bold ${netColor}`}>
+              {stats.roi.toFixed(1)}%
+            </span>
           </div>
         </div>
       </div>
@@ -430,7 +461,8 @@ const OverUnderBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
               label={
                 isPlaceholder
                   ? undefined
-                  : ({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`
+                  : ({ name, percent }) =>
+                      `${name} ${(percent * 100).toFixed(0)}%`
               }
               stroke="none"
               fill={isPlaceholder ? "#e5e5e5" : undefined}
@@ -487,8 +519,14 @@ const LiveVsPreMatchBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
     });
 
     return {
-      live: { ...stats.live, roi: calculateRoi(stats.live.net, stats.live.stake) },
-      preMatch: { ...stats.preMatch, roi: calculateRoi(stats.preMatch.net, stats.preMatch.stake) },
+      live: {
+        ...stats.live,
+        roi: calculateRoi(stats.live.net, stats.live.stake),
+      },
+      preMatch: {
+        ...stats.preMatch,
+        roi: calculateRoi(stats.preMatch.net, stats.preMatch.stake),
+      },
     };
   }, [bets, filter]);
 
@@ -537,15 +575,21 @@ const LiveVsPreMatchBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
             <b>Net:</b>
             <div className="flex items-center ml-1">
               <div className="w-20 h-6">
-                 <FitText maxFontSize={16} minFontSize={10} className={`justify-end font-bold ${netColor}`}>
-                   {formatCurrency(stats.net)}
-                 </FitText>
+                <FitText
+                  maxFontSize={16}
+                  minFontSize={10}
+                  className={`justify-end font-bold ${netColor}`}
+                >
+                  {formatCurrency(stats.net)}
+                </FitText>
               </div>
             </div>
           </div>
           <div className="flex justify-between items-center">
             <b>ROI:</b>
-            <span className={`font-bold ${netColor}`}>{stats.roi.toFixed(1)}%</span>
+            <span className={`font-bold ${netColor}`}>
+              {stats.roi.toFixed(1)}%
+            </span>
           </div>
         </div>
       </div>
@@ -593,7 +637,8 @@ const LiveVsPreMatchBreakdown: React.FC<{ bets: Bet[] }> = ({ bets }) => {
               label={
                 isPlaceholder
                   ? undefined
-                  : ({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`
+                  : ({ name, percent }) =>
+                      `${name} ${(percent * 100).toFixed(0)}%`
               }
               stroke="none"
               fill={isPlaceholder ? "#e5e5e5" : undefined}
@@ -657,13 +702,25 @@ const QuickStatCard: React.FC<{ label: string; value: number }> = ({
   return (
     <div className="bg-neutral-100 dark:bg-neutral-800/50 p-2 rounded-lg text-center h-20 flex flex-col justify-center">
       <div className="h-4 w-full mb-1 text-neutral-500 dark:text-neutral-400">
-        <FitText maxFontSize={12} minFontSize={10} className="justify-center font-medium">
+        <FitText
+          maxFontSize={12}
+          minFontSize={10}
+          className="justify-center font-medium"
+        >
           {label}
         </FitText>
       </div>
       <div className={`h-8 w-full ${valueColor}`}>
-        <FitText maxFontSize={20} minFontSize={10} className="justify-center font-bold">
-           {value >= 0 ? "+" : "-"}${Math.abs(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        <FitText
+          maxFontSize={20}
+          minFontSize={10}
+          className="justify-center font-bold"
+        >
+          {value >= 0 ? "+" : "-"}$
+          {Math.abs(value).toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
         </FitText>
       </div>
     </div>
@@ -685,26 +742,35 @@ const DashboardView: React.FC = () => {
   const [entityType, setEntityType] = useState<"all" | "player" | "team">(
     "all"
   );
-  const [betTypeFilter, setBetTypeFilter] = useState<"non-parlays" | "parlays" | "all">("all");
+  const [betTypeFilter, setBetTypeFilter] = useState<
+    "non-parlays" | "parlays" | "all"
+  >("all");
 
   // Extract players and teams from bet data using leg.entityType and normalization service
   // This ensures entities appear even if not manually added to localStorage
   const { allPlayers, allTeams } = useMemo(() => {
     const players = new Set<string>();
     const teams = new Set<string>();
-    
+
     for (const bet of bets) {
       if (!bet.legs) continue;
       for (const leg of bet.legs) {
         if (!leg.entities) continue;
         for (const entity of leg.entities) {
           // Determine entity type using leg.entityType or fallback to team lookup
-          if (leg.entityType === 'player') {
+          if (leg.entityType === "player") {
             // Phase 2: Use player aggregation key for player entities
-            const aggregationKey = getPlayerAggregationKey(entity, '[Unresolved]', { sport: bet.sport as any });
+            const aggregationKey = getPlayerAggregationKey(
+              entity,
+              "[Unresolved]",
+              { sport: bet.sport as any }
+            );
             players.add(aggregationKey);
-          } else if (leg.entityType === 'team') {
-            const aggregationKey = getTeamAggregationKey(entity, '[Unresolved]');
+          } else if (leg.entityType === "team") {
+            const aggregationKey = getTeamAggregationKey(
+              entity,
+              "[Unresolved]"
+            );
             teams.add(aggregationKey);
           } else {
             // FALLBACK BEHAVIOR: When leg.entityType is missing or 'unknown',
@@ -714,29 +780,42 @@ const DashboardView: React.FC = () => {
             // See Issue #6 in backend_data_wiring_audit.md for details.
             const teamInfo = getTeamInfo(entity);
             if (teamInfo) {
-              const aggregationKey = getTeamAggregationKey(entity, '[Unresolved]');
+              const aggregationKey = getTeamAggregationKey(
+                entity,
+                "[Unresolved]"
+              );
               teams.add(aggregationKey);
             } else {
               // Default to player when entity type is unknown and not in team reference
-              const aggregationKey = getPlayerAggregationKey(entity, '[Unresolved]', { sport: bet.sport as any });
+              const aggregationKey = getPlayerAggregationKey(
+                entity,
+                "[Unresolved]",
+                { sport: bet.sport as any }
+              );
               players.add(aggregationKey);
             }
           }
         }
       }
     }
-    
+
     return { allPlayers: players, allTeams: teams };
   }, [bets]);
 
   const filteredBets = useMemo(() => {
     // Apply filters using shared filter predicates
     const typePredicate = createBetTypePredicate(betTypeFilter);
-    const categoryPredicate = createMarketCategoryPredicate(selectedMarketCategory);
-    const datePredicate = createDateRangePredicate(dateRange, customDateRange as CustomDateRange);
+    const categoryPredicate = createMarketCategoryPredicate(
+      selectedMarketCategory
+    );
+    const datePredicate = createDateRangePredicate(
+      dateRange,
+      customDateRange as CustomDateRange
+    );
 
-    return bets.filter((bet) =>
-      typePredicate(bet) && categoryPredicate(bet) && datePredicate(bet)
+    return bets.filter(
+      (bet) =>
+        typePredicate(bet) && categoryPredicate(bet) && datePredicate(bet)
     );
   }, [bets, selectedMarketCategory, dateRange, customDateRange, betTypeFilter]);
 
@@ -802,27 +881,36 @@ const DashboardView: React.FC = () => {
 
     // 3. Breakdown by dimensions
     const bookMap = computeStatsByDimension(filteredBets, (bet) => bet.book);
-    const categoryMap = computeStatsByDimension(filteredBets, (bet) => bet.marketCategory);
+    // Normalize category to handle any invalid values (e.g., 'Fit', 'poop' -> 'Props')
+    const categoryMap = computeStatsByDimension(filteredBets, (bet) =>
+      normalizeCategoryForDisplay(bet.marketCategory)
+    );
     const sportMap = computeStatsByDimension(filteredBets, (bet) => bet.sport);
-    const tailMap = computeStatsByDimension(filteredBets, (bet) => bet.tail ? bet.tail.trim() : null);
-    
+    const tailMap = computeStatsByDimension(filteredBets, (bet) =>
+      bet.tail ? bet.tail.trim() : null
+    );
+
     // Player/Team Stats (P4: Use entity stats service for parlay-aware attribution)
     // Phase 1/2: Use resolver to get aggregation keys, using player or team key based on leg.entityType
     const playerTeamMap = computeEntityStatsMap(filteredBets, (leg, bet) => {
       if (leg.entities && leg.entities.length > 0) {
-        return leg.entities.map(entity => {
+        return leg.entities.map((entity) => {
           // Use appropriate aggregation key based on entity type
-          if (leg.entityType === 'player') {
-            return getPlayerAggregationKey(entity, '[Unresolved]', { sport: bet.sport as any });
-          } else if (leg.entityType === 'team') {
-            return getTeamAggregationKey(entity, '[Unresolved]');
+          if (leg.entityType === "player") {
+            return getPlayerAggregationKey(entity, "[Unresolved]", {
+              sport: bet.sport as any,
+            });
+          } else if (leg.entityType === "team") {
+            return getTeamAggregationKey(entity, "[Unresolved]");
           } else {
             // Fallback: check if known team, otherwise treat as player
             const teamInfo = getTeamInfo(entity);
             if (teamInfo) {
-              return getTeamAggregationKey(entity, '[Unresolved]');
+              return getTeamAggregationKey(entity, "[Unresolved]");
             }
-            return getPlayerAggregationKey(entity, '[Unresolved]', { sport: bet.sport as any });
+            return getPlayerAggregationKey(entity, "[Unresolved]", {
+              sport: bet.sport as any,
+            });
           }
         });
       }
@@ -843,17 +931,25 @@ const DashboardView: React.FC = () => {
       .sort((a, b) => b.net - a.net);
 
     // Convert other maps to sorted arrays
-    const profitByBook = mapToStatsArray(bookMap).sort((a, b) => b.stake - a.stake);
-    const marketCategoryStats = mapToStatsArray(categoryMap).sort((a, b) => b.count - a.count);
+    const profitByBook = mapToStatsArray(bookMap).sort(
+      (a, b) => b.stake - a.stake
+    );
+    const marketCategoryStats = mapToStatsArray(categoryMap).sort(
+      (a, b) => b.count - a.count
+    );
     const sportStats = mapToStatsArray(sportMap).sort((a, b) => b.net - a.net);
     const tailStats = mapToStatsArray(tailMap).sort((a, b) => b.net - a.net);
-    
+
     // Apply entity type filter to playerTeamStats
     let filteredPlayerTeamStats = playerTeamStats;
     if (entityType === "player") {
-      filteredPlayerTeamStats = playerTeamStats.filter((item) => allPlayers.has(item.name));
+      filteredPlayerTeamStats = playerTeamStats.filter((item) =>
+        allPlayers.has(item.name)
+      );
     } else if (entityType === "team") {
-      filteredPlayerTeamStats = playerTeamStats.filter((item) => allTeams.has(item.name));
+      filteredPlayerTeamStats = playerTeamStats.filter((item) =>
+        allTeams.has(item.name)
+      );
     }
 
     return {
@@ -909,8 +1005,8 @@ const DashboardView: React.FC = () => {
         entityType={entityType}
       />
 
-      <div className="flex-shrink-0 flex flex-col xl:flex-row justify-between xl:items-center gap-4">
-        <div className="flex-shrink-0">
+      <div className="shrink-0 flex flex-col xl:flex-row justify-between xl:items-center gap-4">
+        <div className="shrink-0">
           <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">
             Dashboard
           </h1>
@@ -1004,7 +1100,7 @@ const DashboardView: React.FC = () => {
               </button>
             </div>
           </div>
-          
+
           <div className="w-full xl:w-auto overflow-x-auto">
             <div className="flex items-center space-x-1 flex-nowrap min-w-max bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-lg">
               <DateRangeButton
@@ -1100,21 +1196,34 @@ const DashboardView: React.FC = () => {
 
         {hasData ? (
           <>
-
             <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6">
               <StatCard
                 title="Net Profit"
                 value={`${
                   processedData.overallStats.netProfit >= 0 ? "$" : "-$"
-                }${Math.abs(processedData.overallStats.netProfit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                }${Math.abs(
+                  processedData.overallStats.netProfit
+                ).toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}`}
                 icon={<Scale className="w-6 h-6" />}
                 subtitle={`${processedData.overallStats.roi.toFixed(1)}% ROI`}
-                subtitleClassName={processedData.overallStats.roi > 0 ? "text-accent-500" : processedData.overallStats.roi < 0 ? "text-danger-500" : undefined}
+                subtitleClassName={
+                  processedData.overallStats.roi > 0
+                    ? "text-accent-500"
+                    : processedData.overallStats.roi < 0
+                    ? "text-danger-500"
+                    : undefined
+                }
                 className="shadow-[0_10px_40px_rgba(0,0,0,0.4)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.3)]"
               />
               <StatCard
                 title="Total Wagered"
-                value={`$${processedData.overallStats.totalWagered.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                value={`$${processedData.overallStats.totalWagered.toLocaleString(
+                  undefined,
+                  { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+                )}`}
                 icon={<BarChart2 className="w-6 h-6" />}
                 className="shadow-[0_10px_40px_rgba(0,0,0,0.4)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.3)]"
               />
@@ -1128,7 +1237,13 @@ const DashboardView: React.FC = () => {
                 title="Win Rate"
                 value={`${processedData.overallStats.winRate.toFixed(1)}%`}
                 icon={<BarChart2 className="w-6 h-6" />}
-                valueClassName={processedData.overallStats.winRate > 50 ? "text-accent-500" : processedData.overallStats.winRate < 50 ? "text-danger-500" : undefined}
+                valueClassName={
+                  processedData.overallStats.winRate > 50
+                    ? "text-accent-500"
+                    : processedData.overallStats.winRate < 50
+                    ? "text-danger-500"
+                    : undefined
+                }
                 subtitle={`${processedData.overallStats.wins}-${processedData.overallStats.losses}`}
                 className="shadow-[0_10px_40px_rgba(0,0,0,0.4)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.3)]"
               />
@@ -1196,7 +1311,7 @@ const DashboardView: React.FC = () => {
             </div>
           </>
         ) : (
-          <div className="flex-grow flex items-center justify-center">
+          <div className="grow flex items-center justify-center">
             <div className="text-center text-neutral-500 dark:text-neutral-400 p-8">
               <BarChart2 className="w-16 h-16 mx-auto text-neutral-400 dark:text-neutral-600" />
               <h3 className="mt-4 text-xl font-semibold">No Data Found</h3>
