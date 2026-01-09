@@ -1153,19 +1153,35 @@ On commit of a non-empty Name:
 
 #### UnresolvedQueue Integration
 
-When a Name is committed and the sport is known:
+When a Name is committed:
 
-1. Attempts to resolve the name using `resolvePlayer()` and `resolveTeam()` from `services/resolver.ts`
-2. If unresolved (neither player nor team resolves):
-   - Determines entity type based on market context (team markets → "team", otherwise → "player")
-   - Adds item to unresolvedQueue with:
+1. **Detect change** using a trimmed, case-insensitive compare (no-op if unchanged).
+2. **Remove previous queue entry** if the previous value is non-empty:
+   - `prevQueueId = generateUnresolvedItemId(prevName, betId, legIndex)`
+   - `removeFromUnresolvedQueue([prevQueueId])`
+3. **Enqueue the new value only if unresolved**:
+   - If new name is empty: do not enqueue
+   - If sport is missing: do not enqueue
+   - Use `getNameResolutionStatus()` (same resolver logic as the badges)
+   - If status is not `"resolved"`, add to unresolvedQueue with:
      - `context: "manual-entry"`
      - `sport`: Current sport
      - `rawValue`: The typed name
      - `betId`: Bet ID
-     - `legIndex`: 0 for single bets, leg index for parlay legs
+     - `legIndex`: 0 for single/totals, actual leg index for parlay legs
      - `market`: Current bet type/market
      - `book`: Current sportsbook
+
+Entity type (player vs team) is determined by market keywords:
+
+- Team markets: "moneyline", "ml", "spread", "total", "run line", "money line", "outright winner", "to win"
+- Player markets: All other markets default to player
+
+**Field coverage**:
+
+- `name` for single bets (legIndex = 0)
+- `name2` for totals bets (legIndex = 0)
+- Parlay leg `entities[0]` (legIndex = actual leg index)
 
 #### Implementation Details
 

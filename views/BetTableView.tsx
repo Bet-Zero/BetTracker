@@ -35,11 +35,7 @@ import {
   generateUnresolvedItemId,
   removeFromUnresolvedQueue,
 } from "../services/unresolvedQueue";
-import {
-  resolvePlayer,
-  resolveTeam,
-  resolveTeamForSport,
-} from "../services/resolver";
+import { resolvePlayer, resolveTeamForSport } from "../services/resolver";
 import type {
   UnresolvedEntityType,
   UnresolvedItem,
@@ -1046,30 +1042,44 @@ const BetTableView: React.FC = () => {
     [getNameResolutionStatus]
   );
 
+  const normalizeNameForComparison = (value?: string): string =>
+    (value || "").trim().toLowerCase();
+
   // Helper to determine entity type and add to unresolvedQueue if needed
   const handleNameCommitWithQueue = useCallback(
-    (val: string, row: FlatBet, legIndex: number | null) => {
-      if (!val || !val.trim()) return;
+    (
+      val: string,
+      row: FlatBet,
+      legIndex: number | null,
+      prevValue?: string
+    ) => {
+      const trimmedNext = val.trim();
+      const trimmedPrev = (prevValue || "").trim();
+      const normalizedNext = normalizeNameForComparison(trimmedNext);
+      const normalizedPrev = normalizeNameForComparison(trimmedPrev);
+
+      if (normalizedPrev === normalizedNext) return;
+
+      const resolvedLegIndex = legIndex ?? 0;
+
+      if (trimmedPrev) {
+        const prevQueueId = generateUnresolvedItemId(
+          trimmedPrev,
+          row.betId,
+          resolvedLegIndex
+        );
+        removeFromUnresolvedQueue([prevQueueId]);
+      }
+
+      if (!trimmedNext) return;
 
       // Add to suggestions (existing behavior)
-      autoAddEntity(row.sport, val, row.type);
+      autoAddEntity(row.sport, trimmedNext, row.type);
 
       // If sport is known, check resolution and add to queue if unresolved
       if (row.sport && row.sport.trim()) {
-        const sport = row.sport as any; // Sport type from resolver
-
-        // Try to resolve as player and team
-        const playerResult = resolvePlayer(val, { sport });
-        const teamResult = resolveTeam(val);
-
-        const playerResolved = playerResult.status === "resolved";
-        const teamResolved = teamResult.status === "resolved";
-
-        // If either resolves, it's not unresolved
-        if (playerResolved || teamResolved) {
-          // Name is resolved, no need to add to queue
-          return;
-        }
+        const resolution = getNameResolutionStatus(trimmedNext, row.sport);
+        if (resolution.status === "resolved") return;
 
         // Neither resolved - determine type based on market context
         const lowerMarket = row.type.toLowerCase();
@@ -1093,13 +1103,17 @@ const BetTableView: React.FC = () => {
 
         // Add to unresolvedQueue (we only reach here if neither resolved)
         const queueItem = {
-          id: generateUnresolvedItemId(val, row.betId, legIndex ?? 0),
-          rawValue: val,
+          id: generateUnresolvedItemId(
+            trimmedNext,
+            row.betId,
+            resolvedLegIndex
+          ),
+          rawValue: trimmedNext,
           entityType: entityType,
           encounteredAt: new Date().toISOString(),
           book: row.site,
           betId: row.betId,
-          legIndex: legIndex ?? 0,
+          legIndex: resolvedLegIndex,
           sport: row.sport,
           market: row.type,
           context: "manual-entry",
@@ -1108,7 +1122,7 @@ const BetTableView: React.FC = () => {
         addToUnresolvedQueue([queueItem]);
       }
     },
-    [autoAddEntity]
+    [autoAddEntity, getNameResolutionStatus]
   );
 
   // Handler to open resolution modal
@@ -3371,7 +3385,12 @@ const BetTableView: React.FC = () => {
                                   onBlur={(e) => {
                                     const val = e.target.value;
                                     if (val !== row.name) {
-                                      handleNameCommitWithQueue(val, row, null);
+                                      handleNameCommitWithQueue(
+                                        val,
+                                        row,
+                                        null,
+                                        row.name
+                                      );
                                       const bet = bets.find(
                                         (b) => b.id === row.betId
                                       );
@@ -3432,7 +3451,12 @@ const BetTableView: React.FC = () => {
                                   onBlur={(e) => {
                                     const val = e.target.value;
                                     if (val !== row.name2) {
-                                      handleNameCommitWithQueue(val, row, null);
+                                      handleNameCommitWithQueue(
+                                        val,
+                                        row,
+                                        null,
+                                        row.name2
+                                      );
                                       const bet = bets.find(
                                         (b) => b.id === row.betId
                                       );
@@ -3571,13 +3595,23 @@ const BetTableView: React.FC = () => {
                             inputRef={getCellRef(rowIndex, "name")}
                             onSave={(val) => {
                               if (isLeg) {
-                                handleNameCommitWithQueue(val, row, legIndex);
+                                handleNameCommitWithQueue(
+                                  val,
+                                  row,
+                                  legIndex,
+                                  row.name
+                                );
                                 handleLegUpdate(row.betId, legIndex, {
                                   entities: [val],
                                 });
                               } else {
                                 // Update bet.name AND leg.entities[0] for single bets
-                                handleNameCommitWithQueue(val, row, null);
+                                handleNameCommitWithQueue(
+                                  val,
+                                  row,
+                                  null,
+                                  row.name
+                                );
 
                                 const bet = bets.find(
                                   (b) => b.id === row.betId
