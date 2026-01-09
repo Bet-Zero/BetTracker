@@ -1428,8 +1428,8 @@ const BetTableView: React.FC = () => {
     { key: "name", label: "Name", style: {} }, // Flexible width - fills remaining space
     {
       key: "ou",
-      label: "O/U\u00A0",
-      style: { whiteSpace: "nowrap", textAlign: "center" },
+      label: "O/U",
+      style: { whiteSpace: "nowrap" },
     },
     { key: "line", label: "Line", style: { textAlign: "right" } },
     { key: "odds", label: "Odds", style: { textAlign: "right" } },
@@ -2814,21 +2814,21 @@ const BetTableView: React.FC = () => {
                     <th
                       key={header.key}
                       scope="col"
-                      className={
-                        headerPaddingX +
-                        " py-1 relative whitespace-nowrap" +
-                        alignmentClass +
-                        (isMoneyBlockStart
+                      className={`${headerPaddingX} py-1 relative whitespace-nowrap${alignmentClass}${
+                        isMoneyBlockStart
                           ? " border-l border-neutral-300 dark:border-neutral-700"
-                          : "") +
-                        (!isLastColumn
+                          : ""
+                      }${
+                        !isLastColumn
                           ? " border-r border-neutral-300 dark:border-neutral-700"
-                          : "")
-                      }
+                          : ""
+                      }`}
                       style={{
                         ...header.style,
                         // Width is controlled via <colgroup> to keep header/body aligned
-                        // No extra right padding for Bet header
+                        ...(header.key === "bet"
+                          ? { paddingRight: "calc(1ch + 0.125rem)" }
+                          : {}),
                       }}
                     >
                       {header.label}
