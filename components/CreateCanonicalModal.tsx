@@ -128,6 +128,8 @@ const CreateCanonicalModal: React.FC<CreateCanonicalModalProps> = ({
   const entityTypeLabel =
     item.entityType === "stat"
       ? "Stat Type"
+      : item.entityType === "betType"
+      ? "Bet Type"
       : item.entityType.charAt(0).toUpperCase() + item.entityType.slice(1);
 
   return (

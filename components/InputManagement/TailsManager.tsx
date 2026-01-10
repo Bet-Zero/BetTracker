@@ -246,7 +246,7 @@ const TailEditPanel: React.FC<{
             placeholder="e.g., Tony"
           />
           <div className="text-xs text-neutral-400 mt-0.5">
-            {tail.displayName.length}/{MAX_DISPLAY_NAME_LENGTH}
+            {tail.displayName?.length || 0}/{MAX_DISPLAY_NAME_LENGTH}
           </div>
         </div>
       </div>

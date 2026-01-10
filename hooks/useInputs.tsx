@@ -160,7 +160,6 @@ export const InputsProvider: React.FC<{ children: ReactNode }> = ({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // This effect ensures that we don't render children until hydration from localStorage is complete.
     setLoading(false);
   }, []);
 

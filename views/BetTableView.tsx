@@ -23,6 +23,10 @@ import {
   normalizeCategoryForDisplay,
 } from "../services/marketClassification";
 import {
+  MAIN_MARKET_TYPES,
+  FUTURES_TYPES,
+} from "../services/marketClassification.config";
+import {
   formatDateShort,
   formatOdds,
   formatCurrency,
@@ -36,12 +40,14 @@ import {
   removeFromUnresolvedQueue,
 } from "../services/unresolvedQueue";
 import { resolvePlayer, resolveTeamForSport, resolveBetType } from "../services/resolver";
+import { getReferenceDataSnapshot } from "../services/normalizationService";
 import type {
   UnresolvedEntityType,
   UnresolvedItem,
 } from "../services/unresolvedQueue";
 import MapToExistingModal from "../components/MapToExistingModal";
 import CreateCanonicalModal from "../components/CreateCanonicalModal";
+import AddTailModal from "../components/AddTailModal";
 import {
   useNormalizationData,
   TeamData,
@@ -250,6 +256,7 @@ const EditableCell: React.FC<{
         style={{ boxSizing: "border-box", maxWidth: "100%", minWidth: 0 }}
         placeholder=""
         list={suggestions.length > 0 ? listId : undefined}
+        autoFocus={isFocused}
       />
       {suggestions.length > 0 && (
         <datalist id={listId}>
@@ -278,6 +285,7 @@ const TypableDropdown: React.FC<{
   placeholder?: string;
   allowCustom?: boolean; // Allow typing values not in the list
   initialQuery?: string; // Initial character(s) for type-to-edit (replaces current value)
+  getOptionClassName?: (option: string) => string;
 }> = ({
   value,
   onSave,
@@ -290,6 +298,7 @@ const TypableDropdown: React.FC<{
   placeholder = "",
   allowCustom = true,
   initialQuery,
+  getOptionClassName,
 }) => {
   // If initialQuery is provided, start with it as text (overwrite mode for spreadsheet feel)
   const [text, setText] = useState(initialQuery || value || "");
@@ -317,19 +326,48 @@ const TypableDropdown: React.FC<{
   */
 
   const [dropdownPosition, setDropdownPosition] = useState<{
-    top: number;
+    top?: number;
+    bottom?: number;
     left: number;
-    width: number;
+    minWidth: number;
+    maxHeight: number;
+    isFlipped: boolean;
   } | null>(null);
+  const selectionDone = useRef(false);
+
+  // Focus input when isFocused becomes true
+  React.useEffect(() => {
+    if (isFocused && ref.current && !selectionDone.current) {
+      ref.current.focus();
+      if (initialQuery !== undefined) {
+        // If typing started edit, place cursor at end
+        ref.current.setSelectionRange(text.length, text.length);
+      } else {
+        // Otherwise (click/enter), select all to allow overwrite
+        ref.current.select();
+      }
+      selectionDone.current = true;
+    }
+    if (!isFocused) {
+      selectionDone.current = false;
+    }
+  }, [isFocused, initialQuery, ref]);
 
   // Update dropdown position when input position changes
   React.useEffect(() => {
     if (ref.current && isOpen) {
       const rect = ref.current.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      const spaceBelow = viewportHeight - rect.bottom;
+      const showAbove = spaceBelow < 220; // Threshold for flipping up
+
       setDropdownPosition({
-        top: rect.bottom + window.scrollY,
-        left: rect.left + window.scrollX,
-        width: rect.width,
+        top: showAbove ? undefined : rect.bottom,
+        bottom: showAbove ? viewportHeight - rect.top : undefined,
+        left: rect.left,
+        minWidth: rect.width,
+        maxHeight: showAbove ? rect.top - 10 : spaceBelow - 10,
+        isFlipped: showAbove,
       });
     }
   }, [isOpen, ref]);
@@ -355,12 +393,17 @@ const TypableDropdown: React.FC<{
     }
   }, [isOpen, ref]);
 
+  // Dedupe options locally to ensure UI cleanliness
+  const uniqueOptions = useMemo(() => {
+    return Array.from(new Set(options)).sort();
+  }, [options]);
+
   // Filter options based on typed text
   const filteredOptions = useMemo(() => {
-    if (!filterText) return options; // Show all options when filter is empty
+    if (!filterText) return uniqueOptions; // Show all options when filter is empty
     const lowerFilter = filterText.toLowerCase();
-    return options.filter((opt) => opt.toLowerCase().includes(lowerFilter));
-  }, [filterText, options]);
+    return uniqueOptions.filter((opt) => opt && opt.toLowerCase().includes(lowerFilter));
+  }, [filterText, uniqueOptions]);
 
   const handleBlur = () => {
     // Close dropdown on blur (with delay to allow click events)
@@ -494,18 +537,23 @@ const TypableDropdown: React.FC<{
         }}
         onBlur={handleBlur}
         onKeyDown={handleKeyDownInternal}
-        className={`bg-transparent w-full p-0 m-0 border-none focus:ring-0 focus:outline-none focus:bg-neutral-100 dark:focus:bg-neutral-800 rounded text-sm max-w-full min-w-0 ${className}`}
-        style={{ boxSizing: "border-box", maxWidth: "100%", minWidth: 0 }}
+        className={`bg-transparent w-full p-0 m-0 border-none focus:ring-0 focus:outline-none focus:bg-neutral-100 dark:focus:bg-neutral-800 rounded text-sm max-w-full min-w-0 !cursor-default ${className}`}
+        style={{ boxSizing: "border-box", maxWidth: "100%", minWidth: 0, cursor: "default" }}
         placeholder={placeholder}
+        autoFocus={isFocused}
       />
       {isOpen && filteredOptions.length > 0 && dropdownPosition && (
         <div
           ref={dropdownRef}
-          className="fixed z-50 w-max min-w-full mt-1 bg-white dark:bg-neutral-800 rounded-lg shadow-lg border border-neutral-200 dark:border-neutral-700 max-h-60 overflow-y-auto"
+          className={`fixed z-50 mt-1 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 rounded-lg shadow-lg border border-neutral-200 dark:border-neutral-700 overflow-y-auto max-w-sm flex flex-col ${
+            dropdownPosition.isFlipped ? "flex-col-reverse" : ""
+          }`}
           style={{
             top: dropdownPosition.top,
+            bottom: dropdownPosition.bottom,
             left: dropdownPosition.left,
-            width: dropdownPosition.width,
+            minWidth: dropdownPosition.minWidth,
+            maxHeight: dropdownPosition.maxHeight,
           }}
         >
           {filteredOptions.map((option, index) => (
@@ -519,7 +567,7 @@ const TypableDropdown: React.FC<{
                 index === highlightedIndex
                   ? "bg-blue-100 dark:bg-blue-900/50"
                   : "hover:bg-neutral-100 dark:hover:bg-neutral-700"
-              }`}
+              } ${getOptionClassName ? getOptionClassName(option) : ""}`}
             >
               {option}
             </div>
@@ -649,6 +697,7 @@ const BetTableView: React.FC = () => {
     addPlayer,
     addTeam,
     tails,
+    addTail,
   } = useInputs();
   const {
     teams: normalizationTeams,
@@ -679,17 +728,21 @@ const BetTableView: React.FC = () => {
 
   // Consolidate categories for display: remove SGP/SGP+ as they are covered by Parlays
   // Consolidate categories for display: remove SGP/SGP+ as they are covered by Parlays
+  // Consolidate categories for display: source from Input Manager (extensible)
+  // Note: This allows custom user categories but requires manual cleanup of junk like "Poop"
+  // Consolidate categories for display: remove SGP/SGP+ as they are covered by Parlays
   const displayCategories = useMemo(() => {
-    return categories.filter((c) => {
-      const lower = c.toLowerCase();
-      // "Parlays" is the canonical category for all these
-      return (
-        lower !== "sgp" &&
-        lower !== "sgp+" &&
-        lower !== "sgp_plus" &&
-        lower !== "sgp/sgp+"
-      );
-    });
+    return categories
+      .filter((c) => {
+        const lower = c.toLowerCase();
+        return (
+          lower !== "sgp" &&
+          lower !== "sgp+" &&
+          lower !== "sgp_plus" &&
+          lower !== "sgp/sgp+"
+        );
+      })
+      .sort();
   }, [categories]);
 
   // Spreadsheet state management
@@ -718,6 +771,13 @@ const BetTableView: React.FC = () => {
   >(null);
   const [showClearFieldsModal, setShowClearFieldsModal] = useState(false);
   const [fieldsToToggle, setFieldsToToggle] = useState<Set<string>>(new Set());
+  
+
+  // Quick Add Tail state
+  const [resolvingTailItem, setResolvingTailItem] = useState<{
+    initialValue: string;
+    row: FlatBet;
+  } | null>(null);
 
   // Name resolution modal state
   const [resolvingNameItem, setResolvingNameItem] = useState<{
@@ -1150,25 +1210,36 @@ const BetTableView: React.FC = () => {
 
   // Handler to open resolution modal
   const handleOpenResolutionModal = useCallback(
-    (row: FlatBet, legIndex: number | null) => {
-      // Determine entity type from market context
-      const lowerMarket = (row.type || "").toLowerCase();
-      const teamKeywords = [
-        "moneyline",
-        "ml",
-        "spread",
-        "total",
-        "run line",
-        "money line",
-        "outright winner",
-        "to win",
-      ];
-      const isTeam = teamKeywords.some((kw) => lowerMarket.includes(kw));
+    (
+      row: FlatBet,
+      legIndex: number | null,
+      entityTypeOverride?: UnresolvedEntityType
+    ) => {
+      let entityType: UnresolvedEntityType = "player";
+
+      if (entityTypeOverride) {
+        entityType = entityTypeOverride;
+      } else {
+        // Determine entity type from market context
+        const lowerMarket = (row.type || "").toLowerCase();
+        const teamKeywords = [
+          "moneyline",
+          "ml",
+          "spread",
+          "total",
+          "run line",
+          "money line",
+          "outright winner",
+          "to win",
+        ];
+        const isTeam = teamKeywords.some((kw) => lowerMarket.includes(kw));
+        entityType = isTeam ? "team" : "player";
+      }
 
       setResolvingNameItem({
         row,
         legIndex,
-        entityType: isTeam ? "team" : "player",
+        entityType,
       });
       setResolutionMode("map");
     },
@@ -1325,18 +1396,92 @@ const BetTableView: React.FC = () => {
       sites: availableSites,
       categories: displayCategories,
       types: (sport: string) => {
-        const types = betTypes[sport] || [];
-        return types.map((type) => abbreviateMarket(type));
+        // Only include resolved bet types from normalization service
+        const snapshot = getReferenceDataSnapshot();
+        const propTypes = snapshot.betTypes.filter(
+          (t) => t.sport === sport || t.sport === "Other"
+        );
+        
+        // Combine resolved props with standard system types (Main Markets, Futures)
+        const allTypes = [
+          ...propTypes.map((t) => abbreviateMarket(t.canonical)),
+          ...Object.values(MAIN_MARKET_TYPES),
+          ...Object.values(FUTURES_TYPES),
+        ];
+
+        const unique = new Set(allTypes);
+        return Array.from(unique).sort();
       },
-      players: (sport: string) => players[sport] || [],
-      teams: (sport: string) => teams[sport] || [],
+      players: (sport: string) => {
+        const all = new Set<string>();
+
+        // Only include resolved players from normalization service (SSOT)
+        const snapshot = getReferenceDataSnapshot();
+        snapshot.players.forEach((p) => {
+          all.add(p.canonical);
+        });
+
+        return Array.from(all).sort();
+      },
+      teams: (sport: string) => {
+        const all = new Set<string>();
+
+        // Only include resolved teams from normalization service (SSOT)
+        const snapshot = getReferenceDataSnapshot();
+        snapshot.teams.forEach((t) => {
+          all.add(t.canonical);
+        });
+
+        return Array.from(all).sort();
+      },
     }),
-    [sports, availableSites, displayCategories, betTypes, players, teams]
+    [
+      sports,
+      availableSites,
+      displayCategories,
+      betTypes,
+      resolverVersion,
+    ]
   );
 
-  const tailOptions = useMemo(() => {
-    return tails.map((t) => t.displayName).sort();
+  const tailSuggestions = useMemo(() => {
+    return tails
+      .map((t) => t.displayName)
+      .filter((n): n is string => !!n) // Filter out null/undefined/empty
+      .sort();
   }, [tails]);
+
+  // Helper: Check if Type is unresolved
+  const isTypeUnresolved = useCallback(
+    (type: string, sport: string): boolean => {
+      if (!type) return false;
+      const res = resolveBetType(type, sport as Sport);
+      return res.status === "unresolved";
+    },
+    []
+  );
+
+  // Helper: Check if Tail is unresolved (not in saved list)
+  const isTailUnresolved = useCallback(
+    (tail: string): boolean => {
+      if (!tail) return false;
+      // Check if tail matches any existing tail name or display name
+      return !tails.some(
+        (t) =>
+          t.name.toLowerCase() === tail.toLowerCase() ||
+          (t.displayName && t.displayName.toLowerCase() === tail.toLowerCase())
+      );
+    },
+    [tails]
+  );
+
+  // Helper: Handle quick-adding a tail
+  const handleAddTail = useCallback(
+    (tail: string, row: FlatBet) => {
+      setResolvingTailItem({ initialValue: tail, row });
+    },
+    []
+  );
 
   const filteredBets = useMemo(() => {
     const tablePredicate = createBetTableFilterPredicate(
@@ -1966,35 +2111,28 @@ const BetTableView: React.FC = () => {
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
-      // Don't handle if user is typing in an input/textarea
+      // ============================================================
+      // EDITOR KEY OWNERSHIP: When editing, the editor owns all keys
+      // except Escape (to cancel) and Tab (to navigate).
+      // This ensures multi-character typing and Enter-select work.
+      // ============================================================
       const target = e.target as HTMLElement;
-      if (
+      const isInputElement =
         target.tagName === "INPUT" ||
         target.tagName === "TEXTAREA" ||
-        target.tagName === "SELECT"
-      ) {
-        // Only handle navigation keys if not actively editing (no text selected)
-        if (
-          target instanceof HTMLInputElement &&
-          target.selectionStart !== target.selectionEnd
-        ) {
-          return;
-        }
-        // Handle Tab, Enter, Arrow keys even when in input
-        if (
-          ![
-            "Tab",
-            "Enter",
-            "ArrowUp",
-            "ArrowDown",
-            "ArrowLeft",
-            "ArrowRight",
-            "Home",
-            "End",
-            "Escape",
-          ].includes(e.key)
-        ) {
-          return;
+        target.tagName === "SELECT" ||
+        (target instanceof HTMLElement && target.isContentEditable);
+
+      // When editingCell is set OR focus is on any input element,
+      // the grid must yield all keys to the editor EXCEPT:
+      // - Escape: to cancel editing (handled below)
+      // - Tab: to navigate between cells (handled below)
+      // All other keys (Enter, Arrow keys, printable chars, Backspace, Delete)
+      // belong to the editor and should NOT be intercepted by the grid.
+      if (editingCell != null || isInputElement) {
+        // Only allow grid to handle Escape (cancel edit) and Tab (navigate)
+        if (e.key !== "Escape" && e.key !== "Tab") {
+          return; // Let the editor handle all other keys
         }
       }
 
@@ -3126,9 +3264,10 @@ const BetTableView: React.FC = () => {
                       <td
                         className={
                           getCellClasses("site") +
-                          " font-bold whitespace-nowrap min-w-0 cursor-default"
+                          " font-bold whitespace-nowrap min-w-0 !cursor-default"
                         }
-                        onClick={(e) => handleCellClick(rowIndex, "site", e)}
+                        style={{ cursor: "default" }}
+                        onClick={() => handleCellDoubleClick(rowIndex, "site")}
                         onDoubleClick={() =>
                           handleCellDoubleClick(rowIndex, "site")
                         }
@@ -3180,9 +3319,10 @@ const BetTableView: React.FC = () => {
                       <td
                         className={
                           getCellClasses("sport") +
-                          " whitespace-nowrap min-w-0 cursor-default"
+                          " whitespace-nowrap min-w-0 !cursor-default"
                         }
-                        onClick={(e) => handleCellClick(rowIndex, "sport", e)}
+                        style={{ cursor: "default" }}
+                        onClick={() => handleCellDoubleClick(rowIndex, "sport")}
                         onDoubleClick={() =>
                           handleCellDoubleClick(rowIndex, "sport")
                         }
@@ -3218,10 +3358,11 @@ const BetTableView: React.FC = () => {
                       <td
                         className={
                           getCellClasses("category") +
-                          " whitespace-nowrap min-w-0 cursor-default"
+                          " whitespace-nowrap min-w-0 !cursor-default"
                         }
-                        onClick={(e) =>
-                          handleCellClick(rowIndex, "category", e)
+                        style={{ cursor: "default" }}
+                        onClick={() =>
+                          handleCellDoubleClick(rowIndex, "category")
                         }
                         onDoubleClick={() =>
                           handleCellDoubleClick(rowIndex, "category")
@@ -3347,8 +3488,27 @@ const BetTableView: React.FC = () => {
                             initialQuery={editSeed ?? undefined}
                           />
                         ) : (
-                          <span className="block truncate">
-                            {abbreviateMarket(row.type)}
+                          <span className="flex items-center gap-1 min-w-0">
+                            <span className="truncate">
+                              {abbreviateMarket(row.type)}
+                            </span>
+                            {row.type &&
+                              isTypeUnresolved(row.type, row.sport) && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenResolutionModal(
+                                      row,
+                                      legIndex,
+                                      "betType"
+                                    );
+                                  }}
+                                  className="flex-shrink-0 text-amber-500 hover:text-amber-600"
+                                  title="Unresolved Type - Click to Resolve"
+                                >
+                                  <AlertTriangle className="w-3.5 h-3.5" />
+                                </button>
+                              )}
                           </span>
                         )}
                       </td>
@@ -3630,7 +3790,7 @@ const BetTableView: React.FC = () => {
                           </span>
                         ) : isCellEditing(rowIndex, "name") ? (
                           // Single input for non-totals bets (Edit Mode)
-                          <EditableCell
+                          <TypableDropdown
                             value={row.name}
                             isFocused={true}
                             onFocus={() =>
@@ -3682,11 +3842,13 @@ const BetTableView: React.FC = () => {
                               }
                               exitEditMode();
                             }}
-                            suggestions={[
+                            options={[
                               ...suggestionLists.players(row.sport),
                               ...suggestionLists.teams(row.sport),
                             ]}
-                            initialValue={editSeed ?? undefined}
+                            initialQuery={editSeed ?? undefined}
+                            allowCustom={true}
+                            className="w-full"
                           />
                         ) : (
                           // Display Mode
@@ -4026,10 +4188,11 @@ const BetTableView: React.FC = () => {
                       <td
                         className={
                           getCellClasses("result") +
-                          " capitalize whitespace-nowrap text-center min-w-0 " +
+                          " capitalize whitespace-nowrap text-center min-w-0 !cursor-default " +
                           resultBgClass
                         }
-                        onClick={(e) => handleCellClick(rowIndex, "result", e)}
+                        style={{ cursor: "default" }}
+                        onClick={() => handleCellDoubleClick(rowIndex, "result")}
                         onDoubleClick={() =>
                           handleCellDoubleClick(rowIndex, "result")
                         }
@@ -4142,12 +4305,35 @@ const BetTableView: React.FC = () => {
                               updateBet(row.betId, { tail: newValue });
                               exitEditMode();
                             }}
-                            options={tailOptions}
+                            options={tailSuggestions}
                             allowCustom={true}
                             initialQuery={editSeed ?? undefined}
                           />
                         ) : (
-                          <span className="block truncate">{row.tail}</span>
+                          <span className="flex items-center gap-1 min-w-0">
+                            <span className="truncate">
+                              {(() => {
+                                if (!row.tail) return "";
+                                const found = tails.find(t => 
+                                  t.name.toLowerCase() === row.tail?.toLowerCase() || 
+                                  t.displayName?.toLowerCase() === row.tail?.toLowerCase()
+                                );
+                                return found?.displayName || row.tail;
+                              })()}
+                            </span>
+                            {row.tail && isTailUnresolved(row.tail) && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAddTail(row.tail!, row);
+                                }}
+                                className="flex-shrink-0 text-amber-500 hover:text-amber-600"
+                                title="Unrecognized Tail - Click to Add to List"
+                              >
+                                <AlertTriangle className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </span>
                         )}
                       </td>
                     </tr>
@@ -4173,15 +4359,20 @@ const BetTableView: React.FC = () => {
       </div>
 
       {/* Name Resolution Modals */}
-      {resolvingNameItem && resolutionMode === "map" && (
-        <MapToExistingModal
-          item={{
+      {resolvingNameItem && (() => {
+        const rawValue =
+          resolvingNameItem.entityType === "betType" ||
+          resolvingNameItem.entityType === "stat"
+            ? resolvingNameItem.row.type
+            : resolvingNameItem.row.name;
+            
+        const commonItemProps = {
             id: generateUnresolvedItemId(
-              resolvingNameItem.row.name,
+              rawValue,
               resolvingNameItem.row.betId,
               resolvingNameItem.legIndex ?? 0
             ),
-            rawValue: resolvingNameItem.row.name,
+            rawValue: rawValue,
             entityType: resolvingNameItem.entityType,
             encounteredAt: new Date().toISOString(),
             book: resolvingNameItem.row.site,
@@ -4189,34 +4380,51 @@ const BetTableView: React.FC = () => {
             legIndex: resolvingNameItem.legIndex ?? 0,
             sport: resolvingNameItem.row.sport,
             market: resolvingNameItem.row.type,
+        };
+
+        return (
+          <>
+            {resolutionMode === "map" && (
+              <MapToExistingModal
+                item={commonItemProps}
+                teams={normalizationTeams}
+                players={normalizationPlayers}
+                betTypes={normalizationBetTypes}
+                onConfirm={handleMapConfirm}
+                onCancel={() => setResolvingNameItem(null)}
+                onSwitchToCreate={() => setResolutionMode("create")}
+              />
+            )}
+            {resolutionMode === "create" && (
+              <CreateCanonicalModal
+                item={commonItemProps}
+                onConfirm={handleCreateConfirm}
+                onCancel={() => setResolvingNameItem(null)}
+              />
+            )}
+          </>
+        );
+      })()}
+
+      {/* Tail Quick Add Modal */}
+      {/* Tail Quick Add Modal */}
+      {resolvingTailItem && (
+        <AddTailModal
+          tailName={resolvingTailItem.initialValue}
+          onConfirm={(finalName, finalDisplayName) => {
+            // Add to saved list with provided display name
+            addTail({ name: finalName, displayName: finalDisplayName });
+
+            // Update the specific bet row. Use the display name as that's what we show in the grid.
+            if (finalDisplayName !== resolvingTailItem.initialValue && finalName !== resolvingTailItem.initialValue) {
+               // Logic: If user edited the name, update the cell.
+               // We should probably update the cell to the Display Name to match the dropdown behavior.
+               updateBet(resolvingTailItem.row.betId, { tail: finalDisplayName });
+            }
+
+            setResolvingTailItem(null);
           }}
-          teams={normalizationTeams}
-          players={normalizationPlayers}
-          betTypes={normalizationBetTypes}
-          onConfirm={handleMapConfirm}
-          onCancel={() => setResolvingNameItem(null)}
-          onSwitchToCreate={() => setResolutionMode("create")}
-        />
-      )}
-      {resolvingNameItem && resolutionMode === "create" && (
-        <CreateCanonicalModal
-          item={{
-            id: generateUnresolvedItemId(
-              resolvingNameItem.row.name,
-              resolvingNameItem.row.betId,
-              resolvingNameItem.legIndex ?? 0
-            ),
-            rawValue: resolvingNameItem.row.name,
-            entityType: resolvingNameItem.entityType,
-            encounteredAt: new Date().toISOString(),
-            book: resolvingNameItem.row.site,
-            betId: resolvingNameItem.row.betId,
-            legIndex: resolvingNameItem.legIndex ?? 0,
-            sport: resolvingNameItem.row.sport,
-            market: resolvingNameItem.row.type,
-          }}
-          onConfirm={handleCreateConfirm}
-          onCancel={() => setResolvingNameItem(null)}
+          onCancel={() => setResolvingTailItem(null)}
         />
       )}
     </div>

@@ -1538,3 +1538,142 @@ if (item.entityType === "team") {
 | ------------------------ | ------------------------------------------------------------------------------------------------- |
 | `views/BetTableView.tsx` | Added `resolveBetType` import, gated `autoAddEntity`, gated `addBetType`, Map/Create add canonical |
 
+---
+
+## Phase 4.2 Implemented Behavior — Editor Key Ownership Fix
+
+**Date Implemented**: 2026-01-10
+
+### Overview
+
+This phase fixes broken spreadsheet typing behavior where dropdown cells (Site, Sport, Category, O/U, Result) only accepted 1 character and Enter did nothing.
+
+### Root Cause
+
+The grid's global `handleKeyDown` listener was stealing keyboard events from active cell editors:
+
+1. **Enter key hijacked**: Grid intercepted Enter to navigate down instead of letting TypableDropdown select suggestions
+2. **Printable characters intercepted**: Grid's type-to-edit logic consumed characters instead of allowing continued typing
+3. **Arrow keys stolen**: Grid navigation consumed arrows instead of letting dropdown navigate suggestions
+
+### Key Ownership Rule
+
+> **While editing, editors own all keystrokes; grid does not intercept.**
+
+The grid only handles two keys when `editingCell != null` or focus is on an input element:
+- **Escape**: To cancel editing and exit edit mode
+- **Tab**: To navigate between cells
+
+All other keys (Enter, arrows, Backspace, Delete, printable characters) are yielded to the editor.
+
+### Implementation Details
+
+#### 1. Grid Keydown Guard (handleKeyDown)
+
+```typescript
+// When editingCell is set OR focus is on any input element,
+// the grid must yield all keys to the editor EXCEPT:
+// - Escape: to cancel editing (handled below)
+// - Tab: to navigate between cells (handled below)
+if (editingCell != null || isInputElement) {
+  if (e.key !== "Escape" && e.key !== "Tab") {
+    return; // Let the editor handle all other keys
+  }
+}
+```
+
+#### 2. Auto-Focus on Editor Mount
+
+Both `TypableDropdown` and `EditableCell` now have `autoFocus={isFocused}`:
+
+```typescript
+// TypableDropdown and EditableCell inputs:
+<input
+  ...
+  autoFocus={isFocused}
+/>
+```
+
+This ensures the input receives focus immediately when entering edit mode.
+
+#### 3. Type-to-Edit Seed Behavior
+
+The `editSeed` mechanism works as follows:
+
+1. **Setting**: When user types a printable character on a selected (not editing) cell, `setEditSeed(e.key)` is called
+2. **Application**: Editors receive `initialQuery` (dropdowns) or `initialValue` (inputs), which is used ONCE in `useState` initialization
+3. **Clearing**: `exitEditMode()` clears the seed via `setEditSeed(null)`
+
+The seed is never re-applied on re-render because it's only used in the initial state.
+
+### Expected Behavior
+
+| Action | Result |
+|--------|--------|
+| Select Site cell, type "Dra" | Cell enters edit, input shows "Dra", dropdown filters to DraftKings |
+| Press Enter | DraftKings is selected, edit mode exits |
+| Select Sport cell, type "NBA", Enter | "NBA" is selected from dropdown |
+| Edit O/U, type "O", Enter | "Over" is selected |
+| Type multiple characters quickly | All characters appear in input, not just first |
+
+### Files Changed
+
+| File | Changes |
+|------|---------|
+| `views/BetTableView.tsx` | Rewrote handleKeyDown early-return guard to yield keys when editing; added `autoFocus` to TypableDropdown and EditableCell inputs |
+
+---
+
+## Phase 4.3 Implemented Behavior — Global Name/Team Suggestions
+
+**Date Implemented**: 2026-01-10
+
+### Overview
+
+To ensure users can always find stored players and teams regardless of sport mismatch or storage anomalies, the suggestion logic for **Name** cells has been updated to use a global fallback strategy.
+
+### Behavior Change
+
+**Previous Behavior**:
+- Suggestions for "Name" only showed players/teams stored specifically under the current row's `Sport` (e.g., Row Sport = "NBA" → only `players["NBA"]` showed).
+- If a player was stored under a slightly different key or the row sport was empty, the suggestion list was empty.
+
+**New Behavior (Global Fallback)**:
+- Suggestions for "Name" now include **ALL known players and teams** from **ALL sports**.
+- The list merges two data sources:
+  1. Manual user inputs (`useInputs`)
+  2. Resolved entities from Normalization Service (SSOT)
+- The list is a unique set (deduplicated by name).
+- This ensures that if "Duncan Robinson" is stored, he appears in the suggestion list regardless of the row's sport context.
+
+### Implementation Details
+
+Modified `suggestionLists.players` and `suggestionLists.teams` in `BetTableView.tsx`:
+
+```typescript
+// Flatten all players across all sports into a single unique list
+const specific = players[sport] || [];
+const all = new Set(specific);
+
+// Merge manual inputs from other sports
+Object.values(players).forEach((list) => {
+  list.forEach((p) => all.add(p));
+});
+
+// Merge resolved players from normalization service
+const snapshot = getReferenceDataSnapshot();
+snapshot.players.forEach((p) => all.add(p.canonical));
+
+return Array.from(all).sort();
+```
+
+### Impact
+
+- **Pros**: Users always find what they are looking for; resolved entities immediately available.
+- **Cons**: Suggestion list is larger.
+
+### Files Changed
+
+| File | Changes |
+|------|---------|
+| `views/BetTableView.tsx` | Updated `suggestionLists` memo to aggregate all manual inputs AND resolved entities |
