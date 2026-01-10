@@ -1401,6 +1401,7 @@ For totals bets, both `name` and `name2` are evaluated independently:
 - **Updated**: 2026-01-08 (Phase 3.1 Name Manual Entry Fix)
 - **Updated**: 2026-01-08 (Phase 3.2 Real-Time Unresolved Name Resolution)
 - **Updated**: 2026-01-09 (Phase 4 Totals Row UX + Sport-Scoped Team Resolution)
+- **Updated**: 2026-01-10 (Phase 4.1 Resolved-Only Suggestions for Name/Type)
 - **Related Files**: BetTableView.tsx, useBets.tsx, useInputs.tsx, types.ts, persistence.ts, InputManagementView.tsx, resolver.ts
 
 ### Phase 2.2 Type-to-Edit Behavior
@@ -1422,3 +1423,118 @@ This phase completes the spreadsheet interaction model by allowing users to type
 - **State**: `editSeed` stores the triggering character.
 - **Props**: `initialQuery` (Dropdowns) and `initialValue` (Inputs) pass the seed to editors.
 - **Guard**: `isEditingContent` check prevents global key handlers during local edits.
+
+---
+
+## Phase 4.1 Implemented Behavior — Resolved-Only Suggestions for Name/Type
+
+**Date Implemented**: 2026-01-10
+
+### Overview
+
+This phase ensures Name and Type suggestion lists remain clean by only adding resolved entities to suggestions. Unresolved manual entries (e.g., "ABCD") do NOT pollute the suggestion dropdowns.
+
+### Resolved-Only Suggestions Rule
+
+**For Name Column**:
+- When a name is committed, `autoAddEntity()` checks resolver status before adding to `useInputs` suggestions (players/teams)
+- If resolver status is `RESOLVED` → add the **canonical** to suggestions
+- If resolver status is `AMBIGUOUS` or `UNRESOLVED` → do NOT add to suggestions
+
+**For Type Column**:
+- When a type is committed, `addBetType()` is gated by `resolveBetType()` status check
+- If resolver status is `RESOLVED` → add the **canonical** to suggestions
+- If resolver status is not `RESOLVED` → do NOT add to suggestions
+
+### Queue + Badge Behavior (Unchanged)
+
+Unresolved/ambiguous names still:
+- Remain in the cell value (not cleared)
+- Show unresolved badge (amber warning icon)
+- Are added to `unresolvedQueue`
+- Can be resolved in-place via Map/Create modals
+
+### Map/Create Resolution Flow
+
+When a user resolves via Map or Create:
+
+1. **Map to Existing**:
+   - Alias is added to normalization data via `addTeamAlias`/`addPlayerAlias`
+   - **Canonical is also added to `useInputs` suggestions** via `addTeam`/`addPlayer`
+   - Queue entry is removed, badge disappears
+
+2. **Create New**:
+   - New canonical is created in normalization data
+   - **Canonical is also added to `useInputs` suggestions** via `addTeam`/`addPlayer`
+   - Queue entry is removed, badge disappears
+
+After Map/Create:
+- The canonical name appears in suggestions immediately
+- Future uses of the alias will resolve to canonical and also appear in suggestions
+
+### Implementation Details
+
+**`autoAddEntity()` gating**:
+```typescript
+// Check resolver status before adding to suggestions
+if (isPlayerMarket && !isTeamMarket) {
+  const playerResult = resolvePlayer(trimmedEntity, { sport: sport as Sport });
+  if (playerResult.status === "resolved") {
+    addPlayer(sport, playerResult.canonical);
+  }
+  // If unresolved, do NOT add - queue flow handles it
+} else if (isTeamMarket && !isPlayerMarket) {
+  const teamResult = resolveTeamForSport(trimmedEntity, sport as Sport);
+  if (teamResult.status === "resolved") {
+    addTeam(sport, teamResult.canonical);
+  }
+}
+```
+
+**`addBetType()` gating**:
+```typescript
+const typeResult = resolveBetType(value, row.sport as Sport);
+if (typeResult.status === "resolved") {
+  addBetType(row.sport, typeResult.canonical);
+}
+```
+
+**Map/Create canonical promotion**:
+```typescript
+// In handleMapConfirm and handleCreateConfirm
+if (item.entityType === "team") {
+  addTeamAlias(targetCanonical, item.rawValue);
+  addTeam(sport, targetCanonical); // Add to suggestions
+} else if (item.entityType === "player") {
+  addPlayerAlias(targetCanonical, sport, item.rawValue);
+  addPlayer(sport, targetCanonical); // Add to suggestions
+}
+```
+
+### Manual Validation Checklist
+
+1. **Unresolved stays out of suggestions**:
+   - Type "ABCD" into Name with sport set
+   - Badge appears, queue entry created
+   - "ABCD" does NOT appear in Name suggestions next time
+
+2. **Resolved via Map adds to suggestions**:
+   - Click badge → Map to "LeBron James"
+   - Badge disappears, queue cleared
+   - "LeBron James" appears in Name suggestions
+
+3. **Resolved via Create adds to suggestions**:
+   - Click badge → Create new canonical
+   - Badge disappears, queue cleared
+   - New canonical appears in Name suggestions
+
+4. **Type column behaves same way**:
+   - Unresolved types do NOT get added to suggestions
+   - Known types (in normalization) get added to suggestions
+
+### Files Changed
+
+| File                     | Changes                                                                                           |
+| ------------------------ | ------------------------------------------------------------------------------------------------- |
+| `views/BetTableView.tsx` | Added `resolveBetType` import, gated `autoAddEntity`, gated `addBetType`, Map/Create add canonical |
+

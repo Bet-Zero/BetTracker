@@ -35,7 +35,7 @@ import {
   generateUnresolvedItemId,
   removeFromUnresolvedQueue,
 } from "../services/unresolvedQueue";
-import { resolvePlayer, resolveTeamForSport } from "../services/resolver";
+import { resolvePlayer, resolveTeamForSport, resolveBetType } from "../services/resolver";
 import type {
   UnresolvedEntityType,
   UnresolvedItem,
@@ -916,7 +916,12 @@ const BetTableView: React.FC = () => {
   );
 
   // Very basic entity detection for auto-add
+  // GATE: Only adds to suggestions if entity is RESOLVED
+  // Unresolved entities remain in cell value and get queued, but don't pollute suggestions
   const autoAddEntity = (sport: string, entity: string, market: string) => {
+    if (!sport || !entity || !entity.trim()) return;
+
+    const trimmedEntity = entity.trim();
     const lowerMarket = market.toLowerCase();
     const teamMarketKeywords = [
       "moneyline",
@@ -958,16 +963,34 @@ const BetTableView: React.FC = () => {
       lowerMarket.includes(keyword)
     );
 
+    // Determine entity type and check resolver status before adding to suggestions
     if (isPlayerMarket && !isTeamMarket) {
-      addPlayer(sport, entity);
+      // Check if player is resolved before adding to suggestions
+      const playerResult = resolvePlayer(trimmedEntity, { sport: sport as Sport });
+      if (playerResult.status === "resolved") {
+        addPlayer(sport, playerResult.canonical);
+      }
+      // If unresolved, do NOT add - let queue flow handle it
     } else if (isTeamMarket && !isPlayerMarket) {
-      addTeam(sport, entity);
+      // Check if team is resolved before adding to suggestions
+      const teamResult = resolveTeamForSport(trimmedEntity, sport as Sport);
+      if (teamResult.status === "resolved") {
+        addTeam(sport, teamResult.canonical);
+      }
+      // If unresolved, do NOT add - let queue flow handle it
     } else {
+      // Ambiguous market type - determine by sport
       const teamSports = ["NFL", "NBA", "MLB", "NHL", "Soccer"];
       if (teamSports.includes(sport)) {
-        addTeam(sport, entity);
+        const teamResult = resolveTeamForSport(trimmedEntity, sport as Sport);
+        if (teamResult.status === "resolved") {
+          addTeam(sport, teamResult.canonical);
+        }
       } else {
-        addPlayer(sport, entity);
+        const playerResult = resolvePlayer(trimmedEntity, { sport: sport as Sport });
+        if (playerResult.status === "resolved") {
+          addPlayer(sport, playerResult.canonical);
+        }
       }
     }
   };
@@ -1160,8 +1183,12 @@ const BetTableView: React.FC = () => {
 
       if (item.entityType === "team") {
         addTeamAlias(targetCanonical, item.rawValue);
+        // Also add canonical to suggestions so it appears in dropdown immediately
+        addTeam(sport, targetCanonical);
       } else if (item.entityType === "player") {
         addPlayerAlias(targetCanonical, sport, item.rawValue);
+        // Also add canonical to suggestions so it appears in dropdown immediately
+        addPlayer(sport, targetCanonical);
       }
 
       // Clear unresolved queue entry
@@ -1174,7 +1201,7 @@ const BetTableView: React.FC = () => {
 
       setResolvingNameItem(null);
     },
-    [resolvingNameItem, addTeamAlias, addPlayerAlias]
+    [resolvingNameItem, addTeamAlias, addPlayerAlias, addTeam, addPlayer]
   );
 
   // Handler for create confirmation
@@ -1205,6 +1232,8 @@ const BetTableView: React.FC = () => {
           abbreviations: extraData?.abbreviations || [],
         };
         addNormalizationTeam(newTeam);
+        // Also add canonical to suggestions so it appears in dropdown immediately
+        addTeam(sport, canonical);
       } else if (item.entityType === "player") {
         // Resolve team name from ID if present
         let teamName: string | undefined = undefined;
@@ -1223,6 +1252,8 @@ const BetTableView: React.FC = () => {
           teamId: extraData?.teamId,
         };
         addNormalizationPlayer(newPlayer);
+        // Also add canonical to suggestions so it appears in dropdown immediately
+        addPlayer(sport, canonical);
       }
 
       // Clear unresolved queue entry
@@ -1240,6 +1271,8 @@ const BetTableView: React.FC = () => {
       addNormalizationTeam,
       addNormalizationPlayer,
       normalizationTeams,
+      addTeam,
+      addPlayer,
     ]
   );
 
@@ -2297,11 +2330,19 @@ const BetTableView: React.FC = () => {
           break;
         case "type":
           if (isLeg) {
-            addBetType(row.sport, value);
+            // GATE: Only add to suggestions if bet type is RESOLVED
+            const legTypeResult = resolveBetType(value, row.sport as Sport);
+            if (legTypeResult.status === "resolved") {
+              addBetType(row.sport, legTypeResult.canonical);
+            }
             handleLegUpdate(row.betId, legIndex, { market: value });
           } else {
             // Update bet.type (stat type), NOT betType (bet form)
-            addBetType(row.sport, value);
+            // GATE: Only add to suggestions if bet type is RESOLVED
+            const typeResult = resolveBetType(value, row.sport as Sport);
+            if (typeResult.status === "resolved") {
+              addBetType(row.sport, typeResult.canonical);
+            }
             updateBet(row.betId, { type: value });
           }
           break;
@@ -3248,8 +3289,8 @@ const BetTableView: React.FC = () => {
                                 typeAbbreviationToFull[val.toLowerCase()] ||
                                 val;
 
-                              // Only add to dropdown if it's a new custom value
-                              // to prevent duplication/pollution
+                              // GATE: Only add to suggestions if it's NEW and RESOLVED
+                              // to prevent pollution by unresolved types
                               const currentOptions = suggestionLists.types(
                                 row.sport
                               );
@@ -3258,7 +3299,10 @@ const BetTableView: React.FC = () => {
                                   opt.toLowerCase() === fullName.toLowerCase()
                               );
                               if (isNew && fullName.trim()) {
-                                addBetType(row.sport, fullName);
+                                const typeRes = resolveBetType(fullName, row.sport as Sport);
+                                if (typeRes.status === "resolved") {
+                                  addBetType(row.sport, typeRes.canonical);
+                                }
                               }
 
                               if (isLeg) {
