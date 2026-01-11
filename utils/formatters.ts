@@ -173,6 +173,89 @@ export function parseDateInput(input: string, originalIso: string): string | nul
 }
 
 // =============================================================================
+// MMDD INPUT HELPERS (Digits-Only Date Input)
+// =============================================================================
+
+/**
+ * Auto-formats raw digit input as MM/DD as user types.
+ * - 0 → 0
+ * - 01 → 01
+ * - 011 → 01/1
+ * - 0110 → 01/10
+ * @param rawDigits - Digits only string (max 4 characters)
+ * @returns Formatted string with slash where appropriate
+ */
+export function formatMMDDInput(rawDigits: string): string {
+  // Extract only digits
+  const digits = rawDigits.replace(/\D/g, "").slice(0, 4);
+  
+  if (digits.length === 0) return "";
+  if (digits.length <= 2) return digits;
+  
+  // Insert slash after first 2 digits
+  return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+}
+
+/**
+ * Parses MM/DD formatted string to month and day numbers.
+ * @param formatted - String like "01/10" or "0110" or "01/1"
+ * @returns { month, day } or null if invalid format
+ */
+export function parseMMDDInput(formatted: string): { month: number; day: number } | null {
+  // Remove non-digits to extract raw digits
+  const digits = formatted.replace(/\D/g, "");
+  
+  // Must have exactly 4 digits for complete MM/DD
+  if (digits.length !== 4) return null;
+  
+  const month = parseInt(digits.slice(0, 2), 10);
+  const day = parseInt(digits.slice(2, 4), 10);
+  
+  if (isNaN(month) || isNaN(day)) return null;
+  
+  return { month, day };
+}
+
+/**
+ * Validates if month/day is a valid calendar date (uses current year).
+ * @param month - 1-12
+ * @param day - 1-31
+ * @returns true if valid date for current year
+ */
+export function isValidMMDD(month: number, day: number): boolean {
+  // Basic range check
+  if (month < 1 || month > 12 || day < 1 || day > 31) return false;
+  
+  // Use current year for calendar validation
+  const year = new Date().getFullYear();
+  
+  // Create date and verify it didn't roll over (catches Feb 30, etc.)
+  const testDate = new Date(year, month - 1, day, 12, 0, 0);
+  
+  return (
+    testDate.getFullYear() === year &&
+    testDate.getMonth() === month - 1 &&
+    testDate.getDate() === day
+  );
+}
+
+/**
+ * Builds an ISO date string from month/day using current year.
+ * Time is set to 12:00:00 local to avoid timezone day rollover.
+ * @param month - 1-12
+ * @param day - 1-31
+ * @returns ISO string, or null if invalid
+ */
+export function buildIsoFromMMDD(month: number, day: number): string | null {
+  if (!isValidMMDD(month, day)) return null;
+  
+  const year = new Date().getFullYear();
+  const newDate = new Date(year, month - 1, day, 12, 0, 0);
+  
+  return newDate.toISOString();
+}
+
+// =============================================================================
 // ODDS FORMATTER
 // =============================================================================
 

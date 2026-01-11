@@ -532,7 +532,7 @@ function isMarketProp(lowerMarket: string, sport: string): boolean {
  * normalizeCategoryForDisplay('Props') // returns 'Props'
  */
 export function normalizeCategoryForDisplay(marketCategory: string): string {
-  if (!marketCategory) return 'Props'; // Empty/undefined is "unclear" -> default to Props
+  if (!marketCategory) return ''; // Empty/undefined returns empty for manual entry rows
   
   const lower = marketCategory.toLowerCase();
 

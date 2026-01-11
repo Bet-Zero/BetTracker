@@ -1301,7 +1301,47 @@ const isNameUnresolved = useCallback(
 
 | File                     | Changes                                                                        |
 | ------------------------ | ------------------------------------------------------------------------------ |
-| `views/BetTableView.tsx` | Added unresolved detection, badge display, modal handlers, and modal rendering |
+
+---
+
+## Phase 5 Implemented Behavior — Date Cell UX: Digits-Only MMDD Input (Auto-format)
+
+**Date Implemented**: 2026-01-11
+
+### Overview
+
+Improved the Date column editing experience to be faster and more spreadsheet-like:
+
+- **Display**: Stays as `MM/DD` in the grid.
+- **Input**: Digits-only input (user types `MMDD`).
+- **Auto-Format**: Input automatically adds slash (e.g., `01` -> `01`, `011` -> `01/1`, `0112` -> `01/12`).
+- **Commit**: Saves full ISO timestamp using **current year** and `12:00:00` local time.
+
+### Interaction Rules
+
+| Action | Result |
+| :--- | :--- |
+| Type digit (e.g. "1") on selected cell | Enters edit mode, sets input to "1" (Type-to-Edit) |
+| Double-click cell | Enters edit mode, selects existing MMDD text |
+| Backspace | Deletes digits naturally |
+| Enter/Blur | Commits if valid, Reverts if invalid |
+| Escape | Cancels edit, reverts to original |
+
+### Validation & Parsing
+
+- **Format**: `MM/DD` (digits only)
+- **Validation**:
+  - Month: 01-12
+  - Day: Valid calendar day for the month (uses current year)
+- **Time Rule**: Time is set to `12:00:00` local time to avoid timezone date rollover issues.
+- **Year Rule**: Year is assumed to be the **current year** at the time of commit.
+
+### Files Changed
+
+| File | Changes |
+| :--- | :--- |
+| `views/BetTableView.tsx` | Implemented `DateCell` component and replaced `EditableCell` usage for date column. |
+| `utils/formatters.ts` | Added `formatMMDDInput`, `parseMMDDInput`, `isValidMMDD`, `buildIsoFromMMDD` helpers. |
 
 ---
 
@@ -1388,6 +1428,140 @@ For totals bets, both `name` and `name2` are evaluated independently:
 
 ---
 
+## Phase 5 Implemented Behavior — Site/Type Alias Search
+
+**Date Implemented**: 2026-01-11
+
+### Overview
+
+BetTable dropdowns for **Site** and **Type** columns now support "smart" typeahead search where users can type full names or aliases, but the cell stores the canonical short code.
+
+### Site Alias Search
+
+**Matching Rule**:
+- User types partial text (e.g., "Dra", "Draft", "DraftKings")
+- Dropdown filters to match against: abbreviation, name, or aliases
+- Display shows: `DK — DraftKings` (code — label format)
+- On selection, cell stores: `DK` (abbreviation only)
+
+**Data Model**:
+The `Sportsbook` interface now includes an optional `aliases` field:
+
+```typescript
+interface Sportsbook {
+  name: SportsbookName;      // "DraftKings"
+  abbreviation: string;      // "DK"
+  url: string;
+  aliases?: string[];        // ["draftkings", "draft kings"]
+}
+```
+
+If aliases are not specified, the sportsbook name (lowercased) is used as a default alias.
+
+**No Custom Creation**:
+Site dropdown uses `allowCustom={false}`. Invalid typed values do NOT create new sites.
+
+### Type Alias Search
+
+**Matching Rule**:
+- User types full phrase (e.g., "Points", "Triple Double", "Threes")
+- Dropdown filters to match against: canonical code, description, or aliases
+- Display shows: `Pts — Points` (code — description format)
+- On selection, cell stores: `Pts` (canonical code)
+
+**Data Source**:
+Type options come from the normalization service's `BetTypeInfo` which includes:
+- `canonical`: Short code (e.g., "Pts", "TD", "3pt")
+- `description`: Human-readable name (e.g., "Points", "Triple Double")
+- `aliases`: Search terms (e.g., ["points", "pts", "point"])
+
+**No Custom Creation**:
+Type dropdown now uses `allowCustom={false}` (changed from `true`). Invalid typed values:
+- Do NOT create new bet types
+- Do NOT pollute the option list
+- Revert to original value on blur/escape
+
+### TypableDropdown Enhancement
+
+The `TypableDropdown` component was enhanced with a new `optionData` prop:
+
+```typescript
+interface DropdownOption {
+  value: string;      // Stored in cell
+  label: string;      // Human-readable display
+  aliases: string[];  // Search terms
+}
+
+// Props
+optionData?: DropdownOption[];  // Rich options for alias search
+```
+
+When `optionData` is provided:
+- Filtering uses alias-aware matching via `filterOptionsByQuery()`
+- Display shows formatted options via `formatOptionDisplay()`
+- Selection saves `option.value` (the code, not display text)
+
+Legacy `options` prop (string array) continues to work for backwards compatibility.
+
+### Alias Matching Utility
+
+New file: `utils/aliasMatching.ts`
+
+```typescript
+// Normalize for comparison: lowercase, trim, remove punctuation
+function normalizeForSearch(str: string): string;
+
+// Check if query matches option's value, label, or aliases
+function matchesOption(query: string, option: DropdownOption): boolean;
+
+// Filter options array by query
+function filterOptionsByQuery(query: string, options: DropdownOption[]): DropdownOption[];
+
+// Format option for display: "value — label"
+function formatOptionDisplay(option: DropdownOption): string;
+
+// Score how well query matches option (higher = better)
+function scoreMatch(query: string, option: DropdownOption): number;
+```
+
+### Ranking Rules (2026-01-11)
+
+Results from `filterOptionsByQuery()` are sorted by match quality:
+
+**Scoring Priority (highest to lowest):**
+| Priority | Match Type | Score |
+|----------|-----------|-------|
+| 1 | Exact match on value (code) | 100 |
+| 2 | Exact match on label | 90 |
+| 3 | Exact match on alias | 80 |
+| 4 | Prefix match on label | 70 |
+| 5 | Prefix match on alias | 60 |
+| 6 | Word-boundary match on label/alias | 40 |
+| 7 | Substring match anywhere | 10 |
+
+**Tie-breakers (in order):**
+1. Prefer shorter label length
+2. Prefer fewer words/tokens in label
+3. Prefer shorter value/code length
+4. Stable alphabetical by label/value
+
+### No Option Pollution Rule
+
+Neither Site nor Type dropdown adds typed junk into option lists:
+- **Site**: Only added/removed via Input Management
+- **Type**: Only created via canonical normalization flows (Map/Create), not raw typing
+
+### Files Changed
+
+| File | Changes |
+|------|---------|
+| `types.ts` | Added `aliases?: string[]` to `Sportsbook` interface |
+| `utils/aliasMatching.ts` | NEW: Alias matching utility with `DropdownOption`, `matchesOption()`, etc. |
+| `utils/aliasMatching.test.ts` | NEW: 20 unit tests for alias matching |
+| `views/BetTableView.tsx` | Enhanced `TypableDropdown` with `optionData` prop; added `siteOptionData` and `getTypeOptionData()` memos; wired Site/Type columns |
+
+---
+
 ## Document Metadata
 
 - **Created**: 2026-01-07
@@ -1402,7 +1576,9 @@ For totals bets, both `name` and `name2` are evaluated independently:
 - **Updated**: 2026-01-08 (Phase 3.2 Real-Time Unresolved Name Resolution)
 - **Updated**: 2026-01-09 (Phase 4 Totals Row UX + Sport-Scoped Team Resolution)
 - **Updated**: 2026-01-10 (Phase 4.1 Resolved-Only Suggestions for Name/Type)
-- **Related Files**: BetTableView.tsx, useBets.tsx, useInputs.tsx, types.ts, persistence.ts, InputManagementView.tsx, resolver.ts
+- **Updated**: 2026-01-11 (Phase 5 Site/Type Alias Search)
+- **Updated**: 2026-01-11 (Phase 5.1 Alias Ranking Fix)
+- **Related Files**: BetTableView.tsx, useBets.tsx, useInputs.tsx, types.ts, persistence.ts, InputManagementView.tsx, resolver.ts, aliasMatching.ts
 
 ### Phase 2.2 Type-to-Edit Behavior
 

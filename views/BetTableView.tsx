@@ -31,6 +31,9 @@ import {
   formatOdds,
   formatCurrency,
   parseDateInput,
+  formatMMDDInput,
+  parseMMDDInput,
+  buildIsoFromMMDD,
 } from "../utils/formatters";
 import { createBetTableFilterPredicate } from "../utils/filterPredicates";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
@@ -150,6 +153,97 @@ interface FlatBet {
 // Import normalizeCategoryForDisplay and abbreviateMarket from there instead.
 
 // --- Editable Cell Components ---
+
+const DateCell: React.FC<{
+  value: string;
+  onSave: (newIso: string) => void;
+  onExit: () => void;
+  isFocused?: boolean;
+  inputRef?: React.RefObject<HTMLInputElement>;
+  initialValue?: string;
+}> = ({ value, onSave, onExit, isFocused, inputRef, initialValue }) => {
+  const [text, setText] = useState(
+    initialValue ? formatMMDDInput(initialValue) : value
+  );
+  const internalRef = useRef<HTMLInputElement>(null);
+  const ref = inputRef || internalRef;
+
+  // Focus and select/cursor placement
+  useEffect(() => {
+    if (isFocused && ref.current) {
+      ref.current.focus();
+      if (initialValue !== undefined) {
+        // Place cursor at end for type-to-edit
+        ref.current.setSelectionRange(text.length, text.length);
+      } else {
+        // Select all for double-click/enter edit
+        ref.current.select();
+      }
+    }
+  }, [isFocused, ref, initialValue]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleValidationAndSave = () => {
+    // Parse the current text
+    const parsed = parseMMDDInput(text);
+    if (!parsed) {
+      onExit(); // Invalid format -> revert
+      return;
+    }
+
+    // Build ISO string (validates date logic like Feb 30)
+    const newIso = buildIsoFromMMDD(parsed.month, parsed.day);
+    if (newIso) {
+      onSave(newIso);
+    } else {
+      onExit(); // Invalid date -> revert
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Auto-format as user types
+    const raw = e.target.value;
+    // Handle backspace properly (if length decreased, don't force format immediately?
+    // Actually formatMMDDInput handles raw digits. We should strip non-digits first.)
+    
+    // Check if backspace was likely used (length checks might be flaky with selection)
+    // Simple approach: Always re-format raw digits.
+    // If user deleted the slash, it will be gone from raw digits, so re-adding it depends on length.
+    
+    // NOTE: A better approach for "user deleted slash" is usually:
+    // If stripped digits are same as before but slash gone -> keep it?
+    // But safely: just strip non-digits and re-format.
+    // If user hits backspace on "01/1", they get "01/".
+    // 01/ -> digits "01" -> format "01" (slash removed). Correct.
+    
+    const formatted = formatMMDDInput(raw);
+    setText(formatted);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleValidationAndSave();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      onExit();
+    }
+  };
+
+  return (
+    <input
+      ref={ref}
+      type="text"
+      inputMode="numeric"
+      value={text}
+      onChange={handleChange}
+      onBlur={handleValidationAndSave}
+      onKeyDown={handleKeyDown}
+      className="bg-transparent w-full p-0 m-0 border-none focus:ring-0 focus:outline-none focus:bg-neutral-100 dark:focus:bg-neutral-800 rounded text-sm max-w-full min-w-0"
+      style={{ boxSizing: "border-box", maxWidth: "100%", minWidth: 0 }}
+      placeholder="MM/DD"
+    />
+  );
+};
 
 const EditableCell: React.FC<{
   value: string | number;
@@ -273,10 +367,18 @@ const EditableCell: React.FC<{
 // Forward declare, actual component defined after TypableDropdown
 
 // Typable Dropdown Component (Combobox)
+// Supports alias-aware filtering when optionData is provided
+import {
+  DropdownOption,
+  filterOptionsByQuery,
+  formatOptionDisplay,
+} from "../utils/aliasMatching";
+
 const TypableDropdown: React.FC<{
   value: string;
   onSave: (newValue: string) => void;
   options: string[];
+  optionData?: DropdownOption[];  // Rich options with aliases for smart search
   className?: string;
   isFocused?: boolean;
   onFocus?: () => void;
@@ -290,6 +392,7 @@ const TypableDropdown: React.FC<{
   value,
   onSave,
   options,
+  optionData,
   className = "",
   isFocused = false,
   onFocus,
@@ -311,19 +414,8 @@ const TypableDropdown: React.FC<{
   const dropdownRef = useRef<HTMLDivElement>(null);
   const ref = inputRef || internalRef;
 
-  // Update internal state if the external value prop changes
-  // Update internal state if the external value prop changes
-  // REMOVED: This causes a race condition where addBetType triggers a re-render
-  // with the old 'value' before the new bet data is propagated, resetting 'text'
-  // to the old value, which is then saved back by handleBlur/onSave.
-  // Since TypableDropdown is unmounted/remounted when editing starts/ends,
-  // initialization via useState(value || "") is sufficient.
-  /*
-  React.useEffect(() => {
-    setText(value || "");
-    setFilterText(""); // Reset filter when value changes externally
-  }, [value]);
-  */
+  // Determine if we're using rich options (optionData) or simple string options
+  const useRichOptions = optionData && optionData.length > 0;
 
   const [dropdownPosition, setDropdownPosition] = useState<{
     top?: number;
@@ -393,17 +485,37 @@ const TypableDropdown: React.FC<{
     }
   }, [isOpen, ref]);
 
-  // Dedupe options locally to ensure UI cleanliness
+  // Dedupe simple options locally to ensure UI cleanliness
   const uniqueOptions = useMemo(() => {
     return Array.from(new Set(options)).sort();
   }, [options]);
 
-  // Filter options based on typed text
-  const filteredOptions = useMemo(() => {
+  // Filter rich options using alias-aware matching
+  const filteredRichOptions = useMemo(() => {
+    if (!useRichOptions) return [];
+    return filterOptionsByQuery(filterText, optionData!);
+  }, [filterText, optionData, useRichOptions]);
+
+  // Filter simple options based on typed text (legacy behavior)
+  const filteredSimpleOptions = useMemo(() => {
+    if (useRichOptions) return [];
     if (!filterText) return uniqueOptions; // Show all options when filter is empty
     const lowerFilter = filterText.toLowerCase();
     return uniqueOptions.filter((opt) => opt && opt.toLowerCase().includes(lowerFilter));
-  }, [filterText, uniqueOptions]);
+  }, [filterText, uniqueOptions, useRichOptions]);
+
+  // Unified filtered options for rendering
+  const filteredOptions = useRichOptions ? filteredRichOptions : filteredSimpleOptions;
+
+  // Check if a value is valid (exists in options)
+  const isValidOption = useCallback((val: string): boolean => {
+    if (useRichOptions) {
+      return optionData!.some(
+        (opt) => opt.value.toLowerCase() === val.toLowerCase()
+      );
+    }
+    return options.includes(val);
+  }, [useRichOptions, optionData, options]);
 
   const handleBlur = () => {
     // Close dropdown on blur (with delay to allow click events)
@@ -413,7 +525,7 @@ const TypableDropdown: React.FC<{
 
       // Save the value
       if (text !== value) {
-        if (allowCustom || options.includes(text) || !text) {
+        if (allowCustom || isValidOption(text) || !text) {
           onSave(text);
         } else {
           // If not allowing custom and value not in options, revert
@@ -455,24 +567,30 @@ const TypableDropdown: React.FC<{
     if (e.key === "Enter") {
       e.preventDefault();
 
-      // If there's a highlighted option, select it
-      if (
-        isOpen &&
-        highlightedIndex >= 0 &&
-        filteredOptions[highlightedIndex]
-      ) {
-        handleSelect(filteredOptions[highlightedIndex]);
-        return;
-      }
+      // Get the value to select based on highlighted index
+      const getSelectedValue = (): string | null => {
+        if (highlightedIndex >= 0 && highlightedIndex < filteredOptions.length) {
+          const opt = filteredOptions[highlightedIndex];
+          return useRichOptions ? (opt as DropdownOption).value : (opt as string);
+        }
+        if (filteredOptions.length > 0 && filterText) {
+          const opt = filteredOptions[0];
+          return useRichOptions ? (opt as DropdownOption).value : (opt as string);
+        }
+        return null;
+      };
 
-      // If no highlighted option but there are filtered options, select the first one
-      if (isOpen && filteredOptions.length > 0 && filterText) {
-        handleSelect(filteredOptions[0]);
-        return;
+      // If there's a highlighted option or filtered options exist, select it
+      if (isOpen) {
+        const selectedValue = getSelectedValue();
+        if (selectedValue) {
+          handleSelect(selectedValue);
+          return;
+        }
       }
 
       // If allowCustom is true, or text matches an option exactly, or text is empty
-      if (allowCustom || options.includes(text) || !text) {
+      if (allowCustom || isValidOption(text) || !text) {
         onSave(text);
         setIsOpen(false);
         ref.current?.blur();
@@ -520,6 +638,22 @@ const TypableDropdown: React.FC<{
     }
   };
 
+  // Render option display text
+  const renderOptionText = (opt: DropdownOption | string, index: number): string => {
+    if (useRichOptions) {
+      return formatOptionDisplay(opt as DropdownOption);
+    }
+    return opt as string;
+  };
+
+  // Get option value for selection
+  const getOptionValue = (opt: DropdownOption | string): string => {
+    if (useRichOptions) {
+      return (opt as DropdownOption).value;
+    }
+    return opt as string;
+  };
+
   return (
     <div className="relative w-full min-w-0">
       <input
@@ -556,27 +690,32 @@ const TypableDropdown: React.FC<{
             maxHeight: dropdownPosition.maxHeight,
           }}
         >
-          {filteredOptions.map((option, index) => (
-            <div
-              key={option}
-              onMouseDown={(e) => {
-                e.preventDefault(); // Prevent input blur
-                handleSelect(option);
-              }}
-              className={`px-2 py-1 cursor-pointer text-sm ${
-                index === highlightedIndex
-                  ? "bg-blue-100 dark:bg-blue-900/50"
-                  : "hover:bg-neutral-100 dark:hover:bg-neutral-700"
-              } ${getOptionClassName ? getOptionClassName(option) : ""}`}
-            >
-              {option}
-            </div>
-          ))}
+          {filteredOptions.map((option, index) => {
+            const optValue = getOptionValue(option);
+            const displayText = renderOptionText(option, index);
+            return (
+              <div
+                key={optValue}
+                onMouseDown={(e) => {
+                  e.preventDefault(); // Prevent input blur
+                  handleSelect(optValue);
+                }}
+                className={`px-2 py-1 cursor-pointer text-sm ${
+                  index === highlightedIndex
+                    ? "bg-blue-100 dark:bg-blue-900/50"
+                    : "hover:bg-neutral-100 dark:hover:bg-neutral-700"
+                } ${getOptionClassName ? getOptionClassName(optValue) : ""}`}
+              >
+                {displayText}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
   );
 };
+
 
 // Result Cell - uses TypableDropdown for typeahead support
 const ResultCell: React.FC<{
@@ -1378,6 +1517,16 @@ const BetTableView: React.FC = () => {
     () => sportsbooks.map((b) => b.abbreviation).sort(),
     [sportsbooks]
   );
+
+  // Site option data for alias-aware typeahead search
+  // Users can type "DraftKings" or "Draft" and it matches DK
+  const siteOptionData = useMemo((): DropdownOption[] => {
+    return sportsbooks.map((book) => ({
+      value: book.abbreviation,  // Stored in cell (e.g., "DK")
+      label: book.name,          // Human-readable (e.g., "DraftKings")
+      aliases: book.aliases || [book.name.toLowerCase()],  // Search terms
+    }));
+  }, [sportsbooks]);
   // Create a reverse map from abbreviation to full name for saving
   const typeAbbreviationToFull = useMemo(() => {
     const map: Record<string, string> = {};
@@ -1450,6 +1599,39 @@ const BetTableView: React.FC = () => {
       .filter((n): n is string => !!n) // Filter out null/undefined/empty
       .sort();
   }, [tails]);
+
+  // Type option data for alias-aware typeahead search
+  // Users can type "Points" or "Triple Double" and it matches Pts or TD
+  const getTypeOptionData = useCallback(
+    (sport: string): DropdownOption[] => {
+      const snapshot = getReferenceDataSnapshot();
+      const propTypes = snapshot.betTypes.filter(
+        (t) => t.sport === sport || t.sport === "Other"
+      );
+
+      // Build options from bet types with aliases
+      const options: DropdownOption[] = propTypes.map((t) => ({
+        value: abbreviateMarket(t.canonical),  // Stored in cell (e.g., "Pts")
+        label: t.description || t.canonical,   // Human-readable (e.g., "Points")
+        aliases: t.aliases || [],              // All search terms
+      }));
+
+      // Add Main Markets and Futures system types
+      Object.entries(MAIN_MARKET_TYPES).forEach(([key, value]) => {
+        if (!options.some((o) => o.value === value)) {
+          options.push({ value, label: key, aliases: [key.toLowerCase()] });
+        }
+      });
+      Object.entries(FUTURES_TYPES).forEach(([key, value]) => {
+        if (!options.some((o) => o.value === value)) {
+          options.push({ value, label: key, aliases: [key.toLowerCase()] });
+        }
+      });
+
+      return options;
+    },
+    [resolverVersion]
+  );
 
   // Helper: Check if Type is unresolved
   const isTypeUnresolved = useCallback(
@@ -1913,7 +2095,7 @@ const BetTableView: React.FC = () => {
             updates.sport = "";
             break;
           case "category":
-            updates.marketCategory = "Props";
+            updates.marketCategory = "" as MarketCategory;
             break;
           case "type":
             updates.type = "";
@@ -3223,27 +3405,19 @@ const BetTableView: React.FC = () => {
                           />
                         )}
                         {isCellEditing(rowIndex, "date") ? (
-                          <EditableCell
+                          <DateCell
                             value={
                               !row._isParlayChild || row._isParlayHeader
                                 ? formatDateShort(row.date)
                                 : ""
                             }
-                            type="text"
                             isFocused={true}
-                            onFocus={() =>
-                              setFocusedCell({ rowIndex, columnKey: "date" })
-                            }
                             inputRef={getCellRef(rowIndex, "date")}
-                            onSave={(val) => {
-                              if (!row._isParlayChild || row._isParlayHeader) {
-                                const parsed = parseDateInput(val, row.date);
-                                if (parsed) {
-                                  updateBet(row.betId, { placedAt: parsed });
-                                }
-                              }
+                            onSave={(newIso) => {
+                              updateBet(row.betId, { placedAt: newIso });
                               exitEditMode();
                             }}
+                            onExit={() => exitEditMode()}
                             initialValue={editSeed ?? undefined}
                           />
                         ) : (
@@ -3293,11 +3467,11 @@ const BetTableView: React.FC = () => {
                             }
                             inputRef={getCellRef(rowIndex, "site")}
                             onSave={(val) => {
+                              // val is the abbreviation (e.g., "DK") from optionData.value
+                              // Find the book by abbreviation to get the full name for storage
                               const book = sportsbooks.find(
                                 (b) =>
-                                  b.name.toLowerCase() === val.toLowerCase() ||
-                                  b.abbreviation.toLowerCase() ===
-                                    val.toLowerCase()
+                                  b.abbreviation.toLowerCase() === val.toLowerCase()
                               );
                               updateBet(row.betId, {
                                 book: book ? book.name : val,
@@ -3305,6 +3479,7 @@ const BetTableView: React.FC = () => {
                               exitEditMode();
                             }}
                             options={suggestionLists.sites}
+                            optionData={siteOptionData}
                             allowCustom={false}
                             initialQuery={editSeed ?? undefined}
                           />
@@ -3425,7 +3600,8 @@ const BetTableView: React.FC = () => {
                           <TypableDropdown
                             value={abbreviateMarket(row.type)}
                             onSave={(val) => {
-                              // Convert abbreviation back to full name if it exists
+                              // val is the abbreviated canonical (e.g., "Pts") from optionData.value
+                              // Convert to full name for storage
                               const fullName =
                                 typeAbbreviationToFull[val.toLowerCase()] ||
                                 val;
@@ -3474,17 +3650,14 @@ const BetTableView: React.FC = () => {
                               }
                               exitEditMode();
                             }}
-                            options={
-                              isLeg
-                                ? suggestionLists.types(row.sport)
-                                : suggestionLists.types(row.sport) // Use stat types for single bets too
-                            }
+                            options={suggestionLists.types(row.sport)}
+                            optionData={getTypeOptionData(row.sport)}
                             isFocused={true}
                             onFocus={() =>
                               setFocusedCell({ rowIndex, columnKey: "type" })
                             }
                             inputRef={getCellRef(rowIndex, "type")}
-                            allowCustom={true}
+                            allowCustom={false}
                             initialQuery={editSeed ?? undefined}
                           />
                         ) : (

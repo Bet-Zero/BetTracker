@@ -53,6 +53,7 @@ export interface Sportsbook {
   name: SportsbookName;
   abbreviation: string;
   url: string;
+  aliases?: string[];  // Search terms for typeahead (e.g., ["draftkings", "draft kings"])
 }
 
 /**
