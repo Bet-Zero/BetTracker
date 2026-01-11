@@ -196,4 +196,6 @@ export interface FinalRow {
   _rawToWin?: number;
   /** Raw net profit/loss. Undefined for pending bets or parlay child rows. */
   _rawNet?: number;
+  /** Raw ISO date string for sorting (YYYY-MM-DD...). */
+  _sortDate?: string;
 }

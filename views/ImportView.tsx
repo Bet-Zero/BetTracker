@@ -27,7 +27,10 @@ const ImportView: React.FC = () => {
   const { bets, addBets } = useBets();
   const { sportsbooks, sports, players, addPlayer, addSport } = useInputs();
   const { addTeam: addNormalizationTeam } = useNormalizationData();
-  const [selectedBook, setSelectedBook] = useState<SportsbookName>(sportsbooks[0]?.name || '');
+  const [selectedBook, setSelectedBook] = useState<SportsbookName>(() => {
+    const fanduel = sportsbooks.find(b => b.name === 'FanDuel');
+    return fanduel ? fanduel.name : (sportsbooks[0]?.name || '');
+  });
   const [pageHtml, setPageHtml] = useState('');
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
   const [importState, setImportState] = useState<ImportState>('idle');

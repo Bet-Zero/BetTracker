@@ -79,7 +79,7 @@ const SportsbookBreakdownView: React.FC = () => {
     const availableBooks = useMemo(() => {
         if (loading) return [];
         const books = new Set(bets.map(b => b.book));
-        return ['all', ...Array.from(books).sort()];
+        return ['all', ...Array.from(books).filter(b => b && b.trim() !== "").sort()];
     }, [bets, loading]);
 
     const filteredBets = useMemo(() => {

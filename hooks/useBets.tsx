@@ -19,7 +19,9 @@ import {
   saveState, 
   createManualBackup, 
   STORAGE_VERSION, 
-  STORAGE_KEY 
+  STORAGE_KEY,
+  getLastUsedDate,
+  setLastUsedDate
 } from "../services/persistence";
 import { ImportError } from "../services/errors";
 
@@ -338,13 +340,29 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
     // Generate ID once outside the functional update using crypto.randomUUID for uniqueness
     const newId = `manual-${crypto.randomUUID()}`;
     
+    // Determine default date (Last Used vs Now)
+    let placedAt = new Date().toISOString();
+    const lastDate = getLastUsedDate();
+    
+    if (lastDate) {
+      // Construct 12:00 PM local time on the last used date
+      // lastDate is "YYYY-MM-DD"
+      const [y, m, d] = lastDate.split('-').map(Number);
+      // Note: Month is 0-indexed in Date constructor
+      const dateObj = new Date(y, m - 1, d, 12, 0, 0);
+      placedAt = dateObj.toISOString();
+    }
+    
+    // Persist this choice immediately (reinforces preference)
+    setLastUsedDate(placedAt);
+    
     const newBet: Bet = {
       id: newId,
       book: "",
       betId: "",
-      placedAt: new Date().toISOString(),
+      placedAt: placedAt,
       betType: "single",
-      marketCategory: "",
+      marketCategory: "Props",
       sport: "",
       description: "",
       stake: 0,
@@ -373,6 +391,18 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
   const batchCreateManualBets = useCallback((count: number): string[] => {
     pushUndoSnapshot(`Add ${count} Bet${count > 1 ? 's' : ''}`);
     
+    // Determine default date (Same for all batch bets)
+    let placedAt = new Date().toISOString();
+    const lastDate = getLastUsedDate();
+    
+    if (lastDate) {
+      const [y, m, d] = lastDate.split('-').map(Number);
+      const dateObj = new Date(y, m - 1, d, 12, 0, 0);
+      placedAt = dateObj.toISOString();
+    }
+    
+    setLastUsedDate(placedAt);
+    
     const newIds: string[] = [];
     
     setBets((prevBets) => {
@@ -390,9 +420,9 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
           id: newId,
           book: "",
           betId: "",
-          placedAt: new Date().toISOString(),
+          placedAt: placedAt,
           betType: "single",
-          marketCategory: "",
+          marketCategory: "Props",
           sport: "",
           description: "",
           stake: 0,

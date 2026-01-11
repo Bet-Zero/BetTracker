@@ -547,6 +547,7 @@ function createFinalRow(
     _rawBet: rawBet,
     _rawToWin: rawToWin,
     _rawNet: rawNet,
+    _sortDate: bet.placedAt,
   };
 }
 

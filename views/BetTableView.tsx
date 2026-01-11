@@ -34,6 +34,7 @@ import {
   formatMMDDInput,
   parseMMDDInput,
   buildIsoFromMMDD,
+  formatDateChartKey,
 } from "../utils/formatters";
 import { createBetTableFilterPredicate } from "../utils/filterPredicates";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
@@ -58,6 +59,7 @@ import {
   BetTypeData,
 } from "../hooks/useNormalizationData";
 import { Sport } from "../data/referenceData";
+import { setLastUsedDate } from "../services/persistence";
 
 // --- Fixed column widths (deterministic spreadsheet layout) ---
 const COL_W: Record<string, string> = {
@@ -1682,11 +1684,21 @@ const BetTableView: React.FC = () => {
         const bValue = b[sortConfig.key];
 
         if (sortConfig.key === "date") {
-          return sortConfig.direction === "asc"
-            ? new Date(aValue as string).getTime() -
-                new Date(bValue as string).getTime()
-            : new Date(bValue as string).getTime() -
-                new Date(aValue as string).getTime();
+          // Primary Sort: Date-Only (YYYY-MM-DD)
+          // We use _sortDate if available (ISO string), or fallback to parsing the display value
+          // formatDateChartKey ensures we compare day-precision strings "YYYY-MM-DD"
+          const dateA = formatDateChartKey(a._sortDate || (aValue as string));
+          const dateB = formatDateChartKey(b._sortDate || (bValue as string));
+
+          if (dateA !== dateB) {
+            return sortConfig.direction === "asc"
+              ? dateA.localeCompare(dateB)
+              : dateB.localeCompare(dateA);
+          }
+
+          // Secondary Sort (Tie-Breaker): Stable ID
+          // Prevents row jumping when editing time within the same day
+          return a.id.localeCompare(b.id);
         }
 
         if (aValue === undefined || aValue === null) return 1;
@@ -3415,6 +3427,7 @@ const BetTableView: React.FC = () => {
                             inputRef={getCellRef(rowIndex, "date")}
                             onSave={(newIso) => {
                               updateBet(row.betId, { placedAt: newIso });
+                              setLastUsedDate(newIso);
                               exitEditMode();
                             }}
                             onExit={() => exitEditMode()}

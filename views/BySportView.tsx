@@ -773,7 +773,7 @@ const BySportView: React.FC = () => {
   const availableSports = useMemo(() => {
     if (loading) return [];
     const sports = new Set(bets.map((bet) => bet.sport));
-    return [...Array.from(sports).sort()];
+    return [...Array.from(sports).filter(s => s && s.trim() !== "").sort()];
   }, [bets, loading]);
 
 

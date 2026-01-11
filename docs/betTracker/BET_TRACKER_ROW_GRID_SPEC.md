@@ -203,19 +203,31 @@ export interface Bet {
 
 ### Default Values for New Rows
 
-Currently, **no manual row creation exists**. Rows are only created via the import pipeline. When implementing manual row add, suggested defaults:
+### Default Values for New Rows
+
+**Manual Row Creation Logic**:
+- **Date**: Defaults to the "Last Used Date" (from localStorage `bettracker-last-used-date`) if available.
+  - If set: Uses that date at 12:00:00 local time.
+  - If not set: Defaults to `now`.
+  - The "Last Used Date" is updated whenever a bet is created or its date is edited.
+- **Other Defaults**:
+  - `betType`: "single"
+  - `marketCategory`: "Props"
+  - `stake`: 0 (user must enter)
+  - `result`: "pending"
+  - `payout`: 0
 
 ```javascript
 {
-  id: generateUniqueId(),       // UUID or timestamp-based
-  book: "",                     // User must select
-  betId: "",                    // Can be empty for manual entries
-  placedAt: new Date().toISOString(),
+  id: `manual-${uuid}`,
+  book: "",
+  betId: "",
+  placedAt: preferredDate || new Date().toISOString(),
   betType: "single",
-  marketCategory: "Props",      // Most common
-  sport: "",                    // User must select
+  marketCategory: "Props",
+  sport: "",
   description: "",
-  stake: 0,                     // User must enter
+  stake: 0,
   payout: 0,
   result: "pending",
   legs: []
@@ -284,6 +296,8 @@ const updateBet = useCallback((betId: string, updates: Partial<Bet>) => {
 - **Key**: `bettracker-state`
 - **Format**: JSON envelope with version + bets array
 - **Service**: `services/persistence.ts`
+- **Preferences**:
+  - `bettracker-last-used-date`: Stores YYYY-MM-DD string or ISO string of the most recently used date.
 
 ```typescript
 // persistence.ts:255-297
@@ -1853,3 +1867,16 @@ return Array.from(all).sort();
 | File | Changes |
 |------|---------|
 | `views/BetTableView.tsx` | Updated `suggestionLists` memo to aggregate all manual inputs AND resolved entities |
+
+---
+
+## Phase 1.2 Implemented Behavior
+
+**Date Implemented**: 2026-01-11
+
+### Date-Only Sorting with Stable Tie-Breaker
+- **Primary Sort**: Uses **date-only key** (YYYY-MM-DD) derived from `bet.placedAt` (via `_sortDate`).
+  - Ignores time component to prevent rows from jumping around when editing time-sensitive fields or when time is reset (which happens on date edit).
+- **Secondary Sort (Tie-Breaker)**: Uses **`bet.id`** (lexicographical sort).
+  - Ensures rows within the same day remain in a stable, deterministic order.
+  - Prevents "random" reshuffling when editing a date cell.

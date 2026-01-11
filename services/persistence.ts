@@ -300,11 +300,43 @@ export function saveState(state: PersistedState): Result<void> {
  * Creates a backup of the current state (e.g., before clearing data).
  * Returns true if backup was created successfully, false otherwise.
  */
+// ... existing code ...
 export function createManualBackup(state: PersistedState, label: string = 'manual'): boolean {
   try {
     return createBackupInternal(JSON.stringify(state), label);
   } catch (e) {
     console.error('[Persistence] Failed to serialize state for backup', e);
     return false;
+  }
+}
+
+/**
+ * Last Used Date Persistence
+ * Stores the most recently used date from creating or editing bets.
+ */
+export const LAST_USED_DATE_KEY = 'bettracker-last-used-date';
+
+/**
+ * Gets the last used date preference (YYYY-MM-DD)
+ */
+export function getLastUsedDate(): string | null {
+  return localStorage.getItem(LAST_USED_DATE_KEY);
+}
+
+/**
+ * Sets the last used date preference
+ * @param dateStr ISO string or YYYY-MM-DD string
+ */
+export function setLastUsedDate(dateStr: string): void {
+  try {
+    // If it's a full ISO string (contains 'T'), exact date part
+    let dateToStore = dateStr;
+    if (dateStr.includes('T')) {
+      dateToStore = dateStr.split('T')[0];
+    }
+    
+    localStorage.setItem(LAST_USED_DATE_KEY, dateToStore);
+  } catch (e) {
+    console.warn('[Persistence] Failed to save last used date:', e);
   }
 }
