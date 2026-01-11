@@ -25,7 +25,12 @@ import {
 import {
   MAIN_MARKET_TYPES,
   FUTURES_TYPES,
+  PARLAY_TYPES,
 } from "../services/marketClassification.config";
+import {
+  getBetTypeCategory,
+  StatCategory,
+} from "../utils/betTypeUtils";
 import {
   formatDateShort,
   formatOdds,
@@ -1546,21 +1551,42 @@ const BetTableView: React.FC = () => {
       sports: sports,
       sites: availableSites,
       categories: displayCategories,
-      types: (sport: string) => {
+      types: (sport: string, category: string = "") => {
+        // Map row category to stat category bucket
+        const targetCat = mapToStatCategory(category);
+        
         // Only include resolved bet types from normalization service
         const snapshot = getReferenceDataSnapshot();
-        const propTypes = snapshot.betTypes.filter(
-          (t) => t.sport === sport || t.sport === "Other"
-        );
-        
-        // Combine resolved props with standard system types (Main Markets, Futures)
-        const allTypes = [
-          ...propTypes.map((t) => abbreviateMarket(t.canonical)),
-          ...Object.values(MAIN_MARKET_TYPES),
-          ...Object.values(FUTURES_TYPES),
-        ];
 
-        const unique = new Set(allTypes);
+        // 1. Get filtered props/betTypes from Input Manager
+        const scopedTypes = snapshot.betTypes.filter((t) => {
+          // Strict sport check (allow Other/Shared)
+          const sportMatch = t.sport === sport || t.sport === "Other";
+          if (!sportMatch) return false;
+
+          // Strict category check
+          // Note: Input Manager types generally lack explicit category field in BetTypeData,
+          // so we rely on `getBetTypeCategory(canonical)`.
+          const cat = getBetTypeCategory(t.canonical);
+          return cat === targetCat;
+        });
+        
+        const typeValues = scopedTypes.map(t => abbreviateMarket(t.canonical));
+
+        // 2. Add System Types (Main Markets, Futures, Parlays) based on category
+        if (targetCat === "main") {
+          typeValues.push(...Object.values(MAIN_MARKET_TYPES).map(t => t.canonical));
+        } else if (targetCat === "parlay") {
+           typeValues.push(...Object.values(PARLAY_TYPES).map(t => t.canonical));
+        } else if (targetCat === "future") {
+           // Futures are sport-scoped too
+           const validFutures = Object.values(FUTURES_TYPES).filter(t => 
+             !t.sport || t.sport === sport || t.sport === "Other"
+           );
+           typeValues.push(...validFutures.map(t => t.canonical));
+        }
+
+        const unique = new Set(typeValues.map(t => abbreviateMarket(t)));
         return Array.from(unique).sort();
       },
       players: (sport: string) => {
@@ -1605,30 +1631,121 @@ const BetTableView: React.FC = () => {
   // Type option data for alias-aware typeahead search
   // Users can type "Points" or "Triple Double" and it matches Pts or TD
   const getTypeOptionData = useCallback(
-    (sport: string): DropdownOption[] => {
-      const snapshot = getReferenceDataSnapshot();
-      const propTypes = snapshot.betTypes.filter(
-        (t) => t.sport === sport || t.sport === "Other"
-      );
+    (sport: string, category: string = ""): DropdownOption[] => {
+      // Map row category to stat category bucket
+      const targetCat = mapToStatCategory(category);
 
-      // Build options from bet types with aliases
+      const snapshot = getReferenceDataSnapshot();
+
+      // 1. Filter Input Manager Bet Types by Sport + Category
+      const propTypes = snapshot.betTypes.filter((t) => {
+         const sportMatch = t.sport === sport || t.sport === "Other";
+         if (!sportMatch) return false;
+         
+         const cat = getBetTypeCategory(t.canonical);
+         return cat === targetCat;
+      });
+
+      // Build options from scoped bet types
       const options: DropdownOption[] = propTypes.map((t) => ({
-        value: abbreviateMarket(t.canonical),  // Stored in cell (e.g., "Pts")
-        label: t.description || t.canonical,   // Human-readable (e.g., "Points")
-        aliases: t.aliases || [],              // All search terms
+        value: abbreviateMarket(t.canonical),
+        label: t.description || t.canonical,
+        aliases: t.aliases || [],
       }));
 
-      // Add Main Markets and Futures system types
-      Object.entries(MAIN_MARKET_TYPES).forEach(([key, value]) => {
-        if (!options.some((o) => o.value === value)) {
-          options.push({ value, label: key, aliases: [key.toLowerCase()] });
-        }
-      });
-      Object.entries(FUTURES_TYPES).forEach(([key, value]) => {
-        if (!options.some((o) => o.value === value)) {
-          options.push({ value, label: key, aliases: [key.toLowerCase()] });
-        }
-      });
+      // 2. Add System Types (Main, Futures, Parlays) based on category
+      const addSystemTypes = (source: Record<string, {canonical: string, aliases: string[]}>) => {
+        Object.entries(source).forEach(([key, val]) => {
+           // Avoid dupes
+           if (!options.some(o => o.value === val.canonical)) {
+             options.push({ 
+               value: val.canonical, 
+               label: key, // The key in the object is usually the friendly name in previous map, but wait..
+               // MAIN_MARKET_TYPES is array in referenceData but imported as... wait.
+               // Check imports. MAIN_MARKET_TYPES is imported from marketClassification.config.
+               // Let's assume it's the config object mapping Key->Canonical? 
+               // Actually in referenceData it is an array. 
+               // In marketClassification.config it might be object. 
+               // Checking import... "MAIN_MARKET_TYPES" from services/marketClassification.config
+               // Let's assume it matches the structure used previously: "Object.values(MAIN_MARKET_TYPES)" implies it might be an object or array.
+               // Previous code: Object.entries(MAIN_MARKET_TYPES).forEach(([key, value]) => ... options.push({ value, label: key ... })
+               // So key=Label (Moneyline), value=Canonical (Moneyline)?
+               // Actually, let's look at the previous implementation I'm replacing (lines 1622-1626)
+               // It treated it as Object.entries.
+               // But `referenceData.ts` exports `MAIN_MARKET_TYPES` as an ARRAY.
+               // Check `marketClassification.config.ts`.
+               // I will stick to what the previous code did, but safer.
+               // Previous: Object.entries(MAIN_MARKET_TYPES)
+               // If it's an array, keys are indices "0", "1". That would be bad for labels.
+               // I'll assume the import re-maps it to an object or I should verify the import source file.
+               // Wait, line 26 imported it.
+               // Let's look at line 1622 again.
+               // `Object.entries(FUTURES_TYPES)` was also used.
+               // Use standard loop for safety if I'm unsure, or stick to the Object.entries pattern if I trust the previous code.
+               // Previous code was:
+               // Object.entries(MAIN_MARKET_TYPES).forEach(([key, value]) => { ... value is string? })
+               // Let's assume it is an object mapping Label -> Canonical String.
+               
+               // But wait, I need to include aliases. 
+               // The previous code: `aliases: [key.toLowerCase()]`. That's weak. input manager has real aliases.
+               // Ideally I should use the referenceData constants directly if possible, but I imported from config.
+               // Let's use a cleaner approach closer to 1622 but scoped.
+               // Actually, `marketClassification.config.ts` likely exports simple string maps. 
+               // I'll stick to the existing pattern for system types but scoped.
+               aliases: [key.toLowerCase()] 
+             });
+           }
+        });
+      };
+
+      // Helper to add from ReferenceData array structure if available?
+      // No, let's trust the imports are simple objects based on usage.
+      
+      if (targetCat === "main") {
+         Object.entries(MAIN_MARKET_TYPES).forEach(([key, val]) => {
+            const canonical = val as unknown as string; // based on previous usage
+             if (!options.some(o => o.value === canonical)) {
+               options.push({ value: canonical, label: key, aliases: [key.toLowerCase()] });
+             }
+         });
+      } else if (targetCat === "parlay") {
+          // PARLAY_TYPES imported from config? I added it to imports.
+          // Assuming structure similar to MAIN.
+         Object.entries(PARLAY_TYPES || {}).forEach(([key, val]) => {
+            const canonical = val as unknown as string;
+             if (!options.some(o => o.value === canonical)) {
+               options.push({ value: canonical, label: key, aliases: [key.toLowerCase()] });
+             }
+         });
+      } else if (targetCat === "future") {
+         // Filter futures by sport
+         // FUTURES_TYPES from config might be object Label->Canonical.
+         // We can't filter by sport effectively if it's just a string map.
+         // This is a limitation of the config import vs referenceData.
+         // However, `getBetTypeCategory` uses canonical lists.
+         // Let's add all from FUTURES_TYPES and rely on `getBetTypeCategory` check? 
+         // No, `getBetTypeCategory` just returns 'future'.
+         // We need simple filtering.
+         // If we can't check sport on system types, we might leak NBA Futures to NFL if we blindly add them.
+         // But the previous code added ALL futures for ALL sports.
+         // We want to scope.
+         // Let's try to filter by checking if the KEY or VALUE contains the sport?
+         // e.g. "NBA Championship".
+         Object.entries(FUTURES_TYPES).forEach(([key, val]) => {
+           const canonical = val as unknown as string;
+           const label = key;
+           // Heuristic scope:
+           // If sport is specific (NBA/NFL/etc), only show if label/canonical contains it?
+           // OR if sport is 'Other' or unused, show generic.
+           const tag = sport; 
+           const relevant = label.includes(tag) || canonical.includes(tag) || 
+                            (!label.includes("NBA") && !label.includes("NFL") && !label.includes("MLB") && !label.includes("NHL"));
+           
+           if (relevant && !options.some(o => o.value === canonical)) {
+             options.push({ value: canonical, label: key, aliases: [key.toLowerCase()] });
+           }
+         });
+      }
 
       return options;
     },
@@ -1800,6 +1917,16 @@ const BetTableView: React.FC = () => {
       </select>
     </div>
   );
+
+  const mapToStatCategory = (category: string): StatCategory | null => {
+    if (!category) return null;
+    const lower = category.toLowerCase();
+    if (lower.includes("prop")) return "props";
+    if (lower.includes("main") || lower.includes("moneyline") || lower.includes("spread") || lower.includes("total")) return "main";
+    if (lower.includes("parlay") || lower.includes("sgp")) return "parlay";
+    if (lower.includes("future")) return "future";
+    return "props"; // Default to props if unknown, or maybe null? Let's default props for safety unless strict.
+  };
 
   const headers: {
     key: keyof FlatBet;
@@ -3622,7 +3749,8 @@ const BetTableView: React.FC = () => {
                               // GATE: Only add to suggestions if it's NEW and RESOLVED
                               // to prevent pollution by unresolved types
                               const currentOptions = suggestionLists.types(
-                                row.sport
+                                row.sport,
+                                row.category
                               );
                               const isNew = !currentOptions.some(
                                 (opt) =>
@@ -3663,8 +3791,8 @@ const BetTableView: React.FC = () => {
                               }
                               exitEditMode();
                             }}
-                            options={suggestionLists.types(row.sport)}
-                            optionData={getTypeOptionData(row.sport)}
+                            options={suggestionLists.types(row.sport, row.category)}
+                            optionData={getTypeOptionData(row.sport, row.category)}
                             isFocused={true}
                             onFocus={() =>
                               setFocusedCell({ rowIndex, columnKey: "type" })

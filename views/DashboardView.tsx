@@ -68,7 +68,7 @@ import {
   getPlayerAggregationKey,
 } from "../services/resolver";
 // Dashboard UI Clarity Phase: DEV-ONLY debug overlay and tooltips
-import { DashboardTruthOverlay } from "../components/debug/DashboardTruthOverlay";
+
 import { InfoTooltip } from "../components/debug/InfoTooltip";
 // Shared Components
 import { FitText } from "../components/FitText";
@@ -995,15 +995,7 @@ const DashboardView: React.FC = () => {
   return (
     <div className="p-4 h-full flex flex-col space-y-4 bg-neutral-100 dark:bg-neutral-950 overflow-y-auto">
       {/* DEV-ONLY: Truth Overlay for debugging */}
-      <DashboardTruthOverlay
-        allBets={bets}
-        filteredBets={filteredBets}
-        dateRange={dateRange}
-        customDateRange={customDateRange as { start: string; end: string }}
-        betTypeFilter={betTypeFilter}
-        selectedMarketCategory={selectedMarketCategory}
-        entityType={entityType}
-      />
+
 
       <div className="shrink-0 flex flex-col xl:flex-row justify-between xl:items-center gap-4">
         <div className="shrink-0">

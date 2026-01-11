@@ -378,6 +378,17 @@ const addBets = useCallback(
   },
   [addPlayer, addTeam]
 );
+
+### Type Column Scoping (New 2026-01-11)
+
+The **Type** column dropdown is strictly scoped to the row's **Sport** and **Category**:
+
+- **Props**: Shows only player props for the selected sport (from Input Manager).
+- **Main Markets**: Shows only Moneyline, Spread, Total.
+- **Futures**: Shows only Futures for the selected sport.
+- **Parlays**: Shows only Parlay, SGP, SGP+.
+
+This prevents cross-sport leakage (e.g. NHL Futures in NFL rows) and category pollution (e.g. "Moneyline" appearing in Prop rows).
 ```
 
 ### ID Generation
