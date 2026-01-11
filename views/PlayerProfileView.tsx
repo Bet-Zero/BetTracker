@@ -66,19 +66,38 @@ interface StatsTableProps {
 }
 
 const StatsTable: React.FC<StatsTableProps> = ({ data, title }) => {
-    const [sortConfig, setSortConfig] = useState<{ key: keyof StatsData; direction: 'asc' | 'desc' }>({ key: 'net', direction: 'desc' });
+    const [sortConfig, setSortConfig] = useState<{ key: keyof StatsData | 'win_pct'; direction: 'asc' | 'desc' }>({ key: 'net', direction: 'desc' });
     const [searchTerm, setSearchTerm] = useState('');
     
     const sortedData = useMemo(() => {
         const filteredData = data.filter(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()));
         return [...filteredData].sort((a, b) => {
-            if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'asc' ? -1 : 1;
-            if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'asc' ? 1 : -1;
+            let valA: number | string;
+            let valB: number | string;
+
+            if (sortConfig.key === 'win_pct') {
+                const totalA = a.wins + a.losses;
+                const totalB = b.wins + b.losses;
+                valA = totalA > 0 ? (a.wins / totalA) : 0;
+                valB = totalB > 0 ? (b.wins / totalB) : 0;
+            } else {
+                valA = a[sortConfig.key as keyof StatsData];
+                valB = b[sortConfig.key as keyof StatsData];
+            }
+
+            if (typeof valA === 'string' && typeof valB === 'string') {
+                 return sortConfig.direction === 'asc' 
+                    ? valA.localeCompare(valB) 
+                    : valB.localeCompare(valA);
+            }
+
+            if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
             return 0;
         });
     }, [data, sortConfig, searchTerm]);
 
-    const requestSort = (key: keyof StatsData) => {
+    const requestSort = (key: keyof StatsData | 'win_pct') => {
         let direction: 'asc' | 'desc' = 'asc';
         if (sortConfig.key === key && sortConfig.direction === 'asc') {
             direction = 'desc';
@@ -91,7 +110,7 @@ const StatsTable: React.FC<StatsTableProps> = ({ data, title }) => {
         { key: 'count', label: 'Bets', sortable: true },
         { key: 'wins', label: 'Win', sortable: true },
         { key: 'losses', label: 'Loss', sortable: true },
-        { key: 'win_pct', label: 'Win %', sortable: false },
+        { key: 'win_pct', label: 'Win %', sortable: true },
         { key: 'stake', label: 'Wagered', sortable: true },
         { key: 'net', label: 'Net', sortable: true },
         { key: 'roi', label: 'ROI', sortable: true },
@@ -114,8 +133,8 @@ const StatsTable: React.FC<StatsTableProps> = ({ data, title }) => {
                             {headers.map(header => (
                                 <th 
                                     key={header.key} 
-                                    className={`px-4 py-2 ${header.sortable ? 'cursor-pointer' : ''} ${['win_pct'].includes(header.key) ? 'text-center' : ''}`} 
-                                    onClick={() => header.sortable && requestSort(header.key as keyof StatsData)}
+                                    className={`px-4 py-2 ${header.sortable ? 'cursor-pointer' : ''} ${['win_pct'].includes(header.key) ? 'text-center' : ''} ${['stake', 'net', 'roi'].includes(header.key) ? 'text-right' : ''}`} 
+                                    onClick={() => header.sortable && requestSort(header.key)}
                                 >
                                     {header.label} {header.sortable && (sortConfig.key === header.key ? (sortConfig.direction === 'desc' ? '▼' : '▲') : '◇')}
                                 </th>
@@ -135,9 +154,9 @@ const StatsTable: React.FC<StatsTableProps> = ({ data, title }) => {
                                     <td className="px-4 py-2">{item.wins}</td>
                                     <td className="px-4 py-2">{item.losses}</td>
                                     <td className={`px-4 py-2 text-center font-semibold ${winPctColor}`}>{winPct.toFixed(1)}%</td>
-                                    <td className="px-4 py-2">{formatCurrency(item.stake)}</td>
-                                    <td className={`px-4 py-2 font-semibold ${netColor}`}>{formatNet(item.net)}</td>
-                                    <td className={`px-4 py-2 font-semibold ${netColor}`}>{item.roi.toFixed(1)}%</td>
+                                    <td className="px-4 py-2 text-right">{formatCurrency(item.stake)}</td>
+                                    <td className={`px-4 py-2 font-semibold text-right ${netColor}`}>{formatCurrency(item.net)}</td>
+                                    <td className={`px-4 py-2 font-semibold text-right ${netColor}`}>{item.roi.toFixed(1)}%</td>
                                 </tr>
                             )
                         })}
@@ -190,7 +209,7 @@ const RecentBetsTable: React.FC<{ bets: Bet[] }> = ({ bets }) => (
                 <td className="p-2 text-center whitespace-nowrap">{displayOU}</td>
                 <td className="p-2 text-right whitespace-nowrap">{displayLine}</td>
                 <td className="p-2 text-right whitespace-nowrap">{formatCurrency(bet.stake)}</td>
-                <td className={`p-2 text-right font-semibold whitespace-nowrap ${netColor}`}>{formatNet(net)}</td>
+                <td className={`p-2 text-right font-semibold whitespace-nowrap ${netColor}`}>{formatCurrency(net)}</td>
                 <td className={`p-2 text-center font-semibold capitalize whitespace-nowrap ${netColor}`}>{bet.result}</td>
               </tr>
             );

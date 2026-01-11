@@ -139,7 +139,7 @@ const StatsTable: React.FC<StatsTableProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState<{
-    key: keyof StatsData;
+    key: keyof StatsData | "winRate";
     direction: 'asc' | 'desc';
   }>({ key: 'net', direction: 'desc' });
 
@@ -148,15 +148,35 @@ const StatsTable: React.FC<StatsTableProps> = ({
       item.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
     return [...filtered].sort((a, b) => {
-      if (a[sortConfig.key] < b[sortConfig.key])
+      let valA: number | string;
+      let valB: number | string;
+
+      if (sortConfig.key === "winRate") {
+        const totalA = a.wins + a.losses;
+        const totalB = b.wins + b.losses;
+        valA = totalA > 0 ? (a.wins / totalA) : 0;
+        valB = totalB > 0 ? (b.wins / totalB) : 0;
+      } else {
+        valA = a[sortConfig.key] || 0;
+        valB = b[sortConfig.key] || 0;
+      }
+
+      // Handle strings (like name) distinct from numbers
+      if (typeof valA === "string" && typeof valB === "string") {
+         return sortConfig.direction === "asc" 
+            ? valA.localeCompare(valB) 
+            : valB.localeCompare(valA);
+      }
+
+      if (valA < valB)
         return sortConfig.direction === 'asc' ? -1 : 1;
-      if (a[sortConfig.key] > b[sortConfig.key])
+      if (valA > valB)
         return sortConfig.direction === 'asc' ? 1 : -1;
       return 0;
     });
   }, [data, searchTerm, sortConfig]);
 
-  const requestSort = (key: keyof StatsData) => {
+  const requestSort = (key: keyof StatsData | "winRate") => {
     let direction: 'asc' | 'desc' = 'asc';
     if (sortConfig.key === key && sortConfig.direction === 'asc') {
       direction = 'desc';
@@ -231,9 +251,16 @@ const StatsTable: React.FC<StatsTableProps> = ({
                     : '▲'
                   : '◇'}
               </th>
-              <th className="px-4 py-2 text-center">Win %</th>
+              <th className="px-4 py-2 text-center cursor-pointer" onClick={() => requestSort("winRate")}>
+                Win %{" "}
+                {sortConfig.key === "winRate"
+                  ? sortConfig.direction === "desc"
+                    ? "▼"
+                    : "▲"
+                  : "◇"}
+              </th>
               <th
-                className="px-4 py-2 cursor-pointer"
+                className="px-4 py-2 cursor-pointer text-right"
                 onClick={() => requestSort('stake')}
               >
                 Wagered{' '}
@@ -244,7 +271,7 @@ const StatsTable: React.FC<StatsTableProps> = ({
                   : '◇'}
               </th>
               <th
-                className="px-4 py-2 cursor-pointer"
+                className="px-4 py-2 cursor-pointer text-right"
                 onClick={() => requestSort('net')}
               >
                 Net{' '}
@@ -255,7 +282,7 @@ const StatsTable: React.FC<StatsTableProps> = ({
                   : '◇'}
               </th>
               <th
-                className="px-4 py-2 cursor-pointer"
+                className="px-4 py-2 cursor-pointer text-right"
                 onClick={() => requestSort('roi')}
               >
                 ROI{' '}
@@ -302,11 +329,11 @@ const StatsTable: React.FC<StatsTableProps> = ({
                   >
                     {winPct.toFixed(1)}%
                   </td>
-                  <td className="px-4 py-2">{formatCurrency(item.stake)}</td>
-                  <td className={`px-4 py-2 font-semibold ${netColor}`}>
-                    {formatNet(item.net)}
+                  <td className="px-4 py-2 text-right">{formatCurrency(item.stake)}</td>
+                  <td className={`px-4 py-2 font-semibold text-right ${netColor}`}>
+                    {formatCurrency(item.net)}
                   </td>
-                  <td className={`px-4 py-2 font-semibold ${netColor}`}>
+                  <td className={`px-4 py-2 font-semibold text-right ${netColor}`}>
                     {item.roi.toFixed(1)}%
                   </td>
                 </tr>

@@ -24,9 +24,9 @@ import {
 } from "../services/marketClassification";
 import {
   MAIN_MARKET_TYPES,
-  FUTURES_TYPES,
+  FUTURE_TYPES,
   PARLAY_TYPES,
-} from "../services/marketClassification.config";
+} from "../data/referenceData";
 import {
   getBetTypeCategory,
   StatCategory,
@@ -1575,12 +1575,12 @@ const BetTableView: React.FC = () => {
 
         // 2. Add System Types (Main Markets, Futures, Parlays) based on category
         if (targetCat === "main") {
-          typeValues.push(...Object.values(MAIN_MARKET_TYPES).map(t => t.canonical));
+          typeValues.push(...MAIN_MARKET_TYPES.map(t => t.canonical));
         } else if (targetCat === "parlay") {
-           typeValues.push(...Object.values(PARLAY_TYPES).map(t => t.canonical));
+           typeValues.push(...PARLAY_TYPES.map(t => t.canonical));
         } else if (targetCat === "future") {
            // Futures are sport-scoped too
-           const validFutures = Object.values(FUTURES_TYPES).filter(t => 
+           const validFutures = FUTURE_TYPES.filter(t => 
              !t.sport || t.sport === sport || t.sport === "Other"
            );
            typeValues.push(...validFutures.map(t => t.canonical));
