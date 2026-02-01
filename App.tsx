@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BetsProvider } from './hooks/useBets';
 import { InputsProvider } from './hooks/useInputs';
 import { NormalizationDataProvider } from './hooks/useNormalizationData';
+import { PredictionMarketsProvider } from './hooks/usePredictionMarkets';
 import ImportView from './views/ImportView';
 import BetTableView from './views/BetTableView';
 import DashboardView from './views/DashboardView';
@@ -10,10 +11,11 @@ import SportsbookBreakdownView from './views/SportsbookBreakdownView';
 import BySportView from './views/BySportView';
 import PlayerProfileView from './views/PlayerProfileView';
 import ParlayPerformanceView from './views/ParlayPerformanceView';
+import PredictionMarketsView from './views/PredictionMarketsView';
 import ErrorBoundary from './components/ErrorBoundary';
-import { DownloadCloud, BarChart2, Settings, Table, Sun, Moon, Scale, User, Trophy, Layers } from './components/icons';
+import { DownloadCloud, BarChart2, Settings, Table, Sun, Moon, Scale, User, Trophy, Layers, TrendingUp } from './components/icons';
 
-type Tab = 'import' | 'table' | 'dashboard' | 'bySport' | 'sportsbooks' | 'player' | 'parlays' | 'settings';
+type Tab = 'import' | 'table' | 'dashboard' | 'bySport' | 'sportsbooks' | 'player' | 'parlays' | 'predictionMarkets' | 'settings';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('import');
@@ -56,6 +58,8 @@ const App: React.FC = () => {
         return <PlayerProfileView selectedPlayer={selectedPlayer} setSelectedPlayer={setSelectedPlayer} />;
       case 'parlays':
         return <ParlayPerformanceView />;
+      case 'predictionMarkets':
+        return <PredictionMarketsView />;
       case 'settings':
         return <SettingsView theme={theme} toggleTheme={toggleTheme} />;
       default:
@@ -81,7 +85,8 @@ const App: React.FC = () => {
     <NormalizationDataProvider>
       <InputsProvider>
         <BetsProvider>
-          <div className="flex h-screen bg-neutral-100 dark:bg-neutral-950 font-sans">
+          <PredictionMarketsProvider>
+            <div className="flex h-screen bg-neutral-100 dark:bg-neutral-950 font-sans">
           <aside className="w-64 flex-shrink-0 bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800 flex flex-col p-4">
             <div className="flex items-center space-x-2 px-4 pb-4 border-b border-neutral-200 dark:border-neutral-800">
               <BarChart2 className="w-8 h-8 text-primary-500" />
@@ -94,6 +99,7 @@ const App: React.FC = () => {
               <NavItem tab="bySport" icon={<Trophy className="w-6 h-6" />} label="By Sport" />
               <NavItem tab="sportsbooks" icon={<Scale className="w-6 h-6" />} label="By Sportsbook" />
               <NavItem tab="parlays" icon={<Layers className="w-6 h-6" />} label="Parlays" />
+              <NavItem tab="predictionMarkets" icon={<TrendingUp className="w-6 h-6" />} label="Prediction Markets" />
               <NavItem tab="player" icon={<User className="w-6 h-6" />} label="Player Profiles" />
               <NavItem tab="settings" icon={<Settings className="w-6 h-6" />} label="Settings" />
             </nav>
@@ -113,6 +119,7 @@ const App: React.FC = () => {
             </ErrorBoundary>
           </main>
           </div>
+          </PredictionMarketsProvider>
         </BetsProvider>
       </InputsProvider>
     </NormalizationDataProvider>
