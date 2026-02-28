@@ -57,16 +57,21 @@ function formatOdds(odds: number): string {
 }
 
 /**
- * Format currency.
+ * Format currency with proper negative handling.
+ * Negative amounts are displayed as "-$50.00"
  */
 function formatCurrency(amount: number): string {
-  const prefix = amount >= 0 ? '' : '-';
-  return `${prefix}$${Math.abs(amount).toFixed(2)}`;
+  if (amount < 0) {
+    return `-$${Math.abs(amount).toFixed(2)}`;
+  }
+  return `$${amount.toFixed(2)}`;
 }
 
-let outcomeIdCounter = 0;
+/**
+ * Generate unique outcome ID using crypto.randomUUID.
+ */
 function generateOutcomeId(): string {
-  return `outcome-${++outcomeIdCounter}`;
+  return `outcome-${crypto.randomUUID()}`;
 }
 
 const MultiHedgeCalculator: React.FC<MultiHedgeCalculatorProps> = ({
