@@ -199,3 +199,87 @@ export interface FinalRow {
   /** Raw ISO date string for sorting (YYYY-MM-DD...). */
   _sortDate?: string;
 }
+
+// ================================
+// PREDICTION MARKETS TYPES
+// ================================
+
+/**
+ * Platform names for prediction markets.
+ * Allow freeform string for flexibility while providing common options.
+ */
+export type PredictionPlatform = "Kalshi" | "Polymarket" | string;
+
+/**
+ * Status of a prediction market.
+ */
+export type PredictionMarketStatus = "open" | "resolved" | "closed";
+
+/**
+ * PredictionMarket - The event/market on a prediction platform.
+ * Represents a single question/event being wagered on.
+ */
+export interface PredictionMarket {
+  id: string;
+  platform: PredictionPlatform;
+  title: string; // Market question/title
+  categoryTags?: string[];
+  status: PredictionMarketStatus;
+  resolvedPrice?: 0 | 1; // Only when resolved; represents final settlement per share
+  notes?: string;
+  createdAtIso: string;
+  updatedAtIso: string;
+}
+
+/**
+ * PredictionPosition - One outcome within a market.
+ * E.g., "YES" or "NO" for a binary market.
+ */
+export interface PredictionPosition {
+  id: string;
+  marketId: string;
+  outcome: string; // e.g., "YES", "NO", or custom outcome label
+  lastKnownPrice?: number; // Optional, manual entry for estimated value
+  notes?: string;
+  createdAtIso: string;
+  updatedAtIso: string;
+}
+
+/**
+ * Trade side for prediction markets.
+ */
+export type PredictionTradeSide = "BUY" | "SELL";
+
+/**
+ * PredictionTrade - A single trade/fill under a position.
+ */
+export interface PredictionTrade {
+  id: string;
+  positionId: string;
+  dateIso: string;
+  side: PredictionTradeSide;
+  shares: number;
+  price: number; // Cost per share
+  fee?: number;
+  notes?: string;
+}
+
+/**
+ * Computed metrics for a position using WAC (Weighted Average Cost) accounting.
+ * These values are derived from trades and should not be stored.
+ */
+export interface PredictionPositionMetrics {
+  sharesHeld: number;
+  avgEntryPrice: number;
+  costBasisHeld: number;
+  totalBuyCost: number;
+  totalSellProceeds: number;
+  totalFees: number;
+  realizedPnl: number;
+  // Optional: only present if lastKnownPrice is set
+  estValue?: number;
+  estUnrealizedPnl?: number;
+  // Optional: only present if market is resolved with resolvedPrice
+  finalValue?: number;
+  finalPnl?: number;
+}
