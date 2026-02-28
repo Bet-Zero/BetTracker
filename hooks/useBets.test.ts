@@ -39,11 +39,21 @@ describe("collectResolvedImportInputs", () => {
         ? { status: "unresolved", canonical: value, raw: value }
         : { status: "resolved", canonical: "Los Angeles Lakers", raw: value }
     );
-    vi.mocked(resolver.resolveBetType).mockImplementation((value) =>
-      value.toLowerCase().includes("unknown")
-        ? { status: "unresolved", canonical: value, raw: value }
-        : { status: "resolved", canonical: value === "Points" ? "Pts" : value === "Rebounds" ? "Reb" : value === "Assists" ? "Ast" : value, raw: value }
-    );
+    vi.mocked(resolver.resolveBetType).mockImplementation((value) => {
+      if (value.toLowerCase().includes("unknown")) {
+        return { status: "unresolved", canonical: value, raw: value };
+      }
+      const canonicalMap: Record<string, string> = {
+        Points: "Pts",
+        Rebounds: "Reb",
+        Assists: "Ast",
+      };
+      return {
+        status: "resolved",
+        canonical: canonicalMap[value] ?? value,
+        raw: value,
+      };
+    });
   });
 
   it("collects only resolved canonical values for players, teams, and bet types", () => {

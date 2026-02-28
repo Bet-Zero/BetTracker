@@ -81,8 +81,8 @@ const collectLegs = (legs: Bet["legs"]): NonNullable<Bet["legs"]> => {
   if (!legs) return [];
   const collected: NonNullable<Bet["legs"]> = [];
   const queue = [...legs];
-  while (queue.length > 0) {
-    const leg = queue.shift();
+  for (let index = 0; index < queue.length; index += 1) {
+    const leg = queue[index];
     if (!leg) continue;
     collected.push(leg);
     if (leg.children?.length) queue.push(...leg.children);
