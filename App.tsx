@@ -12,10 +12,11 @@ import BySportView from './views/BySportView';
 import PlayerProfileView from './views/PlayerProfileView';
 import ParlayPerformanceView from './views/ParlayPerformanceView';
 import PredictionMarketsView from './views/PredictionMarketsView';
+import FuturesView from './views/FuturesView';
 import ErrorBoundary from './components/ErrorBoundary';
-import { DownloadCloud, BarChart2, Settings, Table, Sun, Moon, Scale, User, Trophy, Layers, TrendingUp } from './components/icons';
+import { DownloadCloud, BarChart2, Settings, Table, Sun, Moon, Scale, User, Trophy, Layers, TrendingUp, Clock } from './components/icons';
 
-type Tab = 'import' | 'table' | 'dashboard' | 'bySport' | 'sportsbooks' | 'player' | 'parlays' | 'predictionMarkets' | 'settings';
+type Tab = 'import' | 'table' | 'dashboard' | 'bySport' | 'sportsbooks' | 'player' | 'parlays' | 'futures' | 'predictionMarkets' | 'settings';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('import');
@@ -58,6 +59,8 @@ const App: React.FC = () => {
         return <PlayerProfileView selectedPlayer={selectedPlayer} setSelectedPlayer={setSelectedPlayer} />;
       case 'parlays':
         return <ParlayPerformanceView />;
+      case 'futures':
+        return <FuturesView />;
       case 'predictionMarkets':
         return <PredictionMarketsView />;
       case 'settings':
@@ -99,6 +102,7 @@ const App: React.FC = () => {
               <NavItem tab="bySport" icon={<Trophy className="w-6 h-6" />} label="By Sport" />
               <NavItem tab="sportsbooks" icon={<Scale className="w-6 h-6" />} label="By Sportsbook" />
               <NavItem tab="parlays" icon={<Layers className="w-6 h-6" />} label="Parlays" />
+              <NavItem tab="futures" icon={<Clock className="w-6 h-6" />} label="Futures" />
               <NavItem tab="predictionMarkets" icon={<TrendingUp className="w-6 h-6" />} label="Prediction Markets" />
               <NavItem tab="player" icon={<User className="w-6 h-6" />} label="Player Profiles" />
               <NavItem tab="settings" icon={<Settings className="w-6 h-6" />} label="Settings" />
