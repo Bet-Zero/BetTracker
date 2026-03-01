@@ -89,6 +89,10 @@ interface NormalizationDataContextType {
   addTeamAlias: (canonical: string, alias: string) => boolean;
   addBetTypeAlias: (canonical: string, alias: string) => boolean;
   addPlayerAlias: (canonical: string, sport: Sport, alias: string) => boolean;
+  /** Simple add-by-name helpers (no-op if already exists) */
+  addTeamByName: (sport: string, name: string) => void;
+  addPlayerByName: (sport: string, name: string) => void;
+  addBetTypeByName: (sport: string, name: string) => void;
 }
 
 const NormalizationDataContext = createContext<
@@ -532,9 +536,6 @@ export const NormalizationDataProvider: React.FC<{ children: ReactNode }> = ({
     [betTypes, updateBetType]
   );
   
-  // Legacy alias for backward compatibility
-  const addStatTypeAlias = addBetTypeAlias;
-
   // Helper: Add Player Alias
   const addPlayerAlias = useCallback(
     (canonical: string, sport: Sport, alias: string) => {
@@ -549,6 +550,34 @@ export const NormalizationDataProvider: React.FC<{ children: ReactNode }> = ({
       });
     },
     [players, updatePlayer]
+  );
+
+  // Simple add-by-name helpers (no-op if already exists)
+  const addTeamByName = useCallback(
+    (sport: string, name: string) => {
+      const trimmed = name.trim();
+      if (!trimmed || !sport) return;
+      addTeam({ canonical: trimmed, sport: sport as Sport, aliases: [trimmed], abbreviations: [] });
+    },
+    [addTeam]
+  );
+
+  const addPlayerByName = useCallback(
+    (sport: string, name: string) => {
+      const trimmed = name.trim();
+      if (!trimmed || !sport) return;
+      addPlayer({ canonical: trimmed, sport: sport as Sport, aliases: [trimmed] });
+    },
+    [addPlayer]
+  );
+
+  const addBetTypeByName = useCallback(
+    (sport: string, name: string) => {
+      const trimmed = name.trim();
+      if (!trimmed || !sport) return;
+      addBetType({ canonical: trimmed, sport: sport as Sport, aliases: [trimmed] });
+    },
+    [addBetType]
   );
 
   const value = {
@@ -575,6 +604,9 @@ export const NormalizationDataProvider: React.FC<{ children: ReactNode }> = ({
     addTeamAlias,
     addBetTypeAlias,
     addPlayerAlias,
+    addTeamByName,
+    addPlayerByName,
+    addBetTypeByName,
   };
 
   return (

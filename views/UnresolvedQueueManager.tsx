@@ -31,6 +31,7 @@ import {
   BetTypeData,
   PlayerData,
 } from "../hooks/useNormalizationData";
+import { useBets } from "../hooks/useBets";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -214,6 +215,68 @@ const UnresolvedQueueManager: React.FC<UnresolvedQueueManagerProps> = ({
     addPlayer,
   } = useNormalizationData();
 
+  const { bets, updateBet } = useBets();
+
+  /**
+   * Propagate a resolved canonical value back to the source bets.
+   * Iterates over all queue items in the group, finds the relevant bet,
+   * and updates the name/type field with the canonical value.
+   */
+  const propagateCanonicalToBets = useCallback(
+    (group: GroupedQueueItem, canonical: string) => {
+      // Get the actual queue items for this group
+      const groupItemIds = new Set(group.itemIds);
+      const items = queueItems.filter((item) => groupItemIds.has(item.id));
+
+      for (const item of items) {
+        const bet = bets.find((b) => b.id === item.betId);
+        if (!bet) continue;
+
+        if (item.entityType === "team" || item.entityType === "player") {
+          // Update bet.name if it matches the raw value
+          const rawLower = item.rawValue.toLowerCase();
+          if (bet.name?.toLowerCase() === rawLower) {
+            updateBet(bet.id, { name: canonical });
+          }
+          // Update leg entities
+          if (bet.legs?.length) {
+            const legIdx = item.legIndex ?? 0;
+            const leg = bet.legs[legIdx];
+            if (leg?.entities?.length) {
+              const entityIdx = leg.entities.findIndex(
+                (e) => typeof e === "string" && e.toLowerCase() === rawLower
+              );
+              if (entityIdx !== -1) {
+                const newEntities = [...leg.entities];
+                newEntities[entityIdx] = canonical;
+                const newLegs = [...bet.legs];
+                newLegs[legIdx] = { ...leg, entities: newEntities };
+                updateBet(bet.id, { legs: newLegs });
+              }
+            }
+          }
+        } else if (item.entityType === "betType") {
+          // Update bet.type if it matches the raw value
+          const rawLower = item.rawValue.toLowerCase();
+          if (bet.type?.toLowerCase() === rawLower) {
+            updateBet(bet.id, { type: canonical });
+          }
+          // Update leg market
+          if (bet.legs?.length) {
+            const legIdx = item.legIndex ?? 0;
+            const leg = bet.legs[legIdx];
+            if (leg?.market?.toLowerCase() === rawLower) {
+              const newLegs = [...bet.legs];
+              newLegs[legIdx] = { ...leg, market: canonical };
+              updateBet(bet.id, { legs: newLegs });
+            }
+          }
+        }
+      }
+    },
+    [bets, queueItems, updateBet]
+  );
+
   // Compute unique sports from queue items for filter dropdown
   const availableSports = useMemo(() => {
     const sports = new Set<string>();
@@ -318,7 +381,7 @@ const UnresolvedQueueManager: React.FC<UnresolvedQueueManagerProps> = ({
             updatedPlayer
           );
         }
-      } else if (item.entityType === "stat") {
+      } else if (item.entityType === "betType") {
         // Find target bet type and add alias
         const targetBetType = betTypes.find(
           (s) => s.canonical === targetCanonical && s.sport === item.sport
@@ -343,6 +406,9 @@ const UnresolvedQueueManager: React.FC<UnresolvedQueueManagerProps> = ({
         }
       }
 
+      // Propagate canonical value to source bets
+      propagateCanonicalToBets(group, targetCanonical);
+
       // Remove ALL items in the group from queue
       removeFromUnresolvedQueue(group.itemIds);
       setMapModalGroup(null);
@@ -354,6 +420,7 @@ const UnresolvedQueueManager: React.FC<UnresolvedQueueManagerProps> = ({
       betTypes,
       updateTeam,
       updatePlayer,
+      propagateCanonicalToBets,
       refreshQueue,
       mapModalGroup,
     ]
@@ -406,7 +473,7 @@ const UnresolvedQueueManager: React.FC<UnresolvedQueueManagerProps> = ({
           teamId: extraData?.teamId,
         };
         addPlayer(newPlayer);
-      } else if (item.entityType === "stat") {
+      } else if (item.entityType === "betType") {
         const newBetType: BetTypeData = {
           canonical,
           sport,
@@ -416,12 +483,15 @@ const UnresolvedQueueManager: React.FC<UnresolvedQueueManagerProps> = ({
         addBetType(newBetType);
       }
 
+      // Propagate canonical value to source bets
+      propagateCanonicalToBets(group, canonical);
+
       // Remove ALL items in the group from queue
       removeFromUnresolvedQueue(group.itemIds);
       setCreateModalGroup(null);
       refreshQueue();
     },
-    [addTeam, addPlayer, addBetType, refreshQueue, createModalGroup]
+    [addTeam, addPlayer, addBetType, propagateCanonicalToBets, refreshQueue, createModalGroup]
   );
 
   // Get resolution status for display
@@ -462,7 +532,7 @@ const UnresolvedQueueManager: React.FC<UnresolvedQueueManagerProps> = ({
         return "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300";
       case "player":
         return "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300";
-      case "stat":
+      case "betType":
         return "bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300";
       default:
         return "bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-300";

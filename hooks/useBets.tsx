@@ -8,7 +8,7 @@ import React, {
   useRef,
 } from "react";
 import { Bet } from "../types";
-import { useInputs } from "./useInputs";
+import { useNormalizationData } from "./useNormalizationData";
 import { classifyBet } from "../services/marketClassification";
 import { calculateProfit, recalculatePayout } from "../utils/betCalculations";
 import { validateBet } from "../utils/validation";
@@ -214,7 +214,7 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
 }) => {
   const [bets, setBets] = useState<Bet[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const { addPlayer, addTeam, addBetType } = useInputs();
+  const { addPlayerByName, addTeamByName, addBetTypeByName } = useNormalizationData();
 
   // Undo stack (in-memory only, not persisted)
   const [undoStack, setUndoStack] = useState<UndoEntry[]>([]);
@@ -357,13 +357,13 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
       const canonicalBets = canonicalizeImportedBets(newBets);
       const resolvedInputs = collectResolvedImportInputs(canonicalBets);
       resolvedInputs.players.forEach((playerNames, sport) => {
-        playerNames.forEach((name) => addPlayer(sport, name));
+        playerNames.forEach((name) => addPlayerByName(sport, name));
       });
       resolvedInputs.teams.forEach((teamNames, sport) => {
-        teamNames.forEach((name) => addTeam(sport, name));
+        teamNames.forEach((name) => addTeamByName(sport, name));
       });
       resolvedInputs.betTypes.forEach((types, sport) => {
-        types.forEach((type) => addBetType(sport, type));
+        types.forEach((type) => addBetTypeByName(sport, type));
       });
 
       let importedCount = 0;
@@ -406,7 +406,7 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
       });
       return importedCount;
     },
-    [addBetType, addPlayer, addTeam]
+    [addBetTypeByName, addPlayerByName, addTeamByName]
   );
 
   const updateBet = useCallback((betId: string, updates: Partial<Bet>) => {

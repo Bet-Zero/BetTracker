@@ -1321,7 +1321,11 @@ export function normalizeBetType(betType: string, sport?: Sport): string {
           }
         }
       }
-      // No sport-specific match found, return original search term
+      // No sport-specific match found — fall back to cross-sport match
+      // only if the match is universal (sport: "Other"), not sport-specific
+      if (statInfo.sport === "Other") {
+        return statInfo.canonical;
+      }
       return betType.trim();
     }
     return statInfo.canonical;

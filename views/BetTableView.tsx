@@ -859,12 +859,6 @@ const BetTableView: React.FC = () => {
     sportsbooks,
     sports,
     categories,
-    betTypes,
-    players,
-    teams,
-    addBetType,
-    addPlayer,
-    addTeam,
     tails,
     addTail,
   } = useInputs();
@@ -876,8 +870,23 @@ const BetTableView: React.FC = () => {
     addPlayer: addNormalizationPlayer,
     addTeamAlias,
     addPlayerAlias,
+    addTeamByName,
+    addPlayerByName,
+    addBetTypeByName,
     resolverVersion,
   } = useNormalizationData();
+
+  // Derive betTypes by sport from normalization data (replaces legacy useInputs betTypes)
+  const betTypes = useMemo(() => {
+    const result: Record<string, string[]> = {};
+    normalizationBetTypes.forEach((bt) => {
+      if (bt.disabled) return;
+      if (!result[bt.sport]) result[bt.sport] = [];
+      result[bt.sport].push(bt.canonical);
+    });
+    return result;
+  }, [normalizationBetTypes]);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState<{
     sport: string | "all";
@@ -1201,14 +1210,14 @@ const BetTableView: React.FC = () => {
         sport: sport as Sport,
       });
       if (playerResult.status === "resolved") {
-        addPlayer(sport, playerResult.canonical);
+        addPlayerByName(sport, playerResult.canonical);
       }
       // If unresolved, do NOT add - let queue flow handle it
     } else if (isTeamMarket && !isPlayerMarket) {
       // Check if team is resolved before adding to suggestions
       const teamResult = resolveTeamForSport(trimmedEntity, sport as Sport);
       if (teamResult.status === "resolved") {
-        addTeam(sport, teamResult.canonical);
+        addTeamByName(sport, teamResult.canonical);
       }
       // If unresolved, do NOT add - let queue flow handle it
     } else {
@@ -1217,14 +1226,14 @@ const BetTableView: React.FC = () => {
       if (teamSports.includes(sport)) {
         const teamResult = resolveTeamForSport(trimmedEntity, sport as Sport);
         if (teamResult.status === "resolved") {
-          addTeam(sport, teamResult.canonical);
+          addTeamByName(sport, teamResult.canonical);
         }
       } else {
         const playerResult = resolvePlayer(trimmedEntity, {
           sport: sport as Sport,
         });
         if (playerResult.status === "resolved") {
-          addPlayer(sport, playerResult.canonical);
+          addPlayerByName(sport, playerResult.canonical);
         }
       }
     }
@@ -1244,24 +1253,6 @@ const BetTableView: React.FC = () => {
       }
 
       const trimmedName = name.trim();
-      const normalizedName = trimmedName.toLowerCase();
-
-      // Check managed teams list first (authoritative suppression)
-      // If the team exists in the user's managed teams for this sport, don't flag it
-      const managedTeamsForSport = teams[sport] || [];
-      if (
-        managedTeamsForSport.some((t) => t.toLowerCase() === normalizedName)
-      ) {
-        return { status: "resolved", name: trimmedName };
-      }
-
-      // Check managed players list (authoritative suppression)
-      const managedPlayersForSport = players[sport] || [];
-      if (
-        managedPlayersForSport.some((p) => p.toLowerCase() === normalizedName)
-      ) {
-        return { status: "resolved", name: trimmedName };
-      }
 
       // Use sport-scoped team resolution to prevent cross-sport alias collisions
       const teamResult = resolveTeamForSport(trimmedName, sport as Sport);
@@ -1288,7 +1279,7 @@ const BetTableView: React.FC = () => {
       // Neither resolved nor ambiguous - unresolved
       return { status: "unresolved", name: trimmedName };
     },
-    [teams, players, resolverVersion],
+    [resolverVersion],
   );
 
   // Legacy helper for simple boolean check (used in handleNameCommitWithQueue)
@@ -1304,19 +1295,23 @@ const BetTableView: React.FC = () => {
     (value || "").trim().toLowerCase();
 
   // Helper to determine entity type and add to unresolvedQueue if needed
+  /**
+   * Resolve a name value, add to suggestions if resolved, queue if unresolved.
+   * Returns the canonical value to save (canonical if resolved, raw if not).
+   */
   const handleNameCommitWithQueue = useCallback(
     (
       val: string,
       row: FlatBet,
       legIndex: number | null,
       prevValue?: string,
-    ) => {
+    ): string => {
       const trimmedNext = val.trim();
       const trimmedPrev = (prevValue || "").trim();
       const normalizedNext = normalizeNameForComparison(trimmedNext);
       const normalizedPrev = normalizeNameForComparison(trimmedPrev);
 
-      if (normalizedPrev === normalizedNext) return;
+      if (normalizedPrev === normalizedNext) return trimmedNext;
 
       const resolvedLegIndex = legIndex ?? 0;
 
@@ -1329,15 +1324,19 @@ const BetTableView: React.FC = () => {
         removeFromUnresolvedQueue([prevQueueId]);
       }
 
-      if (!trimmedNext) return;
+      if (!trimmedNext) return trimmedNext;
 
       // Add to suggestions (existing behavior)
       autoAddEntity(row.sport, trimmedNext, row.type);
 
       // If sport is known, check resolution and add to queue if unresolved
       if (row.sport && row.sport.trim()) {
-        const resolution = getNameResolutionStatus(trimmedNext, row.sport);
-        if (resolution.status === "resolved") return;
+        // Try to resolve as team or player and get canonical
+        const teamResult = resolveTeamForSport(trimmedNext, row.sport as Sport);
+        if (teamResult.status === "resolved") return teamResult.canonical;
+
+        const playerResult = resolvePlayer(trimmedNext, { sport: row.sport as Sport });
+        if (playerResult.status === "resolved") return playerResult.canonical;
 
         // Neither resolved - determine type based on market context
         const lowerMarket = row.type.toLowerCase();
@@ -1379,8 +1378,10 @@ const BetTableView: React.FC = () => {
 
         addToUnresolvedQueue([queueItem]);
       }
+
+      return trimmedNext;
     },
-    [autoAddEntity, getNameResolutionStatus],
+    [autoAddEntity],
   );
 
   // Handler to open resolution modal
@@ -1430,11 +1431,11 @@ const BetTableView: React.FC = () => {
       if (item.entityType === "team") {
         addTeamAlias(targetCanonical, item.rawValue);
         // Also add canonical to suggestions so it appears in dropdown immediately
-        addTeam(sport, targetCanonical);
+        addTeamByName(sport, targetCanonical);
       } else if (item.entityType === "player") {
         addPlayerAlias(targetCanonical, sport, item.rawValue);
         // Also add canonical to suggestions so it appears in dropdown immediately
-        addPlayer(sport, targetCanonical);
+        addPlayerByName(sport, targetCanonical);
       }
 
       // Clear unresolved queue entry
@@ -1447,7 +1448,7 @@ const BetTableView: React.FC = () => {
 
       setResolvingNameItem(null);
     },
-    [resolvingNameItem, addTeamAlias, addPlayerAlias, addTeam, addPlayer],
+    [resolvingNameItem, addTeamAlias, addPlayerAlias, addTeamByName, addPlayerByName],
   );
 
   // Handler for create confirmation
@@ -1479,7 +1480,7 @@ const BetTableView: React.FC = () => {
         };
         addNormalizationTeam(newTeam);
         // Also add canonical to suggestions so it appears in dropdown immediately
-        addTeam(sport, canonical);
+        addTeamByName(sport, canonical);
       } else if (item.entityType === "player") {
         // Resolve team name from ID if present
         let teamName: string | undefined = undefined;
@@ -1499,7 +1500,7 @@ const BetTableView: React.FC = () => {
         };
         addNormalizationPlayer(newPlayer);
         // Also add canonical to suggestions so it appears in dropdown immediately
-        addPlayer(sport, canonical);
+        addPlayerByName(sport, canonical);
       }
 
       // Clear unresolved queue entry
@@ -1517,8 +1518,8 @@ const BetTableView: React.FC = () => {
       addNormalizationTeam,
       addNormalizationPlayer,
       normalizationTeams,
-      addTeam,
-      addPlayer,
+      addTeamByName,
+      addPlayerByName,
     ],
   );
 
@@ -1566,7 +1567,7 @@ const BetTableView: React.FC = () => {
   // Create a reverse map from abbreviation to full name for saving
   const typeAbbreviationToFull = useMemo(() => {
     const map: Record<string, string> = {};
-    Object.values(betTypes)
+    (Object.values(betTypes) as string[][])
       .flat()
       .forEach((type) => {
         const abbrev = abbreviateMarket(type);
@@ -2803,44 +2804,74 @@ const BetTableView: React.FC = () => {
         case "category":
           updateBet(row.betId, { marketCategory: value as MarketCategory });
           break;
-        case "type":
+        case "type": {
+          const trimmedType = value.trim();
           if (isLeg) {
             // GATE: Only add to suggestions if bet type is RESOLVED
-            const legTypeResult = resolveBetType(value, row.sport as Sport);
+            const legTypeResult = resolveBetType(trimmedType, row.sport as Sport);
             if (legTypeResult.status === "resolved") {
-              addBetType(row.sport, legTypeResult.canonical);
-              // Save canonical value to maintain sport-specific context
+              addBetTypeByName(row.sport, legTypeResult.canonical);
               handleLegUpdate(row.betId, legIndex, {
                 market: legTypeResult.canonical,
               });
             } else {
-              // Save raw value if unresolved
-              handleLegUpdate(row.betId, legIndex, { market: value });
+              handleLegUpdate(row.betId, legIndex, { market: trimmedType });
+              // Queue unresolved bet type
+              if (trimmedType) {
+                const queueItem = {
+                  id: generateUnresolvedItemId(trimmedType, row.betId, legIndex),
+                  rawValue: trimmedType,
+                  entityType: "betType" as const,
+                  encounteredAt: new Date().toISOString(),
+                  book: row.site,
+                  betId: row.betId,
+                  legIndex: legIndex,
+                  sport: row.sport,
+                  market: trimmedType,
+                  context: "manual-entry",
+                };
+                addToUnresolvedQueue([queueItem]);
+              }
             }
           } else {
             // Update bet.type (stat type), NOT betType (bet form)
-            // GATE: Only add to suggestions if bet type is RESOLVED
-            const typeResult = resolveBetType(value, row.sport as Sport);
+            const typeResult = resolveBetType(trimmedType, row.sport as Sport);
             if (typeResult.status === "resolved") {
-              addBetType(row.sport, typeResult.canonical);
-              // Save canonical value to maintain sport-specific context
+              addBetTypeByName(row.sport, typeResult.canonical);
               updateBet(row.betId, { type: typeResult.canonical });
             } else {
-              // Save raw value if unresolved
-              updateBet(row.betId, { type: value });
+              updateBet(row.betId, { type: trimmedType });
+              // Queue unresolved bet type
+              if (trimmedType) {
+                const queueItem = {
+                  id: generateUnresolvedItemId(trimmedType, row.betId, 0),
+                  rawValue: trimmedType,
+                  entityType: "betType" as const,
+                  encounteredAt: new Date().toISOString(),
+                  book: row.site,
+                  betId: row.betId,
+                  legIndex: 0,
+                  sport: row.sport,
+                  market: trimmedType,
+                  context: "manual-entry",
+                };
+                addToUnresolvedQueue([queueItem]);
+              }
             }
           }
           break;
-        case "name":
+        }
+        case "name": {
+          const canonical = isLeg
+            ? handleNameCommitWithQueue(value, row, legIndex, row.name)
+            : handleNameCommitWithQueue(value, row, null, row.name);
           if (isLeg) {
-            autoAddEntity(row.sport, value, row.type);
-            handleLegUpdate(row.betId, legIndex, { entities: [value] });
+            handleLegUpdate(row.betId, legIndex, { entities: [canonical] });
           } else {
-            // Update bet.name (player/team name only), NOT description
-            autoAddEntity(row.sport, value, row.type);
-            updateBet(row.betId, { name: value });
+            updateBet(row.betId, { name: canonical });
           }
           break;
+        }
         case "line":
           if (isLeg) {
             handleLegUpdate(row.betId, legIndex, { target: value });
@@ -2872,7 +2903,7 @@ const BetTableView: React.FC = () => {
           break;
       }
     },
-    [sportsbooks, updateBet, handleLegUpdate, addBetType, autoAddEntity],
+    [sportsbooks, updateBet, handleLegUpdate, addBetTypeByName, autoAddEntity],
   );
 
   // Cell click handler - single click selects only, does NOT enter edit mode
@@ -3796,7 +3827,29 @@ const BetTableView: React.FC = () => {
                                   valueToSave.toLowerCase(),
                               );
                               if (isNew && typeRes.status === "resolved") {
-                                addBetType(row.sport, typeRes.canonical);
+                                addBetTypeByName(row.sport, typeRes.canonical);
+                              }
+
+                              // Queue unresolved bet types for manual entry
+                              if (typeRes.status !== "resolved" && fullName.trim()) {
+                                const resolvedLegIndex = isLeg ? legIndex : 0;
+                                const queueItem = {
+                                  id: generateUnresolvedItemId(
+                                    fullName,
+                                    row.betId,
+                                    resolvedLegIndex,
+                                  ),
+                                  rawValue: fullName,
+                                  entityType: "betType" as const,
+                                  encounteredAt: new Date().toISOString(),
+                                  book: row.site,
+                                  betId: row.betId,
+                                  legIndex: resolvedLegIndex,
+                                  sport: row.sport,
+                                  market: fullName,
+                                  context: "manual-entry",
+                                };
+                                addToUnresolvedQueue([queueItem]);
                               }
 
                               if (isLeg) {
@@ -3945,7 +3998,7 @@ const BetTableView: React.FC = () => {
                                   onBlur={(e) => {
                                     const val = e.target.value;
                                     if (val !== row.name) {
-                                      handleNameCommitWithQueue(
+                                      const canonical = handleNameCommitWithQueue(
                                         val,
                                         row,
                                         null,
@@ -3959,23 +4012,23 @@ const BetTableView: React.FC = () => {
                                         row.name2 ||
                                         "";
                                       updateBet(row.betId, {
-                                        name: val,
+                                        name: canonical,
                                         legs: bet?.legs
                                           ? bet.legs.map((leg, idx) =>
                                               idx === 0
                                                 ? {
                                                     ...leg,
                                                     entities: name2
-                                                      ? [val, name2]
-                                                      : [val],
+                                                      ? [canonical, name2]
+                                                      : [canonical],
                                                   }
                                                 : leg,
                                             )
                                           : [
                                               {
                                                 entities: name2
-                                                  ? [val, name2]
-                                                  : [val],
+                                                  ? [canonical, name2]
+                                                  : [canonical],
                                                 market: bet?.type || "",
                                                 result:
                                                   bet?.result || "pending",
@@ -4011,7 +4064,7 @@ const BetTableView: React.FC = () => {
                                   onBlur={(e) => {
                                     const val = e.target.value;
                                     if (val !== row.name2) {
-                                      handleNameCommitWithQueue(
+                                      const canonical = handleNameCommitWithQueue(
                                         val,
                                         row,
                                         null,
@@ -4028,16 +4081,16 @@ const BetTableView: React.FC = () => {
                                                 ? {
                                                     ...leg,
                                                     entities: name1
-                                                      ? [name1, val]
-                                                      : [val],
+                                                      ? [name1, canonical]
+                                                      : [canonical],
                                                   }
                                                 : leg,
                                             )
                                           : [
                                               {
                                                 entities: name1
-                                                  ? [name1, val]
-                                                  : [val],
+                                                  ? [name1, canonical]
+                                                  : [canonical],
                                                 market: bet?.type || "",
                                                 result:
                                                   bet?.result || "pending",
@@ -4155,18 +4208,18 @@ const BetTableView: React.FC = () => {
                             inputRef={getCellRef(rowIndex, "name")}
                             onSave={(val) => {
                               if (isLeg) {
-                                handleNameCommitWithQueue(
+                                const canonical = handleNameCommitWithQueue(
                                   val,
                                   row,
                                   legIndex,
                                   row.name,
                                 );
                                 handleLegUpdate(row.betId, legIndex, {
-                                  entities: [val],
+                                  entities: [canonical],
                                 });
                               } else {
                                 // Update bet.name AND leg.entities[0] for single bets
-                                handleNameCommitWithQueue(
+                                const canonical = handleNameCommitWithQueue(
                                   val,
                                   row,
                                   null,
@@ -4176,7 +4229,7 @@ const BetTableView: React.FC = () => {
                                 const bet = bets.find(
                                   (b) => b.id === row.betId,
                                 );
-                                const updates: any = { name: val };
+                                const updates: any = { name: canonical };
 
                                 if (
                                   bet?.legs?.length === 1 &&
@@ -4188,7 +4241,7 @@ const BetTableView: React.FC = () => {
                                   const currentEntities =
                                     bet.legs[0].entities || [];
                                   const newEntities = [...currentEntities];
-                                  newEntities[0] = val;
+                                  newEntities[0] = canonical;
                                   updates.legs = [
                                     { ...bet.legs[0], entities: newEntities },
                                   ];
@@ -4723,8 +4776,7 @@ const BetTableView: React.FC = () => {
       {resolvingNameItem &&
         (() => {
           const rawValue =
-            resolvingNameItem.entityType === "betType" ||
-            resolvingNameItem.entityType === "stat"
+            resolvingNameItem.entityType === "betType"
               ? resolvingNameItem.row.type
               : resolvingNameItem.row.name;
 

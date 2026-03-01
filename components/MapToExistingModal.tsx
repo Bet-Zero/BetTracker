@@ -82,7 +82,7 @@ const MapToExistingModal: React.FC<MapToExistingModalProps> = ({
         sport: p.sport,
         extra: p.team,
       }));
-    } else if (item.entityType === "stat" || item.entityType === "betType") {
+    } else if (item.entityType === "betType") {
       // Filter bet types by sport
       const filtered = item.sport
         ? betTypes.filter((s) => s.sport === item.sport)
@@ -122,9 +122,7 @@ const MapToExistingModal: React.FC<MapToExistingModalProps> = ({
   };
 
   const entityTypeLabel =
-    item.entityType === "stat"
-      ? "Stat Type"
-      : item.entityType === "betType"
+    item.entityType === "betType"
       ? "Bet Type"
       : item.entityType.charAt(0).toUpperCase() + item.entityType.slice(1);
 

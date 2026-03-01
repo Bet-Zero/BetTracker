@@ -112,7 +112,7 @@ const CreateCanonicalModal: React.FC<CreateCanonicalModalProps> = ({
     if (item.entityType === "player" && teamId) {
       extraData.teamId = teamId;
     }
-    if (item.entityType === "stat" && description.trim()) {
+    if (item.entityType === "betType" && description.trim()) {
       extraData.description = description.trim();
     }
     if (item.entityType === "team" && abbreviations.trim()) {
@@ -126,9 +126,7 @@ const CreateCanonicalModal: React.FC<CreateCanonicalModalProps> = ({
   };
 
   const entityTypeLabel =
-    item.entityType === "stat"
-      ? "Stat Type"
-      : item.entityType === "betType"
+    item.entityType === "betType"
       ? "Bet Type"
       : item.entityType.charAt(0).toUpperCase() + item.entityType.slice(1);
 
@@ -246,8 +244,8 @@ const CreateCanonicalModal: React.FC<CreateCanonicalModalProps> = ({
             </div>
           )}
 
-          {/* Stat-specific: Description */}
-          {item.entityType === "stat" && (
+          {/* Bet type-specific: Description */}
+          {item.entityType === "betType" && (
             <div>
               <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                 Description

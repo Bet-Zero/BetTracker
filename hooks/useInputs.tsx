@@ -8,10 +8,6 @@ import React, {
 } from "react";
 import { Sportsbook, SportsbookName, Tail } from "../types";
 
-export interface ItemsBySport {
-  [sport: string]: string[];
-}
-
 interface InputsContextType {
   sportsbooks: Sportsbook[];
   addSportsbook: (book: Sportsbook) => boolean;
@@ -26,15 +22,6 @@ interface InputsContextType {
   categories: string[];
   addCategory: (category: string) => boolean;
   removeCategory: (category: string) => void;
-  betTypes: ItemsBySport;
-  addBetType: (sport: string, type: string) => boolean;
-  removeBetType: (sport: string, type: string) => void;
-  players: ItemsBySport;
-  addPlayer: (sport: string, player: string) => void;
-  removePlayer: (sport: string, player: string) => void;
-  teams: ItemsBySport;
-  addTeam: (sport: string, team: string) => void;
-  removeTeam: (sport: string, team: string) => void;
   loading: boolean;
 }
 
@@ -104,27 +91,6 @@ const defaultCategories: string[] = [
   "Futures",
   "Parlays",
 ];
-const defaultBetTypes: ItemsBySport = {
-  NBA: [
-    "Player Points",
-    "Player Rebounds",
-    "Player Assists",
-    "Player Threes",
-    "First Basket (FB)",
-    "Top Scorer (Top Pts)",
-    "Double Double (DD)",
-    "Triple Double (TD)",
-  ],
-  NFL: [
-    "Passing Yards",
-    "Rushing Yards",
-    "Receiving Yards",
-    "Anytime Touchdown Scorer",
-  ],
-  MLB: ["Home Runs", "Strikeouts", "Hits"],
-  NHL: ["Goals", "Assists", "Shots on Goal"],
-  Soccer: ["Goals", "Shots", "Assists"],
-};
 
 export const InputsProvider: React.FC<{ children: ReactNode }> = ({
   children,
@@ -144,18 +110,6 @@ export const InputsProvider: React.FC<{ children: ReactNode }> = ({
   const [categories, setCategories] = useLocalStorage<string[]>(
     "bettracker-categories",
     defaultCategories
-  );
-  const [betTypes, setBetTypes] = useLocalStorage<ItemsBySport>(
-    "bettracker-bettypes",
-    defaultBetTypes
-  );
-  const [players, setPlayers] = useLocalStorage<ItemsBySport>(
-    "bettracker-players",
-    {}
-  );
-  const [teams, setTeams] = useLocalStorage<ItemsBySport>(
-    "bettracker-teams",
-    {}
   );
   const [loading, setLoading] = useState(true);
 
@@ -233,27 +187,8 @@ export const InputsProvider: React.FC<{ children: ReactNode }> = ({
   const removeSport = useCallback(
     (sportToRemove: string) => {
       setSports(sports.filter((s) => s !== sportToRemove));
-      // Also remove associated bet types, players, and teams
-      const newBetTypes = { ...betTypes };
-      delete newBetTypes[sportToRemove];
-      setBetTypes(newBetTypes);
-      const newPlayers = { ...players };
-      delete newPlayers[sportToRemove];
-      setPlayers(newPlayers);
-      const newTeams = { ...teams };
-      delete newTeams[sportToRemove];
-      setTeams(newTeams);
     },
-    [
-      sports,
-      setSports,
-      betTypes,
-      setBetTypes,
-      players,
-      setPlayers,
-      teams,
-      setTeams,
-    ]
+    [sports, setSports]
   );
 
   const addCategory = useCallback(
@@ -274,97 +209,6 @@ export const InputsProvider: React.FC<{ children: ReactNode }> = ({
     [categories, setCategories]
   );
 
-  const addBetType = useCallback(
-    (sport: string, type: string) => {
-      const sportTypes = betTypes[sport] || [];
-      if (sportTypes.some((t) => t.toLowerCase() === type.toLowerCase())) {
-        return false;
-      }
-      const newBetTypes = {
-        ...betTypes,
-        [sport]: [...sportTypes, type].sort(),
-      };
-      setBetTypes(newBetTypes);
-      return true;
-    },
-    [betTypes, setBetTypes]
-  );
-
-  const removeBetType = useCallback(
-    (sport: string, typeToRemove: string) => {
-      const sportTypes = betTypes[sport] || [];
-      const newSportTypes = sportTypes.filter((t) => t !== typeToRemove);
-      const newBetTypes = {
-        ...betTypes,
-        [sport]: newSportTypes,
-      };
-      if (newSportTypes.length === 0) {
-        delete newBetTypes[sport];
-      }
-      setBetTypes(newBetTypes);
-    },
-    [betTypes, setBetTypes]
-  );
-
-  const addBySport = useCallback(
-    (
-      sport: string,
-      item: string,
-      setter: (
-        value: ItemsBySport | ((val: ItemsBySport) => ItemsBySport)
-      ) => void
-    ) => {
-      if (!sport || !item) return;
-      setter((prevList) => {
-        const sportList = prevList[sport] || [];
-        if (!sportList.some((i) => i.toLowerCase() === item.toLowerCase())) {
-          const newList = { ...prevList, [sport]: [...sportList, item].sort() };
-          return newList;
-        }
-        return prevList;
-      });
-    },
-    []
-  );
-
-  const removeBySport = useCallback(
-    (
-      sport: string,
-      itemToRemove: string,
-      setter: (
-        value: ItemsBySport | ((val: ItemsBySport) => ItemsBySport)
-      ) => void
-    ) => {
-      setter((prevList) => {
-        const sportList = prevList[sport] || [];
-        const newSportList = sportList.filter((item) => item !== itemToRemove);
-        const newList = { ...prevList, [sport]: newSportList };
-        if (newSportList.length === 0) {
-          delete newList[sport];
-        }
-        return newList;
-      });
-    },
-    []
-  );
-
-  const addPlayer = useCallback(
-    (sport: string, player: string) => addBySport(sport, player, setPlayers),
-    [addBySport, setPlayers]
-  );
-  const removePlayer = useCallback(
-    (sport: string, player: string) => removeBySport(sport, player, setPlayers),
-    [removeBySport, setPlayers]
-  );
-  const addTeam = useCallback(
-    (sport: string, team: string) => addBySport(sport, team, setTeams),
-    [addBySport, setTeams]
-  );
-  const removeTeam = useCallback(
-    (sport: string, team: string) => removeBySport(sport, team, setTeams),
-    [removeBySport, setTeams]
-  );
-
   const value = {
     sportsbooks,
     addSportsbook,
@@ -379,15 +223,6 @@ export const InputsProvider: React.FC<{ children: ReactNode }> = ({
     categories,
     addCategory,
     removeCategory,
-    betTypes,
-    addBetType,
-    removeBetType,
-    players,
-    addPlayer,
-    removePlayer,
-    teams,
-    addTeam,
-    removeTeam,
     loading,
   };
 

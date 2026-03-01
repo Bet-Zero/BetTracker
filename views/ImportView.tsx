@@ -25,8 +25,8 @@ interface ImportResult {
 
 const ImportView: React.FC = () => {
   const { bets, addBets } = useBets();
-  const { sportsbooks, sports, players, addPlayer, addSport } = useInputs();
-  const { addTeam: addNormalizationTeam } = useNormalizationData();
+  const { sportsbooks, sports, addSport } = useInputs();
+  const { addTeam: addNormalizationTeam, players: normalizationPlayers, addPlayerByName } = useNormalizationData();
   const [selectedBook, setSelectedBook] = useState<SportsbookName>(() => {
     const fanduel = sportsbooks.find(b => b.name === 'FanDuel');
     return fanduel ? fanduel.name : (sportsbooks[0]?.name || '');
@@ -38,6 +38,17 @@ const ImportView: React.FC = () => {
   const [lastImportResult, setLastImportResult] = useState<ImportResult | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
   
+  // Derive players by sport from normalization data (replaces legacy useInputs players)
+  const playersBySport = useMemo(() => {
+    const result: Record<string, string[]> = {};
+    normalizationPlayers.forEach((p) => {
+      if (p.disabled) return;
+      if (!result[p.sport]) result[p.sport] = [];
+      result[p.sport].push(p.canonical);
+    });
+    return result;
+  }, [normalizationPlayers]);
+
   const selectedBookUrl = sportsbooks.find(b => b.name === selectedBook)?.url || 'https://google.com/search?q=sportsbooks';
   
   // Check if selected sportsbook has an enabled parser
@@ -229,9 +240,9 @@ const ImportView: React.FC = () => {
           onCancel={handleCancelImport}
           onEditBet={handleEditBet}
           availableSports={sports}
-          availablePlayers={players}
+          availablePlayers={playersBySport}
           sportsbooks={sportsbooks}
-          onAddPlayer={addPlayer}
+          onAddPlayer={addPlayerByName}
           onAddSport={addSport}
           onAddTeam={addNormalizationTeam}
         />
