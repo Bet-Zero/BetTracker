@@ -1064,7 +1064,9 @@ const DashboardView: React.FC = () => {
       <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-md p-4 space-y-6">
         <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 pb-6 border-b border-neutral-200 dark:border-neutral-800">
           <div className="flex flex-col sm:flex-row gap-4 w-full xl:w-auto">
-            <div className="flex items-center space-x-1 flex-wrap gap-y-2 bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-lg">
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-semibold uppercase text-neutral-400 dark:text-neutral-500 tracking-wider px-1">Market</span>
+              <div className="flex items-center space-x-1 flex-wrap gap-y-2 bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-lg">
               <button
                 onClick={() => setSelectedMarketCategory("all")}
                 className={`px-3 py-1.5 rounded-md font-medium text-xs transition-colors ${
@@ -1089,7 +1091,10 @@ const DashboardView: React.FC = () => {
                 </button>
               ))}
             </div>
-            <div className="flex items-center space-x-1 flex-wrap gap-y-2 bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-lg">
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-semibold uppercase text-neutral-400 dark:text-neutral-500 tracking-wider px-1">Bet Type</span>
+              <div className="flex items-center space-x-1 flex-wrap gap-y-2 bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-lg">
               <button
                 onClick={() => setBetTypeFilter("all")}
                 className={`px-3 py-1.5 rounded-md font-medium text-xs transition-colors ${
@@ -1121,10 +1126,13 @@ const DashboardView: React.FC = () => {
                 Parlays
               </button>
             </div>
+            </div>
           </div>
 
           <div className="w-full xl:w-auto overflow-x-auto">
-            <div className="flex items-center space-x-1 flex-nowrap min-w-max bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-lg">
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-semibold uppercase text-neutral-400 dark:text-neutral-500 tracking-wider px-1">Date Range</span>
+              <div className="flex items-center space-x-1 flex-nowrap min-w-max bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-lg">
               <DateRangeButton
                 range="all"
                 label="All"
@@ -1167,6 +1175,7 @@ const DashboardView: React.FC = () => {
                 currentRange={dateRange}
                 onClick={setDateRange}
               />
+            </div>
             </div>
           </div>
         </div>
@@ -1221,15 +1230,15 @@ const DashboardView: React.FC = () => {
             <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6">
               <StatCard
                 title="Net Profit"
-                value={`${
-                  processedData.overallStats.netProfit >= 0 ? "$" : "-$"
-                }${Math.abs(
-                  processedData.overallStats.netProfit
-                ).toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}`}
+                value={formatCurrency(processedData.overallStats.netProfit)}
                 icon={<Scale className="w-6 h-6" />}
+                valueClassName={
+                  processedData.overallStats.netProfit > 0
+                    ? "text-accent-500"
+                    : processedData.overallStats.netProfit < 0
+                    ? "text-danger-500"
+                    : undefined
+                }
                 subtitle={`${processedData.overallStats.roi.toFixed(1)}% ROI`}
                 subtitleClassName={
                   processedData.overallStats.roi > 0
@@ -1242,10 +1251,7 @@ const DashboardView: React.FC = () => {
               />
               <StatCard
                 title="Total Wagered"
-                value={`$${processedData.overallStats.totalWagered.toLocaleString(
-                  undefined,
-                  { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-                )}`}
+                value={formatCurrency(processedData.overallStats.totalWagered)}
                 icon={<BarChart2 className="w-6 h-6" />}
                 className="shadow-[0_10px_40px_rgba(0,0,0,0.4)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.3)]"
               />
@@ -1258,7 +1264,13 @@ const DashboardView: React.FC = () => {
               <StatCard
                 title="Win Rate"
                 value={`${processedData.overallStats.winRate.toFixed(1)}%`}
-                icon={<BarChart2 className="w-6 h-6" />}
+                icon={
+                  processedData.overallStats.winRate >= 50 ? (
+                    <TrendingUp className="w-6 h-6" />
+                  ) : (
+                    <TrendingDown className="w-6 h-6" />
+                  )
+                }
                 valueClassName={
                   processedData.overallStats.winRate > 50
                     ? "text-accent-500"
@@ -1354,6 +1366,12 @@ const DashboardView: React.FC = () => {
             </h2>
           </div>
           <div className="space-y-6">
+            <StatsTable
+              data={processedData.profitByBook}
+              title="Performance by Sportsbook"
+              searchPlaceholder="Search book..."
+              firstColumnHeader="Sportsbook"
+            />
             <StatsTable
               data={processedData.marketCategoryStats}
               title="Performance by Market Category"
