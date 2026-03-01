@@ -20,21 +20,17 @@ import { Bet } from "../types";
 import { VALID_FUTURES_TYPES } from "../services/marketClassification.config";
 import {
   TrendingUp,
-  TrendingDown,
   Clock,
   Calendar,
   ChevronDown,
   ChevronRight,
-  BarChart2,
   Scale,
   Search,
   X,
   Layers,
-  Trophy,
 } from "../components/icons";
 import { InfoTooltip } from "../components/debug/InfoTooltip";
 import MultiHedgeCalculator from "../components/MultiHedgeCalculator";
-import { StatCard } from "../components/StatCard";
 
 // ============================================================================
 // Sport Color Mapping
@@ -233,10 +229,22 @@ function extractFuturesType(bet: Bet): string {
   // Check legs for market info
   if (bet.legs && bet.legs.length > 0 && bet.legs[0].market) {
     const market = bet.legs[0].market.toLowerCase();
+    if (market.includes("mvp")) return "MVP";
+    if (market.includes("dpoy") || market.includes("defensive player")) return "DPOY";
+    if (market.includes("roy") || market.includes("rookie of the year") || market.includes("rookie")) return "ROY";
+    if (market.includes("6moy") || market.includes("sixth man")) return "6MOY";
+    if (market.includes("mip") || market.includes("most improved")) return "MIP";
+    if (market.includes("coy") || market.includes("coach of the year")) return "COY";
+    if (market.includes("cy young")) return "Cy Young";
+    if (market.includes("win total")) return "Win Total";
     if (market.includes("outright") || market.includes("winner"))
       return "Outright Winner";
     if (market.includes("championship") || market.includes("finals"))
       return getChampionshipName(sport);
+    if (market.includes("division")) return "Division Winner";
+    if (market.includes("conference")) return "Conference Winner";
+    if (market.includes("playoff") && market.includes("miss")) return "Miss Playoffs";
+    if (market.includes("playoff")) return "Make Playoffs";
   }
 
   // Pattern matching on description
@@ -544,8 +552,8 @@ const PositionCard: React.FC<PositionCardProps> = ({ position, onHedge }) => {
     return {
       id: bet.id,
       date: new Date(bet.placedAt).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
+        month: "2-digit",
+        day: "2-digit",
         year: "2-digit",
       }),
       odds: bet.odds || 0,
@@ -677,14 +685,14 @@ const PositionCard: React.FC<PositionCardProps> = ({ position, onHedge }) => {
           </div>
 
           {/* Individual Bets Table */}
-          <div className="p-4">
+          <div className="p-4 border-t border-neutral-200 dark:border-neutral-800">
             <h4 className="text-sm font-semibold text-neutral-700 dark:text-neutral-300 mb-3">
               Individual Bets
             </h4>
             <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-700">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-neutral-100 dark:bg-neutral-800">
+                  <tr className="bg-neutral-200/70 dark:bg-neutral-800 border-b-2 border-neutral-300 dark:border-neutral-600">
                     <th className="px-3 py-2.5 text-left text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">Date</th>
                     <th className="px-3 py-2.5 text-right text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">Odds</th>
                     <th className="px-3 py-2.5 text-right text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">Stake</th>
@@ -974,9 +982,9 @@ const FuturesView: React.FC = () => {
   }
 
   return (
-    <div className="min-h-full bg-neutral-100 dark:bg-neutral-950 p-6 lg:p-8 space-y-6">
+    <div className="min-h-full bg-neutral-100 dark:bg-neutral-950 p-6 lg:p-8 space-y-4">
       {/* Header */}
-      <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-md p-5">
+      <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-md p-5 border-b-2 border-primary-500">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-primary-100 dark:bg-primary-900/50 rounded-lg">
@@ -1011,47 +1019,44 @@ const FuturesView: React.FC = () => {
         </div>
       </div>
 
-      {/* KPI Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <StatCard
-          title="Open Positions"
-          value={futuresData.openCount.toString()}
-          icon={<Layers className="w-5 h-5" />}
-          subtitle={`${futuresData.pendingBetCount} bets`}
-        />
-        <StatCard
-          title="Total Exposure"
-          value={formatCurrency(futuresData.totalExposure)}
-          icon={<TrendingDown className="w-5 h-5" />}
-          subtitle="at risk"
-        />
-        <StatCard
-          title="Potential Payout"
-          value={formatCurrency(futuresData.totalPotentialPayout)}
-          icon={<TrendingUp className="w-5 h-5" />}
-          subtitle="if all hit"
-        />
-        <StatCard
-          title="Max Profit"
-          value={formatCurrency(futuresData.totalMaxProfit)}
-          icon={<Trophy className="w-5 h-5" />}
-          subtitle="potential gain"
-          valueClassName="text-accent-500"
-        />
-        <StatCard
-          title="Settled Futures"
-          value={`${futuresData.settledStats.wins}W - ${futuresData.settledStats.losses}L`}
-          icon={<BarChart2 className="w-5 h-5" />}
-          subtitle={`${futuresData.settledStats.net >= 0 ? "+" : ""}${formatCurrency(futuresData.settledStats.net)} net`}
-          subtitleClassName={futuresData.settledStats.net >= 0 ? "text-accent-500" : "text-danger-500"}
-        />
-        <StatCard
-          title="Total Bets"
-          value={futuresData.betCount.toString()}
-          icon={<BarChart2 className="w-5 h-5" />}
-          subtitle={`${futuresData.positionCount} positions`}
-        />
+      {/* KPI Summary Bar */}
+      <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-md p-4">
+        <div className="grid grid-cols-3 md:grid-cols-6 gap-4 divide-x divide-neutral-200 dark:divide-neutral-800">
+          <div className="pl-2 first:pl-0">
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 uppercase font-medium whitespace-nowrap">Open Positions</p>
+            <p className="text-xl font-bold text-neutral-900 dark:text-white mt-0.5">{futuresData.openCount}</p>
+            <p className="text-xs text-neutral-400 dark:text-neutral-500">{futuresData.pendingBetCount} bets</p>
+          </div>
+          <div className="pl-4">
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 uppercase font-medium whitespace-nowrap">Total Exposure</p>
+            <p className="text-xl font-bold text-neutral-900 dark:text-white mt-0.5">{formatCurrency(futuresData.totalExposure)}</p>
+            <p className="text-xs text-neutral-400 dark:text-neutral-500">at risk</p>
+          </div>
+          <div className="pl-4">
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 uppercase font-medium whitespace-nowrap">Potential Payout</p>
+            <p className="text-xl font-bold text-neutral-900 dark:text-white mt-0.5">{formatCurrency(futuresData.totalPotentialPayout)}</p>
+            <p className="text-xs text-neutral-400 dark:text-neutral-500">if all hit</p>
+          </div>
+          <div className="pl-4">
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 uppercase font-medium whitespace-nowrap">Max Profit</p>
+            <p className="text-xl font-bold text-accent-500 mt-0.5">{formatCurrency(futuresData.totalMaxProfit)}</p>
+            <p className="text-xs text-neutral-400 dark:text-neutral-500">potential gain</p>
+          </div>
+          <div className="pl-4">
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 uppercase font-medium whitespace-nowrap">Settled</p>
+            <p className="text-xl font-bold text-neutral-900 dark:text-white mt-0.5">{futuresData.settledStats.wins}W - {futuresData.settledStats.losses}L</p>
+            <p className={`text-xs font-medium ${futuresData.settledStats.net >= 0 ? "text-accent-500" : "text-red-500"}`}>{futuresData.settledStats.net >= 0 ? "+" : ""}{formatCurrency(futuresData.settledStats.net)} net</p>
+          </div>
+          <div className="pl-4">
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 uppercase font-medium whitespace-nowrap">Total Bets</p>
+            <p className="text-xl font-bold text-neutral-900 dark:text-white mt-0.5">{futuresData.betCount}</p>
+            <p className="text-xs text-neutral-400 dark:text-neutral-500">{futuresData.positionCount} positions</p>
+          </div>
+        </div>
       </div>
+
+      {/* Divider */}
+      <div className="h-px bg-neutral-300 dark:bg-neutral-700 mx-2" />
 
       {/* Filter & Organization Bar */}
       <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-md p-4 space-y-3">
@@ -1183,6 +1188,7 @@ const FuturesView: React.FC = () => {
       </div>
 
       {/* Positions / Timeline View */}
+      <div className="min-h-[300px]">
       {viewMode === "timeline" ? (
         <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-md p-6">
           <div className="flex items-center gap-2 mb-6">
@@ -1352,6 +1358,7 @@ const FuturesView: React.FC = () => {
           )}
         </>
       )}
+      </div>
 
       {/* Multi-Outcome Hedge Calculator Modal */}
       {showHedgeCalc && hedgePosition && (
