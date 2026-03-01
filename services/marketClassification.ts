@@ -272,11 +272,11 @@ export function determineType(
     return "";
   })();
 
-  // FAILSAFE: If we couldn't determine a type code, return the original input
-  // This ensures that manual user edits to the Type column are never "lost"
-  // just because they don't match our internal mappings.
-  // Use the preserved case from the input if possible, or title case it.
-  if (!result) {
+  // FAILSAFE: If the helper returned null/undefined (unexpected), return the
+  // original input so data is never silently dropped. Empty string is a valid
+  // return value meaning "no mapping found — needs manual review", so we must
+  // NOT treat it as a missing result.
+  if (result == null) {
     return market;
   }
 
