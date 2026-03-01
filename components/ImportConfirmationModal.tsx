@@ -151,6 +151,34 @@ const capitalizeFirstLetter = (str: string): string => {
 // classifyLeg function from services/marketClassification.ts
 // All classification logic is now in one place.
 
+
+export type ResolutionDecisionMap = Record<string, ResolutionAction | null>;
+
+export const clearResolutionDecisionForField = (
+  decisions: ResolutionDecisionMap,
+  betId: string,
+  field: string,
+  legIndex: number
+): ResolutionDecisionMap => {
+  const key = `${betId}:${field}:${legIndex}`;
+  const next = { ...decisions };
+  delete next[key];
+  return next;
+};
+
+export const clearResolutionDecisionsForBet = (
+  decisions: ResolutionDecisionMap,
+  betId: string
+): ResolutionDecisionMap => {
+  const next = { ...decisions };
+  Object.keys(next).forEach((key) => {
+    if (key.startsWith(`${betId}:`)) {
+      delete next[key];
+    }
+  });
+  return next;
+};
+
 type VisibleLeg = {
   leg: BetLeg;
   parentIndex: number;
@@ -238,9 +266,7 @@ export const ImportConfirmationModal: React.FC<
   // Key format: "{betId}:{field}:{legIndex}" where field is "Name" or "Type"
   // For single-leg bets, legIndex = 0
   // Value: "map" | "create" | "defer" | null
-  const [resolutionDecisions, setResolutionDecisions] = useState<
-    Record<string, ResolutionAction | null>
-  >({});
+  const [resolutionDecisions, setResolutionDecisions] = useState<ResolutionDecisionMap>({});
 
   // Handle initiating resolution
   const handleInitiateResolve = (
@@ -356,19 +382,16 @@ export const ImportConfirmationModal: React.FC<
   };
 
   // Phase 4: Handle defer action - marks field for deferred resolution (leg-level)
-  const handleDefer = (betId: string, field: string, legIndex: number, value: string, entityType: EntityType) => {
+  const handleDefer = (betId: string, field: string, legIndex: number, _value: string, _entityType: EntityType) => {
     const key = `${betId}:${field}:${legIndex}`;
     setResolutionDecisions(prev => ({ ...prev, [key]: "defer" }));
   };
 
   // Phase 4: Clear resolution decision (when user edits to a known value)
   const clearResolutionDecision = (betId: string, field: string, legIndex: number) => {
-    const key = `${betId}:${field}:${legIndex}`;
-    setResolutionDecisions(prev => {
-      const next = { ...prev };
-      delete next[key];
-      return next;
-    });
+    setResolutionDecisions((prev) =>
+      clearResolutionDecisionForField(prev, betId, field, legIndex)
+    );
   };
 
   // Phase 4: Get resolution decision for a bet/field/leg
@@ -737,6 +760,7 @@ export const ImportConfirmationModal: React.FC<
     legIndex?: number
   ) => {
     const bet = bets[betIndex];
+    const shouldClearResolution = field === "Name" || field === "Type";
     const updates: Partial<Bet> = {};
 
     if (legIndex !== undefined) {
@@ -834,11 +858,19 @@ export const ImportConfirmationModal: React.FC<
 
       newLegs[target.parentIndex] = parentLeg;
       updates.legs = newLegs;
+
+      if (shouldClearResolution) {
+        clearResolutionDecision(bet.id, field, legIndex);
+      }
     } else {
       // Editing a bet-level field
       switch (field) {
         case "Sport":
           updates.sport = value;
+          // Any sport change can invalidate prior resolve/defer decisions for this bet
+          setResolutionDecisions((prev) =>
+            clearResolutionDecisionsForBet(prev, bet.id)
+          );
           break;
         case "Category":
           updates.marketCategory = value as MarketCategory;
@@ -868,6 +900,10 @@ export const ImportConfirmationModal: React.FC<
         case "isLive":
           updates.isLive = value === "true";
           break;
+      }
+
+      if (shouldClearResolution) {
+        clearResolutionDecision(bet.id, field, 0);
       }
     }
 

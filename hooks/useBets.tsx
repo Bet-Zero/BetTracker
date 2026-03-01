@@ -294,7 +294,7 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
     processLoad();
   }, []);
 
-  const saveBets = (updatedBets: Bet[]) => {
+  const persistBets = (updatedBets: Bet[]) => {
     // Construct the full persisted state
     const stateToSave = {
       version: STORAGE_VERSION,
@@ -303,15 +303,18 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
     };
 
     const result = saveState(stateToSave);
-    
-    // Always update React state so UI reflects changes immediately
-    setBets(updatedBets);
 
     if (!result.ok) {
       const error = (result as { ok: false; error: ImportError }).error;
       const errorInfo = handleStorageError(error.details || error.message, 'save');
       showStorageError(errorInfo);
     }
+  };
+
+  const saveBets = (updatedBets: Bet[]) => {
+    // Always update React state so UI reflects changes immediately
+    setBets(updatedBets);
+    persistBets(updatedBets);
   };
 
   // Push a snapshot onto the undo stack before a destructive action
@@ -399,7 +402,7 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
             (a, b) =>
               new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime()
           );
-          saveBets(updatedBets);
+          persistBets(updatedBets);
           return updatedBets;
         }
         return prevBets;
