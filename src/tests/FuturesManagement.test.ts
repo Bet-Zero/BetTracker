@@ -118,6 +118,54 @@ function calculateHedgeStake(originalPayout: number, hedgeOdds: number, balanceF
   return fullHedgeStake * balanceFactor;
 }
 
+/**
+ * Format currency.
+ */
+function formatCurrency(amount: number): string {
+  if (amount < 0) return `-$${Math.abs(amount).toFixed(2)}`;
+  return `$${amount.toFixed(2)}`;
+}
+
+/**
+ * Estimate resolution date based on futures type and sport.
+ * If estimated date is already past, bumps to next year.
+ */
+function estimateResolutionDate(futuresType: string, sport: string): Date | null {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const type = futuresType.toLowerCase();
+  const sportLower = sport.toLowerCase();
+  
+  let date: Date | null = null;
+  
+  if (type.includes('super bowl') || type === 'nfl championship') {
+    date = new Date(currentYear, 1, 9);
+  } else if (type.includes('nba championship') || type === 'nba finals') {
+    date = new Date(currentYear, 5, 15);
+  } else if (type.includes('world series') || type === 'mlb championship') {
+    date = new Date(currentYear, 9, 30);
+  } else if (type.includes('stanley cup') || type === 'nhl championship') {
+    date = new Date(currentYear, 5, 20);
+  } else if (type.includes('win total')) {
+    if (sportLower === 'nfl' || sportLower === 'football') date = new Date(currentYear, 0, 8);
+    else if (sportLower === 'nba' || sportLower === 'basketball') date = new Date(currentYear, 3, 14);
+    else if (sportLower === 'mlb' || sportLower === 'baseball') date = new Date(currentYear, 9, 1);
+    else if (sportLower === 'nhl' || sportLower === 'hockey') date = new Date(currentYear, 3, 15);
+  } else if (type.includes('mvp') || type.includes('dpoy') || type.includes('roy')) {
+    if (sportLower === 'nfl') date = new Date(currentYear, 1, 1);
+    else if (sportLower === 'nba') date = new Date(currentYear, 4, 15);
+    else if (sportLower === 'mlb') date = new Date(currentYear, 10, 15);
+    else if (sportLower === 'nhl') date = new Date(currentYear, 5, 1);
+  }
+  
+  // If estimated date is already past, bump to next year
+  if (date && date < now) {
+    date.setFullYear(date.getFullYear() + 1);
+  }
+  
+  return date;
+}
+
 // ============================================================================
 // Test Fixtures
 // ============================================================================
@@ -662,6 +710,61 @@ describe('Futures Management View', () => {
       // Loss: -25
       // Net: 360 - 25 = 335
       expect(netProfit).toBe(335);
+    });
+  });
+  
+  // ===========================================================================
+  // Currency Formatting Tests
+  // ===========================================================================
+  describe('Currency Formatting', () => {
+    it('formats positive amounts correctly', () => {
+      expect(formatCurrency(100)).toBe('$100.00');
+      expect(formatCurrency(0.5)).toBe('$0.50');
+      expect(formatCurrency(1234.56)).toBe('$1234.56');
+    });
+    
+    it('formats zero correctly', () => {
+      expect(formatCurrency(0)).toBe('$0.00');
+    });
+    
+    it('formats negative amounts with sign before dollar sign', () => {
+      expect(formatCurrency(-25)).toBe('-$25.00');
+      expect(formatCurrency(-100.5)).toBe('-$100.50');
+      expect(formatCurrency(-0.01)).toBe('-$0.01');
+    });
+  });
+  
+  // ===========================================================================
+  // Resolution Date Estimation Tests
+  // ===========================================================================
+  describe('Resolution Date Estimation', () => {
+    it('returns a date for known futures types', () => {
+      const date = estimateResolutionDate('Super Bowl', 'NFL');
+      expect(date).not.toBeNull();
+    });
+    
+    it('returns null for unknown futures types', () => {
+      const date = estimateResolutionDate('Other', 'NBA');
+      expect(date).toBeNull();
+    });
+    
+    it('returns a future date (never a past date)', () => {
+      const now = new Date();
+      const types = [
+        ['Super Bowl', 'NFL'],
+        ['NBA Championship', 'NBA'],
+        ['World Series', 'MLB'],
+        ['Stanley Cup', 'NHL'],
+        ['Win Total', 'NFL'],
+        ['MVP', 'NBA'],
+      ];
+      
+      for (const [futuresType, sport] of types) {
+        const date = estimateResolutionDate(futuresType, sport);
+        if (date) {
+          expect(date.getTime()).toBeGreaterThan(now.getTime());
+        }
+      }
     });
   });
 });
