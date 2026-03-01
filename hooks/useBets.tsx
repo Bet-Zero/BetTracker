@@ -24,6 +24,8 @@ import {
   setLastUsedDate
 } from "../services/persistence";
 import { ImportError } from "../services/errors";
+import { resolveBetType, resolvePlayer, resolveTeamForSport } from "../services/resolver";
+import { Sport } from "../data/referenceData";
 
 interface UndoEntry {
   actionLabel: string;
@@ -58,12 +60,161 @@ const MAX_UNDO_STACK_SIZE = 20;
 // Time window (ms) to ignore duplicate insertBetAt calls (handles React StrictMode, rapid clicks)
 const INSERT_DEDUP_WINDOW_MS = 100;
 
+type ResolvedImportInputs = {
+  players: Map<string, Set<string>>;
+  teams: Map<string, Set<string>>;
+  betTypes: Map<string, Set<string>>;
+};
+
+const resolveCanonicalValue = <T extends string | undefined>(
+  value: T,
+  resolver: (input: string) => { status: string; canonical: string }
+): T => {
+  if (!value || !value.trim()) return value;
+  const result = resolver(value);
+  return (result.status === "resolved" ? result.canonical : value) as T;
+};
+
+const addResolvedValue = (
+  target: Map<string, Set<string>>,
+  sport: string,
+  value: string
+) => {
+  const trimmedValue = value.trim();
+  if (!sport || !trimmedValue) return;
+  if (!target.has(sport)) target.set(sport, new Set());
+  target.get(sport)!.add(trimmedValue);
+};
+
+const collectLegs = (legs: Bet["legs"]): NonNullable<Bet["legs"]> => {
+  if (!legs) return [];
+  const collected: NonNullable<Bet["legs"]> = [];
+  const queue = [...legs];
+  for (let index = 0; index < queue.length; index += 1) {
+    const leg = queue[index];
+    if (!leg) continue;
+    collected.push(leg);
+    if (leg.children?.length) queue.push(...leg.children);
+  }
+  return collected;
+};
+
+const canonicalizeLeg = (leg: NonNullable<Bet["legs"]>[number], sport: string) => {
+  const nextLeg = { ...leg };
+
+  if (nextLeg.market && !nextLeg.isGroupLeg) {
+    nextLeg.market = resolveCanonicalValue(nextLeg.market, (input) =>
+      resolveBetType(input, sport as Sport)
+    );
+  }
+
+  if (nextLeg.entities?.length && nextLeg.entityType) {
+    nextLeg.entities = nextLeg.entities.map((entity) => {
+      if (!entity || typeof entity !== "string") return entity;
+      if (nextLeg.entityType === "player") {
+        return resolveCanonicalValue(entity, (input) =>
+          resolvePlayer(input, { sport: sport as Sport })
+        );
+      }
+      if (nextLeg.entityType === "team") {
+        return resolveCanonicalValue(entity, (input) =>
+          resolveTeamForSport(input, sport as Sport)
+        );
+      }
+      return entity;
+    });
+  }
+
+  if (nextLeg.children?.length) {
+    nextLeg.children = nextLeg.children.map((child) => canonicalizeLeg(child, sport));
+  }
+
+  return nextLeg;
+};
+
+export const canonicalizeImportedBets = (newBets: Bet[]): Bet[] =>
+  newBets.map((bet) => {
+    const sport = bet.sport?.trim();
+    if (!sport) return bet;
+
+    const nextBet: Bet = { ...bet };
+    nextBet.type = resolveCanonicalValue(nextBet.type, (input) =>
+      resolveBetType(input, sport as Sport)
+    );
+
+    if (nextBet.name?.trim()) {
+      const firstLeg = collectLegs(nextBet.legs)[0];
+      if (firstLeg?.entityType === "team") {
+        nextBet.name = resolveCanonicalValue(nextBet.name, (input) =>
+          resolveTeamForSport(input, sport as Sport)
+        );
+      } else if (firstLeg?.entityType === "player") {
+        nextBet.name = resolveCanonicalValue(nextBet.name, (input) =>
+          resolvePlayer(input, { sport: sport as Sport })
+        );
+      }
+    }
+
+    if (nextBet.legs?.length) {
+      nextBet.legs = nextBet.legs.map((leg) => canonicalizeLeg(leg, sport));
+    }
+
+    return nextBet;
+  });
+
+export const collectResolvedImportInputs = (newBets: Bet[]): ResolvedImportInputs => {
+  const resolved: ResolvedImportInputs = {
+    players: new Map(),
+    teams: new Map(),
+    betTypes: new Map(),
+  };
+
+  newBets.forEach((bet) => {
+    const sport = bet.sport?.trim();
+    if (!sport) return;
+
+    if (bet.type) {
+      const typeResult = resolveBetType(bet.type, sport as Sport);
+      if (typeResult.status === "resolved") {
+        addResolvedValue(resolved.betTypes, sport, typeResult.canonical);
+      }
+    }
+
+    collectLegs(bet.legs).forEach((leg) => {
+      if (leg.market && !leg.isGroupLeg) {
+        const marketTypeResult = resolveBetType(leg.market, sport as Sport);
+        if (marketTypeResult.status === "resolved") {
+          addResolvedValue(resolved.betTypes, sport, marketTypeResult.canonical);
+        }
+      }
+
+      if (!leg.entities?.length) return;
+      leg.entities.forEach((entity) => {
+        if (!entity || typeof entity !== "string") return;
+        if (leg.entityType === "player") {
+          const playerResult = resolvePlayer(entity, { sport: sport as Sport });
+          if (playerResult.status === "resolved") {
+            addResolvedValue(resolved.players, sport, playerResult.canonical);
+          }
+        } else if (leg.entityType === "team") {
+          const teamResult = resolveTeamForSport(entity, sport as Sport);
+          if (teamResult.status === "resolved") {
+            addResolvedValue(resolved.teams, sport, teamResult.canonical);
+          }
+        }
+      });
+    });
+  });
+
+  return resolved;
+};
+
 export const BetsProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
   const [bets, setBets] = useState<Bet[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const { addPlayer, addTeam } = useInputs();
+  const { addPlayer, addTeam, addBetType } = useInputs();
 
   // Undo stack (in-memory only, not persisted)
   const [undoStack, setUndoStack] = useState<UndoEntry[]>([]);
@@ -203,28 +354,22 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
 
   const addBets = useCallback(
     (newBets: Bet[]) => {
-      // Process entities from legs using entityType set by parsers
-      newBets.forEach((bet) => {
-        bet.legs?.forEach((leg) => {
-          if (!leg.entities || !leg.entities.length) return;
-
-          leg.entities.forEach((entity) => {
-            if (!entity || typeof entity !== 'string' || entity.trim().length === 0) return;
-            if (!bet.sport) return;
-            
-            if (leg.entityType === 'player') {
-              addPlayer(bet.sport, entity);
-            } else if (leg.entityType === 'team') {
-              addTeam(bet.sport, entity);
-            }
-          });
-        });
+      const canonicalBets = canonicalizeImportedBets(newBets);
+      const resolvedInputs = collectResolvedImportInputs(canonicalBets);
+      resolvedInputs.players.forEach((playerNames, sport) => {
+        playerNames.forEach((name) => addPlayer(sport, name));
+      });
+      resolvedInputs.teams.forEach((teamNames, sport) => {
+        teamNames.forEach((name) => addTeam(sport, name));
+      });
+      resolvedInputs.betTypes.forEach((types, sport) => {
+        types.forEach((type) => addBetType(sport, type));
       });
 
       let importedCount = 0;
       setBets((prevBets) => {
         const existingBetIds = new Set(prevBets.map((b) => b.id));
-        const trulyNewBets = newBets.filter(
+        const trulyNewBets = canonicalBets.filter(
           (newBet) => !existingBetIds.has(newBet.id)
         );
 
@@ -261,7 +406,7 @@ export const BetsProvider: React.FC<{ children: ReactNode }> = ({
       });
       return importedCount;
     },
-    [addPlayer, addTeam]
+    [addBetType, addPlayer, addTeam]
   );
 
   const updateBet = useCallback((betId: string, updates: Partial<Bet>) => {
