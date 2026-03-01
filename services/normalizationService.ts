@@ -221,6 +221,8 @@ export interface BetTypeData {
   sport: Sport;
   description: string;
   aliases: string[];
+  /** Optional custom display name (e.g., "MVP" instead of "NBA MVP") */
+  displayName?: string;
   /** Phase 4: If true, entity is excluded from resolution */
   disabled?: boolean;
 }
@@ -306,7 +308,9 @@ function isDebugCollisionLoggingEnabled(): boolean {
   }
   if (typeof globalThis !== "undefined" && "localStorage" in globalThis) {
     try {
-      return globalThis.localStorage.getItem("bettracker-log-level") === "debug";
+      return (
+        globalThis.localStorage.getItem("bettracker-log-level") === "debug"
+      );
     } catch {
       return false;
     }
@@ -320,7 +324,7 @@ function emitCollisionLog(
   keyTypes: string[],
   candidates: string[],
   severity: CollisionSeverity,
-  sports?: string[]
+  sports?: string[],
 ) {
   const debugEnabled = isDebugCollisionLoggingEnabled();
   if (severity === "debug" && !debugEnabled) {
@@ -390,7 +394,7 @@ function loadTeams(): TeamData[] {
       if (!Array.isArray(parsed)) {
         console.error(
           "[normalizationService] Invalid teams data in localStorage: expected array, got",
-          typeof parsed
+          typeof parsed,
         );
         return baseSeed;
       }
@@ -405,7 +409,7 @@ function loadTeams(): TeamData[] {
           console.error(
             `[normalizationService] Invalid team data at index ${i}:`,
             "expected {canonical: string, sport: Sport, aliases: string[], abbreviations: string[]}, got",
-            JSON.stringify(item).slice(0, 100)
+            JSON.stringify(item).slice(0, 100),
           );
         }
       }
@@ -413,7 +417,7 @@ function loadTeams(): TeamData[] {
       // If all items were invalid, fall back to base seed
       if (validTeams.length === 0 && parsed.length > 0) {
         console.error(
-          "[normalizationService] All team entries in localStorage were invalid, falling back to base seed"
+          "[normalizationService] All team entries in localStorage were invalid, falling back to base seed",
         );
         return baseSeed;
       }
@@ -423,7 +427,7 @@ function loadTeams(): TeamData[] {
   } catch (error) {
     console.error(
       "[normalizationService] Failed to load teams from localStorage:",
-      error
+      error,
     );
   }
 
@@ -438,31 +442,31 @@ function loadBetTypes(): BetTypeData[] {
   // Combine all bet types for the base seed
   const baseSeed = [
     ...BET_TYPES.map(toBetTypeData),
-    ...MAIN_MARKET_TYPES.map(t => ({
+    ...MAIN_MARKET_TYPES.map((t) => ({
       canonical: t.canonical,
       sport: "Other" as Sport, // Main markets are generic often, but let's default to Other or maybe explicit per type if needed. For now "Other" or generic is fine.
       // Actually MAIN_MARKET_TYPES in referenceData doesn't have sport. Let's use "Other" for generic ones.
       description: t.description,
-      aliases: [...t.aliases]
+      aliases: [...t.aliases],
     })),
-    ...FUTURE_TYPES.map(t => ({
+    ...FUTURE_TYPES.map((t) => ({
       canonical: t.canonical,
       sport: (t.sport || "Other") as Sport,
       description: t.description,
-      aliases: [...t.aliases]
+      aliases: [...t.aliases],
     })),
-    ...PARLAY_TYPES.map(t => ({
+    ...PARLAY_TYPES.map((t) => ({
       canonical: t.canonical,
       sport: "Other" as Sport,
       description: t.description,
-      aliases: [...t.aliases]
-    }))
+      aliases: [...t.aliases],
+    })),
   ];
 
   try {
     // Check for new key first
     let stored = localStorage.getItem(NORMALIZATION_STORAGE_KEYS.BET_TYPES);
-    
+
     // Migration: If new key doesn't exist, check for old key and migrate
     if (!stored) {
       const oldKey = "bettracker-normalization-stattypes";
@@ -472,10 +476,12 @@ function loadBetTypes(): BetTypeData[] {
         localStorage.setItem(NORMALIZATION_STORAGE_KEYS.BET_TYPES, oldStored);
         localStorage.removeItem(oldKey);
         stored = oldStored;
-        console.log("[normalizationService] Migrated bet types from old localStorage key");
+        console.log(
+          "[normalizationService] Migrated bet types from old localStorage key",
+        );
       }
     }
-    
+
     if (stored) {
       const parsed = JSON.parse(stored);
 
@@ -483,7 +489,7 @@ function loadBetTypes(): BetTypeData[] {
       if (!Array.isArray(parsed)) {
         console.error(
           "[normalizationService] Invalid bet types data in localStorage: expected array, got",
-          typeof parsed
+          typeof parsed,
         );
         return baseSeed;
       }
@@ -498,7 +504,7 @@ function loadBetTypes(): BetTypeData[] {
           console.error(
             `[normalizationService] Invalid bet type data at index ${i}:`,
             "expected {canonical: string, sport: Sport, description: string, aliases: string[]}, got",
-            JSON.stringify(item).slice(0, 100)
+            JSON.stringify(item).slice(0, 100),
           );
         }
       }
@@ -506,7 +512,7 @@ function loadBetTypes(): BetTypeData[] {
       // If all items were invalid, fall back to base seed
       if (validBetTypes.length === 0 && parsed.length > 0) {
         console.error(
-          "[normalizationService] All bet type entries in localStorage were invalid, falling back to base seed"
+          "[normalizationService] All bet type entries in localStorage were invalid, falling back to base seed",
         );
         return baseSeed;
       }
@@ -516,7 +522,7 @@ function loadBetTypes(): BetTypeData[] {
   } catch (error) {
     console.error(
       "[normalizationService] Failed to load bet types from localStorage:",
-      error
+      error,
     );
   }
 
@@ -553,7 +559,7 @@ function loadPlayers(): PlayerData[] {
       if (!Array.isArray(parsed)) {
         console.error(
           "[normalizationService] Invalid players data in localStorage: expected array, got",
-          typeof parsed
+          typeof parsed,
         );
         return baseSeed;
       }
@@ -568,7 +574,7 @@ function loadPlayers(): PlayerData[] {
           console.error(
             `[normalizationService] Invalid player data at index ${i}:`,
             "expected {canonical: string, sport: Sport, aliases: string[]}, got",
-            JSON.stringify(item).slice(0, 100)
+            JSON.stringify(item).slice(0, 100),
           );
         }
       }
@@ -576,7 +582,7 @@ function loadPlayers(): PlayerData[] {
       // If all items were invalid, fall back to base seed
       if (validPlayers.length === 0 && parsed.length > 0) {
         console.error(
-          "[normalizationService] All player entries in localStorage were invalid, falling back to base seed"
+          "[normalizationService] All player entries in localStorage were invalid, falling back to base seed",
         );
         return baseSeed;
       }
@@ -586,7 +592,7 @@ function loadPlayers(): PlayerData[] {
   } catch (error) {
     console.error(
       "[normalizationService] Failed to load players from localStorage:",
-      error
+      error,
     );
   }
 
@@ -644,14 +650,20 @@ function buildTeamLookupMap(teams: TeamData[]): Map<string, TeamData> {
   collisionMap.forEach((candidates, key) => {
     const keyTypes = Array.from(collisionKeyTypes.get(key) ?? []);
     const highRisk = keyTypes.includes("canonical");
-    emitCollisionLog("team", key, keyTypes, candidates, highRisk ? "warn" : "debug");
+    emitCollisionLog(
+      "team",
+      key,
+      keyTypes,
+      candidates,
+      highRisk ? "warn" : "debug",
+    );
   });
 
   // Phase 5: Populate ID map
   teamIdMap.clear();
   for (const team of teams) {
     if (team.id) {
-       teamIdMap.set(team.id, team);
+      teamIdMap.set(team.id, team);
     }
   }
 
@@ -665,7 +677,7 @@ function buildTeamLookupMap(teams: TeamData[]): Map<string, TeamData> {
  * Phase 4: Skips disabled entities (they won't resolve during import).
  */
 function buildBetTypeLookupMap(
-  betTypes: BetTypeData[]
+  betTypes: BetTypeData[],
 ): Map<string, BetTypeData> {
   const map = new Map<string, BetTypeData>();
   const collisionMap = new Map<string, string[]>();
@@ -716,7 +728,7 @@ function buildBetTypeLookupMap(
       keyTypes,
       candidates,
       highRisk ? "warn" : "debug",
-      sports
+      sports,
     );
   });
 
@@ -792,7 +804,13 @@ function buildPlayerLookupMap(players: PlayerData[]): Map<string, PlayerData> {
   collisionMap.forEach((candidates, key) => {
     const keyTypes = Array.from(collisionKeyTypes.get(key) ?? []);
     const highRisk = keyTypes.includes("canonical");
-    emitCollisionLog("player", key, keyTypes, candidates, highRisk ? "warn" : "debug");
+    emitCollisionLog(
+      "player",
+      key,
+      keyTypes,
+      candidates,
+      highRisk ? "warn" : "debug",
+    );
   });
 
   return map;
@@ -875,24 +893,24 @@ export function getBaseSeedTeams(): TeamData[] {
 export function getBaseSeedBetTypes(): BetTypeData[] {
   return [
     ...BET_TYPES.map(toBetTypeData),
-    ...MAIN_MARKET_TYPES.map(t => ({
+    ...MAIN_MARKET_TYPES.map((t) => ({
       canonical: t.canonical,
       sport: "Other" as Sport,
       description: t.description,
-      aliases: [...t.aliases]
+      aliases: [...t.aliases],
     })),
-    ...FUTURE_TYPES.map(t => ({
+    ...FUTURE_TYPES.map((t) => ({
       canonical: t.canonical,
       sport: (t.sport || "Other") as Sport,
       description: t.description,
-      aliases: [...t.aliases]
+      aliases: [...t.aliases],
     })),
-    ...PARLAY_TYPES.map(t => ({
+    ...PARLAY_TYPES.map((t) => ({
       canonical: t.canonical,
       sport: "Other" as Sport,
       description: t.description,
-      aliases: [...t.aliases]
-    }))
+      aliases: [...t.aliases],
+    })),
   ];
 }
 
@@ -931,7 +949,7 @@ export function normalizePlayerNameBasic(raw: string): string {
  */
 export function getPlayerInfo(
   playerName: string,
-  context?: { sport?: Sport; team?: string }
+  context?: { sport?: Sport; team?: string },
 ): PlayerData | undefined {
   if (!playerName) return undefined;
 
@@ -968,7 +986,7 @@ export function getPlayerInfo(
 export function generateTeamId(
   sport: Sport,
   abbreviations: string[],
-  canonical: string
+  canonical: string,
 ): string {
   let primaryAbbr = abbreviations.length > 0 ? abbreviations[0] : null;
 
@@ -1006,7 +1024,7 @@ export function getTeamById(id: string): TeamData | undefined {
  */
 export function getPlayerCollision(
   playerName: string,
-  context?: { sport?: Sport }
+  context?: { sport?: Sport },
 ): PlayerData[] | undefined {
   if (!playerName) return undefined;
 
@@ -1049,7 +1067,7 @@ export function getPlayerCollision(
  */
 export function isKnownPlayer(
   playerName: string,
-  context?: { sport?: Sport }
+  context?: { sport?: Sport },
 ): boolean {
   return getPlayerInfo(playerName, context) !== undefined;
 }
@@ -1083,8 +1101,8 @@ export function normalizeTeamName(teamName: string): string {
   // e.g., "PHO Suns" should match "Phoenix Suns"
   const uniqueTeams = Array.from(
     new Map(
-      Array.from(teamLookupMap.values()).map((t) => [t.canonical, t])
-    ).values()
+      Array.from(teamLookupMap.values()).map((t) => [t.canonical, t]),
+    ).values(),
   );
 
   for (const team of uniqueTeams) {
@@ -1125,7 +1143,7 @@ export function normalizeTeamName(teamName: string): string {
  * @returns NormalizationResult with canonical name and optional collision info
  */
 export function normalizeTeamNameWithMeta(
-  teamName: string
+  teamName: string,
 ): NormalizationResult {
   if (!teamName) {
     return { canonical: teamName };
@@ -1158,8 +1176,8 @@ export function normalizeTeamNameWithMeta(
   // e.g., "PHO Suns" should match "Phoenix Suns"
   const uniqueTeams = Array.from(
     new Map(
-      Array.from(teamLookupMap.values()).map((t) => [t.canonical, t])
-    ).values()
+      Array.from(teamLookupMap.values()).map((t) => [t.canonical, t]),
+    ).values(),
   );
 
   for (const team of uniqueTeams) {
@@ -1287,20 +1305,24 @@ export function normalizeBetType(betType: string, sport?: Sport): string {
           Array.from(betTypeLookupMap.values()).map((st) => [
             st.canonical + st.sport,
             st,
-          ])
-        ).values()
+          ]),
+        ).values(),
       );
 
       for (const stat of uniqueStats) {
         if (stat.sport === sport) {
-          if (
-            stat.canonical.toLowerCase() === lowerSearch ||
-            stat.aliases.some((a) => a.toLowerCase() === lowerSearch)
-          ) {
+          // Check if the canonical matches (after normalizing both)
+          if (toLookupKey(stat.canonical) === lowerSearch) {
+            return stat.canonical;
+          }
+          // Check if any alias matches (after normalizing both)
+          if (stat.aliases.some((a) => toLookupKey(a) === lowerSearch)) {
             return stat.canonical;
           }
         }
       }
+      // No sport-specific match found, return original search term
+      return betType.trim();
     }
     return statInfo.canonical;
   }
@@ -1318,7 +1340,7 @@ export function normalizeBetType(betType: string, sport?: Sport): string {
  */
 export function getBetTypeInfo(
   betType: string,
-  sport?: Sport
+  sport?: Sport,
 ): BetTypeData | undefined {
   if (!betType) return undefined;
 
@@ -1336,8 +1358,8 @@ export function getBetTypeInfo(
           Array.from(betTypeLookupMap.values()).map((st) => [
             st.canonical + st.sport,
             st,
-          ])
-        ).values()
+          ]),
+        ).values(),
       );
 
       for (const stat of uniqueStats) {
@@ -1376,8 +1398,8 @@ export function getSportsForBetType(betType: string): Sport[] {
       Array.from(betTypeLookupMap.values()).map((st) => [
         st.canonical + st.sport,
         st,
-      ])
-    ).values()
+      ]),
+    ).values(),
   );
 
   for (const stat of uniqueStats) {

@@ -1,18 +1,20 @@
-
 import React, { useState, useMemo, useEffect } from "react";
-import { useNormalizationData, BetTypeData } from "../../hooks/useNormalizationData";
+import {
+  useNormalizationData,
+  BetTypeData,
+} from "../../hooks/useNormalizationData";
 import { SPORTS, Sport } from "../../data/referenceData";
 import { Plus, X, Lock, Unlock } from "../../components/icons";
 import DenseRow from "./DenseRow";
 import SearchInput from "./SearchInput";
 import { useEntitySearch } from "../../hooks/useEntitySearch";
 
-import { 
-  getBetTypeCategory, 
-  StatCategory, 
+import {
+  getBetTypeCategory,
+  StatCategory,
   MAIN_MARKET_CANONICALS,
   PARLAY_CANONICALS,
-  FUTURE_CANONICALS
+  FUTURE_CANONICALS,
 } from "../../utils/betTypeUtils";
 
 // Sport sub-tab pills - Segmented control style
@@ -50,8 +52,16 @@ const SportPills: React.FC<{
 );
 
 const BetTypesManager: React.FC = () => {
-  const { betTypes, updateBetType, removeBetType, disableBetType, enableBetType, addBetType } = useNormalizationData();
-  const [selectedCategory, setSelectedCategory] = useState<StatCategory>("props");
+  const {
+    betTypes,
+    updateBetType,
+    removeBetType,
+    disableBetType,
+    enableBetType,
+    addBetType,
+  } = useNormalizationData();
+  const [selectedCategory, setSelectedCategory] =
+    useState<StatCategory>("props");
   const [selectedSport, setSelectedSport] = useState<string>("All");
   const [showDisabled, setShowDisabled] = useState(false);
   const [expandedBetType, setExpandedBetType] = useState<string | null>(null);
@@ -61,18 +71,22 @@ const BetTypesManager: React.FC = () => {
 
   // Pre-filter by Category
   const categoryFilteredEntities = useMemo(() => {
-    return betTypes.filter(st => {
+    return betTypes.filter((st) => {
       const category = getBetTypeCategory(st.canonical);
       return category === selectedCategory;
     });
   }, [betTypes, selectedCategory]);
 
   // Use search hook on the category filtered list
-  const { query, setQuery, filteredEntities: filteredBetTypes } = useEntitySearch(
+  const {
+    query,
+    setQuery,
+    filteredEntities: filteredBetTypes,
+  } = useEntitySearch(
     categoryFilteredEntities,
     "",
     selectedSport,
-    showDisabled
+    showDisabled,
   );
 
   // Reset windowing and expansion when filters change
@@ -120,8 +134,8 @@ const BetTypesManager: React.FC = () => {
             { id: "props", label: "Props" },
             { id: "main", label: "Main Markets" },
             { id: "parlay", label: "Parlays" },
-            { id: "future", label: "Futures" }
-          ].map(tab => (
+            { id: "future", label: "Futures" },
+          ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setSelectedCategory(tab.id as StatCategory)}
@@ -141,9 +155,9 @@ const BetTypesManager: React.FC = () => {
       <div className="bg-neutral-50 dark:bg-neutral-800 rounded-lg p-4 mb-4 border border-neutral-200 dark:border-neutral-700">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center space-x-3 flex-1">
-            <SearchInput 
-              value={query} 
-              onChange={setQuery} 
+            <SearchInput
+              value={query}
+              onChange={setQuery}
               placeholder={`Search ${selectedCategory} types...`}
               className="max-w-xs"
             />
@@ -160,7 +174,12 @@ const BetTypesManager: React.FC = () => {
           <button
             onClick={() => {
               setIsAdding(true);
-              setEditForm({ canonical: "", sport: "NBA", aliases: [], description: "" });
+              setEditForm({
+                canonical: "",
+                sport: "NBA",
+                aliases: [],
+                description: "",
+              });
               setExpandedBetType("__new__");
             }}
             className="flex items-center space-x-1.5 px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-all duration-200 shadow-md shadow-primary-600/20 hover:shadow-lg hover:shadow-primary-600/30"
@@ -171,67 +190,79 @@ const BetTypesManager: React.FC = () => {
         </div>
 
         {/* Sport pills */}
-        <SportPills sports={SPORTS} selected={selectedSport} onSelect={setSelectedSport} counts={sportCounts} />
+        <SportPills
+          sports={SPORTS}
+          selected={selectedSport}
+          onSelect={setSelectedSport}
+          counts={sportCounts}
+        />
       </div>
 
       {/* List Container - Card with shadow */}
       <div className="flex-1 min-h-0 overflow-y-auto bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-700 shadow-md">
         <div className="p-2">
-        {isAdding && editForm && (
-          <div className="border-b border-neutral-200 dark:border-neutral-700 bg-blue-50 dark:bg-blue-950/30">
-            <BetTypeEditPanel
-              betType={editForm}
-              onChange={setEditForm}
-              onSave={handleSaveEdit}
-              onCancel={() => {
-                setIsAdding(false);
-                setEditForm(null);
-                setExpandedBetType(null);
-              }}
-              isNew
-            />
-          </div>
-        )}
-        
-        {filteredBetTypes.slice(0, visibleCount).map((betType) => {
-          const rowKey = `${betType.canonical}::${betType.sport}`;
-          // Note: betType doesn't have a stable id yet, so we use the original key
-          // but wrap updates to preserve expansion. For now, key on canonical::sport.
-          return (
-            <DenseRow
-              key={rowKey}
-              name={betType.canonical}
-              subtitle={betType.sport}
-              aliasCount={betType.aliases.length}
-              disabled={betType.disabled}
-              expanded={expandedBetType === rowKey}
-              onToggleExpand={() => setExpandedBetType(expandedBetType === rowKey ? null : rowKey)}
-              onDisable={() => disableBetType(betType.canonical, betType.sport)}
-              onEnable={() => enableBetType(betType.canonical, betType.sport)}
-              onDelete={() => removeBetType(betType.canonical)}
-            >
+          {isAdding && editForm && (
+            <div className="border-b border-neutral-200 dark:border-neutral-700 bg-blue-50 dark:bg-blue-950/30">
               <BetTypeEditPanel
-                betType={betType}
-                onChange={(updated) => updateBetType(betType.canonical, updated)}
-                onSave={() => setExpandedBetType(null)}
-                onCancel={() => setExpandedBetType(null)}
+                betType={editForm}
+                onChange={setEditForm}
+                onSave={handleSaveEdit}
+                onCancel={() => {
+                  setIsAdding(false);
+                  setEditForm(null);
+                  setExpandedBetType(null);
+                }}
+                isNew
               />
-            </DenseRow>
-          );
-        })}
+            </div>
+          )}
 
-        {filteredBetTypes.length === 0 && !isAdding ? (
-          <div className="p-8 text-center text-neutral-500 dark:text-neutral-400 text-sm">
-            No bet types found in this category.
-          </div>
-        ) : filteredBetTypes.length > visibleCount ? (
-          <button
-            onClick={handleLoadMore}
-            className="w-full py-3 text-sm text-primary-600 dark:text-primary-400 hover:bg-neutral-50 dark:hover:bg-neutral-800 font-medium transition-colors border-t border-neutral-100 dark:border-neutral-800"
-          >
-            Show {Math.min(50, filteredBetTypes.length - visibleCount)} more... ({filteredBetTypes.length - visibleCount} remaining)
-          </button>
-        ) : null}
+          {filteredBetTypes.slice(0, visibleCount).map((betType) => {
+            const rowKey = `${betType.canonical}::${betType.sport}`;
+            // Note: betType doesn't have a stable id yet, so we use the original key
+            // but wrap updates to preserve expansion. For now, key on canonical::sport.
+            return (
+              <DenseRow
+                key={rowKey}
+                name={betType.canonical}
+                subtitle={betType.sport}
+                aliasCount={betType.aliases.length}
+                disabled={betType.disabled}
+                expanded={expandedBetType === rowKey}
+                onToggleExpand={() =>
+                  setExpandedBetType(expandedBetType === rowKey ? null : rowKey)
+                }
+                onDisable={() =>
+                  disableBetType(betType.canonical, betType.sport)
+                }
+                onEnable={() => enableBetType(betType.canonical, betType.sport)}
+                onDelete={() => removeBetType(betType.canonical)}
+              >
+                <BetTypeEditPanel
+                  betType={betType}
+                  onChange={(updated) =>
+                    updateBetType(betType.canonical, updated)
+                  }
+                  onSave={() => setExpandedBetType(null)}
+                  onCancel={() => setExpandedBetType(null)}
+                />
+              </DenseRow>
+            );
+          })}
+
+          {filteredBetTypes.length === 0 && !isAdding ? (
+            <div className="p-8 text-center text-neutral-500 dark:text-neutral-400 text-sm">
+              No bet types found in this category.
+            </div>
+          ) : filteredBetTypes.length > visibleCount ? (
+            <button
+              onClick={handleLoadMore}
+              className="w-full py-3 text-sm text-primary-600 dark:text-primary-400 hover:bg-neutral-50 dark:hover:bg-neutral-800 font-medium transition-colors border-t border-neutral-100 dark:border-neutral-800"
+            >
+              Show {Math.min(50, filteredBetTypes.length - visibleCount)}{" "}
+              more... ({filteredBetTypes.length - visibleCount} remaining)
+            </button>
+          ) : null}
         </div>
       </div>
     </div>
@@ -248,6 +279,21 @@ const BetTypeEditPanel: React.FC<{
 }> = ({ betType, onChange, onSave, onCancel, isNew }) => {
   const [newAlias, setNewAlias] = useState("");
   const [isLocked, setIsLocked] = useState(!isNew);
+  const [localBetType, setLocalBetType] = useState(betType);
+  const [hasChanges, setHasChanges] = useState(false);
+
+  // Track changes
+  const handleChange = (updated: BetTypeData) => {
+    setLocalBetType(updated);
+    setHasChanges(true);
+  };
+
+  const handleSave = () => {
+    if (hasChanges || isNew) {
+      onChange(localBetType);
+    }
+    onSave();
+  };
 
   // Prevent keyboard events from bubbling up when editing
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -255,14 +301,16 @@ const BetTypeEditPanel: React.FC<{
   };
 
   return (
-    <div 
+    <div
       className={`space-y-3 ${isNew ? "p-4 bg-blue-50 dark:bg-blue-950/50 rounded-lg border border-blue-200 dark:border-blue-900" : ""}`}
       onKeyDown={handleKeyDown}
       onClick={(e) => e.stopPropagation()}
     >
       <div className="grid grid-cols-2 gap-3">
         <div className="relative">
-          <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-1">Canonical Name</label>
+          <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-1">
+            Canonical Name
+          </label>
           {!isNew && (
             <button
               type="button"
@@ -272,19 +320,25 @@ const BetTypeEditPanel: React.FC<{
                 setIsLocked(!isLocked);
               }}
               className={`absolute top-0 right-0 p-0.5 rounded border transition-colors ${
-                isLocked 
-                  ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-500 border-transparent hover:bg-neutral-200 dark:hover:bg-neutral-700" 
+                isLocked
+                  ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-500 border-transparent hover:bg-neutral-200 dark:hover:bg-neutral-700"
                   : "bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border-neutral-300 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-700"
               }`}
               title={isLocked ? "Unlock to edit" : "Lock to prevent changes"}
             >
-              {isLocked ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
+              {isLocked ? (
+                <Lock className="w-3 h-3" />
+              ) : (
+                <Unlock className="w-3 h-3" />
+              )}
             </button>
           )}
           <input
             type="text"
-            value={betType.canonical}
-            onChange={(e) => onChange({ ...betType, canonical: e.target.value })}
+            value={localBetType.canonical}
+            onChange={(e) =>
+              handleChange({ ...localBetType, canonical: e.target.value })
+            }
             onKeyDown={handleKeyDown}
             disabled={!isNew && isLocked}
             className="w-full px-2 py-1.5 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-800 disabled:bg-neutral-50 dark:disabled:bg-neutral-800/50 disabled:text-neutral-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors"
@@ -292,23 +346,53 @@ const BetTypeEditPanel: React.FC<{
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-1">Sport</label>
+          <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-1">
+            Sport
+          </label>
           <select
-            value={betType.sport}
-            onChange={(e) => onChange({ ...betType, sport: e.target.value as Sport })}
+            value={localBetType.sport}
+            onChange={(e) =>
+              handleChange({ ...localBetType, sport: e.target.value as Sport })
+            }
             onKeyDown={handleKeyDown}
             disabled={!isNew && isLocked}
             className="w-full px-2 py-1.5 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-800 disabled:bg-neutral-50 dark:disabled:bg-neutral-800/50 disabled:text-neutral-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors"
           >
             {SPORTS.map((s) => (
-              <option key={s} value={s}>{s}</option>
+              <option key={s} value={s}>
+                {s}
+              </option>
             ))}
           </select>
         </div>
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-1">Aliases</label>
+        <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-1">
+          Display Name{" "}
+          <span className="text-neutral-500 font-normal">
+            (optional, overrides sport-stripped name)
+          </span>
+        </label>
+        <input
+          type="text"
+          value={localBetType.displayName || ""}
+          onChange={(e) =>
+            handleChange({
+              ...localBetType,
+              displayName: e.target.value || undefined,
+            })
+          }
+          onKeyDown={handleKeyDown}
+          className="w-full px-2 py-1.5 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-800 focus:ring-1 focus:ring-primary-500 outline-none transition-colors"
+          placeholder={`e.g., "MVP" (defaults to "${localBetType.canonical.startsWith(localBetType.sport + " ") ? localBetType.canonical.substring(localBetType.sport.length + 1) : localBetType.canonical}")`}
+        />
+      </div>
+
+      <div>
+        <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-1">
+          Aliases
+        </label>
         <div className="flex gap-2 mb-1.5">
           <input
             type="text"
@@ -318,8 +402,11 @@ const BetTypeEditPanel: React.FC<{
               e.stopPropagation(); // Prevent bubbling first
               if (e.key === "Enter" && newAlias.trim()) {
                 e.preventDefault();
-                if (!betType.aliases.includes(newAlias.trim())) {
-                  onChange({ ...betType, aliases: [...betType.aliases, newAlias.trim()] });
+                if (!localBetType.aliases.includes(newAlias.trim())) {
+                  handleChange({
+                    ...localBetType,
+                    aliases: [...localBetType.aliases, newAlias.trim()],
+                  });
                 }
                 setNewAlias("");
               }
@@ -329,8 +416,14 @@ const BetTypeEditPanel: React.FC<{
           />
           <button
             onClick={() => {
-              if (newAlias.trim() && !betType.aliases.includes(newAlias.trim())) {
-                onChange({ ...betType, aliases: [...betType.aliases, newAlias.trim()] });
+              if (
+                newAlias.trim() &&
+                !localBetType.aliases.includes(newAlias.trim())
+              ) {
+                handleChange({
+                  ...localBetType,
+                  aliases: [...localBetType.aliases, newAlias.trim()],
+                });
                 setNewAlias("");
               }
             }}
@@ -340,14 +433,19 @@ const BetTypeEditPanel: React.FC<{
           </button>
         </div>
         <div className="flex flex-wrap gap-1">
-          {betType.aliases.map((alias) => (
+          {localBetType.aliases.map((alias) => (
             <span
               key={alias}
               className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 rounded"
             >
               {alias}
               <button
-                onClick={() => onChange({ ...betType, aliases: betType.aliases.filter((a) => a !== alias) })}
+                onClick={() =>
+                  handleChange({
+                    ...localBetType,
+                    aliases: localBetType.aliases.filter((a) => a !== alias),
+                  })
+                }
                 className="hover:text-red-500"
               >
                 <X className="w-3 h-3" />
@@ -362,17 +460,15 @@ const BetTypeEditPanel: React.FC<{
           onClick={onCancel}
           className="px-3 py-1 text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200"
         >
-          {isNew ? "Cancel" : "Close"}
+          Cancel
         </button>
-        {isNew && (
-          <button
-            onClick={onSave}
-            disabled={!betType.canonical.trim()}
-            className="px-3 py-1 text-sm bg-primary-600 text-white rounded hover:bg-primary-700 disabled:bg-neutral-400 transition-colors shadow-sm"
-          >
-            Save Bet Type
-          </button>
-        )}
+        <button
+          onClick={handleSave}
+          disabled={!localBetType.canonical.trim()}
+          className="px-3 py-1 text-sm bg-primary-600 text-white rounded hover:bg-primary-700 disabled:bg-neutral-400 transition-colors shadow-sm"
+        >
+          {isNew ? "Save Bet Type" : "Save Changes"}
+        </button>
       </div>
     </div>
   );

@@ -22,15 +22,13 @@ import {
   abbreviateMarket,
   normalizeCategoryForDisplay,
 } from "../services/marketClassification";
+import { FUTURES_TYPES } from "../services/marketClassification.config";
 import {
   MAIN_MARKET_TYPES,
   FUTURE_TYPES,
   PARLAY_TYPES,
 } from "../data/referenceData";
-import {
-  getBetTypeCategory,
-  StatCategory,
-} from "../utils/betTypeUtils";
+import { getBetTypeCategory, StatCategory } from "../utils/betTypeUtils";
 import {
   formatDateShort,
   formatOdds,
@@ -48,7 +46,11 @@ import {
   generateUnresolvedItemId,
   removeFromUnresolvedQueue,
 } from "../services/unresolvedQueue";
-import { resolvePlayer, resolveTeamForSport, resolveBetType } from "../services/resolver";
+import {
+  resolvePlayer,
+  resolveTeamForSport,
+  resolveBetType,
+} from "../services/resolver";
 import { getReferenceDataSnapshot } from "../services/normalizationService";
 import type {
   UnresolvedEntityType,
@@ -170,7 +172,7 @@ const DateCell: React.FC<{
   initialValue?: string;
 }> = ({ value, onSave, onExit, isFocused, inputRef, initialValue }) => {
   const [text, setText] = useState(
-    initialValue ? formatMMDDInput(initialValue) : value
+    initialValue ? formatMMDDInput(initialValue) : value,
   );
   const internalRef = useRef<HTMLInputElement>(null);
   const ref = inputRef || internalRef;
@@ -211,17 +213,17 @@ const DateCell: React.FC<{
     const raw = e.target.value;
     // Handle backspace properly (if length decreased, don't force format immediately?
     // Actually formatMMDDInput handles raw digits. We should strip non-digits first.)
-    
+
     // Check if backspace was likely used (length checks might be flaky with selection)
     // Simple approach: Always re-format raw digits.
     // If user deleted the slash, it will be gone from raw digits, so re-adding it depends on length.
-    
+
     // NOTE: A better approach for "user deleted slash" is usually:
     // If stripped digits are same as before but slash gone -> keep it?
     // But safely: just strip non-digits and re-format.
     // If user hits backspace on "01/1", they get "01/".
     // 01/ -> digits "01" -> format "01" (slash removed). Correct.
-    
+
     const formatted = formatMMDDInput(raw);
     setText(formatted);
   };
@@ -385,7 +387,7 @@ const TypableDropdown: React.FC<{
   value: string;
   onSave: (newValue: string) => void;
   options: string[];
-  optionData?: DropdownOption[];  // Rich options with aliases for smart search
+  optionData?: DropdownOption[]; // Rich options with aliases for smart search
   className?: string;
   isFocused?: boolean;
   onFocus?: () => void;
@@ -414,7 +416,7 @@ const TypableDropdown: React.FC<{
   const [text, setText] = useState(initialQuery || value || "");
   const [isOpen, setIsOpen] = useState(!!initialQuery); // Open immediately if type-to-edit
   const [highlightedIndex, setHighlightedIndex] = useState(
-    initialQuery ? 0 : -1
+    initialQuery ? 0 : -1,
   ); // Pre-highlight first match
   const [filterText, setFilterText] = useState(initialQuery || ""); // Start filtering if type-to-edit
   const internalRef = useRef<HTMLInputElement>(null);
@@ -508,21 +510,28 @@ const TypableDropdown: React.FC<{
     if (useRichOptions) return [];
     if (!filterText) return uniqueOptions; // Show all options when filter is empty
     const lowerFilter = filterText.toLowerCase();
-    return uniqueOptions.filter((opt) => opt && opt.toLowerCase().includes(lowerFilter));
+    return uniqueOptions.filter(
+      (opt) => opt && opt.toLowerCase().includes(lowerFilter),
+    );
   }, [filterText, uniqueOptions, useRichOptions]);
 
   // Unified filtered options for rendering
-  const filteredOptions = useRichOptions ? filteredRichOptions : filteredSimpleOptions;
+  const filteredOptions = useRichOptions
+    ? filteredRichOptions
+    : filteredSimpleOptions;
 
   // Check if a value is valid (exists in options)
-  const isValidOption = useCallback((val: string): boolean => {
-    if (useRichOptions) {
-      return optionData!.some(
-        (opt) => opt.value.toLowerCase() === val.toLowerCase()
-      );
-    }
-    return options.includes(val);
-  }, [useRichOptions, optionData, options]);
+  const isValidOption = useCallback(
+    (val: string): boolean => {
+      if (useRichOptions) {
+        return optionData!.some(
+          (opt) => opt.value.toLowerCase() === val.toLowerCase(),
+        );
+      }
+      return options.includes(val);
+    },
+    [useRichOptions, optionData, options],
+  );
 
   const handleBlur = () => {
     // Close dropdown on blur (with delay to allow click events)
@@ -576,13 +585,20 @@ const TypableDropdown: React.FC<{
 
       // Get the value to select based on highlighted index
       const getSelectedValue = (): string | null => {
-        if (highlightedIndex >= 0 && highlightedIndex < filteredOptions.length) {
+        if (
+          highlightedIndex >= 0 &&
+          highlightedIndex < filteredOptions.length
+        ) {
           const opt = filteredOptions[highlightedIndex];
-          return useRichOptions ? (opt as DropdownOption).value : (opt as string);
+          return useRichOptions
+            ? (opt as DropdownOption).value
+            : (opt as string);
         }
         if (filteredOptions.length > 0 && filterText) {
           const opt = filteredOptions[0];
-          return useRichOptions ? (opt as DropdownOption).value : (opt as string);
+          return useRichOptions
+            ? (opt as DropdownOption).value
+            : (opt as string);
         }
         return null;
       };
@@ -619,7 +635,7 @@ const TypableDropdown: React.FC<{
         setIsOpen(true);
       } else {
         setHighlightedIndex((prev) =>
-          prev < filteredOptions.length - 1 ? prev + 1 : prev
+          prev < filteredOptions.length - 1 ? prev + 1 : prev,
         );
       }
       return;
@@ -646,7 +662,10 @@ const TypableDropdown: React.FC<{
   };
 
   // Render option display text
-  const renderOptionText = (opt: DropdownOption | string, index: number): string => {
+  const renderOptionText = (
+    opt: DropdownOption | string,
+    index: number,
+  ): string => {
     if (useRichOptions) {
       return formatOptionDisplay(opt as DropdownOption);
     }
@@ -679,7 +698,12 @@ const TypableDropdown: React.FC<{
         onBlur={handleBlur}
         onKeyDown={handleKeyDownInternal}
         className={`bg-transparent w-full p-0 m-0 border-none focus:ring-0 focus:outline-none focus:bg-neutral-100 dark:focus:bg-neutral-800 rounded text-sm max-w-full min-w-0 !cursor-default ${className}`}
-        style={{ boxSizing: "border-box", maxWidth: "100%", minWidth: 0, cursor: "default" }}
+        style={{
+          boxSizing: "border-box",
+          maxWidth: "100%",
+          minWidth: 0,
+          cursor: "default",
+        }}
         placeholder={placeholder}
         autoFocus={isFocused}
       />
@@ -722,7 +746,6 @@ const TypableDropdown: React.FC<{
     </div>
   );
 };
-
 
 // Result Cell - uses TypableDropdown for typeahead support
 const ResultCell: React.FC<{
@@ -898,7 +921,7 @@ const BetTableView: React.FC = () => {
   const [selectionRange, setSelectionRange] = useState<SelectionRange>(null);
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectionAnchor, setSelectionAnchor] = useState<CellCoordinate | null>(
-    null
+    null,
   );
   const [dragFillData, setDragFillData] = useState<{
     start: CellCoordinate;
@@ -917,7 +940,6 @@ const BetTableView: React.FC = () => {
   >(null);
   const [showClearFieldsModal, setShowClearFieldsModal] = useState(false);
   const [fieldsToToggle, setFieldsToToggle] = useState<Set<string>>(new Set());
-  
 
   // Quick Add Tail state
   const [resolvingTailItem, setResolvingTailItem] = useState<{
@@ -938,7 +960,7 @@ const BetTableView: React.FC = () => {
 
   // Phase 1.1: Delete confirmation state
   const [pendingDeleteIds, setPendingDeleteIds] = useState<string[] | null>(
-    null
+    null,
   );
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -946,7 +968,7 @@ const BetTableView: React.FC = () => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cellRefs = useRef<Map<string, React.RefObject<HTMLInputElement>>>(
-    new Map()
+    new Map(),
   );
 
   // Handle scrollbar visibility - show while scrolling, hide after delay
@@ -990,7 +1012,7 @@ const BetTableView: React.FC = () => {
   useEffect(() => {
     localStorage.setItem(
       "bettracker-expanded-parlays",
-      JSON.stringify(Array.from(expandedParlays))
+      JSON.stringify(Array.from(expandedParlays)),
     );
   }, [expandedParlays]);
 
@@ -1009,10 +1031,13 @@ const BetTableView: React.FC = () => {
   }, []);
 
   const siteShortNameMap = useMemo(() => {
-    return sportsbooks.reduce((acc, book) => {
-      acc[book.name] = book.abbreviation;
-      return acc;
-    }, {} as Record<SportsbookName, string>);
+    return sportsbooks.reduce(
+      (acc, book) => {
+        acc[book.name] = book.abbreviation;
+        return acc;
+      },
+      {} as Record<SportsbookName, string>,
+    );
   }, [sportsbooks]);
 
   const flattenedBets = useMemo(() => {
@@ -1030,34 +1055,34 @@ const BetTableView: React.FC = () => {
           finalRow._rawBet !== undefined
             ? finalRow._rawBet
             : finalRow.Bet
-            ? parseFloat(finalRow.Bet) || 0
-            : 0;
+              ? parseFloat(finalRow.Bet) || 0
+              : 0;
         const toWinAmount =
           finalRow._rawToWin !== undefined
             ? finalRow._rawToWin
             : finalRow["To Win"]
-            ? parseFloat(finalRow["To Win"]) || 0
-            : 0;
+              ? parseFloat(finalRow["To Win"]) || 0
+              : 0;
         const netAmount =
           finalRow._rawNet !== undefined
             ? finalRow._rawNet
             : finalRow.Net
-            ? parseFloat(finalRow.Net) || 0
-            : 0;
+              ? parseFloat(finalRow.Net) || 0
+              : 0;
         const oddsValue =
           finalRow._rawOdds !== undefined
             ? finalRow._rawOdds
             : finalRow.Odds
-            ? parseFloat(finalRow.Odds.replace("+", ""))
-            : undefined;
+              ? parseFloat(finalRow.Odds.replace("+", ""))
+              : undefined;
 
         // Parse Over/Under
         const ou =
           finalRow.Over === "1"
             ? ("Over" as const)
             : finalRow.Under === "1"
-            ? ("Under" as const)
-            : undefined;
+              ? ("Under" as const)
+              : undefined;
 
         // Parse Result
         const result = finalRow.Result.toLowerCase() as BetResult;
@@ -1118,7 +1143,7 @@ const BetTableView: React.FC = () => {
 
       updateBet(betId, { legs: newLegs });
     },
-    [bets, updateBet]
+    [bets, updateBet],
   );
 
   // Very basic entity detection for auto-add
@@ -1163,16 +1188,18 @@ const BetTableView: React.FC = () => {
       "threes",
     ];
     const isTeamMarket = teamMarketKeywords.some((keyword) =>
-      lowerMarket.includes(keyword)
+      lowerMarket.includes(keyword),
     );
     const isPlayerMarket = playerMarketKeywords.some((keyword) =>
-      lowerMarket.includes(keyword)
+      lowerMarket.includes(keyword),
     );
 
     // Determine entity type and check resolver status before adding to suggestions
     if (isPlayerMarket && !isTeamMarket) {
       // Check if player is resolved before adding to suggestions
-      const playerResult = resolvePlayer(trimmedEntity, { sport: sport as Sport });
+      const playerResult = resolvePlayer(trimmedEntity, {
+        sport: sport as Sport,
+      });
       if (playerResult.status === "resolved") {
         addPlayer(sport, playerResult.canonical);
       }
@@ -1193,7 +1220,9 @@ const BetTableView: React.FC = () => {
           addTeam(sport, teamResult.canonical);
         }
       } else {
-        const playerResult = resolvePlayer(trimmedEntity, { sport: sport as Sport });
+        const playerResult = resolvePlayer(trimmedEntity, {
+          sport: sport as Sport,
+        });
         if (playerResult.status === "resolved") {
           addPlayer(sport, playerResult.canonical);
         }
@@ -1208,7 +1237,7 @@ const BetTableView: React.FC = () => {
   const getNameResolutionStatus = useCallback(
     (
       name: string,
-      sport: string
+      sport: string,
     ): { status: "resolved" | "ambiguous" | "unresolved"; name: string } => {
       if (!name || !name.trim() || !sport || !sport.trim()) {
         return { status: "resolved", name };
@@ -1259,7 +1288,7 @@ const BetTableView: React.FC = () => {
       // Neither resolved nor ambiguous - unresolved
       return { status: "unresolved", name: trimmedName };
     },
-    [teams, players, resolverVersion]
+    [teams, players, resolverVersion],
   );
 
   // Legacy helper for simple boolean check (used in handleNameCommitWithQueue)
@@ -1268,7 +1297,7 @@ const BetTableView: React.FC = () => {
       const result = getNameResolutionStatus(name, sport);
       return result.status !== "resolved";
     },
-    [getNameResolutionStatus]
+    [getNameResolutionStatus],
   );
 
   const normalizeNameForComparison = (value?: string): string =>
@@ -1280,7 +1309,7 @@ const BetTableView: React.FC = () => {
       val: string,
       row: FlatBet,
       legIndex: number | null,
-      prevValue?: string
+      prevValue?: string,
     ) => {
       const trimmedNext = val.trim();
       const trimmedPrev = (prevValue || "").trim();
@@ -1295,7 +1324,7 @@ const BetTableView: React.FC = () => {
         const prevQueueId = generateUnresolvedItemId(
           trimmedPrev,
           row.betId,
-          resolvedLegIndex
+          resolvedLegIndex,
         );
         removeFromUnresolvedQueue([prevQueueId]);
       }
@@ -1323,7 +1352,7 @@ const BetTableView: React.FC = () => {
           "to win",
         ];
         const isTeamMarket = teamMarketKeywords.some((keyword) =>
-          lowerMarket.includes(keyword)
+          lowerMarket.includes(keyword),
         );
 
         const entityType: UnresolvedEntityType = isTeamMarket
@@ -1335,7 +1364,7 @@ const BetTableView: React.FC = () => {
           id: generateUnresolvedItemId(
             trimmedNext,
             row.betId,
-            resolvedLegIndex
+            resolvedLegIndex,
           ),
           rawValue: trimmedNext,
           entityType: entityType,
@@ -1351,7 +1380,7 @@ const BetTableView: React.FC = () => {
         addToUnresolvedQueue([queueItem]);
       }
     },
-    [autoAddEntity, getNameResolutionStatus]
+    [autoAddEntity, getNameResolutionStatus],
   );
 
   // Handler to open resolution modal
@@ -1359,7 +1388,7 @@ const BetTableView: React.FC = () => {
     (
       row: FlatBet,
       legIndex: number | null,
-      entityTypeOverride?: UnresolvedEntityType
+      entityTypeOverride?: UnresolvedEntityType,
     ) => {
       let entityType: UnresolvedEntityType = "player";
 
@@ -1389,7 +1418,7 @@ const BetTableView: React.FC = () => {
       });
       setResolutionMode("map");
     },
-    []
+    [],
   );
 
   // Handler for map confirmation
@@ -1412,13 +1441,13 @@ const BetTableView: React.FC = () => {
       const queueId = generateUnresolvedItemId(
         item.rawValue,
         resolvingNameItem.row.betId,
-        resolvingNameItem.legIndex ?? 0
+        resolvingNameItem.legIndex ?? 0,
       );
       removeFromUnresolvedQueue([queueId]);
 
       setResolvingNameItem(null);
     },
-    [resolvingNameItem, addTeamAlias, addPlayerAlias, addTeam, addPlayer]
+    [resolvingNameItem, addTeamAlias, addPlayerAlias, addTeam, addPlayer],
   );
 
   // Handler for create confirmation
@@ -1432,7 +1461,7 @@ const BetTableView: React.FC = () => {
         teamId?: string;
         description?: string;
         abbreviations?: string[];
-      }
+      },
     ) => {
       if (!resolvingNameItem) return;
 
@@ -1456,7 +1485,7 @@ const BetTableView: React.FC = () => {
         let teamName: string | undefined = undefined;
         if (extraData?.teamId) {
           const foundTeam = normalizationTeams.find(
-            (t) => t.id === extraData?.teamId
+            (t) => t.id === extraData?.teamId,
           );
           if (foundTeam) teamName = foundTeam.canonical;
         }
@@ -1477,7 +1506,7 @@ const BetTableView: React.FC = () => {
       const queueId = generateUnresolvedItemId(
         item.rawValue,
         resolvingNameItem.row.betId,
-        resolvingNameItem.legIndex ?? 0
+        resolvingNameItem.legIndex ?? 0,
       );
       removeFromUnresolvedQueue([queueId]);
 
@@ -1490,7 +1519,7 @@ const BetTableView: React.FC = () => {
       normalizationTeams,
       addTeam,
       addPlayer,
-    ]
+    ],
   );
 
   const availableTypes = useMemo(() => {
@@ -1505,8 +1534,8 @@ const BetTableView: React.FC = () => {
     const types = availableTypes.map((type) =>
       abbreviateMarket(
         type,
-        filters.sport === "all" ? undefined : filters.sport
-      )
+        filters.sport === "all" ? undefined : filters.sport,
+      ),
     );
     return types;
   }, [availableTypes, filters.sport]);
@@ -1517,21 +1546,21 @@ const BetTableView: React.FC = () => {
       const types = betTypes[sport] || [];
       return types.map((type) => abbreviateMarket(type, sport));
     },
-    [betTypes]
+    [betTypes],
   );
 
   const availableSites = useMemo(
     () => sportsbooks.map((b) => b.abbreviation).sort(),
-    [sportsbooks]
+    [sportsbooks],
   );
 
   // Site option data for alias-aware typeahead search
   // Users can type "DraftKings" or "Draft" and it matches DK
   const siteOptionData = useMemo((): DropdownOption[] => {
     return sportsbooks.map((book) => ({
-      value: book.abbreviation,  // Stored in cell (e.g., "DK")
-      label: book.name,          // Human-readable (e.g., "DraftKings")
-      aliases: book.aliases || [book.name.toLowerCase()],  // Search terms
+      value: book.abbreviation, // Stored in cell (e.g., "DK")
+      label: book.name, // Human-readable (e.g., "DraftKings")
+      aliases: book.aliases || [book.name.toLowerCase()], // Search terms
     }));
   }, [sportsbooks]);
   // Create a reverse map from abbreviation to full name for saving
@@ -1554,7 +1583,7 @@ const BetTableView: React.FC = () => {
       types: (sport: string, category: string = "") => {
         // Map row category to stat category bucket
         const targetCat = mapToStatCategory(category);
-        
+
         // Only include resolved bet types from normalization service
         const snapshot = getReferenceDataSnapshot();
 
@@ -1570,23 +1599,25 @@ const BetTableView: React.FC = () => {
           const cat = getBetTypeCategory(t.canonical);
           return cat === targetCat;
         });
-        
-        const typeValues = scopedTypes.map(t => abbreviateMarket(t.canonical));
+
+        const typeValues = scopedTypes.map((t) =>
+          abbreviateMarket(t.canonical),
+        );
 
         // 2. Add System Types (Main Markets, Futures, Parlays) based on category
         if (targetCat === "main") {
-          typeValues.push(...MAIN_MARKET_TYPES.map(t => t.canonical));
+          typeValues.push(...MAIN_MARKET_TYPES.map((t) => t.canonical));
         } else if (targetCat === "parlay") {
-           typeValues.push(...PARLAY_TYPES.map(t => t.canonical));
+          typeValues.push(...PARLAY_TYPES.map((t) => t.canonical));
         } else if (targetCat === "future") {
-           // Futures are sport-scoped too
-           const validFutures = FUTURE_TYPES.filter(t => 
-             !t.sport || t.sport === sport || t.sport === "Other"
-           );
-           typeValues.push(...validFutures.map(t => t.canonical));
+          // Futures are sport-scoped too
+          const validFutures = FUTURE_TYPES.filter(
+            (t) => !t.sport || t.sport === sport || t.sport === "Other",
+          );
+          typeValues.push(...validFutures.map((t) => t.canonical));
         }
 
-        const unique = new Set(typeValues.map(t => abbreviateMarket(t)));
+        const unique = new Set(typeValues.map((t) => abbreviateMarket(t)));
         return Array.from(unique).sort();
       },
       players: (sport: string) => {
@@ -1612,13 +1643,7 @@ const BetTableView: React.FC = () => {
         return Array.from(all).sort();
       },
     }),
-    [
-      sports,
-      availableSites,
-      displayCategories,
-      betTypes,
-      resolverVersion,
-    ]
+    [sports, availableSites, displayCategories, betTypes, resolverVersion],
   );
 
   const tailSuggestions = useMemo(() => {
@@ -1639,11 +1664,11 @@ const BetTableView: React.FC = () => {
 
       // 1. Filter Input Manager Bet Types by Sport + Category
       const propTypes = snapshot.betTypes.filter((t) => {
-         const sportMatch = t.sport === sport || t.sport === "Other";
-         if (!sportMatch) return false;
-         
-         const cat = getBetTypeCategory(t.canonical);
-         return cat === targetCat;
+        const sportMatch = t.sport === sport || t.sport === "Other";
+        if (!sportMatch) return false;
+
+        const cat = getBetTypeCategory(t.canonical);
+        return cat === targetCat;
       });
 
       // Build options from scoped bet types
@@ -1654,102 +1679,90 @@ const BetTableView: React.FC = () => {
       }));
 
       // 2. Add System Types (Main, Futures, Parlays) based on category
-      const addSystemTypes = (source: Record<string, {canonical: string, aliases: string[]}>) => {
+      const addSystemTypes = (
+        source: Record<string, { canonical: string; aliases: string[] }>,
+      ) => {
         Object.entries(source).forEach(([key, val]) => {
-           // Avoid dupes
-           if (!options.some(o => o.value === val.canonical)) {
-             options.push({ 
-               value: val.canonical, 
-               label: key, // The key in the object is usually the friendly name in previous map, but wait..
-               // MAIN_MARKET_TYPES is array in referenceData but imported as... wait.
-               // Check imports. MAIN_MARKET_TYPES is imported from marketClassification.config.
-               // Let's assume it's the config object mapping Key->Canonical? 
-               // Actually in referenceData it is an array. 
-               // In marketClassification.config it might be object. 
-               // Checking import... "MAIN_MARKET_TYPES" from services/marketClassification.config
-               // Let's assume it matches the structure used previously: "Object.values(MAIN_MARKET_TYPES)" implies it might be an object or array.
-               // Previous code: Object.entries(MAIN_MARKET_TYPES).forEach(([key, value]) => ... options.push({ value, label: key ... })
-               // So key=Label (Moneyline), value=Canonical (Moneyline)?
-               // Actually, let's look at the previous implementation I'm replacing (lines 1622-1626)
-               // It treated it as Object.entries.
-               // But `referenceData.ts` exports `MAIN_MARKET_TYPES` as an ARRAY.
-               // Check `marketClassification.config.ts`.
-               // I will stick to what the previous code did, but safer.
-               // Previous: Object.entries(MAIN_MARKET_TYPES)
-               // If it's an array, keys are indices "0", "1". That would be bad for labels.
-               // I'll assume the import re-maps it to an object or I should verify the import source file.
-               // Wait, line 26 imported it.
-               // Let's look at line 1622 again.
-               // `Object.entries(FUTURES_TYPES)` was also used.
-               // Use standard loop for safety if I'm unsure, or stick to the Object.entries pattern if I trust the previous code.
-               // Previous code was:
-               // Object.entries(MAIN_MARKET_TYPES).forEach(([key, value]) => { ... value is string? })
-               // Let's assume it is an object mapping Label -> Canonical String.
-               
-               // But wait, I need to include aliases. 
-               // The previous code: `aliases: [key.toLowerCase()]`. That's weak. input manager has real aliases.
-               // Ideally I should use the referenceData constants directly if possible, but I imported from config.
-               // Let's use a cleaner approach closer to 1622 but scoped.
-               // Actually, `marketClassification.config.ts` likely exports simple string maps. 
-               // I'll stick to the existing pattern for system types but scoped.
-               aliases: [key.toLowerCase()] 
-             });
-           }
+          // Avoid dupes
+          if (!options.some((o) => o.value === val.canonical)) {
+            options.push({
+              value: val.canonical,
+              label: key, // The key in the object is usually the friendly name in previous map, but wait..
+              // MAIN_MARKET_TYPES is array in referenceData but imported as... wait.
+              // Check imports. MAIN_MARKET_TYPES is imported from marketClassification.config.
+              // Let's assume it's the config object mapping Key->Canonical?
+              // Actually in referenceData it is an array.
+              // In marketClassification.config it might be object.
+              // Checking import... "MAIN_MARKET_TYPES" from services/marketClassification.config
+              // Let's assume it matches the structure used previously: "Object.values(MAIN_MARKET_TYPES)" implies it might be an object or array.
+              // Previous code: Object.entries(MAIN_MARKET_TYPES).forEach(([key, value]) => ... options.push({ value, label: key ... })
+              // So key=Label (Moneyline), value=Canonical (Moneyline)?
+              // Actually, let's look at the previous implementation I'm replacing (lines 1622-1626)
+              // It treated it as Object.entries.
+              // But `referenceData.ts` exports `MAIN_MARKET_TYPES` as an ARRAY.
+              // Check `marketClassification.config.ts`.
+              // I will stick to what the previous code did, but safer.
+              // Previous: Object.entries(MAIN_MARKET_TYPES)
+              // If it's an array, keys are indices "0", "1". That would be bad for labels.
+              // I'll assume the import re-maps it to an object or I should verify the import source file.
+              // Wait, line 26 imported it.
+              // Let's look at line 1622 again.
+              // `Object.entries(FUTURES_TYPES)` was also used.
+              // Use standard loop for safety if I'm unsure, or stick to the Object.entries pattern if I trust the previous code.
+              // Previous code was:
+              // Object.entries(MAIN_MARKET_TYPES).forEach(([key, value]) => { ... value is string? })
+              // Let's assume it is an object mapping Label -> Canonical String.
+
+              // But wait, I need to include aliases.
+              // The previous code: `aliases: [key.toLowerCase()]`. That's weak. input manager has real aliases.
+              // Ideally I should use the referenceData constants directly if possible, but I imported from config.
+              // Let's use a cleaner approach closer to 1622 but scoped.
+              // Actually, `marketClassification.config.ts` likely exports simple string maps.
+              // I'll stick to the existing pattern for system types but scoped.
+              aliases: [key.toLowerCase()],
+            });
+          }
         });
       };
 
       // Helper to add from ReferenceData array structure if available?
       // No, let's trust the imports are simple objects based on usage.
-      
+
       if (targetCat === "main") {
-         Object.entries(MAIN_MARKET_TYPES).forEach(([key, val]) => {
-            const canonical = val as unknown as string; // based on previous usage
-             if (!options.some(o => o.value === canonical)) {
-               options.push({ value: canonical, label: key, aliases: [key.toLowerCase()] });
-             }
-         });
+        Object.entries(MAIN_MARKET_TYPES).forEach(([key, val]) => {
+          const canonical = val as unknown as string; // based on previous usage
+          if (!options.some((o) => o.value === canonical)) {
+            options.push({
+              value: canonical,
+              label: key,
+              aliases: [key.toLowerCase()],
+            });
+          }
+        });
       } else if (targetCat === "parlay") {
-          // PARLAY_TYPES imported from config? I added it to imports.
-          // Assuming structure similar to MAIN.
-         Object.entries(PARLAY_TYPES || {}).forEach(([key, val]) => {
-            const canonical = val as unknown as string;
-             if (!options.some(o => o.value === canonical)) {
-               options.push({ value: canonical, label: key, aliases: [key.toLowerCase()] });
-             }
-         });
+        // PARLAY_TYPES imported from config? I added it to imports.
+        // Assuming structure similar to MAIN.
+        Object.entries(PARLAY_TYPES || {}).forEach(([key, val]) => {
+          const canonical = val as unknown as string;
+          if (!options.some((o) => o.value === canonical)) {
+            options.push({
+              value: canonical,
+              label: key,
+              aliases: [key.toLowerCase()],
+            });
+          }
+        });
       } else if (targetCat === "future") {
-         // Filter futures by sport
-         // FUTURES_TYPES from config might be object Label->Canonical.
-         // We can't filter by sport effectively if it's just a string map.
-         // This is a limitation of the config import vs referenceData.
-         // However, `getBetTypeCategory` uses canonical lists.
-         // Let's add all from FUTURES_TYPES and rely on `getBetTypeCategory` check? 
-         // No, `getBetTypeCategory` just returns 'future'.
-         // We need simple filtering.
-         // If we can't check sport on system types, we might leak NBA Futures to NFL if we blindly add them.
-         // But the previous code added ALL futures for ALL sports.
-         // We want to scope.
-         // Let's try to filter by checking if the KEY or VALUE contains the sport?
-         // e.g. "NBA Championship".
-         Object.entries(FUTURES_TYPES).forEach(([key, val]) => {
-           const canonical = val as unknown as string;
-           const label = key;
-           // Heuristic scope:
-           // If sport is specific (NBA/NFL/etc), only show if label/canonical contains it?
-           // OR if sport is 'Other' or unused, show generic.
-           const tag = sport; 
-           const relevant = label.includes(tag) || canonical.includes(tag) || 
-                            (!label.includes("NBA") && !label.includes("NFL") && !label.includes("MLB") && !label.includes("NHL"));
-           
-           if (relevant && !options.some(o => o.value === canonical)) {
-             options.push({ value: canonical, label: key, aliases: [key.toLowerCase()] });
-           }
-         });
+        // For futures, referenceData.FUTURE_TYPES already provides comprehensive
+        // sport-aware coverage with proper aliases, so we don't need to add
+        // generic entries from FUTURES_TYPES config which lack sport context
+        // and would cause ambiguity (e.g., "MVP" matching to wrong sport).
+        // The propTypes filtering above already handles sport-specific futures.
       }
 
       return options;
     },
-    [resolverVersion]
+    [resolverVersion],
   );
 
   // Helper: Check if Type is unresolved
@@ -1759,7 +1772,7 @@ const BetTableView: React.FC = () => {
       const res = resolveBetType(type, sport as Sport);
       return res.status === "unresolved";
     },
-    []
+    [],
   );
 
   // Helper: Check if Tail is unresolved (not in saved list)
@@ -1770,25 +1783,22 @@ const BetTableView: React.FC = () => {
       return !tails.some(
         (t) =>
           t.name.toLowerCase() === tail.toLowerCase() ||
-          (t.displayName && t.displayName.toLowerCase() === tail.toLowerCase())
+          (t.displayName && t.displayName.toLowerCase() === tail.toLowerCase()),
       );
     },
-    [tails]
+    [tails],
   );
 
   // Helper: Handle quick-adding a tail
-  const handleAddTail = useCallback(
-    (tail: string, row: FlatBet) => {
-      setResolvingTailItem({ initialValue: tail, row });
-    },
-    []
-  );
+  const handleAddTail = useCallback((tail: string, row: FlatBet) => {
+    setResolvingTailItem({ initialValue: tail, row });
+  }, []);
 
   const filteredBets = useMemo(() => {
     const tablePredicate = createBetTableFilterPredicate(
       filters,
       debouncedSearchTerm,
-      ["name", "name2", "sport", "type", "category", "tail"]
+      ["name", "name2", "sport", "type", "category", "tail"],
     );
     return flattenedBets.filter(tablePredicate);
   }, [flattenedBets, filters, debouncedSearchTerm]);
@@ -1922,7 +1932,13 @@ const BetTableView: React.FC = () => {
     if (!category) return null;
     const lower = category.toLowerCase();
     if (lower.includes("prop")) return "props";
-    if (lower.includes("main") || lower.includes("moneyline") || lower.includes("spread") || lower.includes("total")) return "main";
+    if (
+      lower.includes("main") ||
+      lower.includes("moneyline") ||
+      lower.includes("spread") ||
+      lower.includes("total")
+    )
+      return "main";
     if (lower.includes("parlay") || lower.includes("sgp")) return "parlay";
     if (lower.includes("future")) return "future";
     return "props"; // Default to props if unknown, or maybe null? Let's default props for safety unless strict.
@@ -1968,7 +1984,7 @@ const BetTableView: React.FC = () => {
     (columnKey: keyof FlatBet): boolean => {
       return editableColumns.includes(columnKey);
     },
-    [editableColumns]
+    [editableColumns],
   );
 
   // Helper: Get cell ref key
@@ -1976,14 +1992,14 @@ const BetTableView: React.FC = () => {
     (rowIndex: number, columnKey: keyof FlatBet): string => {
       return `${rowIndex}-${columnKey}`;
     },
-    []
+    [],
   );
 
   // Helper: Get or create cell ref
   const getCellRef = useCallback(
     (
       rowIndex: number,
-      columnKey: keyof FlatBet
+      columnKey: keyof FlatBet,
     ): React.RefObject<HTMLInputElement> => {
       const key = getCellKey(rowIndex, columnKey);
       if (!cellRefs.current.has(key)) {
@@ -1991,7 +2007,7 @@ const BetTableView: React.FC = () => {
       }
       return cellRefs.current.get(key)!;
     },
-    [getCellKey]
+    [getCellKey],
   );
 
   // Helper: Navigate to next editable cell
@@ -1999,7 +2015,7 @@ const BetTableView: React.FC = () => {
     (
       rowIndex: number,
       columnKey: keyof FlatBet,
-      direction: "up" | "down" | "left" | "right"
+      direction: "up" | "down" | "left" | "right",
     ) => {
       const currentColIndex = editableColumns.indexOf(columnKey);
 
@@ -2021,7 +2037,7 @@ const BetTableView: React.FC = () => {
         }
       }
     },
-    [editableColumns, visibleBets.length]
+    [editableColumns, visibleBets.length],
   );
 
   // Helper: Check if cell is in selection range
@@ -2033,11 +2049,11 @@ const BetTableView: React.FC = () => {
       const maxRow = Math.max(start.rowIndex, end.rowIndex);
       const minCol = Math.min(
         editableColumns.indexOf(start.columnKey),
-        editableColumns.indexOf(end.columnKey)
+        editableColumns.indexOf(end.columnKey),
       );
       const maxCol = Math.max(
         editableColumns.indexOf(start.columnKey),
-        editableColumns.indexOf(end.columnKey)
+        editableColumns.indexOf(end.columnKey),
       );
 
       const cellRow = rowIndex;
@@ -2050,7 +2066,7 @@ const BetTableView: React.FC = () => {
         cellCol <= maxCol
       );
     },
-    [selectionRange, editableColumns]
+    [selectionRange, editableColumns],
   );
 
   // Helper: Check if cell is focused
@@ -2061,7 +2077,7 @@ const BetTableView: React.FC = () => {
         focusedCell?.columnKey === columnKey
       );
     },
-    [focusedCell]
+    [focusedCell],
   );
 
   // Helper: Check if cell is being edited
@@ -2072,7 +2088,7 @@ const BetTableView: React.FC = () => {
         editingCell?.columnKey === columnKey
       );
     },
-    [editingCell]
+    [editingCell],
   );
 
   // Helper: Check if a row is selected
@@ -2080,7 +2096,7 @@ const BetTableView: React.FC = () => {
     (rowId: string): boolean => {
       return selectedRowIds.has(rowId);
     },
-    [selectedRowIds]
+    [selectedRowIds],
   );
 
   // Row selector click handler
@@ -2092,7 +2108,7 @@ const BetTableView: React.FC = () => {
       if (e.shiftKey && rowSelectionAnchorId) {
         // Shift-click: select range between anchor and current
         const anchorIndex = visibleBets.findIndex(
-          (b) => b.betId === rowSelectionAnchorId
+          (b) => b.betId === rowSelectionAnchorId,
         );
         if (anchorIndex !== -1) {
           const minIdx = Math.min(anchorIndex, rowIndex);
@@ -2128,7 +2144,7 @@ const BetTableView: React.FC = () => {
         }
       }
     },
-    [rowSelectionAnchorId, visibleBets, selectedRowIds]
+    [rowSelectionAnchorId, visibleBets, selectedRowIds],
   );
 
   // Handle duplicate rows (Cmd/Ctrl+D)
@@ -2138,8 +2154,8 @@ const BetTableView: React.FC = () => {
         selectedRowIds.size > 0
           ? Array.from(selectedRowIds)
           : focusedCell
-          ? [visibleBets[focusedCell.rowIndex]?.betId].filter(Boolean)
-          : [];
+            ? [visibleBets[focusedCell.rowIndex]?.betId].filter(Boolean)
+            : [];
 
       if (idsToClone.length === 0) return;
 
@@ -2160,7 +2176,7 @@ const BetTableView: React.FC = () => {
       visibleBets,
       duplicateBets,
       batchDuplicateBets,
-    ]
+    ],
   );
 
   // Handle bulk apply value (Cmd/Ctrl+Enter)
@@ -2188,7 +2204,7 @@ const BetTableView: React.FC = () => {
           const book = sportsbooks.find(
             (b) =>
               b.name.toLowerCase() === String(value).toLowerCase() ||
-              b.abbreviation.toLowerCase() === String(value).toLowerCase()
+              b.abbreviation.toLowerCase() === String(value).toLowerCase(),
           );
           updatesById[betId] = { book: book ? book.name : String(value) };
           break;
@@ -2374,7 +2390,7 @@ const BetTableView: React.FC = () => {
         }
       }, 50);
     },
-    [createManualBet, batchCreateManualBets, visibleBets]
+    [createManualBet, batchCreateManualBets, visibleBets],
   );
 
   // Handle insert row above selected/focused row
@@ -2630,7 +2646,7 @@ const BetTableView: React.FC = () => {
       handleInsertRowAbove,
       handleInsertRowBelow,
       isCellEditable,
-    ]
+    ],
   );
 
   // Helper: Get cell value as string
@@ -2643,7 +2659,7 @@ const BetTableView: React.FC = () => {
       if (columnKey === "ou") return (value as string) || "";
       return String(value);
     },
-    []
+    [],
   );
 
   // Attach keyboard listener
@@ -2668,11 +2684,11 @@ const BetTableView: React.FC = () => {
       const maxRow = Math.max(start.rowIndex, end.rowIndex);
       const minCol = Math.min(
         editableColumns.indexOf(start.columnKey),
-        editableColumns.indexOf(end.columnKey)
+        editableColumns.indexOf(end.columnKey),
       );
       const maxCol = Math.max(
         editableColumns.indexOf(start.columnKey),
-        editableColumns.indexOf(end.columnKey)
+        editableColumns.indexOf(end.columnKey),
       );
 
       for (let r = minRow; r <= maxRow; r++) {
@@ -2733,7 +2749,7 @@ const BetTableView: React.FC = () => {
       const startCol = selectionRange
         ? Math.min(
             editableColumns.indexOf(selectionRange.start.columnKey),
-            editableColumns.indexOf(selectionRange.end.columnKey)
+            editableColumns.indexOf(selectionRange.end.columnKey),
           )
         : editableColumns.indexOf(focusedCell.columnKey);
 
@@ -2777,7 +2793,7 @@ const BetTableView: React.FC = () => {
           const book = sportsbooks.find(
             (b) =>
               b.name.toLowerCase() === value.toLowerCase() ||
-              b.abbreviation.toLowerCase() === value.toLowerCase()
+              b.abbreviation.toLowerCase() === value.toLowerCase(),
           );
           updateBet(row.betId, { book: book ? book.name : value });
           break;
@@ -2793,16 +2809,26 @@ const BetTableView: React.FC = () => {
             const legTypeResult = resolveBetType(value, row.sport as Sport);
             if (legTypeResult.status === "resolved") {
               addBetType(row.sport, legTypeResult.canonical);
+              // Save canonical value to maintain sport-specific context
+              handleLegUpdate(row.betId, legIndex, {
+                market: legTypeResult.canonical,
+              });
+            } else {
+              // Save raw value if unresolved
+              handleLegUpdate(row.betId, legIndex, { market: value });
             }
-            handleLegUpdate(row.betId, legIndex, { market: value });
           } else {
             // Update bet.type (stat type), NOT betType (bet form)
             // GATE: Only add to suggestions if bet type is RESOLVED
             const typeResult = resolveBetType(value, row.sport as Sport);
             if (typeResult.status === "resolved") {
               addBetType(row.sport, typeResult.canonical);
+              // Save canonical value to maintain sport-specific context
+              updateBet(row.betId, { type: typeResult.canonical });
+            } else {
+              // Save raw value if unresolved
+              updateBet(row.betId, { type: value });
             }
-            updateBet(row.betId, { type: value });
           }
           break;
         case "name":
@@ -2846,7 +2872,7 @@ const BetTableView: React.FC = () => {
           break;
       }
     },
-    [sportsbooks, updateBet, handleLegUpdate, addBetType, autoAddEntity]
+    [sportsbooks, updateBet, handleLegUpdate, addBetType, autoAddEntity],
   );
 
   // Cell click handler - single click selects only, does NOT enter edit mode
@@ -2889,7 +2915,7 @@ const BetTableView: React.FC = () => {
         });
       }
     },
-    [isCellEditable, selectionAnchor, selectionRange]
+    [isCellEditable, selectionAnchor, selectionRange],
   );
 
   // Cell double-click handler - enters edit mode
@@ -2905,7 +2931,7 @@ const BetTableView: React.FC = () => {
         end: { rowIndex, columnKey },
       });
     },
-    [isCellEditable]
+    [isCellEditable],
   );
 
   // Drag-to-fill handlers
@@ -2924,7 +2950,7 @@ const BetTableView: React.FC = () => {
         end: { rowIndex, columnKey },
       });
     },
-    [focusedCell]
+    [focusedCell],
   );
 
   const handleDragFillMove = useCallback(
@@ -2982,7 +3008,7 @@ const BetTableView: React.FC = () => {
         });
       }
     },
-    [dragFillData, editableColumns]
+    [dragFillData, editableColumns],
   );
 
   const handleDragFillEnd = useCallback(() => {
@@ -3000,11 +3026,11 @@ const BetTableView: React.FC = () => {
     const maxRow = Math.max(start.rowIndex, end.rowIndex);
     const minCol = Math.min(
       editableColumns.indexOf(start.columnKey),
-      editableColumns.indexOf(end.columnKey)
+      editableColumns.indexOf(end.columnKey),
     );
     const maxCol = Math.max(
       editableColumns.indexOf(start.columnKey),
-      editableColumns.indexOf(end.columnKey)
+      editableColumns.indexOf(end.columnKey),
     );
 
     // Fill cells
@@ -3320,8 +3346,8 @@ const BetTableView: React.FC = () => {
                   const alignmentClass = numericRightAligned.has(header.key)
                     ? " text-right tabular-nums"
                     : centerAligned.has(header.key)
-                    ? " text-center"
-                    : "";
+                      ? " text-center"
+                      : "";
                   const isMoneyBlockStart = header.key === "bet";
                   const isLastColumn = index === headers.length - 1;
                   return (
@@ -3387,29 +3413,29 @@ const BetTableView: React.FC = () => {
                     displayResult === "win"
                       ? "bg-green-500/10"
                       : displayResult === "loss"
-                      ? "bg-red-500/10"
-                      : displayResult === "push"
-                      ? "bg-neutral-500/10"
-                      : "";
+                        ? "bg-red-500/10"
+                        : displayResult === "push"
+                          ? "bg-neutral-500/10"
+                          : "";
                   const resultTextClass =
                     displayResult === "win"
                       ? "text-green-600 dark:text-green-400"
                       : displayResult === "loss"
-                      ? "text-red-600 dark:text-red-400"
-                      : "";
+                        ? "text-red-600 dark:text-red-400"
+                        : "";
                   const netBgClass =
                     net > 0
                       ? "bg-green-500/10"
                       : net < 0
-                      ? "bg-red-500/10"
-                      : "";
+                        ? "bg-red-500/10"
+                        : "";
                   const netColorClass =
                     net > 0 ? "text-green-500" : net < 0 ? "text-red-500" : "";
 
                   // Helper to check if cell is in drag fill range
                   const isInDragFillRange = (
                     rowIndex: number,
-                    columnKey: keyof FlatBet
+                    columnKey: keyof FlatBet,
                   ): boolean => {
                     if (!dragFillData) return false;
                     const { start, end } = dragFillData;
@@ -3417,11 +3443,11 @@ const BetTableView: React.FC = () => {
                     const maxRow = Math.max(start.rowIndex, end.rowIndex);
                     const minCol = Math.min(
                       editableColumns.indexOf(start.columnKey),
-                      editableColumns.indexOf(end.columnKey)
+                      editableColumns.indexOf(end.columnKey),
                     );
                     const maxCol = Math.max(
                       editableColumns.indexOf(start.columnKey),
-                      editableColumns.indexOf(end.columnKey)
+                      editableColumns.indexOf(end.columnKey),
                     );
 
                     const cellRow = rowIndex;
@@ -3611,7 +3637,8 @@ const BetTableView: React.FC = () => {
                               // Find the book by abbreviation to get the full name for storage
                               const book = sportsbooks.find(
                                 (b) =>
-                                  b.abbreviation.toLowerCase() === val.toLowerCase()
+                                  b.abbreviation.toLowerCase() ===
+                                  val.toLowerCase(),
                               );
                               updateBet(row.betId, {
                                 book: book ? book.name : val,
@@ -3738,7 +3765,7 @@ const BetTableView: React.FC = () => {
                         )}
                         {isCellEditing(rowIndex, "type") ? (
                           <TypableDropdown
-                            value={abbreviateMarket(row.type)}
+                            value={abbreviateMarket(row.type, row.sport)}
                             onSave={(val) => {
                               // val is the abbreviated canonical (e.g., "Pts") from optionData.value
                               // Convert to full name for storage
@@ -3746,34 +3773,43 @@ const BetTableView: React.FC = () => {
                                 typeAbbreviationToFull[val.toLowerCase()] ||
                                 val;
 
-                              // GATE: Only add to suggestions if it's NEW and RESOLVED
-                              // to prevent pollution by unresolved types
+                              // Resolve to canonical with sport context to maintain accuracy
+                              const typeRes = resolveBetType(
+                                fullName,
+                                row.sport as Sport,
+                              );
+
+                              // Use canonical if resolved, otherwise use raw input
+                              const valueToSave =
+                                typeRes.status === "resolved"
+                                  ? typeRes.canonical
+                                  : fullName;
+
+                              // Add to suggestions if it's NEW and RESOLVED
                               const currentOptions = suggestionLists.types(
                                 row.sport,
-                                row.category
+                                row.category,
                               );
                               const isNew = !currentOptions.some(
                                 (opt) =>
-                                  opt.toLowerCase() === fullName.toLowerCase()
+                                  opt.toLowerCase() ===
+                                  valueToSave.toLowerCase(),
                               );
-                              if (isNew && fullName.trim()) {
-                                const typeRes = resolveBetType(fullName, row.sport as Sport);
-                                if (typeRes.status === "resolved") {
-                                  addBetType(row.sport, typeRes.canonical);
-                                }
+                              if (isNew && typeRes.status === "resolved") {
+                                addBetType(row.sport, typeRes.canonical);
                               }
 
                               if (isLeg) {
                                 handleLegUpdate(row.betId, legIndex, {
-                                  market: fullName,
+                                  market: valueToSave,
                                 });
                               } else {
                                 // Update bet.type AND leg.market for single bets
                                 // The view uses leg.market, so we must sync them.
                                 const bet = bets.find(
-                                  (b) => b.id === row.betId
+                                  (b) => b.id === row.betId,
                                 );
-                                const updates: any = { type: fullName };
+                                const updates: any = { type: valueToSave };
 
                                 // Sync to first leg if it exists and isn't a parlay
                                 if (
@@ -3783,7 +3819,7 @@ const BetTableView: React.FC = () => {
                                   bet.betType !== "sgp_plus"
                                 ) {
                                   updates.legs = [
-                                    { ...bet.legs[0], market: fullName },
+                                    { ...bet.legs[0], market: valueToSave },
                                   ];
                                 }
 
@@ -3791,8 +3827,14 @@ const BetTableView: React.FC = () => {
                               }
                               exitEditMode();
                             }}
-                            options={suggestionLists.types(row.sport, row.category)}
-                            optionData={getTypeOptionData(row.sport, row.category)}
+                            options={suggestionLists.types(
+                              row.sport,
+                              row.category,
+                            )}
+                            optionData={getTypeOptionData(
+                              row.sport,
+                              row.category,
+                            )}
                             isFocused={true}
                             onFocus={() =>
                               setFocusedCell({ rowIndex, columnKey: "type" })
@@ -3804,7 +3846,7 @@ const BetTableView: React.FC = () => {
                         ) : (
                           <span className="flex items-center gap-1 min-w-0">
                             <span className="truncate">
-                              {abbreviateMarket(row.type)}
+                              {abbreviateMarket(row.type, row.sport)}
                             </span>
                             {row.type &&
                               isTypeUnresolved(row.type, row.sport) && (
@@ -3814,7 +3856,7 @@ const BetTableView: React.FC = () => {
                                     handleOpenResolutionModal(
                                       row,
                                       legIndex,
-                                      "betType"
+                                      "betType",
                                     );
                                   }}
                                   className="flex-shrink-0 text-amber-500 hover:text-amber-600"
@@ -3897,7 +3939,7 @@ const BetTableView: React.FC = () => {
                                   style={{
                                     width: `${Math.max(
                                       (row.name?.length || 4) + 1,
-                                      4
+                                      4,
                                     )}ch`,
                                   }}
                                   onBlur={(e) => {
@@ -3907,10 +3949,10 @@ const BetTableView: React.FC = () => {
                                         val,
                                         row,
                                         null,
-                                        row.name
+                                        row.name,
                                       );
                                       const bet = bets.find(
-                                        (b) => b.id === row.betId
+                                        (b) => b.id === row.betId,
                                       );
                                       const name2 =
                                         bet?.legs?.[0]?.entities?.[1] ||
@@ -3927,7 +3969,7 @@ const BetTableView: React.FC = () => {
                                                       ? [val, name2]
                                                       : [val],
                                                   }
-                                                : leg
+                                                : leg,
                                             )
                                           : [
                                               {
@@ -3963,7 +4005,7 @@ const BetTableView: React.FC = () => {
                                   style={{
                                     width: `${Math.max(
                                       (row.name2?.length || 4) + 1,
-                                      4
+                                      4,
                                     )}ch`,
                                   }}
                                   onBlur={(e) => {
@@ -3973,10 +4015,10 @@ const BetTableView: React.FC = () => {
                                         val,
                                         row,
                                         null,
-                                        row.name2
+                                        row.name2,
                                       );
                                       const bet = bets.find(
-                                        (b) => b.id === row.betId
+                                        (b) => b.id === row.betId,
                                       );
                                       const name1 = bet?.name || row.name || "";
                                       updateBet(row.betId, {
@@ -3989,7 +4031,7 @@ const BetTableView: React.FC = () => {
                                                       ? [name1, val]
                                                       : [val],
                                                   }
-                                                : leg
+                                                : leg,
                                             )
                                           : [
                                               {
@@ -4025,7 +4067,7 @@ const BetTableView: React.FC = () => {
                                 const name2Status = row.name2
                                   ? getNameResolutionStatus(
                                       row.name2,
-                                      row.sport
+                                      row.sport,
                                     )
                                   : null;
 
@@ -4065,7 +4107,7 @@ const BetTableView: React.FC = () => {
                                           ) {
                                             handleOpenResolutionModal(
                                               row,
-                                              null
+                                              null,
                                             );
                                           } else if (
                                             name2Status?.status !== "resolved"
@@ -4076,7 +4118,7 @@ const BetTableView: React.FC = () => {
                                             };
                                             handleOpenResolutionModal(
                                               name2Row,
-                                              null
+                                              null,
                                             );
                                           }
                                         }}
@@ -4117,7 +4159,7 @@ const BetTableView: React.FC = () => {
                                   val,
                                   row,
                                   legIndex,
-                                  row.name
+                                  row.name,
                                 );
                                 handleLegUpdate(row.betId, legIndex, {
                                   entities: [val],
@@ -4128,11 +4170,11 @@ const BetTableView: React.FC = () => {
                                   val,
                                   row,
                                   null,
-                                  row.name
+                                  row.name,
                                 );
 
                                 const bet = bets.find(
-                                  (b) => b.id === row.betId
+                                  (b) => b.id === row.betId,
                                 );
                                 const updates: any = { name: val };
 
@@ -4212,8 +4254,8 @@ const BetTableView: React.FC = () => {
                               row.ou === "Over"
                                 ? "O"
                                 : row.ou === "Under"
-                                ? "U"
-                                : ""
+                                  ? "U"
+                                  : ""
                             }
                             onSave={(val) => {
                               let ouValue: "Over" | "Under" | undefined;
@@ -4233,7 +4275,7 @@ const BetTableView: React.FC = () => {
                                 });
                               } else {
                                 const bet = bets.find(
-                                  (b) => b.id === row.betId
+                                  (b) => b.id === row.betId,
                                 );
                                 const updates: any = { ou: ouValue };
 
@@ -4267,8 +4309,8 @@ const BetTableView: React.FC = () => {
                             {row.ou === "Over"
                               ? "O"
                               : row.ou === "Under"
-                              ? "U"
-                              : ""}
+                                ? "U"
+                                : ""}
                           </span>
                         )}
                       </td>
@@ -4306,7 +4348,7 @@ const BetTableView: React.FC = () => {
                                 });
                               } else {
                                 const bet = bets.find(
-                                  (b) => b.id === row.betId
+                                  (b) => b.id === row.betId,
                                 );
                                 const updates: any = { line: val };
 
@@ -4373,7 +4415,7 @@ const BetTableView: React.FC = () => {
                               onSave={(val) => {
                                 const numVal = parseInt(
                                   val.replace("+", ""),
-                                  10
+                                  10,
                                 );
                                 if (!isNaN(numVal) && row._legIndex != null) {
                                   // Update leg odds if this is a parlay child
@@ -4382,7 +4424,7 @@ const BetTableView: React.FC = () => {
                                     row._legIndex - 1,
                                     {
                                       odds: numVal,
-                                    }
+                                    },
                                   );
                                 }
                               }}
@@ -4460,7 +4502,7 @@ const BetTableView: React.FC = () => {
                             inputRef={getCellRef(rowIndex, "bet")}
                             onSave={(val) => {
                               const numVal = parseFloat(
-                                val.replace(/[$,]/g, "")
+                                val.replace(/[$,]/g, ""),
                               );
                               if (!isNaN(numVal))
                                 updateBet(row.betId, { stake: numVal });
@@ -4506,7 +4548,9 @@ const BetTableView: React.FC = () => {
                           resultBgClass
                         }
                         style={{ cursor: "default" }}
-                        onClick={() => handleCellDoubleClick(rowIndex, "result")}
+                        onClick={() =>
+                          handleCellDoubleClick(rowIndex, "result")
+                        }
                         onDoubleClick={() =>
                           handleCellDoubleClick(rowIndex, "result")
                         }
@@ -4522,7 +4566,7 @@ const BetTableView: React.FC = () => {
                                   });
                                 } else {
                                   const bet = bets.find(
-                                    (b) => b.id === row.betId
+                                    (b) => b.id === row.betId,
                                   );
                                   const updates: any = { result: val };
 
@@ -4628,9 +4672,12 @@ const BetTableView: React.FC = () => {
                             <span className="truncate">
                               {(() => {
                                 if (!row.tail) return "";
-                                const found = tails.find(t => 
-                                  t.name.toLowerCase() === row.tail?.toLowerCase() || 
-                                  t.displayName?.toLowerCase() === row.tail?.toLowerCase()
+                                const found = tails.find(
+                                  (t) =>
+                                    t.name.toLowerCase() ===
+                                      row.tail?.toLowerCase() ||
+                                    t.displayName?.toLowerCase() ===
+                                      row.tail?.toLowerCase(),
                                 );
                                 return found?.displayName || row.tail;
                               })()}
@@ -4673,18 +4720,19 @@ const BetTableView: React.FC = () => {
       </div>
 
       {/* Name Resolution Modals */}
-      {resolvingNameItem && (() => {
-        const rawValue =
-          resolvingNameItem.entityType === "betType" ||
-          resolvingNameItem.entityType === "stat"
-            ? resolvingNameItem.row.type
-            : resolvingNameItem.row.name;
-            
-        const commonItemProps = {
+      {resolvingNameItem &&
+        (() => {
+          const rawValue =
+            resolvingNameItem.entityType === "betType" ||
+            resolvingNameItem.entityType === "stat"
+              ? resolvingNameItem.row.type
+              : resolvingNameItem.row.name;
+
+          const commonItemProps = {
             id: generateUnresolvedItemId(
               rawValue,
               resolvingNameItem.row.betId,
-              resolvingNameItem.legIndex ?? 0
+              resolvingNameItem.legIndex ?? 0,
             ),
             rawValue: rawValue,
             entityType: resolvingNameItem.entityType,
@@ -4694,31 +4742,31 @@ const BetTableView: React.FC = () => {
             legIndex: resolvingNameItem.legIndex ?? 0,
             sport: resolvingNameItem.row.sport,
             market: resolvingNameItem.row.type,
-        };
+          };
 
-        return (
-          <>
-            {resolutionMode === "map" && (
-              <MapToExistingModal
-                item={commonItemProps}
-                teams={normalizationTeams}
-                players={normalizationPlayers}
-                betTypes={normalizationBetTypes}
-                onConfirm={handleMapConfirm}
-                onCancel={() => setResolvingNameItem(null)}
-                onSwitchToCreate={() => setResolutionMode("create")}
-              />
-            )}
-            {resolutionMode === "create" && (
-              <CreateCanonicalModal
-                item={commonItemProps}
-                onConfirm={handleCreateConfirm}
-                onCancel={() => setResolvingNameItem(null)}
-              />
-            )}
-          </>
-        );
-      })()}
+          return (
+            <>
+              {resolutionMode === "map" && (
+                <MapToExistingModal
+                  item={commonItemProps}
+                  teams={normalizationTeams}
+                  players={normalizationPlayers}
+                  betTypes={normalizationBetTypes}
+                  onConfirm={handleMapConfirm}
+                  onCancel={() => setResolvingNameItem(null)}
+                  onSwitchToCreate={() => setResolutionMode("create")}
+                />
+              )}
+              {resolutionMode === "create" && (
+                <CreateCanonicalModal
+                  item={commonItemProps}
+                  onConfirm={handleCreateConfirm}
+                  onCancel={() => setResolvingNameItem(null)}
+                />
+              )}
+            </>
+          );
+        })()}
 
       {/* Tail Quick Add Modal */}
       {/* Tail Quick Add Modal */}
@@ -4730,10 +4778,15 @@ const BetTableView: React.FC = () => {
             addTail({ name: finalName, displayName: finalDisplayName });
 
             // Update the specific bet row. Use the display name as that's what we show in the grid.
-            if (finalDisplayName !== resolvingTailItem.initialValue && finalName !== resolvingTailItem.initialValue) {
-               // Logic: If user edited the name, update the cell.
-               // We should probably update the cell to the Display Name to match the dropdown behavior.
-               updateBet(resolvingTailItem.row.betId, { tail: finalDisplayName });
+            if (
+              finalDisplayName !== resolvingTailItem.initialValue &&
+              finalName !== resolvingTailItem.initialValue
+            ) {
+              // Logic: If user edited the name, update the cell.
+              // We should probably update the cell to the Display Name to match the dropdown behavior.
+              updateBet(resolvingTailItem.row.betId, {
+                tail: finalDisplayName,
+              });
             }
 
             setResolvingTailItem(null);
