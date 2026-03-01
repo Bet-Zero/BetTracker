@@ -2,31 +2,13 @@ import React, { useMemo } from 'react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { Bet } from '../../types';
 import { FitText } from '../FitText';
-import { TrendingUp, TrendingDown } from '../icons';
 import { calculateRoi } from '../../services/aggregationService';
 import { getNetNumeric } from '../../services/displaySemantics';
+import { formatCurrency } from '../../utils/formatters';
 
 interface LivePreGameChartProps {
     bets: Bet[];
 }
-
-const ToggleButton: React.FC<{
-  value: string;
-  label: string;
-  currentValue: string;
-  onClick: (value: string) => void;
-}> = ({ value, label, currentValue, onClick }) => (
-  <button
-    onClick={() => onClick(value)}
-    className={`px-2.5 py-1 rounded-md font-medium text-xs transition-colors ${
-      currentValue === value
-        ? "bg-primary-600 text-white shadow"
-        : "text-neutral-600 dark:text-neutral-300 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700"
-    }`}
-  >
-    {label}
-  </button>
-);
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
@@ -119,7 +101,7 @@ const LivePreGameChart: React.FC<LivePreGameChartProps> = ({ bets }) => {
             <div className="flex items-center ml-1">
               <div className="w-20 h-6">
                  <FitText maxFontSize={16} minFontSize={10} className={`justify-end font-bold ${netColor}`}>
-                   ${stats.net.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                   {formatCurrency(stats.net)}
                  </FitText>
               </div>
             </div>
