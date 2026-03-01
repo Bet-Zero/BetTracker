@@ -736,7 +736,7 @@ const SportBreakdownChart: React.FC<{ data: StatsData[] }> = ({ data }) => {
             {data.map((entry, index) => (
               <Cell
                 key={`cell-${index}`}
-                fill={entry.net >= 0 ? "#8b5cf6" : "#ef4444"}
+                fill={entry.net >= 0 ? "#22c55e" : "#ef4444"}
               />
             ))}
           </Bar>
@@ -1006,22 +1006,30 @@ const BySportView: React.FC = () => {
         </div>
         {dateRange === "custom" && (
           <div className="flex sm:justify-end items-center space-x-4">
-            <input
-              type="date"
-              value={customDateRange.start}
-              onChange={(e) =>
-                setCustomDateRange((p) => ({ ...p, start: e.target.value }))
-              }
-              className="bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg p-2 text-sm"
-            />
-            <input
-              type="date"
-              value={customDateRange.end}
-              onChange={(e) =>
-                setCustomDateRange((p) => ({ ...p, end: e.target.value }))
-              }
-              className="bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg p-2 text-sm"
-            />
+            <div className="flex items-center space-x-2">
+              <label htmlFor="sport-start-date" className="text-sm font-medium text-neutral-500 dark:text-neutral-400">From</label>
+              <input
+                type="date"
+                id="sport-start-date"
+                value={customDateRange.start}
+                onChange={(e) =>
+                  setCustomDateRange((p) => ({ ...p, start: e.target.value }))
+                }
+                className="bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 text-neutral-900 dark:text-white text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-full p-2"
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <label htmlFor="sport-end-date" className="text-sm font-medium text-neutral-500 dark:text-neutral-400">To</label>
+              <input
+                type="date"
+                id="sport-end-date"
+                value={customDateRange.end}
+                onChange={(e) =>
+                  setCustomDateRange((p) => ({ ...p, end: e.target.value }))
+                }
+                className="bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 text-neutral-900 dark:text-white text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-full p-2"
+              />
+            </div>
           </div>
         )}
 
@@ -1054,7 +1062,38 @@ const BySportView: React.FC = () => {
               />
             </div>
             {selectedSport === "All" ? (
-              <SportBreakdownChart data={processedData.sportStats} />
+              <>
+                <ChartContainer title="Profit Over Time">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={processedData.profitOverTime}>
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="rgba(128, 128, 128, 0.2)"
+                      />
+                      <XAxis
+                        dataKey="date"
+                        stroke="rgb(113, 113, 122)"
+                        tick={{ fontSize: 12 }}
+                      />
+                      <YAxis
+                        stroke="rgb(113, 113, 122)"
+                        tick={{ fontSize: 12 }}
+                        tickFormatter={(value) => formatCurrency(value)}
+                      />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Line
+                        type="monotone"
+                        dataKey="profit"
+                        name="Profit"
+                        stroke="#8b5cf6"
+                        strokeWidth={2}
+                        dot={false}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </ChartContainer>
+                <SportBreakdownChart data={processedData.sportStats} />
+              </>
             ) : (
               <ChartContainer title="Profit Over Time">
                 <ResponsiveContainer width="100%" height="100%">
