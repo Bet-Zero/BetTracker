@@ -163,6 +163,9 @@ interface FlatBet {
 
 // --- Editable Cell Components ---
 
+const DRAG_FILL_HANDLE_CLASSES =
+  "absolute bottom-0 right-0 w-2.5 h-2.5 bg-blue-500 hover:bg-blue-600 hover:scale-125 cursor-crosshair z-10 rounded-sm transition-transform";
+
 const DateCell: React.FC<{
   value: string;
   onSave: (newIso: string) => void;
@@ -2572,7 +2575,7 @@ const BetTableView: React.FC = () => {
           if (editingCell) {
             // Commit current edit by blurring the active editor input
             const activeEl = document.activeElement;
-            if (activeEl instanceof HTMLElement && activeEl !== document.body) {
+            if (activeEl instanceof HTMLElement) {
               activeEl.blur();
             } else {
               exitEditMode();
@@ -3574,7 +3577,7 @@ const BetTableView: React.FC = () => {
                       >
                         {isCellFocused(rowIndex, "date") && (
                           <div
-                            className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-blue-500 hover:bg-blue-600 hover:scale-125 cursor-crosshair z-10 rounded-sm transition-transform"
+                            className={DRAG_FILL_HANDLE_CLASSES}
                             onMouseDown={(e) =>
                               handleDragFillStart(rowIndex, "date", e)
                             }
@@ -3625,7 +3628,7 @@ const BetTableView: React.FC = () => {
                       >
                         {isCellFocused(rowIndex, "site") && (
                           <div
-                            className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-blue-500 hover:bg-blue-600 hover:scale-125 cursor-crosshair z-10 rounded-sm transition-transform"
+                            className={DRAG_FILL_HANDLE_CLASSES}
                             onMouseDown={(e) =>
                               handleDragFillStart(rowIndex, "site", e)
                             }
@@ -3682,7 +3685,7 @@ const BetTableView: React.FC = () => {
                       >
                         {isCellFocused(rowIndex, "sport") && (
                           <div
-                            className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-blue-500 hover:bg-blue-600 hover:scale-125 cursor-crosshair z-10 rounded-sm transition-transform"
+                            className={DRAG_FILL_HANDLE_CLASSES}
                             onMouseDown={(e) =>
                               handleDragFillStart(rowIndex, "sport", e)
                             }
@@ -3723,7 +3726,7 @@ const BetTableView: React.FC = () => {
                       >
                         {isCellFocused(rowIndex, "category") && (
                           <div
-                            className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-blue-500 hover:bg-blue-600 hover:scale-125 cursor-crosshair z-10 rounded-sm transition-transform"
+                            className={DRAG_FILL_HANDLE_CLASSES}
                             onMouseDown={(e) =>
                               handleDragFillStart(rowIndex, "category", e)
                             }
@@ -3768,7 +3771,7 @@ const BetTableView: React.FC = () => {
                       >
                         {isCellFocused(rowIndex, "type") && (
                           <div
-                            className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-blue-500 hover:bg-blue-600 hover:scale-125 cursor-crosshair z-10 rounded-sm transition-transform"
+                            className={DRAG_FILL_HANDLE_CLASSES}
                             onMouseDown={(e) =>
                               handleDragFillStart(rowIndex, "type", e)
                             }
@@ -3918,7 +3921,7 @@ const BetTableView: React.FC = () => {
                       >
                         {isCellFocused(rowIndex, "name") && (
                           <div
-                            className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-blue-500 hover:bg-blue-600 hover:scale-125 cursor-crosshair z-10 rounded-sm transition-transform"
+                            className={DRAG_FILL_HANDLE_CLASSES}
                             onMouseDown={(e) =>
                               handleDragFillStart(rowIndex, "name", e)
                             }
@@ -4275,7 +4278,7 @@ const BetTableView: React.FC = () => {
                       >
                         {isCellFocused(rowIndex, "ou") && (
                           <div
-                            className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-blue-500 hover:bg-blue-600 hover:scale-125 cursor-crosshair z-10 rounded-sm transition-transform"
+                            className={DRAG_FILL_HANDLE_CLASSES}
                             onMouseDown={(e) =>
                               handleDragFillStart(rowIndex, "ou", e)
                             }
@@ -4359,7 +4362,7 @@ const BetTableView: React.FC = () => {
                       >
                         {isCellFocused(rowIndex, "line") && (
                           <div
-                            className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-blue-500 hover:bg-blue-600 hover:scale-125 cursor-crosshair z-10 rounded-sm transition-transform"
+                            className={DRAG_FILL_HANDLE_CLASSES}
                             onMouseDown={(e) =>
                               handleDragFillStart(rowIndex, "line", e)
                             }
@@ -4428,7 +4431,7 @@ const BetTableView: React.FC = () => {
                       >
                         {isCellFocused(rowIndex, "odds") && (
                           <div
-                            className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-blue-500 hover:bg-blue-600 hover:scale-125 cursor-crosshair z-10 rounded-sm transition-transform"
+                            className={DRAG_FILL_HANDLE_CLASSES}
                             onMouseDown={(e) =>
                               handleDragFillStart(rowIndex, "odds", e)
                             }
@@ -4511,7 +4514,7 @@ const BetTableView: React.FC = () => {
                       >
                         {isCellFocused(rowIndex, "bet") && (
                           <div
-                            className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-blue-500 hover:bg-blue-600 hover:scale-125 cursor-crosshair z-10 rounded-sm transition-transform"
+                            className={DRAG_FILL_HANDLE_CLASSES}
                             onMouseDown={(e) =>
                               handleDragFillStart(rowIndex, "bet", e)
                             }
@@ -4678,7 +4681,7 @@ const BetTableView: React.FC = () => {
                       >
                         {isCellFocused(rowIndex, "tail") && (
                           <div
-                            className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-blue-500 hover:bg-blue-600 hover:scale-125 cursor-crosshair z-10 rounded-sm transition-transform"
+                            className={DRAG_FILL_HANDLE_CLASSES}
                             onMouseDown={(e) =>
                               handleDragFillStart(rowIndex, "tail", e)
                             }
