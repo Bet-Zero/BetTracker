@@ -22,21 +22,16 @@ import {
   ResponsiveContainer,
   LineChart,
   Line,
-  PieChart,
-  Pie,
   Cell,
 } from 'recharts';
 import {
-  TrendingUp,
-  TrendingDown,
   Scale,
   BarChart2,
   Layers,
 } from '../components/icons';
 import { Bet } from '../types';
-import { isParlayBetType, getNetNumeric } from '../services/displaySemantics';
+import { isParlayBetType } from '../services/displaySemantics';
 import {
-  calculateRoi,
   computeOverallStats,
   computeProfitOverTime,
   computeStatsByDimension,
@@ -50,7 +45,7 @@ import {
 import { InfoTooltip } from '../components/debug/InfoTooltip';
 
 import { StatCard } from '../components/StatCard';
-import { formatCurrency, formatNet } from '../utils/formatters';
+import { formatCurrency } from '../utils/formatters';
 
 // --- HELPER COMPONENTS ---
 
@@ -662,6 +657,13 @@ const ParlayPerformanceView: React.FC = () => {
                 value={formatCurrency(processedData.overallStats.netProfit)}
                 icon={<Scale className="w-6 h-6" />}
                 subtitle={`${processedData.overallStats.roi.toFixed(1)}% ROI`}
+                valueClassName={
+                  processedData.overallStats.netProfit > 0
+                    ? 'text-accent-500'
+                    : processedData.overallStats.netProfit < 0
+                    ? 'text-danger-500'
+                    : undefined
+                }
                 subtitleClassName={
                   processedData.overallStats.roi > 0
                     ? 'text-accent-500'
@@ -676,7 +678,7 @@ const ParlayPerformanceView: React.FC = () => {
                 icon={<BarChart2 className="w-6 h-6" />}
               />
               <StatCard
-                title="Total Bets"
+                title="Total Parlays"
                 value={processedData.overallStats.totalBets.toLocaleString()}
                 icon={<Layers className="w-6 h-6" />}
                 subtitle={`Avg Legs: ${processedData.avgLegs.toFixed(1)}`}
@@ -685,7 +687,7 @@ const ParlayPerformanceView: React.FC = () => {
                 title="Win Rate"
                 value={`${processedData.overallStats.winRate.toFixed(1)}%`}
                 icon={<BarChart2 className="w-6 h-6" />}
-                subtitle={`${processedData.overallStats.wins}-${processedData.overallStats.losses}`}
+                subtitle={`${processedData.overallStats.wins}W-${processedData.overallStats.losses}L${processedData.overallStats.pushes > 0 ? `, ${processedData.overallStats.pushes}P` : ''}${processedData.overallStats.pending > 0 ? `, ${processedData.overallStats.pending} pending` : ''}`}
                 valueClassName={
                   processedData.overallStats.winRate > 50
                     ? 'text-accent-500'
@@ -800,6 +802,7 @@ const ParlayPerformanceView: React.FC = () => {
               title="By Parlay Type"
               subtitle="Parlay tickets only"
               searchPlaceholder="Search type..."
+              firstColumnHeader="Type"
             />
 
             {/* By Leg Count */}
@@ -808,6 +811,7 @@ const ParlayPerformanceView: React.FC = () => {
               title="By Leg Count"
               subtitle="Parlay tickets only"
               searchPlaceholder="Search legs..."
+              firstColumnHeader="Leg Count"
             />
 
             {/* By Sportsbook */}
@@ -816,6 +820,7 @@ const ParlayPerformanceView: React.FC = () => {
               title="By Sportsbook"
               subtitle="Parlay tickets only"
               searchPlaceholder="Search book..."
+              firstColumnHeader="Sportsbook"
             />
 
             {/* By Sport */}
@@ -824,6 +829,7 @@ const ParlayPerformanceView: React.FC = () => {
               title="By Sport"
               subtitle="Parlay tickets only"
               searchPlaceholder="Search sport..."
+              firstColumnHeader="Sport"
             />
           </div>
         </div>
