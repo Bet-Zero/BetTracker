@@ -628,6 +628,11 @@ const FuturesView: React.FC = () => {
     setShowHedgeCalc(true);
   };
   
+  const hasActiveFilters = sportFilter !== 'all' || typeFilter !== 'all';
+  const activeFilterMessage = hasActiveFilters
+    ? `Filtering by${sportFilter !== 'all' ? ` sport: ${sportFilter}` : ''}${sportFilter !== 'all' && typeFilter !== 'all' ? ',' : ''}${typeFilter !== 'all' ? ` type: ${typeFilter}` : ''}. Try adjusting your filters.`
+    : '';
+  
   // Empty state
   if (!futuresData) {
     return (
@@ -893,11 +898,8 @@ const FuturesView: React.FC = () => {
             {displayPositions.length === 0 && (
               <div className="text-center py-8 text-neutral-500 dark:text-neutral-400">
                 <p>No positions match your filters.</p>
-                {(sportFilter !== 'all' || typeFilter !== 'all') && (
-                  <p className="text-xs mt-2">
-                    Filtering by{sportFilter !== 'all' ? ` sport: ${sportFilter}` : ''}{sportFilter !== 'all' && typeFilter !== 'all' ? ',' : ''}{typeFilter !== 'all' ? ` type: ${typeFilter}` : ''}.
-                    {' '}Try adjusting your filters.
-                  </p>
+                {hasActiveFilters && (
+                  <p className="text-xs mt-2">{activeFilterMessage}</p>
                 )}
               </div>
             )}
@@ -920,10 +922,9 @@ const FuturesView: React.FC = () => {
                   ? 'No settled futures match your filters.'
                   : 'No pending positions match your filters.'}
               </p>
-              {(sportFilter !== 'all' || typeFilter !== 'all') && (
+              {hasActiveFilters && (
                 <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-2">
-                  Filtering by{sportFilter !== 'all' ? ` sport: ${sportFilter}` : ''}{sportFilter !== 'all' && typeFilter !== 'all' ? ',' : ''}{typeFilter !== 'all' ? ` type: ${typeFilter}` : ''}.
-                  {' '}Try adjusting your filters.
+                  {activeFilterMessage}
                 </p>
               )}
             </div>
