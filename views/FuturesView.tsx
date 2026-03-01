@@ -141,38 +141,39 @@ function extractFuturesType(description: string, sport: string): string {
  * Estimate resolution date based on futures type and sport.
  */
 function estimateResolutionDate(futuresType: string, sport: string): Date | null {
-  const currentYear = new Date().getFullYear();
+  const now = new Date();
+  const currentYear = now.getFullYear();
   const type = futuresType.toLowerCase();
   const sportLower = sport.toLowerCase();
   
+  let date: Date | null = null;
+  
   if (type.includes('super bowl') || type === 'nfl championship') {
-    return new Date(currentYear, 1, 9);
-  }
-  if (type.includes('nba championship') || type === 'nba finals') {
-    return new Date(currentYear, 5, 15);
-  }
-  if (type.includes('world series') || type === 'mlb championship') {
-    return new Date(currentYear, 9, 30);
-  }
-  if (type.includes('stanley cup') || type === 'nhl championship') {
-    return new Date(currentYear, 5, 20);
-  }
-  
-  if (type.includes('win total')) {
-    if (sportLower === 'nfl' || sportLower === 'football') return new Date(currentYear, 0, 8);
-    if (sportLower === 'nba' || sportLower === 'basketball') return new Date(currentYear, 3, 14);
-    if (sportLower === 'mlb' || sportLower === 'baseball') return new Date(currentYear, 9, 1);
-    if (sportLower === 'nhl' || sportLower === 'hockey') return new Date(currentYear, 3, 15);
-  }
-  
-  if (type.includes('mvp') || type.includes('dpoy') || type.includes('roy')) {
-    if (sportLower === 'nfl') return new Date(currentYear, 1, 1);
-    if (sportLower === 'nba') return new Date(currentYear, 4, 15);
-    if (sportLower === 'mlb') return new Date(currentYear, 10, 15);
-    if (sportLower === 'nhl') return new Date(currentYear, 5, 1);
+    date = new Date(currentYear, 1, 9);
+  } else if (type.includes('nba championship') || type === 'nba finals') {
+    date = new Date(currentYear, 5, 15);
+  } else if (type.includes('world series') || type === 'mlb championship') {
+    date = new Date(currentYear, 9, 30);
+  } else if (type.includes('stanley cup') || type === 'nhl championship') {
+    date = new Date(currentYear, 5, 20);
+  } else if (type.includes('win total')) {
+    if (sportLower === 'nfl' || sportLower === 'football') date = new Date(currentYear, 0, 8);
+    else if (sportLower === 'nba' || sportLower === 'basketball') date = new Date(currentYear, 3, 14);
+    else if (sportLower === 'mlb' || sportLower === 'baseball') date = new Date(currentYear, 9, 1);
+    else if (sportLower === 'nhl' || sportLower === 'hockey') date = new Date(currentYear, 3, 15);
+  } else if (type.includes('mvp') || type.includes('dpoy') || type.includes('roy')) {
+    if (sportLower === 'nfl') date = new Date(currentYear, 1, 1);
+    else if (sportLower === 'nba') date = new Date(currentYear, 4, 15);
+    else if (sportLower === 'mlb') date = new Date(currentYear, 10, 15);
+    else if (sportLower === 'nhl') date = new Date(currentYear, 5, 1);
   }
   
-  return null;
+  // If estimated date is already past, bump to next year
+  if (date && date < now) {
+    date.setFullYear(date.getFullYear() + 1);
+  }
+  
+  return date;
 }
 
 /**
@@ -237,6 +238,7 @@ function formatDate(date: Date | null): string {
  * Format currency.
  */
 function formatCurrency(amount: number): string {
+  if (amount < 0) return `-$${Math.abs(amount).toFixed(2)}`;
   return `$${amount.toFixed(2)}`;
 }
 
@@ -446,8 +448,10 @@ const PositionCard: React.FC<PositionCardProps> = ({ position, onHedge }) => {
                       <td className="px-3 py-2 text-right text-neutral-700 dark:text-neutral-300">
                         {formatCurrency(bet.potentialPayout)}
                       </td>
-                      <td className="px-3 py-2 text-right font-medium text-accent-500">
-                        +{formatCurrency(bet.profit)}
+                      <td className={`px-3 py-2 text-right font-medium ${
+                        bet.profit >= 0 ? 'text-accent-500' : 'text-red-500'
+                      }`}>
+                        {bet.profit >= 0 ? '+' : ''}{formatCurrency(bet.profit)}
                       </td>
                       <td className="px-3 py-2 text-center">
                         <span className={`px-2 py-0.5 rounded text-xs font-medium ${
@@ -623,6 +627,11 @@ const FuturesView: React.FC = () => {
     setHedgePosition(position);
     setShowHedgeCalc(true);
   };
+  
+  const hasActiveFilters = sportFilter !== 'all' || typeFilter !== 'all';
+  const activeFilterMessage = hasActiveFilters
+    ? `Filtering by${sportFilter !== 'all' ? ` sport: ${sportFilter}` : ''}${sportFilter !== 'all' && typeFilter !== 'all' ? ',' : ''}${typeFilter !== 'all' ? ` type: ${typeFilter}` : ''}. Try adjusting your filters.`
+    : '';
   
   // Empty state
   if (!futuresData) {
@@ -889,6 +898,9 @@ const FuturesView: React.FC = () => {
             {displayPositions.length === 0 && (
               <div className="text-center py-8 text-neutral-500 dark:text-neutral-400">
                 <p>No positions match your filters.</p>
+                {hasActiveFilters && (
+                  <p className="text-xs mt-2">{activeFilterMessage}</p>
+                )}
               </div>
             )}
           </div>
@@ -910,6 +922,11 @@ const FuturesView: React.FC = () => {
                   ? 'No settled futures match your filters.'
                   : 'No pending positions match your filters.'}
               </p>
+              {hasActiveFilters && (
+                <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-2">
+                  {activeFilterMessage}
+                </p>
+              )}
             </div>
           )}
         </div>
