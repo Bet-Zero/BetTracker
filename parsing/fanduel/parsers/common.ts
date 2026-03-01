@@ -6,6 +6,7 @@ import {
   SportsbookName,
   LegResult,
 } from "../../../types";
+import { getSportForTeam } from "../../../services/normalizationService";
 
 export const FD_DEBUG = false;
 export const fdDebug = (...args: any[]) => {
@@ -51,7 +52,7 @@ const iconResultFromNode = (node: Element): LegResult | null => {
 export const extractLegResultFromRow = (
   row: HTMLElement,
   fallbackParent?: HTMLElement,
-  fallback?: LegResultInput
+  fallback?: LegResultInput,
 ): LegResult => {
   const checkNodes = (root: HTMLElement): LegResult | null => {
     const targets: Element[] = [];
@@ -96,7 +97,7 @@ export const extractLegResultFromRow = (
 
 export const aggregateChildResults = (
   children: BetLeg[],
-  fallback?: LegResultInput
+  fallback?: LegResultInput,
 ): LegResult => {
   const childResults = children.map((c) => toLegResult(c.result));
   if (childResults.some((r) => r === "LOSS")) return "LOSS";
@@ -125,21 +126,35 @@ export const normalizeSpaces = (text: string): string =>
  * inferEntityType("Super Bowl Winner") // => "unknown"
  * inferEntityType("Season Win Total")  // => "unknown"
  */
-const MAIN_MARKET_TYPES = ['Spread', 'Total', 'Moneyline'] as const;
-const PLAYER_PROP_TYPES = ['Pts', 'Reb', 'Ast', '3pt', 'Yds', 'Rec', 'TD', 'DD', 'FB', 'Top Pts', 'PRA'] as const;
+const MAIN_MARKET_TYPES = ["Spread", "Total", "Moneyline"] as const;
+const PLAYER_PROP_TYPES = [
+  "Pts",
+  "Reb",
+  "Ast",
+  "3pt",
+  "Yds",
+  "Rec",
+  "TD",
+  "DD",
+  "FB",
+  "Top Pts",
+  "PRA",
+] as const;
 
 export const inferEntityType = (
-  market?: string
+  market?: string,
 ): "player" | "team" | "unknown" => {
   if (!market || market === "") return "unknown";
 
   const normalizedMarket = market.toLowerCase();
 
   // Main market types are team bets
-  if (MAIN_MARKET_TYPES.some(t => t.toLowerCase() === normalizedMarket)) return "team";
+  if (MAIN_MARKET_TYPES.some((t) => t.toLowerCase() === normalizedMarket))
+    return "team";
 
   // Explicit player prop detection (safer than broad assumption)
-  if (PLAYER_PROP_TYPES.some(t => t.toLowerCase() === normalizedMarket)) return "player";
+  if (PLAYER_PROP_TYPES.some((t) => t.toLowerCase() === normalizedMarket))
+    return "player";
 
   // Ambiguous or unrecognized markets: don't auto-add to any list
   return "unknown";
@@ -161,7 +176,7 @@ export const stripDateTimeNoise = (text: string): string => {
 
   let cleaned = text.replace(
     /[A-Z][a-z]{2}\s+\d{1,2},\s*\d{1,2}:\d{2}\s*(?:am|pm)\s*ET/gi,
-    " "
+    " ",
   );
 
   cleaned = cleaned.replace(/\b\d{1,2}:\d{2}\s*(?:am|pm)\s*ET\b/gi, " ");
@@ -169,7 +184,7 @@ export const stripDateTimeNoise = (text: string): string => {
   // In some HTML snippets the month is jammed against the matchup (e.g., "SunsNov 16, 8:12pm ET")
   cleaned = cleaned.replace(
     /(?:@|\bat\b)?\s*[A-Z][a-z]+\s*[A-Z][a-z]+Nov\s+\d{1,2},\s*\d{1,2}:\d{2}\s*(?:am|pm)\s*ET/gi,
-    " "
+    " ",
   );
 
   return normalizeSpaces(cleaned);
@@ -245,7 +260,7 @@ const TEAM_TOKENS = new Set(
     "nets",
     "mavericks",
     "raptors",
-  ].map((t) => t.toLowerCase())
+  ].map((t) => t.toLowerCase()),
 );
 
 export const parseMoney = (raw: string): number | null => {
@@ -321,7 +336,7 @@ export const inferMatchupFromTeams = (text: string): string | null => {
  * @returns Tuple of [team1Nickname, team2Nickname] or [undefined, undefined] if not found
  */
 export const extractTeamNicknamesFromRawText = (
-  rawText: string
+  rawText: string,
 ): [string | undefined, string | undefined] => {
   if (!rawText) return [undefined, undefined];
 
@@ -449,7 +464,7 @@ export const extractOdds = (root: HTMLElement): number | undefined => {
     let parent = root.parentElement;
     while (parent && parent !== root.ownerDocument?.body) {
       const parentOddsSpan = parent.querySelector<HTMLElement>(
-        'span[aria-label^="Odds"]'
+        'span[aria-label^="Odds"]',
       );
       if (parentOddsSpan) {
         txt = parentOddsSpan.textContent?.trim() ?? "";
@@ -473,12 +488,12 @@ export const extractOdds = (root: HTMLElement): number | undefined => {
   // Strategy 4: Check sibling elements for odds
   if (!txt) {
     const siblings = Array.from(
-      (root.parentElement?.children ?? []) as HTMLElement[]
+      (root.parentElement?.children ?? []) as HTMLElement[],
     );
     for (const sibling of siblings) {
       if (sibling === root) continue;
       const siblingOddsSpan = sibling.querySelector<HTMLElement>(
-        'span[aria-label^="Odds"]'
+        'span[aria-label^="Odds"]',
       );
       if (siblingOddsSpan) {
         txt = siblingOddsSpan.textContent?.trim() ?? "";
@@ -566,7 +581,7 @@ export const cleanDescriptionFromAria = (aria: string): string => {
   // Fix "Over [Name]" patterns - remove redundant name after "Over"
   // Pattern: "Onyeka Okongwu Over Onyeka OKONGWU - REBOUNDS" -> "Onyeka Okongwu Over [line]"
   const overNameMatch = desc.match(
-    /^([A-Za-z' .-]+)\s+Over\s+([A-Z][A-Z\s]+)/i
+    /^([A-Za-z' .-]+)\s+Over\s+([A-Z][A-Z\s]+)/i,
   );
   if (overNameMatch) {
     const name = overNameMatch[1].trim();
@@ -591,7 +606,7 @@ export const cleanDescriptionFromAria = (aria: string): string => {
     // Check if name appears again later in the description
     const nameRegex = new RegExp(
       name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
-      "gi"
+      "gi",
     );
     const matches = desc.match(nameRegex);
     if (matches && matches.length > 1) {
@@ -638,7 +653,7 @@ export interface DerivedFields {
 
 export const deriveFieldsFromDescription = (
   description: string,
-  rawText: string
+  rawText: string,
 ): DerivedFields => {
   const desc = description.trim();
   let name: string | undefined;
@@ -650,7 +665,7 @@ export const deriveFieldsFromDescription = (
 
   // Pattern: "Player Name To RECORD A TRIPLE DOUBLE" → extract "Player Name" only
   const toRecordTDMatch = desc.match(
-    /^([A-Za-z' .-]+?)\s+To\s+RECORD\s+A\s+TRIPLE\s+DOUBLE/i
+    /^([A-Za-z' .-]+?)\s+To\s+RECORD\s+A\s+TRIPLE\s+DOUBLE/i,
   );
   if (toRecordTDMatch) {
     name = toRecordTDMatch[1].trim();
@@ -659,7 +674,7 @@ export const deriveFieldsFromDescription = (
 
   // Pattern: "Player Name Top POINTS SCORER" → extract "Player Name" only
   const topScorerMatch = desc.match(
-    /^([A-Za-z' .-]+?)\s+Top\s+POINTS?\s+SCORER/i
+    /^([A-Za-z' .-]+?)\s+Top\s+POINTS?\s+SCORER/i,
   );
   if (topScorerMatch) {
     name = topScorerMatch[1].trim();
@@ -676,7 +691,7 @@ export const deriveFieldsFromDescription = (
   // Pattern: "Player Name To Record X+ Assists" (check before To Score to avoid misclassification)
   // Also handles "Player Name +540 To Record 10+ Assists" where odds are between name and "To Record"
   const toRecordAstMatch = desc.match(
-    /^([A-Za-z' .-]+?)\s+(?:[+\-]\d+\s+)?To\s+Record\s+(\d+(?:\.\d+)?)\+\s+Assists/i
+    /^([A-Za-z' .-]+?)\s+(?:[+\-]\d+\s+)?To\s+Record\s+(\d+(?:\.\d+)?)\+\s+Assists/i,
   );
   if (toRecordAstMatch && !name) {
     name = toRecordAstMatch[1].trim();
@@ -687,7 +702,7 @@ export const deriveFieldsFromDescription = (
   // Pattern: "Player Name To Score X+ Points"
   // Also handles "Player Name +540 To Score 30+ Points" where odds are between name and "To Score"
   const toScorePtsMatch = desc.match(
-    /^([A-Za-z' .-]+?)\s+(?:[+\-]\d+\s+)?To\s+Score\s+(\d+(?:\.\d+)?)\+\s+Points/i
+    /^([A-Za-z' .-]+?)\s+(?:[+\-]\d+\s+)?To\s+Score\s+(\d+(?:\.\d+)?)\+\s+Points/i,
   );
   if (toScorePtsMatch && !name) {
     name = toScorePtsMatch[1].trim();
@@ -712,14 +727,14 @@ export const deriveFieldsFromDescription = (
     const afterComma = desc.slice(commaIdx + 1).trim();
     // Check for "3+ Made Threes" or similar patterns
     const madeThreesLineMatch = afterComma.match(
-      /^(\d+)\+\s+\b(?:Made\s+)?(?:Threes|3PT)\b/i
+      /^(\d+)\+\s+\b(?:Made\s+)?(?:Threes|3PT)\b/i,
     );
     if (madeThreesLineMatch) {
       line = `${madeThreesLineMatch[1]}+`;
     } else {
       // Check for other stat line patterns like "50+ Yards" or "3+ Receptions"
       const statLineMatch = afterComma.match(
-        /^(\d+)\+\s+\b(Yards|Yds|Receptions|Rec|Points|Pts|Rebounds|Reb|Assists|Ast)\b/i
+        /^(\d+)\+\s+\b(Yards|Yds|Receptions|Rec|Points|Pts|Rebounds|Reb|Assists|Ast)\b/i,
       );
       if (statLineMatch) {
         line = `${statLineMatch[1]}+`;
@@ -728,7 +743,7 @@ export const deriveFieldsFromDescription = (
   } else if (!name && !ouLeading) {
     // Pattern: "Ausar Thompson Under 10.5" or "Onyeka Okongwu Over 8.5"
     const ouMatch = desc.match(
-      /^([A-Za-z' .-]+)\s+(Over|Under)\s+(\d+(?:\.\d+)?)/i
+      /^([A-Za-z' .-]+)\s+(Over|Under)\s+(\d+(?:\.\d+)?)/i,
     );
     if (ouMatch) {
       name = ouMatch[1].trim();
@@ -748,7 +763,7 @@ export const deriveFieldsFromDescription = (
         // Also handles: "Royce O'Neale, 3+ Made Threes" (with comma) and odds between name and target
         // Matches variants: "Made Threes", "Threes", "3PT" (with or without "Made")
         const madeThreesMatch = desc.match(
-          /^([A-Za-z' .-]+?)[,\s]+(?:[+\-]?\d+\s+)?(\d+)\+\s+\b(?:Made\s+)?(?:Threes|3PT)\b/i
+          /^([A-Za-z' .-]+?)[,\s]+(?:[+\-]?\d+\s+)?(\d+)\+\s+\b(?:Made\s+)?(?:Threes|3PT)\b/i,
         );
         if (madeThreesMatch) {
           name = madeThreesMatch[1].trim();
@@ -756,7 +771,7 @@ export const deriveFieldsFromDescription = (
         } else {
           // Pattern: "Made Threes Isaiah Collier" or "Made Threes 8+" - extract name after prefix
           const madeThreesPrefixMatch = desc.match(
-            /^Made\s+Threes\s+([A-Za-z' .-]+)/i
+            /^Made\s+Threes\s+([A-Za-z' .-]+)/i,
           );
           if (madeThreesPrefixMatch) {
             name = madeThreesPrefixMatch[1].trim();
@@ -769,13 +784,13 @@ export const deriveFieldsFromDescription = (
             // Pattern: "Orlando Magic +2.5" - extract name and line separately
             // Only use this for actual spread bets (not prop bets with odds)
             const spreadMatch = desc.match(
-              /^([A-Za-z' .-]+)\s*([+\-]\d+(?:\.\d+)?)\b/i
+              /^([A-Za-z' .-]+)\s*([+\-]\d+(?:\.\d+)?)\b/i,
             );
             // Only treat as spread if the line looks like a spread value (typically < 60)
             // and there's no stat line following (like "3+ Made Threes")
             const hasStatAfter =
               /\d+\+\s+(Yards|Yds|Receptions|Rec|Points|Pts|Rebounds|Reb|Assists|Ast|Made\s+Threes|3pt|Threes)/i.test(
-                desc
+                desc,
               );
             if (spreadMatch && !hasStatAfter) {
               name = spreadMatch[1].trim();
@@ -783,7 +798,7 @@ export const deriveFieldsFromDescription = (
             } else {
               // Pattern: "Player Name X+ POINTS" or "Player Name TO SCORE X+ POINTS"
               const pointsMatch = desc.match(
-                /^([A-Za-z' .-]+?)\s+(\d+)\+\s+(POINTS|TO SCORE)/i
+                /^([A-Za-z' .-]+?)\s+(\d+)\+\s+(POINTS|TO SCORE)/i,
               );
               if (pointsMatch) {
                 name = pointsMatch[1].trim();
@@ -792,7 +807,7 @@ export const deriveFieldsFromDescription = (
                 // Pattern: "Player Name 50+ Yards" or "Player Name 3+ Receptions" - extract name before stat
                 // Also handles "Player Name -130 3+ Receptions" where odds are between name and stat
                 const statLineMatch = desc.match(
-                  /^([A-Za-z' .-]+?)\s+(?:[+\-]\d+\s+)?(\d+)\+\s+(Yards|Yds|Receptions|Rec|Points|Pts|Rebounds|Reb|Assists|Ast|Made\s+Threes|3pt|Threes)/i
+                  /^([A-Za-z' .-]+?)\s+(?:[+\-]\d+\s+)?(\d+)\+\s+(Yards|Yds|Receptions|Rec|Points|Pts|Rebounds|Reb|Assists|Ast|Made\s+Threes|3pt|Threes)/i,
                 );
                 if (statLineMatch) {
                   name = statLineMatch[1].trim();
@@ -801,7 +816,7 @@ export const deriveFieldsFromDescription = (
                 } else {
                   // Try to extract just the name (first part before any market type)
                   const nameMatch = desc.match(
-                    /^([A-Za-z' .-]+?)(?:\s+(?:Under|Over|To|Top|First|TO SCORE|MONEYLINE|SPREAD|MADE THREES|THREES|3PT|POINTS|REBOUNDS|ASSISTS|TRIPLE DOUBLE|TOP POINTS|FIRST BASKET))/i
+                    /^([A-Za-z' .-]+?)(?:\s+(?:Under|Over|To|Top|First|TO SCORE|MONEYLINE|SPREAD|MADE THREES|THREES|3PT|POINTS|REBOUNDS|ASSISTS|TRIPLE DOUBLE|TOP POINTS|FIRST BASKET))/i,
                   );
                   if (nameMatch) {
                     name = nameMatch[1].trim();
@@ -851,7 +866,7 @@ export const deriveFieldsFromDescription = (
   if (ou && !line) {
     const ouText = ou === "Over" ? "Over" : "Under";
     const fallbackMatch = desc.match(
-      new RegExp(`\\b${ouText}\\s+(\\d+(?:\\.\\d+)?)`, "i")
+      new RegExp(`\\b${ouText}\\s+(\\d+(?:\\.\\d+)?)`, "i"),
     );
     if (fallbackMatch && fallbackMatch[1]) {
       line = fallbackMatch[1];
@@ -883,14 +898,14 @@ export const deriveFieldsFromDescription = (
     } else {
       // Pattern: "5+ MADE THREES" or "X+ THREES"
       const madeThreesMatch = desc.match(
-        /(\d+)\+\s+\b(MADE THREES|THREES|3PT)\b/i
+        /(\d+)\+\s+\b(MADE THREES|THREES|3PT)\b/i,
       );
       if (madeThreesMatch) {
         line = `${madeThreesMatch[1]}+`;
       } else {
         // Pattern: "Player Name 5+ MADE THREES" or "Player Name 30+ POINTS" (already extracted name, now get line)
         const inlineMatch = desc.match(
-          /\b(\d+)\+\s+(MADE THREES|THREES|3PT|POINTS|REBOUNDS|ASSISTS)/i
+          /\b(\d+)\+\s+(MADE THREES|THREES|3PT|POINTS|REBOUNDS|ASSISTS)/i,
         );
         if (inlineMatch) {
           line = `${inlineMatch[1]}+`;
@@ -912,7 +927,7 @@ export const deriveFieldsFromDescription = (
               type = "Ast";
             } else {
               const statMatch = desc.match(
-                /(\d+)\+\s+(REBOUNDS|POINTS|THREES|MADE THREES)/i
+                /(\d+)\+\s+(REBOUNDS|POINTS|THREES|MADE THREES)/i,
               );
               if (statMatch) {
                 line = `${statMatch[1]}+`;
@@ -1048,7 +1063,7 @@ export const guessMarketFromText = (text: string): string => {
 
 export const extractSpreadTarget = (text: string): string | undefined => {
   const match = text.match(
-    /\b([+\-]\d+(?:\.\d+)?)(?=(?:\s+[+\-]?\d{2,4})?\s*(?:SPREAD\b|SPREAD BETTING\b|$))/i
+    /\b([+\-]\d+(?:\.\d+)?)(?=(?:\s+[+\-]?\d{2,4})?\s*(?:SPREAD\b|SPREAD BETTING\b|$))/i,
   );
   if (match && match[1]) return match[1];
   return undefined;
@@ -1069,7 +1084,7 @@ export const cleanEntityName = (raw: string): string => {
   // Pattern: "Player Name 50+ Yards, Player Name - Alt Receiving Yds, , +1100, Team @ Team, Date"
   // Extract only the player name before the first comma (if comma is followed by descriptive text)
   const commaMatch = cleaned.match(
-    /^([^,]+?)(?:\s+\d+\+\s*(?:Yards|Yds|Receptions|Rec|Points|Pts|Rebounds|Reb|Assists|Ast|Made\s+Threes|3pt|Threes))?\s*,\s*/i
+    /^([^,]+?)(?:\s+\d+\+\s*(?:Yards|Yds|Receptions|Rec|Points|Pts|Rebounds|Reb|Assists|Ast|Made\s+Threes|3pt|Threes))?\s*,\s*/i,
   );
   if (commaMatch) {
     // Check if what comes after the comma looks like descriptive text (not part of the name)
@@ -1077,7 +1092,7 @@ export const cleanEntityName = (raw: string): string => {
     // If after comma contains market indicators, odds, team names, or dates, use the part before comma
     if (
       /alt\s+(receiving|rushing|yards|receptions)|[+\-]\d{3,}|@|et\b|nov|dec|jan|feb|mar|apr|may|jun|jul|aug|sep|oct/i.test(
-        afterComma
+        afterComma,
       )
     ) {
       cleaned = commaMatch[1].trim();
@@ -1098,7 +1113,7 @@ export const cleanEntityName = (raw: string): string => {
     genericWords.some(
       (word) =>
         cleaned.toLowerCase() === word ||
-        cleaned.toLowerCase() === word.toLowerCase()
+        cleaned.toLowerCase() === word.toLowerCase(),
     )
   ) {
     return "";
@@ -1133,17 +1148,17 @@ export const cleanEntityName = (raw: string): string => {
   // Remove stat lines from entity names (e.g., "50+ Yards", "3+ Receptions", "50+ Yds", "3+ Rec")
   cleaned = cleaned.replace(
     /\s+\d+\+\s*(Yards|Yds|Receptions|Rec|Points|Pts|Rebounds|Reb|Assists|Ast|Made\s+Threes|3pt|Threes)\s*$/i,
-    ""
+    "",
   );
 
   // Remove " - Alt Receiving Yds" or similar market descriptions that might remain
   cleaned = cleaned.replace(
     /\s*-\s*Alt\s+(Receiving|Rushing)\s+(Yds|Yards|Receptions|Rec)\s*$/i,
-    ""
+    "",
   );
   cleaned = cleaned.replace(
     /^Alt\s+(Receiving|Rushing)\s+(Yds|Yards|Receptions|Rec)\s+/i,
-    ""
+    "",
   );
   cleaned = cleaned.replace(/^Alt\s+(Receptions|Receiving|Rushing)\s+/i, "");
   cleaned = cleaned.replace(/^Points\s+Void\s+/i, "");
@@ -1186,7 +1201,7 @@ export const parseLegFromText = (
   text: string,
   odds: number | undefined,
   result: LegResultInput,
-  skipOdds: boolean = false
+  skipOdds: boolean = false,
 ): BetLeg | null => {
   const cleaned = stripScoreboardText(text);
   if (!cleaned) return null;
@@ -1294,7 +1309,7 @@ export const parseLegFromText = (
     market,
     target,
     ou: derived.ou,
-    odds: skipOdds ? undefined : extractedOdds ?? undefined,
+    odds: skipOdds ? undefined : (extractedOdds ?? undefined),
     result: isVoid ? "PUSH" : toLegResult(result),
   };
 
@@ -1313,7 +1328,7 @@ export interface ParseLegOptions {
 
 export const parseLegFromNode = (
   node: HTMLElement,
-  options: ParseLegOptions = {}
+  options: ParseLegOptions = {},
 ): BetLeg | null => {
   const {
     fallbackOdds,
@@ -1359,7 +1374,7 @@ export const parseLegFromNode = (
   const legResultRaw = extractLegResultFromRow(
     node,
     parentForResultLookup ?? undefined,
-    fallbackResult
+    fallbackResult,
   );
   if (legResultRaw === "VOID") {
     isVoid = true;
@@ -1426,7 +1441,7 @@ export const parseLegFromNode = (
     const rawCombined = normalizeSpaces(
       (node?.textContent || "") +
         " " +
-        (node?.getAttribute?.("aria-label") || "")
+        (node?.getAttribute?.("aria-label") || ""),
     );
     const match = rawCombined.match(/[+\-]\d+(?:\.\d+)?/);
     if (match) {
@@ -1466,7 +1481,7 @@ export const parseLegFromNode = (
     market: finalMarket,
     target,
     ou: derived.ou,
-    odds: skipOdds ? undefined : odds ?? undefined,
+    odds: skipOdds ? undefined : (odds ?? undefined),
     result: isVoid ? ("VOID" as LegResult) : normalizedResult,
   };
 
@@ -1485,7 +1500,7 @@ export interface BuildLegsFromRowsOptions {
 
 export const buildLegsFromRows = (
   rows: HTMLElement[],
-  options: BuildLegsFromRowsOptions = {}
+  options: BuildLegsFromRowsOptions = {},
 ): BetLeg[] => {
   const {
     result = "PENDING",
@@ -1518,7 +1533,7 @@ export const buildLegsFromRows = (
 export const buildLegsFromDescription = (
   description: string,
   result: LegResultInput,
-  skipOdds: boolean = false
+  skipOdds: boolean = false,
 ): BetLeg[] => {
   if (!description) return [];
 
@@ -1538,7 +1553,7 @@ export const buildLegsFromDescription = (
 
 export const buildLegsFromStatText = (
   rawText: string,
-  result: LegResultInput
+  result: LegResultInput,
 ): BetLeg[] => {
   if (!rawText) return [];
 
@@ -1556,7 +1571,7 @@ export const buildLegsFromStatText = (
     // Check the text before "Void" to see if it ends with a leg pattern
     const beforeVoid = rawText.substring(
       Math.max(0, voidIndex - 200),
-      voidIndex
+      voidIndex,
     );
     // Check if there's a leg pattern ending just before "Void"
     const legEndPattern =
@@ -1575,25 +1590,25 @@ export const buildLegsFromStatText = (
     // Matches variants: "Made Threes", "Threes", "3PT" (with or without "Made")
     new RegExp(
       `(${PLAYER_NAME_PATTERN})\\s+(?:[+\\-]\\d+\\s+)?(\\d+\\+)\\s+(?:Made\\s+)?(?:Threes|3PT)\\b`,
-      "gi"
+      "gi",
     ),
     // Pattern for stat-based legs: "Player Name 50+ Yards" or "Player Name 3+ Receptions"
     // Also handles "Player Name +/-XXX X+ Stat" where odds are between name and stat
     new RegExp(
       `(${PLAYER_NAME_PATTERN})\\s+(?:[+\\-]\\d+\\s+)?(\\d+\\+)\\s+(Yards|Receptions|Yds|Rec|Points|Assists|Receiving Yds|Alt Receiving Yds|Alt Receptions)`,
-      "gi"
+      "gi",
     ),
     // Pattern for "To Record" legs: "Player Name To Record A Triple Double" or "Player Name To Record 10+ Assists"
     // Also handles "Player Name +540 To Record 10+ Assists" where odds are between name and "To Record"
     new RegExp(
       `(${PLAYER_NAME_PATTERN})\\s+(?:[+\\-]\\d+\\s+)?To\\s+Record\\s+(?:A\\s+)?(Triple Double|\\d+\\+\\s+\\w+)`,
-      "gi"
+      "gi",
     ),
     // Pattern for "To Score" legs: "Player Name To Score 30+ Points"
     // Also handles "Player Name +540 To Score 30+ Points" where odds are between name and "To Score"
     new RegExp(
       `(${PLAYER_NAME_PATTERN})\\s+(?:[+\\-]\\d+\\s+)?To\\s+Score\\s+(\\d+\\+)\\s+(Points|Pts)`,
-      "gi"
+      "gi",
     ),
   ];
 
@@ -1770,7 +1785,7 @@ export const buildLegsFromStatText = (
       // Also ensure the entity name is cleaned
       if (leg.entities && leg.entities[0]) {
         leg.entities[0] = cleanEntityName(
-          leg.entities[0].replace(/^Void\s+/i, "").trim()
+          leg.entities[0].replace(/^Void\s+/i, "").trim(),
         );
       }
     }
@@ -1783,7 +1798,7 @@ export const buildLegsFromStatText = (
 
 export const buildLegsFromSpans = (
   root: HTMLElement,
-  result: LegResultInput
+  result: LegResultInput,
 ): BetLeg[] => {
   const spans = Array.from(root.querySelectorAll("span"));
   const legs: BetLeg[] = [];
@@ -1794,13 +1809,13 @@ export const buildLegsFromSpans = (
     if (!txt) return;
     if (
       /\d+\+\s+(Yards|Receptions|Points|Assists|Made Threes|Threes|Yds|Rec)/i.test(
-        txt
+        txt,
       ) ||
       /To Record\s+\d+\+\s+\w+/i.test(txt)
     ) {
       let cleanedTxt = txt.replace(
         new RegExp(`^[A-Z][a-z]+\\s+[A-Z][a-z]+\\s+(${PLAYER_NAME_PATTERN})`),
-        "$1"
+        "$1",
       );
       if (seen.has(cleanedTxt)) return;
       seen.add(cleanedTxt);
@@ -1915,7 +1930,7 @@ export const formatParlayDescriptionFromLegs = (legs: BetLeg[]): string =>
 // Helper to normalize target for deduplication
 // Treats empty/undefined/null as the same for comparison purposes
 export const normalizeTarget = (
-  target: string | number | undefined | null
+  target: string | number | undefined | null,
 ): string => {
   if (target === undefined || target === null || target === "") {
     return "";
@@ -1978,8 +1993,8 @@ export const dedupeLegs = (legs: BetLeg[]): BetLeg[] => {
           hasTarget && !existingHasTarget
             ? leg
             : !hasTarget && existingHasTarget
-            ? existingLoose
-            : leg; // If both have or both don't have, prefer the new one
+              ? existingLoose
+              : leg; // If both have or both don't have, prefer the new one
 
         // Merge properties: prefer non-undefined values
         const merged: BetLeg = {
@@ -2147,7 +2162,7 @@ export const filterMeaningfulLegs = (legs: BetLeg[]): BetLeg[] => {
     // Filter out team names when market is a prop (Pts, Reb, Ast, Yds, Rec, 3pt)
     const marketLower = market.toLowerCase();
     const isPropMarket = ["pts", "reb", "ast", "yds", "rec", "3pt"].includes(
-      marketLower
+      marketLower,
     );
     if (
       hasEntity &&
@@ -2225,7 +2240,7 @@ export const buildPrimaryLegsFromHeader = (
   header: HeaderInfo,
   result: LegResultInput,
   betType?: BetType,
-  description?: string
+  description?: string,
 ): BetLeg[] => {
   if (betType === "parlay" || betType === "sgp" || betType === "sgp_plus") {
     return [];
@@ -2275,7 +2290,7 @@ export const formatDescription = (
   name?: string,
   line?: string,
   ou?: "Over" | "Under",
-  betType?: BetType
+  betType?: BetType,
 ): string => {
   if (!description) return "";
 
@@ -2395,8 +2410,8 @@ export const formatDescription = (
       !description.match(
         new RegExp(
           `Over\\s+${line.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`,
-          "i"
-        )
+          "i",
+        ),
       );
 
     // Also check if description has "Over" followed by part of the name (like "Over Okongwu" or "Over Pearsall")
@@ -2408,13 +2423,13 @@ export const formatDescription = (
       lastName &&
       new RegExp(
         `Over\\s+${lastName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`,
-        "i"
+        "i",
       ).test(description) &&
       !description.match(
         new RegExp(
           `Over\\s+${line.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`,
-          "i"
-        )
+          "i",
+        ),
       );
 
     // Rebuild description for Over/Under bets if:
@@ -2463,7 +2478,7 @@ export const formatDescription = (
 
 export const inferMarketCategory = (
   betType: BetType,
-  type?: string
+  type?: string,
 ): MarketCategory => {
   if (betType === "parlay" || betType === "sgp" || betType === "sgp_plus") {
     return "Parlays";
@@ -2516,7 +2531,7 @@ export const inferMarketCategory = (
   for (const prop of singleWordProps) {
     const regex = new RegExp(
       `\\b${prop.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
-      "i"
+      "i",
     );
     if (regex.test(t)) {
       return "Props";
@@ -2539,37 +2554,62 @@ export const inferMarketCategory = (
 
 export const inferSportFromText = (
   text: string,
-  marketTypes?: string[]
+  marketTypes?: string[],
 ): string => {
   const upper = text.toUpperCase();
 
-  // PRIORITY 1: Market-based detection from parsed market types (highest priority)
+  // PRIORITY 0 (NEW): Check for known team names FIRST - these are authoritative
+  // This prevents "Arizona Cardinals Over 24.5 Points" from being misclassified as NBA
+  // because "Points" appears in the text. Team names are definitive.
+  const teamPatterns = [
+    // Full team names (most reliable)
+    /\b(Arizona\s+Cardinals|Atlanta\s+Falcons|Baltimore\s+Ravens|Buffalo\s+Bills|Carolina\s+Panthers|Chicago\s+Bears|Cincinnati\s+Bengals|Cleveland\s+Browns|Dallas\s+Cowboys|Denver\s+Broncos|Detroit\s+Lions|Green\s+Bay\s+Packers|Houston\s+Texans|Indianapolis\s+Colts|Jacksonville\s+Jaguars|Kansas\s+City\s+Chiefs|Las\s+Vegas\s+Raiders|Los\s+Angeles\s+Chargers|Los\s+Angeles\s+Rams|Miami\s+Dolphins|Minnesota\s+Vikings|New\s+England\s+Patriots|New\s+Orleans\s+Saints|New\s+York\s+Giants|New\s+York\s+Jets|Philadelphia\s+Eagles|Pittsburgh\s+Steelers|San\s+Francisco\s+49ers|Seattle\s+Seahawks|Tampa\s+Bay\s+Buccaneers|Tennessee\s+Titans|Washington\s+Commanders)\b/gi,
+    // NBA full team names
+    /\b(Atlanta\s+Hawks|Boston\s+Celtics|Brooklyn\s+Nets|Charlotte\s+Hornets|Chicago\s+Bulls|Cleveland\s+Cavaliers|Dallas\s+Mavericks|Denver\s+Nuggets|Detroit\s+Pistons|Golden\s+State\s+Warriors|Houston\s+Rockets|Indiana\s+Pacers|Los\s+Angeles\s+Clippers|Los\s+Angeles\s+Lakers|Memphis\s+Grizzlies|Miami\s+Heat|Milwaukee\s+Bucks|Minnesota\s+Timberwolves|New\s+Orleans\s+Pelicans|New\s+York\s+Knicks|Oklahoma\s+City\s+Thunder|Orlando\s+Magic|Philadelphia\s+76ers|Phoenix\s+Suns|Portland\s+Trail\s+Blazers|Sacramento\s+Kings|San\s+Antonio\s+Spurs|Toronto\s+Raptors|Utah\s+Jazz|Washington\s+Wizards)\b/gi,
+    // MLB full team names
+    /\b(Arizona\s+Diamondbacks|Atlanta\s+Braves|Baltimore\s+Orioles|Boston\s+Red\s+Sox|Chicago\s+Cubs|Chicago\s+White\s+Sox|Cincinnati\s+Reds|Cleveland\s+Guardians|Colorado\s+Rockies|Detroit\s+Tigers|Houston\s+Astros|Kansas\s+City\s+Royals|Los\s+Angeles\s+Angels|Los\s+Angeles\s+Dodgers|Miami\s+Marlins|Milwaukee\s+Brewers|Minnesota\s+Twins|New\s+York\s+Mets|New\s+York\s+Yankees|Oakland\s+Athletics|Philadelphia\s+Phillies|Pittsburgh\s+Pirates|San\s+Diego\s+Padres|San\s+Francisco\s+Giants|Seattle\s+Mariners|St\.?\s*Louis\s+Cardinals|Tampa\s+Bay\s+Rays|Texas\s+Rangers|Toronto\s+Blue\s+Jays|Washington\s+Nationals)\b/gi,
+  ];
+
+  // Try to find full team names in the text and look them up
+  for (const pattern of teamPatterns) {
+    const matches = text.match(pattern);
+    if (matches) {
+      for (const match of matches) {
+        const sport = getSportForTeam(match.trim());
+        if (sport) {
+          return sport;
+        }
+      }
+    }
+  }
+
+  // PRIORITY 1: Market-based detection from parsed market types
+  // Note: These are less reliable than team names because stats like "Points" exist in all sports
   if (marketTypes && marketTypes.length > 0) {
     const marketsUpper = marketTypes.map((m) => m.toUpperCase());
-    // NFL markets: Yds, Rec (Yards, Receptions)
+    // NFL-specific markets: Yds, Rec (Yards, Receptions) - these are unique to NFL
     if (
       marketsUpper.some(
         (m) =>
           m === "YDS" ||
           m === "REC" ||
           m.includes("YARD") ||
-          m.includes("RECEPTION")
+          m.includes("RECEPTION"),
       )
     ) {
       return "NFL";
     }
-    // NBA markets: Pts, Reb, Ast, 3pt (Points, Rebounds, Assists, Threes)
+    // NBA-specific markets: Reb, Ast, 3pt (Rebounds, Assists, Threes) - more unique to NBA
+    // NOTE: We removed "PTS"/"POINTS" because Points exist in ALL sports (team totals)
     if (
       marketsUpper.some(
         (m) =>
-          m === "PTS" ||
           m === "REB" ||
           m === "AST" ||
           m === "3PT" ||
-          m.includes("POINT") ||
           m.includes("REBOUND") ||
           m.includes("ASSIST") ||
-          m.includes("THREE")
+          m.includes("THREE"),
       )
     ) {
       return "NBA";
@@ -2577,14 +2617,16 @@ export const inferSportFromText = (
   }
 
   // PRIORITY 2: Market keywords in text itself (high priority)
+  // NFL-specific keywords
   if (
     /YARDS|YDS|RECEPTIONS|REC\b/.test(upper) &&
-    !/POINTS|REBOUNDS|ASSISTS/.test(upper)
+    !/REBOUNDS|ASSISTS/.test(upper)
   ) {
     return "NFL";
   }
+  // NBA-specific keywords (excluding POINTS as it's used for team totals in all sports)
   if (
-    /POINTS|REBOUNDS|ASSISTS|MADE THREES|3PT/.test(upper) &&
+    /REBOUNDS|ASSISTS|MADE THREES|3PT/.test(upper) &&
     !/YARDS|RECEPTIONS/.test(upper)
   ) {
     return "NBA";
@@ -2601,7 +2643,8 @@ export const inferSportFromText = (
     return "MLB";
   }
 
-  // PRIORITY 4: Team name matching (fallback - lower priority)
+  // PRIORITY 4: Team nickname matching (fallback - lower priority)
+  // These are less reliable as nicknames can be ambiguous
   // NBA teams
   if (
     upper.includes("PISTONS") ||
@@ -2655,10 +2698,10 @@ export const inferSportFromText = (
 
 export const extractHeaderInfo = (
   headerLi: HTMLElement,
-  betType?: BetType
+  betType?: BetType,
 ): HeaderInfo => {
   const rawText = stripDateTimeNoise(
-    (headerLi.textContent ?? "").replace(/\s+/g, " ").trim()
+    (headerLi.textContent ?? "").replace(/\s+/g, " ").trim(),
   );
 
   const odds = extractOdds(headerLi);
@@ -2696,7 +2739,7 @@ export const extractHeaderInfo = (
     } else {
       // Fallback: try to extract from raw text - look for pattern like "Team -5.5 Spread Betting, Team -5.5 Spread Betting"
       const parlayMatch = rawText.match(
-        /([A-Za-z\s]+[+\-]\d+(?:\.\d+)?\s*Spread Betting[^,]*,\s*[A-Za-z\s]+[+\-]\d+(?:\.\d+)?\s*Spread Betting)/
+        /([A-Za-z\s]+[+\-]\d+(?:\.\d+)?\s*Spread Betting[^,]*,\s*[A-Za-z\s]+[+\-]\d+(?:\.\d+)?\s*Spread Betting)/,
       );
       if (parlayMatch) {
         description = parlayMatch[1]
@@ -2708,7 +2751,7 @@ export const extractHeaderInfo = (
         // First, find the section after "Same Game Parlay" that contains the actual legs
         let parlaySection = rawText;
         const parlayStartMatch = rawText.match(
-          /Same Game Parlay[^]*?([A-Z][^]+)/i
+          /Same Game Parlay[^]*?([A-Z][^]+)/i,
         );
         if (parlayStartMatch && parlayStartMatch[1]) {
           parlaySection = parlayStartMatch[1];
@@ -2718,14 +2761,14 @@ export const extractHeaderInfo = (
         const propLegs = parlaySection.match(
           new RegExp(
             `(${PLAYER_NAME_PATTERN}\\s+(?:To Record|To Score)\\s+\\d+\\+\\s+\\w+)`,
-            "gi"
-          )
+            "gi",
+          ),
         );
         if (propLegs && propLegs.length >= 2) {
           description = propLegs
             .map(cleanParlayLegText)
             .filter(
-              (leg) => leg.length > 10 && !leg.includes("Same Game Parlay")
+              (leg) => leg.length > 10 && !leg.includes("Same Game Parlay"),
             )
             .join(", ");
         }
@@ -2735,15 +2778,15 @@ export const extractHeaderInfo = (
           const madeThreesLegs = parlaySection.match(
             new RegExp(
               `(${PLAYER_NAME_PATTERN}\\s+\\d+\\+\\s+Made Threes)`,
-              "gi"
-            )
+              "gi",
+            ),
           );
           if (madeThreesLegs && madeThreesLegs.length >= 1) {
             const otherLegs = parlaySection.match(
               new RegExp(
                 `(${PLAYER_NAME_PATTERN}\\s+(?:To Record|To Score)\\s+\\d+\\+\\s+\\w+)`,
-                "gi"
-              )
+                "gi",
+              ),
             );
             if (otherLegs && otherLegs.length >= 1) {
               description = [...otherLegs, ...madeThreesLegs]
@@ -2757,7 +2800,7 @@ export const extractHeaderInfo = (
         if (!description || description.length < 20) {
           // Try to extract prop parlay legs (e.g., "Player To Record X+ Stat, Player To Record Y+ Stat")
           const propLegs = rawText.match(
-            /([A-Z][^,]+(?:To Record|To Score|Made Threes)[^,]+)/gi
+            /([A-Z][^,]+(?:To Record|To Score|Made Threes)[^,]+)/gi,
           );
           if (propLegs && propLegs.length >= 2) {
             // Clean up each leg - remove odds, team names, dates, etc.
@@ -2770,7 +2813,7 @@ export const extractHeaderInfo = (
           // Last resort: extract team names and spreads from text
           if (!description) {
             const teams = rawText.match(
-              /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s*([+\-]\d+(?:\.\d+)?)/g
+              /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s*([+\-]\d+(?:\.\d+)?)/g,
             );
             if (teams && teams.length >= 2) {
               description = teams
@@ -2782,7 +2825,7 @@ export const extractHeaderInfo = (
           if (!description) {
             // Final fallback: extract meaningful text after "parlay" keyword
             const parlayTextMatch = rawText.match(
-              /(?:parlay|same game parlay)[^,]*?([A-Z][^]+?)(?:\s+\d{8,}|\s+Finished|\s+Settled|$)/i
+              /(?:parlay|same game parlay)[^,]*?([A-Z][^]+?)(?:\s+\d{8,}|\s+Finished|\s+Settled|$)/i,
             );
             if (parlayTextMatch && parlayTextMatch[1]) {
               description = parlayTextMatch[1]
@@ -2799,7 +2842,7 @@ export const extractHeaderInfo = (
     // Append any "Made Threes" legs that might not have been included above
     const madeThreesExtras =
       rawText.match(
-        new RegExp(`(${PLAYER_NAME_PATTERN}\\s+\\d+\\+\\s+Made Threes)`, "gi")
+        new RegExp(`(${PLAYER_NAME_PATTERN}\\s+\\d+\\+\\s+Made Threes)`, "gi"),
       ) || [];
     if (madeThreesExtras.length) {
       const cleanedExtras = madeThreesExtras
@@ -2809,7 +2852,7 @@ export const extractHeaderInfo = (
         const parts = new Set(
           description
             ? description.split(/,\s*/).map((p) => normalizeSpaces(p))
-            : []
+            : [],
         );
         cleanedExtras.forEach((leg) => parts.add(leg));
         description = Array.from(parts).join(", ").trim();
@@ -2831,7 +2874,7 @@ export const extractHeaderInfo = (
       // Look for common patterns in the text
       // Pattern: "Player Name, MARKET TYPE" or "Player Name MARKET TYPE"
       const nameMarketMatch = text.match(
-        /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s*[,]?\s*(TO SCORE|POINTS|SPREAD|MONEYLINE|TOTAL)/i
+        /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s*[,]?\s*(TO SCORE|POINTS|SPREAD|MONEYLINE|TOTAL)/i,
       );
       if (nameMarketMatch) {
         description = `${nameMarketMatch[1]} ${nameMarketMatch[2]}`;
@@ -2864,7 +2907,7 @@ export const extractHeaderInfo = (
     if (ou && !line) {
       const ouText = ou === "Over" ? "Over" : "Under";
       const rawMatch = rawText.match(
-        new RegExp(`\\b${ouText}\\s+(\\d+(?:\\.\\d+)?)`, "i")
+        new RegExp(`\\b${ouText}\\s+(\\d+(?:\\.\\d+)?)`, "i"),
       );
       if (rawMatch && rawMatch[1]) {
         line = rawMatch[1];
@@ -2886,15 +2929,15 @@ export const extractHeaderInfo = (
       const overNamePattern = new RegExp(
         `^${(name || "").replace(
           /[.*+?^${}()|[\]\\]/g,
-          "\\$&"
+          "\\$&",
         )}\\s+Over\\s+[A-Z]`,
-        "i"
+        "i",
       );
       if (overNamePattern.test(description)) {
         // Try to extract line from rawText
         const ouText = ou === "Over" ? "Over" : "Under";
         const lineMatch = rawText.match(
-          new RegExp(`\\b${ouText}\\s+(\\d+(?:\\.\\d+)?)`, "i")
+          new RegExp(`\\b${ouText}\\s+(\\d+(?:\\.\\d+)?)`, "i"),
         );
         if (lineMatch && lineMatch[1]) {
           line = lineMatch[1];
@@ -2917,7 +2960,7 @@ export const extractHeaderInfo = (
 
   const sport = inferSportFromText(
     rawText,
-    marketTypes.length > 0 ? marketTypes : undefined
+    marketTypes.length > 0 ? marketTypes : undefined,
   );
 
   const isLive = /live bet|in-play/i.test(rawText);
@@ -2949,8 +2992,8 @@ export const extractHeaderInfo = (
       !description.match(
         new RegExp(
           `Over\\s+${line.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`,
-          "i"
-        )
+          "i",
+        ),
       );
 
     // Also check if description just has "Over" followed by part of the name (like "Over Okongwu" or "Over Pearsall")
@@ -2960,13 +3003,13 @@ export const extractHeaderInfo = (
       description &&
       new RegExp(
         `Over\\s+${lastName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`,
-        "i"
+        "i",
       ).test(description) &&
       !description.match(
         new RegExp(
           `Over\\s+${line.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`,
-          "i"
-        )
+          "i",
+        ),
       );
 
     if (hasMalformedOver || hasOverLastName) {
@@ -2974,14 +3017,14 @@ export const extractHeaderInfo = (
         type === "Reb"
           ? "Rebounds"
           : type === "Yds"
-          ? "Yards"
-          : type === "Rec"
-          ? "Receptions"
-          : type === "Ast"
-          ? "Assists"
-          : type === "3pt"
-          ? "Made Threes"
-          : "";
+            ? "Yards"
+            : type === "Rec"
+              ? "Receptions"
+              : type === "Ast"
+                ? "Assists"
+                : type === "3pt"
+                  ? "Made Threes"
+                  : "";
       if (typeName) {
         description = `${name} ${ou} ${line} ${typeName}`;
       } else {
@@ -3038,8 +3081,8 @@ export const extractHeaderInfo = (
       const meaningfulParts = parts.filter(
         (part) =>
           !/^(parlay|parlay™|same\s+game|available\s+same\s+game|includes|plus\s+available)/i.test(
-            part.trim()
-          )
+            part.trim(),
+          ),
       );
       if (meaningfulParts.length > 0) {
         description = meaningfulParts.join(", ").trim();
@@ -3072,19 +3115,21 @@ export const findLegRows = (cardLi: HTMLElement): HTMLElement[] => {
 
   // FanDuel leg cards without aria-labels/odds often use this class cluster.
   candidates.push(
-    ...Array.from(cardLi.querySelectorAll<HTMLElement>("div.v.z.x.y.jk.t.ab.h"))
+    ...Array.from(
+      cardLi.querySelectorAll<HTMLElement>("div.v.z.x.y.jk.t.ab.h"),
+    ),
   );
 
   // Primary: nodes with aria-label
   candidates.push(
     ...Array.from(cardLi.querySelectorAll<HTMLElement>("[aria-label]")).filter(
-      (el) => el.tagName.toLowerCase() !== "span"
-    )
+      (el) => el.tagName.toLowerCase() !== "span",
+    ),
   );
 
   // Secondary: parents of odds spans (covers cases where the row itself lacks aria-label)
   const oddsSpans = Array.from(
-    cardLi.querySelectorAll<HTMLElement>('span[aria-label^="Odds"]')
+    cardLi.querySelectorAll<HTMLElement>('span[aria-label^="Odds"]'),
   );
   for (const span of oddsSpans) {
     const parentDiv = span.closest<HTMLElement>("div");
@@ -3114,22 +3159,22 @@ export const findLegRows = (cardLi: HTMLElement): HTMLElement[] => {
       // Pattern for "Made Threes" legs: "Player Name X+ Made Threes" (specific pattern first)
       new RegExp(
         `(${PLAYER_NAME_PATTERN})\\s+(\\d+\\+)\\s+Made\\s+Threes`,
-        "gi"
+        "gi",
       ),
       // Pattern for stat-based legs: "Player Name 50+ Yards" or "Player Name 3+ Receptions"
       new RegExp(
         `(${PLAYER_NAME_PATTERN})\\s+(\\d+\\+)\\s+(Yards|Receptions|Points|Assists|Yds|Rec|Receiving Yds|Alt Receiving Yds|Alt Receptions)`,
-        "gi"
+        "gi",
       ),
       // Pattern for "To Record" legs: "Player Name To Record A Triple Double" or "Player Name To Record 10+ Assists"
       new RegExp(
         `(${PLAYER_NAME_PATTERN})\\s+To\\s+Record\\s+(?:A\\s+)?(Triple Double|\\d+\\+\\s+\\w+)`,
-        "gi"
+        "gi",
       ),
       // Pattern for "To Score" legs: "Player Name To Score 30+ Points"
       new RegExp(
         `(${PLAYER_NAME_PATTERN})\\s+To\\s+Score\\s+(\\d+\\+)\\s+Points`,
-        "gi"
+        "gi",
       ),
     ];
 
@@ -3215,7 +3260,7 @@ export const findLegRows = (cardLi: HTMLElement): HTMLElement[] => {
     for (const legMatch of textLegMatches) {
       // Find divs that contain this player name and market text
       const matchingDivs = Array.from(
-        cardLi.querySelectorAll<HTMLElement>("div")
+        cardLi.querySelectorAll<HTMLElement>("div"),
       ).filter((div) => {
         const text = normalizeSpaces(div.textContent || "");
         const hasPlayer = text.includes(legMatch.player);
@@ -3280,7 +3325,7 @@ export const findLegRows = (cardLi: HTMLElement): HTMLElement[] => {
     const aria = normalizeSpaces(node.getAttribute("aria-label") || "");
     const text = normalizeSpaces(node.textContent || "");
     const hasOdds = !!node.querySelector<HTMLElement>(
-      'span[aria-label^="Odds"]'
+      'span[aria-label^="Odds"]',
     );
     const hasMarket = marketPattern.test(aria) || marketPattern.test(text);
     const isParlayHeader =
@@ -3310,7 +3355,7 @@ export const findLegRows = (cardLi: HTMLElement): HTMLElement[] => {
     topLevel = filtered.filter((node) => {
       const nodeText = normalizeSpaces(node.textContent || "");
       const nodePlayerMatch = nodeText.match(
-        new RegExp(`(${PLAYER_NAME_PATTERN})`, "i")
+        new RegExp(`(${PLAYER_NAME_PATTERN})`, "i"),
       );
       if (!nodePlayerMatch) return true;
 
@@ -3319,7 +3364,7 @@ export const findLegRows = (cardLi: HTMLElement): HTMLElement[] => {
         if (other === node || !other.contains(node)) return false;
         const otherText = normalizeSpaces(other.textContent || "");
         const otherPlayerMatch = otherText.match(
-          new RegExp(`(${PLAYER_NAME_PATTERN})`, "i")
+          new RegExp(`(${PLAYER_NAME_PATTERN})`, "i"),
         );
         return otherPlayerMatch && otherPlayerMatch[1] === nodePlayerMatch[1];
       });
@@ -3328,7 +3373,7 @@ export const findLegRows = (cardLi: HTMLElement): HTMLElement[] => {
     // Original logic for non-SGP+ bets
     topLevel = filtered.filter(
       (node) =>
-        !filtered.some((other) => other !== node && other.contains(node))
+        !filtered.some((other) => other !== node && other.contains(node)),
     );
   }
 
@@ -3341,7 +3386,7 @@ export const findLegRows = (cardLi: HTMLElement): HTMLElement[] => {
     // For SGP+ bets, use a more lenient deduplication (just player name + market)
     if (isSGPPlusBet) {
       const playerMatch = text.match(
-        new RegExp(`(${PLAYER_NAME_PATTERN})`, "i")
+        new RegExp(`(${PLAYER_NAME_PATTERN})`, "i"),
       );
       const marketMatch = text.match(/(To Record|To Score|\d+\+\s+\w+)/i);
       const key =
@@ -3374,8 +3419,8 @@ export const formatParlayLegDescription = (rawText: string): string => {
   const propLegs = rawText.match(
     new RegExp(
       `(${PLAYER_NAME_PATTERN}\\s+(?:To Record|To Score)\\s+\\d+\\+\\s+\\w+)`,
-      "gi"
-    )
+      "gi",
+    ),
   );
   if (propLegs && propLegs.length >= 2) {
     return propLegs
@@ -3412,7 +3457,7 @@ export const isSGPPlus = (rawText: string): boolean => {
  */
 export const identifySGPBoundaries = (
   legs: BetLeg[],
-  rawText: string
+  rawText: string,
 ): number[][] => {
   // For now, return empty array - SGP+ structure is complex and would require
   // more sophisticated game/matchup detection. The missing odds in some legs
