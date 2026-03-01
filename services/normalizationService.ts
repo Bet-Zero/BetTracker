@@ -298,6 +298,52 @@ let playerCollisionMap = new Map<string, string[]>();
 // Incremented whenever refreshLookupMaps() is called
 let resolverVersion = 0;
 
+type CollisionSeverity = "debug" | "warn";
+
+function isDebugCollisionLoggingEnabled(): boolean {
+  if (typeof process !== "undefined" && process.env?.LOG_LEVEL === "debug") {
+    return true;
+  }
+  if (typeof globalThis !== "undefined" && "localStorage" in globalThis) {
+    try {
+      return globalThis.localStorage.getItem("bettracker-log-level") === "debug";
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+
+function emitCollisionLog(
+  entityType: "team" | "betType" | "player",
+  key: string,
+  keyTypes: string[],
+  candidates: string[],
+  severity: CollisionSeverity,
+  sports?: string[]
+) {
+  const debugEnabled = isDebugCollisionLoggingEnabled();
+  if (severity === "debug" && !debugEnabled) {
+    return;
+  }
+
+  const payload = {
+    module: "normalizationService",
+    event: "lookup_collision",
+    entityType,
+    key,
+    keyTypes,
+    candidates,
+    candidateSports: sports,
+    resolution: "keep-first-entry",
+  };
+  if (severity === "warn") {
+    console.warn(payload);
+    return;
+  }
+  console.debug(payload);
+}
+
 // ============================================================================
 // INITIALIZATION
 // ============================================================================
@@ -557,6 +603,7 @@ function loadPlayers(): PlayerData[] {
 function buildTeamLookupMap(teams: TeamData[]): Map<string, TeamData> {
   const map = new Map<string, TeamData>();
   const collisionMap = new Map<string, string[]>();
+  const collisionKeyTypes = new Map<string, Set<string>>();
 
   const addEntry = (key: string, team: TeamData, keyType: string) => {
     const lowerKey = toLookupKey(key);
@@ -570,11 +617,10 @@ function buildTeamLookupMap(teams: TeamData[]): Map<string, TeamData> {
       if (!candidates.includes(team.canonical)) {
         candidates.push(team.canonical);
       }
-      console.warn(
-        `[normalizationService] Team lookup collision: key "${key}" (${keyType}) ` +
-          `maps to both "${existing.canonical}" and "${team.canonical}". ` +
-          `Keeping first entry: "${existing.canonical}".`
-      );
+      if (!collisionKeyTypes.has(lowerKey)) {
+        collisionKeyTypes.set(lowerKey, new Set());
+      }
+      collisionKeyTypes.get(lowerKey)!.add(keyType);
       return; // Skip override, keep first entry
     }
     map.set(lowerKey, team);
@@ -595,6 +641,11 @@ function buildTeamLookupMap(teams: TeamData[]): Map<string, TeamData> {
 
   // Store collision map in module-level variable
   teamCollisionMap = collisionMap;
+  collisionMap.forEach((candidates, key) => {
+    const keyTypes = Array.from(collisionKeyTypes.get(key) ?? []);
+    const highRisk = keyTypes.includes("canonical");
+    emitCollisionLog("team", key, keyTypes, candidates, highRisk ? "warn" : "debug");
+  });
 
   // Phase 5: Populate ID map
   teamIdMap.clear();
@@ -617,16 +668,29 @@ function buildBetTypeLookupMap(
   betTypes: BetTypeData[]
 ): Map<string, BetTypeData> {
   const map = new Map<string, BetTypeData>();
+  const collisionMap = new Map<string, string[]>();
+  const collisionKeyTypes = new Map<string, Set<string>>();
+  const collisionSports = new Map<string, Set<string>>();
 
   const addEntry = (key: string, stat: BetTypeData, keyType: string) => {
     const lowerKey = toLookupKey(key);
     const existing = map.get(lowerKey);
     if (existing && existing.canonical !== stat.canonical) {
-      console.warn(
-        `[normalizationService] Bet type lookup collision: key "${key}" (${keyType}) ` +
-          `maps to both "${existing.canonical}" (${existing.sport}) and "${stat.canonical}" (${stat.sport}). ` +
-          `Keeping first entry: "${existing.canonical}".`
-      );
+      if (!collisionMap.has(lowerKey)) {
+        collisionMap.set(lowerKey, [existing.canonical]);
+      }
+      const candidates = collisionMap.get(lowerKey)!;
+      if (!candidates.includes(stat.canonical)) {
+        candidates.push(stat.canonical);
+      }
+      if (!collisionKeyTypes.has(lowerKey)) {
+        collisionKeyTypes.set(lowerKey, new Set());
+      }
+      collisionKeyTypes.get(lowerKey)!.add(keyType);
+      if (!collisionSports.has(lowerKey)) {
+        collisionSports.set(lowerKey, new Set([existing.sport]));
+      }
+      collisionSports.get(lowerKey)!.add(stat.sport);
       return; // Skip override, keep first entry
     }
     map.set(lowerKey, stat);
@@ -642,6 +706,20 @@ function buildBetTypeLookupMap(
     }
   }
 
+  collisionMap.forEach((candidates, key) => {
+    const keyTypes = Array.from(collisionKeyTypes.get(key) ?? []);
+    const sports = Array.from(collisionSports.get(key) ?? []);
+    const highRisk = keyTypes.includes("canonical");
+    emitCollisionLog(
+      "betType",
+      key,
+      keyTypes,
+      candidates,
+      highRisk ? "warn" : "debug",
+      sports
+    );
+  });
+
   return map;
 }
 
@@ -655,6 +733,7 @@ function buildBetTypeLookupMap(
 function buildPlayerLookupMap(players: PlayerData[]): Map<string, PlayerData> {
   const map = new Map<string, PlayerData>();
   const collisionMap = new Map<string, string[]>();
+  const collisionKeyTypes = new Map<string, Set<string>>();
 
   /**
    * Create a sport-scoped key for player lookups.
@@ -682,11 +761,10 @@ function buildPlayerLookupMap(players: PlayerData[]): Map<string, PlayerData> {
       if (!candidates.includes(player.canonical)) {
         candidates.push(player.canonical);
       }
-      console.warn(
-        `[normalizationService] Player lookup collision: key "${key}" (${keyType}) ` +
-          `maps to both "${existing.canonical}" and "${player.canonical}". ` +
-          `Keeping first entry: "${existing.canonical}".`
-      );
+      if (!collisionKeyTypes.has(key)) {
+        collisionKeyTypes.set(key, new Set());
+      }
+      collisionKeyTypes.get(key)!.add(keyType);
       return; // Skip override, keep first entry
     }
     map.set(key, player);
@@ -711,6 +789,11 @@ function buildPlayerLookupMap(players: PlayerData[]): Map<string, PlayerData> {
 
   // Store collision map in module-level variable
   playerCollisionMap = collisionMap;
+  collisionMap.forEach((candidates, key) => {
+    const keyTypes = Array.from(collisionKeyTypes.get(key) ?? []);
+    const highRisk = keyTypes.includes("canonical");
+    emitCollisionLog("player", key, keyTypes, candidates, highRisk ? "warn" : "debug");
+  });
 
   return map;
 }
