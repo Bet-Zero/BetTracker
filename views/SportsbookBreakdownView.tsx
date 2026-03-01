@@ -242,21 +242,34 @@ const SportsbookBreakdownView: React.FC = () => {
                         </div>
 
                         {isAllBooks ? (
-                            <ChartContainer title="Net Profit by Sportsbook">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={processedData.profitByBookData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(128, 128, 128, 0.2)" />
-                                        <XAxis type="number" stroke="rgb(113, 113, 122)" tick={{ fontSize: 12 }} tickFormatter={(value) => formatCurrency(value)}/>
-                                        <YAxis type="category" dataKey="name" stroke="rgb(113, 113, 122)" tick={{ fontSize: 12 }} width={100} />
-                                        <Tooltip content={<CustomTooltip />} />
-                                        <Bar dataKey="profit" name="Profit">
-                                            {processedData.profitByBookData.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={entry.profit >= 0 ? '#22c55e' : '#ef4444'} />
-                                            ))}
-                                        </Bar>
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </ChartContainer>
+                            <>
+                                <ChartContainer title="Profit Over Time">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <LineChart data={processedData.profitOverTime}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(128, 128, 128, 0.2)" />
+                                            <XAxis dataKey="date" stroke="rgb(113, 113, 122)" tick={{ fontSize: 12 }} />
+                                            <YAxis stroke="rgb(113, 113, 122)" tick={{ fontSize: 12 }} tickFormatter={(value) => formatCurrency(value)}/>
+                                            <Tooltip content={<CustomTooltip />} />
+                                            <Line type="monotone" dataKey="profit" name="Profit" stroke="#8b5cf6" strokeWidth={2} dot={false} />
+                                        </LineChart>
+                                    </ResponsiveContainer>
+                                </ChartContainer>
+                                <ChartContainer title="Net Profit by Sportsbook">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={processedData.profitByBookData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(128, 128, 128, 0.2)" />
+                                            <XAxis type="number" stroke="rgb(113, 113, 122)" tick={{ fontSize: 12 }} tickFormatter={(value) => formatCurrency(value)}/>
+                                            <YAxis type="category" dataKey="name" stroke="rgb(113, 113, 122)" tick={{ fontSize: 12 }} width={100} />
+                                            <Tooltip content={<CustomTooltip />} />
+                                            <Bar dataKey="profit" name="Profit">
+                                                {processedData.profitByBookData.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={entry.profit >= 0 ? '#22c55e' : '#ef4444'} />
+                                                ))}
+                                            </Bar>
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </ChartContainer>
+                            </>
                         ) : (
                             <>
                                 <ChartContainer title="Profit Over Time">
