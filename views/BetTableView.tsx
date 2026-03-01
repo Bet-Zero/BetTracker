@@ -936,6 +936,7 @@ const BetTableView: React.FC = () => {
     start: CellCoordinate;
     end: CellCoordinate;
   } | null>(null);
+  const pendingEnterNavigateRef = useRef(false); // Track Enter-to-navigate-down
   const [expandedParlays, setExpandedParlays] = useState<Set<string>>(() => {
     // Load from localStorage or default to all expanded
     const saved = localStorage.getItem("bettracker-expanded-parlays");
@@ -2468,6 +2469,11 @@ const BetTableView: React.FC = () => {
       // All other keys (Enter, Arrow keys, printable chars, Backspace, Delete)
       // belong to the editor and should NOT be intercepted by the grid.
       if (editingCell != null || isInputElement) {
+        // When Enter is pressed while editing a table cell, schedule
+        // navigation down after the editor commits and exits edit mode.
+        if (e.key === "Enter" && editingCell != null) {
+          pendingEnterNavigateRef.current = true;
+        }
         // Only allow grid to handle Escape (cancel edit) and Tab (navigate)
         if (e.key !== "Escape" && e.key !== "Tab") {
           return; // Let the editor handle all other keys
@@ -2563,6 +2569,15 @@ const BetTableView: React.FC = () => {
           break;
         case "Tab":
           e.preventDefault();
+          if (editingCell) {
+            // Commit current edit by blurring the active editor input
+            const activeEl = document.activeElement;
+            if (activeEl instanceof HTMLElement && activeEl !== document.body) {
+              activeEl.blur();
+            } else {
+              exitEditMode();
+            }
+          }
           if (e.shiftKey) {
             navigateToCell(rowIndex, columnKey, "left");
           } else {
@@ -2668,6 +2683,18 @@ const BetTableView: React.FC = () => {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
+
+  // Navigate down after Enter commits an edit
+  useEffect(() => {
+    if (
+      pendingEnterNavigateRef.current &&
+      editingCell === null &&
+      focusedCell
+    ) {
+      pendingEnterNavigateRef.current = false;
+      navigateToCell(focusedCell.rowIndex, focusedCell.columnKey, "down");
+    }
+  }, [editingCell, focusedCell, navigateToCell]);
 
   // Copy handler
   const handleCopy = useCallback(() => {
@@ -2996,12 +3023,10 @@ const BetTableView: React.FC = () => {
 
       const rect = tbody.getBoundingClientRect();
       const y = e.clientY - rect.top;
-      const x = e.clientX - rect.left;
 
-      // Find which cell we're over
+      // Find which row we're over (column is locked to start)
       const rows = Array.from(tbody.querySelectorAll("tr"));
       let targetRowIndex = -1;
-      let targetColIndex = -1;
 
       let currentY = 0;
       for (let i = 0; i < rows.length; i++) {
@@ -3013,40 +3038,29 @@ const BetTableView: React.FC = () => {
         currentY += row.offsetHeight;
       }
 
-      if (targetRowIndex >= 0) {
-        const targetRow = rows[targetRowIndex] as HTMLTableRowElement;
-        const cells = Array.from(targetRow.querySelectorAll("td"));
-        let currentX = 0;
-        for (let i = 0; i < cells.length; i++) {
-          const cell = cells[i] as HTMLTableCellElement;
-          if (x >= currentX && x < currentX + cell.offsetWidth) {
-            targetColIndex = i;
-            break;
-          }
-          currentX += cell.offsetWidth;
-        }
+      // Clamp to last row if dragged below the table
+      if (targetRowIndex < 0 && y >= currentY) {
+        targetRowIndex = rows.length - 1;
       }
 
-      if (
-        targetRowIndex >= 0 &&
-        targetColIndex >= 0 &&
-        targetColIndex < editableColumns.length
-      ) {
-        const targetColumnKey = editableColumns[targetColIndex];
+      if (targetRowIndex >= 0) {
         setDragFillData({
           start: dragFillData.start,
-          end: { rowIndex: targetRowIndex, columnKey: targetColumnKey },
+          end: {
+            rowIndex: targetRowIndex,
+            columnKey: dragFillData.start.columnKey,
+          },
         });
       }
     },
-    [dragFillData, editableColumns],
+    [dragFillData],
   );
 
   const handleDragFillEnd = useCallback(() => {
     if (!dragFillData) return;
 
     const { start, end } = dragFillData;
-    const startRow = sortedBets[start.rowIndex];
+    const startRow = visibleBets[start.rowIndex];
     if (!startRow) {
       setDragFillData(null);
       return;
@@ -3055,39 +3069,21 @@ const BetTableView: React.FC = () => {
     const startValue = getCellValue(startRow, start.columnKey);
     const minRow = Math.min(start.rowIndex, end.rowIndex);
     const maxRow = Math.max(start.rowIndex, end.rowIndex);
-    const minCol = Math.min(
-      editableColumns.indexOf(start.columnKey),
-      editableColumns.indexOf(end.columnKey),
-    );
-    const maxCol = Math.max(
-      editableColumns.indexOf(start.columnKey),
-      editableColumns.indexOf(end.columnKey),
-    );
 
-    // Fill cells
+    // Fill cells in the same column
     for (let r = minRow; r <= maxRow; r++) {
-      for (let c = minCol; c <= maxCol; c++) {
-        if (
-          r === start.rowIndex &&
-          c === editableColumns.indexOf(start.columnKey)
-        )
-          continue;
+      if (r === start.rowIndex) continue;
 
-        const row = sortedBets[r];
-        const colKey = editableColumns[c];
-        if (row && colKey && isCellEditable(colKey)) {
-          // Simple fill: copy the value
-          // Could be enhanced to detect patterns (incrementing numbers, etc.)
-          handleCellPaste(row, colKey, startValue);
-        }
+      const row = visibleBets[r];
+      if (row && isCellEditable(start.columnKey)) {
+        handleCellPaste(row, start.columnKey, startValue);
       }
     }
 
     setDragFillData(null);
   }, [
     dragFillData,
-    sortedBets,
-    editableColumns,
+    visibleBets,
     getCellValue,
     isCellEditable,
     handleCellPaste,
@@ -3470,26 +3466,10 @@ const BetTableView: React.FC = () => {
                   ): boolean => {
                     if (!dragFillData) return false;
                     const { start, end } = dragFillData;
+                    if (columnKey !== start.columnKey) return false;
                     const minRow = Math.min(start.rowIndex, end.rowIndex);
                     const maxRow = Math.max(start.rowIndex, end.rowIndex);
-                    const minCol = Math.min(
-                      editableColumns.indexOf(start.columnKey),
-                      editableColumns.indexOf(end.columnKey),
-                    );
-                    const maxCol = Math.max(
-                      editableColumns.indexOf(start.columnKey),
-                      editableColumns.indexOf(end.columnKey),
-                    );
-
-                    const cellRow = rowIndex;
-                    const cellCol = editableColumns.indexOf(columnKey);
-
-                    return (
-                      cellRow >= minRow &&
-                      cellRow <= maxRow &&
-                      cellCol >= minCol &&
-                      cellCol <= maxCol
-                    );
+                    return rowIndex >= minRow && rowIndex <= maxRow;
                   };
 
                   // Helper to get cell classes
@@ -3594,7 +3574,7 @@ const BetTableView: React.FC = () => {
                       >
                         {isCellFocused(rowIndex, "date") && (
                           <div
-                            className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
+                            className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-blue-500 hover:bg-blue-600 hover:scale-125 cursor-crosshair z-10 rounded-sm transition-transform"
                             onMouseDown={(e) =>
                               handleDragFillStart(rowIndex, "date", e)
                             }
@@ -3645,7 +3625,7 @@ const BetTableView: React.FC = () => {
                       >
                         {isCellFocused(rowIndex, "site") && (
                           <div
-                            className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
+                            className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-blue-500 hover:bg-blue-600 hover:scale-125 cursor-crosshair z-10 rounded-sm transition-transform"
                             onMouseDown={(e) =>
                               handleDragFillStart(rowIndex, "site", e)
                             }
@@ -3702,7 +3682,7 @@ const BetTableView: React.FC = () => {
                       >
                         {isCellFocused(rowIndex, "sport") && (
                           <div
-                            className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
+                            className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-blue-500 hover:bg-blue-600 hover:scale-125 cursor-crosshair z-10 rounded-sm transition-transform"
                             onMouseDown={(e) =>
                               handleDragFillStart(rowIndex, "sport", e)
                             }
@@ -3743,7 +3723,7 @@ const BetTableView: React.FC = () => {
                       >
                         {isCellFocused(rowIndex, "category") && (
                           <div
-                            className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
+                            className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-blue-500 hover:bg-blue-600 hover:scale-125 cursor-crosshair z-10 rounded-sm transition-transform"
                             onMouseDown={(e) =>
                               handleDragFillStart(rowIndex, "category", e)
                             }
@@ -3788,7 +3768,7 @@ const BetTableView: React.FC = () => {
                       >
                         {isCellFocused(rowIndex, "type") && (
                           <div
-                            className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
+                            className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-blue-500 hover:bg-blue-600 hover:scale-125 cursor-crosshair z-10 rounded-sm transition-transform"
                             onMouseDown={(e) =>
                               handleDragFillStart(rowIndex, "type", e)
                             }
@@ -3938,7 +3918,7 @@ const BetTableView: React.FC = () => {
                       >
                         {isCellFocused(rowIndex, "name") && (
                           <div
-                            className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
+                            className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-blue-500 hover:bg-blue-600 hover:scale-125 cursor-crosshair z-10 rounded-sm transition-transform"
                             onMouseDown={(e) =>
                               handleDragFillStart(rowIndex, "name", e)
                             }
@@ -4295,7 +4275,7 @@ const BetTableView: React.FC = () => {
                       >
                         {isCellFocused(rowIndex, "ou") && (
                           <div
-                            className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
+                            className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-blue-500 hover:bg-blue-600 hover:scale-125 cursor-crosshair z-10 rounded-sm transition-transform"
                             onMouseDown={(e) =>
                               handleDragFillStart(rowIndex, "ou", e)
                             }
@@ -4379,7 +4359,7 @@ const BetTableView: React.FC = () => {
                       >
                         {isCellFocused(rowIndex, "line") && (
                           <div
-                            className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
+                            className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-blue-500 hover:bg-blue-600 hover:scale-125 cursor-crosshair z-10 rounded-sm transition-transform"
                             onMouseDown={(e) =>
                               handleDragFillStart(rowIndex, "line", e)
                             }
@@ -4448,7 +4428,7 @@ const BetTableView: React.FC = () => {
                       >
                         {isCellFocused(rowIndex, "odds") && (
                           <div
-                            className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
+                            className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-blue-500 hover:bg-blue-600 hover:scale-125 cursor-crosshair z-10 rounded-sm transition-transform"
                             onMouseDown={(e) =>
                               handleDragFillStart(rowIndex, "odds", e)
                             }
@@ -4531,7 +4511,7 @@ const BetTableView: React.FC = () => {
                       >
                         {isCellFocused(rowIndex, "bet") && (
                           <div
-                            className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
+                            className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-blue-500 hover:bg-blue-600 hover:scale-125 cursor-crosshair z-10 rounded-sm transition-transform"
                             onMouseDown={(e) =>
                               handleDragFillStart(rowIndex, "bet", e)
                             }
@@ -4698,7 +4678,7 @@ const BetTableView: React.FC = () => {
                       >
                         {isCellFocused(rowIndex, "tail") && (
                           <div
-                            className="absolute bottom-0 right-0 w-2 h-2 bg-blue-500 cursor-crosshair z-10"
+                            className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-blue-500 hover:bg-blue-600 hover:scale-125 cursor-crosshair z-10 rounded-sm transition-transform"
                             onMouseDown={(e) =>
                               handleDragFillStart(rowIndex, "tail", e)
                             }
