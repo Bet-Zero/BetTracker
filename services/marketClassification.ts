@@ -256,27 +256,29 @@ export function determineType(
   const lowerMarket = market.toLowerCase();
   const normalizedMarket = lowerMarket.trim();
 
+  const lowerCategory = category.toLowerCase();
+
   const result = (() => {
-    if (category === "Props") {
+    if (lowerCategory === "props") {
       return determinePropsType(lowerMarket, normalizedMarket, sport);
     }
 
-    if (category === "Main Markets") {
+    if (lowerCategory === "main markets" || lowerCategory === "main") {
       return determineMainMarketType(lowerMarket);
     }
 
-    if (category === "Futures") {
+    if (lowerCategory === "futures") {
       return determineFutureType(lowerMarket);
     }
 
     return "";
   })();
 
-  // FAILSAFE: If we couldn't determine a type code, return the original input
-  // This ensures that manual user edits to the Type column are never "lost"
-  // just because they don't match our internal mappings.
-  // Use the preserved case from the input if possible, or title case it.
-  if (!result) {
+  // FAILSAFE: If the helper returned null/undefined (unexpected), return the
+  // original input so data is never silently dropped. Empty string is a valid
+  // return value meaning "no mapping found — needs manual review", so we must
+  // NOT treat it as a missing result.
+  if (result == null) {
     return market;
   }
 

@@ -430,9 +430,7 @@ function createFinalRow(
   } else {
     // Compute from bet-level data when categoryAndType not provided
     category = normalizeCategoryForDisplay(bet.marketCategory);
-    // determineType expects 'Main Markets' but normalize returns 'Main'
-    const typeCategory = category === "Main" ? "Main Markets" : category;
-    type = determineType(legData.market, typeCategory, bet.sport || "");
+    type = determineType(legData.market, category, bet.sport || "");
   }
 
   // Name: SUBJECT ONLY (player/team from entities)

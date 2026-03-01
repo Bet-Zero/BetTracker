@@ -74,7 +74,7 @@ export function addToMap(
   
   if (result === 'win') stats.wins++;
   if (result === 'loss') stats.losses++;
-  if (result === 'push') stats.pushes = (stats.pushes || 0) + 1;
+  if (result === 'push') stats.pushes++;
 }
 
 /**

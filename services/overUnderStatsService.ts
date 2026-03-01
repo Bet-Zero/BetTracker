@@ -166,8 +166,11 @@ export function computeOverUnderStats(
       }
 
       // Determine Over vs Under
-      const ou = leg.ou.toLowerCase() as 'over' | 'under';
-      const target = stats[ou];
+      const ouLower = leg.ou.toLowerCase();
+      if (ouLower !== 'over' && ouLower !== 'under') {
+        continue;
+      }
+      const target = stats[ouLower];
 
       // Accumulate stats
       target.count++;
