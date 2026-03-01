@@ -256,16 +256,18 @@ export function determineType(
   const lowerMarket = market.toLowerCase();
   const normalizedMarket = lowerMarket.trim();
 
+  const lowerCategory = category.toLowerCase();
+
   const result = (() => {
-    if (category === "Props") {
+    if (lowerCategory === "props") {
       return determinePropsType(lowerMarket, normalizedMarket, sport);
     }
 
-    if (category === "Main Markets") {
+    if (lowerCategory === "main markets" || lowerCategory === "main") {
       return determineMainMarketType(lowerMarket);
     }
 
-    if (category === "Futures") {
+    if (lowerCategory === "futures") {
       return determineFutureType(lowerMarket);
     }
 
