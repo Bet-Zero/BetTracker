@@ -1,32 +1,25 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useBets } from '../hooks/useBets';
-import { getTeamInfo, normalizeTeamName, getPlayerInfo } from '../services/normalizationService';
-// Phase 1: Resolver for team aggregation
-// Phase 2: Extended with player aggregation
-import { getTeamAggregationKey, getPlayerAggregationKey } from '../services/resolver';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Sector } from 'recharts';
-import { TrendingUp, TrendingDown, Scale, BarChart2, User, ChevronLeft, X } from '../components/icons';
+import { getTeamInfo, getPlayerInfo } from '../services/normalizationService';
+import { getPlayerAggregationKey } from '../services/resolver';
+import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
+import { Scale, BarChart2, User, X } from '../components/icons';
 import { Bet, BetLeg } from '../types';
 import {
-
   createDateRangePredicate,
   DateRange,
   CustomDateRange
 } from '../utils/filterPredicates';
-import { formatCurrency, formatDateShort, formatNet } from '../utils/formatters';
+import { formatCurrency, formatDateShort } from '../utils/formatters';
 import {
-  calculateRoi,
   computeOverallStats,
   computeProfitOverTime,
   computeStatsByDimension,
   mapToStatsArray,
 } from '../services/aggregationService';
 import { abbreviateMarket } from '../services/marketClassification';
-import { getNetNumeric, getEntityMoneyContribution } from '../services/displaySemantics';
+import { getNetNumeric } from '../services/displaySemantics';
 import { computeOverUnderStats } from '../services/overUnderStatsService';
-// Task C: UI Clarity tooltips
-// Task C: UI Clarity tooltips
-import { InfoTooltip } from '../components/debug/InfoTooltip';
 import { StatCard } from '../components/StatCard';
 import { FitText } from '../components/FitText';
 import LivePreGameChart from '../components/PlayerProfile/LivePreGameChart';
@@ -220,24 +213,6 @@ const RecentBetsTable: React.FC<{ bets: Bet[] }> = ({ bets }) => (
   </div>
 );
 
-const ToggleButton: React.FC<{
-  value: string;
-  label: string;
-  currentValue: string;
-  onClick: (value: string) => void;
-}> = ({ value, label, currentValue, onClick }) => (
-  <button
-    onClick={() => onClick(value)}
-    className={`px-2.5 py-1 rounded-md font-medium text-xs transition-colors ${
-      currentValue === value
-        ? 'bg-primary-600 text-white shadow'
-        : 'text-neutral-600 dark:text-neutral-300 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700'
-    }`}
-  >
-    {label}
-  </button>
-);
-
 const OverUnderBreakdown: React.FC<{ bets: Bet[], selectedPlayer: string | null }> = ({ bets, selectedPlayer }) => {
     
     const data = useMemo(() => {
@@ -270,7 +245,7 @@ const OverUnderBreakdown: React.FC<{ bets: Bet[], selectedPlayer: string | null 
 
     const isPlaceholder = pieData.length === 0;
 
-    const StatCard = ({ title, stats }: { title: string, stats: any }) => {
+    const OUStatCard = ({ title, stats }: { title: string, stats: any }) => {
         const netColor = stats.net > 0 ? 'text-accent-500' : stats.net < 0 ? 'text-danger-500' : '';
         const winPct = stats.wins + stats.losses > 0 ? (stats.wins / (stats.wins + stats.losses)) * 100 : 0;
         return (
@@ -330,8 +305,8 @@ const OverUnderBreakdown: React.FC<{ bets: Bet[], selectedPlayer: string | null 
                 </ResponsiveContainer>
             </div>
             <div className="flex gap-4 mt-4">
-                <StatCard title="Over" stats={data.over} />
-                <StatCard title="Under" stats={data.under} />
+                <OUStatCard title="Over" stats={data.over} />
+                <OUStatCard title="Under" stats={data.under} />
             </div>
         </div>
     );
@@ -378,6 +353,7 @@ const PlayerProfileView: React.FC<PlayerProfileViewProps> = ({ selectedPlayer, s
 
     // Extract players from bet data using leg.entityType and normalization service
     // This ensures players appear even if not manually added to localStorage
+    // Only include player entities — teams are excluded from the Player Profiles page
     const allPlayers = useMemo(() => {
         const players = new Set<string>();
         
@@ -386,21 +362,16 @@ const PlayerProfileView: React.FC<PlayerProfileViewProps> = ({ selectedPlayer, s
             for (const leg of bet.legs) {
                 if (!leg.entities) continue;
                 for (const entity of leg.entities) {
-          // Determine entity type using leg.entityType or fallback to team lookup
+          // Only include player entities; skip teams
           if (leg.entityType === 'player') {
-            // Phase 2: Use player aggregation key for player entities
             const aggregationKey = getPlayerAggregationKey(entity, '[Unresolved]', { sport: bet.sport as any });
             players.add(aggregationKey);
           } else if (leg.entityType === 'team') {
-            const aggregationKey = getTeamAggregationKey(entity, '[Unresolved]');
-            players.add(aggregationKey);
+            // Skip team entities — this is the Player Profiles page
           } else {
             // Fallback: check if entity is a known team via normalization service
             const teamInfo = getTeamInfo(entity);
-            if (teamInfo) {
-              const aggregationKey = getTeamAggregationKey(entity, '[Unresolved]');
-              players.add(aggregationKey);
-            } else {
+            if (!teamInfo) {
               // Assume player if not a known team - use player aggregation
               const aggregationKey = getPlayerAggregationKey(entity, '[Unresolved]', { sport: bet.sport as any });
               players.add(aggregationKey);
@@ -670,6 +641,7 @@ const PlayerProfileView: React.FC<PlayerProfileViewProps> = ({ selectedPlayer, s
                                     title="Net Profit" 
                                     value={formatCurrency(processedData.overallStats.netProfit)} 
                                     icon={<Scale className="w-6 h-6"/>} 
+                                    valueClassName={processedData.overallStats.netProfit > 0 ? "text-accent-500" : processedData.overallStats.netProfit < 0 ? "text-danger-500" : undefined}
                                     subtitle={`${processedData.overallStats.roi.toFixed(1)}% ROI`}
                                     subtitleClassName={processedData.overallStats.roi > 0 ? "text-accent-500" : processedData.overallStats.roi < 0 ? "text-danger-500" : undefined}
                                 />
