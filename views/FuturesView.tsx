@@ -578,8 +578,16 @@ const PositionCard: React.FC<PositionCardProps> = ({ position, onHedge, flat = f
   return (
     <div className={
       flat
-        ? `overflow-hidden border-l-4 ${sportColor.border} transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-800/30`
-        : `bg-white dark:bg-neutral-900 rounded-lg shadow-md overflow-hidden border-l-4 ${sportColor.border} transition-shadow hover:shadow-lg`
+        ? `overflow-hidden border-l-4 ${sportColor.border} transition-all duration-200 ${
+            expanded 
+              ? "bg-white dark:bg-neutral-900 shadow-md ring-1 ring-primary-200 dark:ring-primary-800/50 relative z-10" 
+              : "hover:bg-neutral-50 dark:hover:bg-neutral-800/30"
+          }`
+        : `bg-white dark:bg-neutral-900 rounded-lg shadow-md overflow-hidden border-l-4 ${sportColor.border} transition-all duration-200 ${
+            expanded 
+              ? "shadow-lg ring-2 ring-primary-300 dark:ring-primary-700" 
+              : "hover:shadow-lg"
+          }`
     }>
       {/* Card Header */}
       <div
@@ -991,22 +999,37 @@ const FuturesView: React.FC = () => {
               role="tablist"
               aria-label="View mode"
             >
-              {(["positions", "timeline", "history"] as const).map((mode) => (
-                <button
-                  key={mode}
-                  onClick={() => setViewMode(mode)}
-                  className={`px-3 py-1.5 rounded-md font-medium text-xs transition-colors ${
-                    viewMode === mode
-                      ? "bg-primary-600 text-white shadow-sm"
-                      : "text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-600"
-                  }`}
-                  role="tab"
-                  aria-selected={viewMode === mode}
-                  aria-controls={`futures-${mode}-panel`}
-                >
-                  {mode.charAt(0).toUpperCase() + mode.slice(1)}
-                </button>
-              ))}
+              {(["positions", "timeline", "history"] as const).map((mode) => {
+                // Calculate count for each mode
+                const count = mode === "history" 
+                  ? futuresData.settledPositions.length 
+                  : futuresData.pendingPositions.length;
+                return (
+                  <button
+                    key={mode}
+                    onClick={() => setViewMode(mode)}
+                    className={`px-3 py-1.5 rounded-md font-medium text-xs transition-colors ${
+                      viewMode === mode
+                        ? "bg-primary-600 text-white shadow-sm"
+                        : "text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-600"
+                    }`}
+                    role="tab"
+                    aria-selected={viewMode === mode}
+                    aria-controls={`futures-${mode}-panel`}
+                  >
+                    {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                    {count > 0 && (
+                      <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
+                        viewMode === mode
+                          ? "bg-white/20 text-white"
+                          : "bg-neutral-200 dark:bg-neutral-600 text-neutral-600 dark:text-neutral-300"
+                      }`}>
+                        {count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
