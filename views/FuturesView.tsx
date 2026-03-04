@@ -578,8 +578,16 @@ const PositionCard: React.FC<PositionCardProps> = ({ position, onHedge, flat = f
   return (
     <div className={
       flat
-        ? `overflow-hidden border-l-4 ${sportColor.border} transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-800/30`
-        : `bg-white dark:bg-neutral-900 rounded-lg shadow-md overflow-hidden border-l-4 ${sportColor.border} transition-shadow hover:shadow-lg`
+        ? `overflow-hidden border-l-4 ${sportColor.border} transition-all duration-200 ${
+            expanded 
+              ? "bg-white dark:bg-neutral-900 shadow-md ring-1 ring-primary-200 dark:ring-primary-800/50 relative z-10" 
+              : "hover:bg-neutral-50 dark:hover:bg-neutral-800/30"
+          }`
+        : `bg-white dark:bg-neutral-900 rounded-lg shadow-md overflow-hidden border-l-4 ${sportColor.border} transition-all duration-200 ${
+            expanded 
+              ? "shadow-lg ring-2 ring-primary-300 dark:ring-primary-700" 
+              : "hover:shadow-lg"
+          }`
     }>
       {/* Card Header */}
       <div
@@ -588,7 +596,11 @@ const PositionCard: React.FC<PositionCardProps> = ({ position, onHedge, flat = f
       >
         <div className="flex items-center gap-3">
           {/* Expand toggle */}
-          <button className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 flex-shrink-0">
+          <button 
+            className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 flex-shrink-0"
+            aria-label={expanded ? "Collapse position details" : "Expand position details"}
+            aria-expanded={expanded}
+          >
             {expanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
           </button>
 
@@ -617,10 +629,18 @@ const PositionCard: React.FC<PositionCardProps> = ({ position, onHedge, flat = f
             </div>
           </div>
 
-          {/* Inline metrics */}
+          {/* Inline metrics - desktop */}
           <div className="hidden md:flex items-center gap-5 flex-shrink-0 text-sm tabular-nums">
-            <span className="text-neutral-600 dark:text-neutral-400">{formatCurrency(position.totalStake)}</span>
-            <span className="text-neutral-500 dark:text-neutral-500">{formatOdds(position.averageOdds)}</span>
+            <span className="text-neutral-600 dark:text-neutral-400" title="Total stake">{formatCurrency(position.totalStake)}</span>
+            <span className="text-neutral-500 dark:text-neutral-500" title="Average odds">{formatOdds(position.averageOdds)}</span>
+            <span className="font-semibold text-accent-500" title="Potential payout">{formatCurrency(position.totalPotentialPayout)}</span>
+            {position.daysUntil !== null && (
+              <span className="text-amber-600 dark:text-amber-400" title="Days until resolution">{position.daysUntil}d</span>
+            )}
+          </div>
+
+          {/* Inline metrics - mobile (compact) */}
+          <div className="flex md:hidden items-center gap-2 flex-shrink-0 text-xs tabular-nums">
             <span className="font-semibold text-accent-500">{formatCurrency(position.totalPotentialPayout)}</span>
             {position.daysUntil !== null && (
               <span className="text-amber-600 dark:text-amber-400">{position.daysUntil}d</span>
@@ -636,6 +656,7 @@ const PositionCard: React.FC<PositionCardProps> = ({ position, onHedge, flat = f
               }}
               className="flex-shrink-0 p-2 text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors"
               title="Open Hedge Calculator"
+              aria-label={`Open hedge calculator for ${position.entity}`}
             >
               <Scale className="w-5 h-5" />
             </button>
@@ -973,42 +994,64 @@ const FuturesView: React.FC = () => {
             </div>
 
             {/* View Mode Toggle */}
-            <div className="flex items-center gap-1 bg-white dark:bg-neutral-700 rounded-lg p-1 shadow-sm">
-              {(["positions", "timeline", "history"] as const).map((mode) => (
-                <button
-                  key={mode}
-                  onClick={() => setViewMode(mode)}
-                  className={`px-3 py-1.5 rounded-md font-medium text-xs transition-colors ${
-                    viewMode === mode
-                      ? "bg-primary-600 text-white shadow-sm"
-                      : "text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-600"
-                  }`}
-                >
-                  {mode.charAt(0).toUpperCase() + mode.slice(1)}
-                </button>
-              ))}
+            <div 
+              className="flex items-center gap-1 bg-white dark:bg-neutral-700 rounded-lg p-1 shadow-sm"
+              role="tablist"
+              aria-label="View mode"
+            >
+              {(["positions", "timeline", "history"] as const).map((mode) => {
+                // Calculate count for each mode
+                const count = mode === "history" 
+                  ? futuresData.settledPositions.length 
+                  : futuresData.pendingPositions.length;
+                return (
+                  <button
+                    key={mode}
+                    onClick={() => setViewMode(mode)}
+                    className={`px-3 py-1.5 rounded-md font-medium text-xs transition-colors ${
+                      viewMode === mode
+                        ? "bg-primary-600 text-white shadow-sm"
+                        : "text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-600"
+                    }`}
+                    role="tab"
+                    aria-selected={viewMode === mode}
+                    aria-controls={`futures-${mode}-panel`}
+                  >
+                    {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                    {count > 0 && (
+                      <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
+                        viewMode === mode
+                          ? "bg-white/20 text-white"
+                          : "bg-neutral-200 dark:bg-neutral-600 text-neutral-600 dark:text-neutral-300"
+                      }`}>
+                        {count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
 
         {/* KPI Summary Bar */}
         <div className="px-5 py-3">
-          <div className="grid grid-cols-3 gap-4 divide-x divide-neutral-200 dark:divide-neutral-800">
-          <div className="pl-2 first:pl-0">
-            <p className="text-xs text-neutral-500 dark:text-neutral-400 uppercase font-medium whitespace-nowrap">Exposure</p>
-            <p className="text-lg font-bold text-neutral-900 dark:text-white mt-0.5">{formatCurrency(futuresData.totalExposure)}</p>
-          </div>
-          <div className="pl-4">
-            <p className="text-xs text-neutral-500 dark:text-neutral-400 uppercase font-medium whitespace-nowrap">Max Profit</p>
-            <p className="text-lg font-bold text-accent-500 mt-0.5">{formatCurrency(futuresData.totalMaxProfit)}</p>
-          </div>
-          <div className="pl-4">
-            <p className="text-xs text-neutral-500 dark:text-neutral-400 uppercase font-medium whitespace-nowrap">Settled</p>
-            <p className="text-lg font-bold text-neutral-900 dark:text-white mt-0.5">{futuresData.settledStats.wins}W - {futuresData.settledStats.losses}L</p>
-            <p className={`text-xs font-medium ${futuresData.settledStats.net >= 0 ? "text-accent-500" : "text-red-500"}`}>{futuresData.settledStats.net >= 0 ? "+" : ""}{formatCurrency(futuresData.settledStats.net)} net</p>
+          <div className="grid grid-cols-3 gap-2 sm:gap-4 divide-x divide-neutral-200 dark:divide-neutral-800">
+            <div className="pl-2 first:pl-0">
+              <p className="text-[10px] sm:text-xs text-neutral-500 dark:text-neutral-400 uppercase font-medium whitespace-nowrap">Exposure</p>
+              <p className="text-base sm:text-lg font-bold text-neutral-900 dark:text-white mt-0.5">{formatCurrency(futuresData.totalExposure)}</p>
+            </div>
+            <div className="pl-2 sm:pl-4">
+              <p className="text-[10px] sm:text-xs text-neutral-500 dark:text-neutral-400 uppercase font-medium whitespace-nowrap">Max Profit</p>
+              <p className="text-base sm:text-lg font-bold text-accent-500 mt-0.5">{formatCurrency(futuresData.totalMaxProfit)}</p>
+            </div>
+            <div className="pl-2 sm:pl-4">
+              <p className="text-[10px] sm:text-xs text-neutral-500 dark:text-neutral-400 uppercase font-medium whitespace-nowrap">Settled</p>
+              <p className="text-base sm:text-lg font-bold text-neutral-900 dark:text-white mt-0.5">{futuresData.settledStats.wins}W - {futuresData.settledStats.losses}L</p>
+              <p className={`text-[10px] sm:text-xs font-medium ${futuresData.settledStats.net >= 0 ? "text-accent-500" : "text-red-500"}`}>{futuresData.settledStats.net >= 0 ? "+" : ""}{formatCurrency(futuresData.settledStats.net)} net</p>
+            </div>
           </div>
         </div>
-      </div>
       </div>{/* end Header + KPI Summary */}
 
       {/* Unified Table Container: Filters + Positions */}
@@ -1135,7 +1178,7 @@ const FuturesView: React.FC = () => {
             {/* Clear all filters */}
             {hasActiveFilters && (
               <>
-                <div className="w-px h-6 bg-neutral-200 dark:bg-neutral-700" />
+                <div className="w-px h-6 bg-neutral-200 dark:bg-neutral-700" aria-hidden="true" />
                 <button
                   onClick={() => {
                     setSportFilter("all");
@@ -1143,8 +1186,9 @@ const FuturesView: React.FC = () => {
                     setSearchQuery("");
                   }}
                   className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                  aria-label={`Clear all ${activeFilterCount} active filters`}
                 >
-                  <X className="w-3 h-3" />
+                  <X className="w-3 h-3" aria-hidden="true" />
                   Clear ({activeFilterCount})
                 </button>
               </>
@@ -1157,7 +1201,7 @@ const FuturesView: React.FC = () => {
       <div className="border-b-2 border-neutral-200 dark:border-neutral-700" />
 
       {/* Positions / Timeline View */}
-      <div className="min-h-[300px]">
+      <div className="min-h-[300px]" role="tabpanel" id={`futures-${viewMode}-panel`} aria-label={`${viewMode.charAt(0).toUpperCase() + viewMode.slice(1)} view`}>
       {viewMode === "timeline" ? (
         <div className="p-6">
           <div className="flex items-center gap-2 mb-6">
@@ -1187,7 +1231,7 @@ const FuturesView: React.FC = () => {
                     <div className={`absolute left-2.5 top-5 w-3 h-3 rounded-full border-2 border-white dark:border-neutral-900 ${tlSportColor.dot} z-10`} />
 
                     {/* Timeline card */}
-                    <div className={`p-4 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border-l-2 ${tlSportColor.border.replace("border-l-", "border-l-")} hover:bg-neutral-100 dark:hover:bg-neutral-800/70 transition-colors`}>
+                    <div className={`p-4 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border-l-2 ${tlSportColor.border} hover:bg-neutral-100 dark:hover:bg-neutral-800/70 transition-colors`}>
                       <div className="flex items-center justify-between flex-wrap gap-4">
                         <div className="flex-1 min-w-[150px]">
                           <div className="flex items-center gap-2">
@@ -1246,6 +1290,7 @@ const FuturesView: React.FC = () => {
                             onClick={() => handleHedge(position)}
                             className="p-2 text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors"
                             title="Hedge Calculator"
+                            aria-label={`Open hedge calculator for ${position.entity}`}
                           >
                             <Scale className="w-5 h-5" />
                           </button>
