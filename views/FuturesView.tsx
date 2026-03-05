@@ -517,8 +517,9 @@ function formatDate(date: Date | null): string {
  * Format currency.
  */
 function formatCurrency(amount: number): string {
-  if (amount < 0) return `-$${Math.abs(amount).toFixed(2)}`;
-  return `$${amount.toFixed(2)}`;
+  const opts = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+  if (amount < 0) return `-$${Math.abs(amount).toLocaleString('en-US', opts)}`;
+  return `$${amount.toLocaleString('en-US', opts)}`;
 }
 
 /**
@@ -617,14 +618,21 @@ const PositionCard: React.FC<PositionCardProps> = ({ position, onHedge, flat = f
             </div>
           </div>
 
-          {/* Inline metrics */}
-          <div className="hidden md:flex items-center gap-5 flex-shrink-0 text-sm tabular-nums">
-            <span className="text-neutral-600 dark:text-neutral-400">{formatCurrency(position.totalStake)}</span>
-            <span className="text-neutral-500 dark:text-neutral-500">{formatOdds(position.averageOdds)}</span>
-            <span className="font-semibold text-accent-500">{formatCurrency(position.totalPotentialPayout)}</span>
+          {/* Inline metrics — stacked right block */}
+          <div className="hidden md:flex items-center gap-3 flex-shrink-0">
             {position.daysUntil !== null && (
-              <span className="text-amber-600 dark:text-amber-400">{position.daysUntil}d</span>
+              <span className="px-2 py-0.5 rounded text-xs font-medium tabular-nums bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                {position.daysUntil}d
+              </span>
             )}
+            <div className="flex flex-col items-end tabular-nums">
+              <span className="text-base font-bold text-accent-500">
+                {formatCurrency(position.totalPotentialPayout)}
+              </span>
+              <span className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                {formatCurrency(position.totalStake)}{" "}{formatOdds(position.averageOdds)}
+              </span>
+            </div>
           </div>
 
           {/* Hedge button - visible in header for pending positions */}
