@@ -38,7 +38,14 @@ import MultiHedgeCalculator from "../components/MultiHedgeCalculator";
 
 const SPORT_COLORS: Record<
   string,
-  { border: string; bg: string; text: string; pill: string; pillActive: string; dot: string }
+  {
+    border: string;
+    bg: string;
+    text: string;
+    pill: string;
+    pillActive: string;
+    dot: string;
+  }
 > = {
   NBA: {
     border: "border-l-orange-500",
@@ -230,11 +237,19 @@ function extractFuturesType(bet: Bet): string {
   if (bet.legs && bet.legs.length > 0 && bet.legs[0].market) {
     const market = bet.legs[0].market.toLowerCase();
     if (market.includes("mvp")) return "MVP";
-    if (market.includes("dpoy") || market.includes("defensive player")) return "DPOY";
-    if (market.includes("roy") || market.includes("rookie of the year") || market.includes("rookie")) return "ROY";
+    if (market.includes("dpoy") || market.includes("defensive player"))
+      return "DPOY";
+    if (
+      market.includes("roy") ||
+      market.includes("rookie of the year") ||
+      market.includes("rookie")
+    )
+      return "ROY";
     if (market.includes("6moy") || market.includes("sixth man")) return "6MOY";
-    if (market.includes("mip") || market.includes("most improved")) return "MIP";
-    if (market.includes("coy") || market.includes("coach of the year")) return "COY";
+    if (market.includes("mip") || market.includes("most improved"))
+      return "MIP";
+    if (market.includes("coy") || market.includes("coach of the year"))
+      return "COY";
     if (market.includes("cy young")) return "Cy Young";
     if (market.includes("win total")) return "Win Total";
     if (market.includes("outright") || market.includes("winner"))
@@ -243,7 +258,8 @@ function extractFuturesType(bet: Bet): string {
       return getChampionshipName(sport);
     if (market.includes("division")) return "Division Winner";
     if (market.includes("conference")) return "Conference Winner";
-    if (market.includes("playoff") && market.includes("miss")) return "Miss Playoffs";
+    if (market.includes("playoff") && market.includes("miss"))
+      return "Miss Playoffs";
     if (market.includes("playoff")) return "Make Playoffs";
   }
 
@@ -518,8 +534,8 @@ function formatDate(date: Date | null): string {
  */
 function formatCurrency(amount: number): string {
   const opts = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
-  if (amount < 0) return `-$${Math.abs(amount).toLocaleString('en-US', opts)}`;
-  return `$${amount.toLocaleString('en-US', opts)}`;
+  if (amount < 0) return `-$${Math.abs(amount).toLocaleString("en-US", opts)}`;
+  return `$${amount.toLocaleString("en-US", opts)}`;
 }
 
 /**
@@ -546,7 +562,11 @@ interface PositionCardProps {
   flat?: boolean;
 }
 
-const PositionCard: React.FC<PositionCardProps> = ({ position, onHedge, flat = false }) => {
+const PositionCard: React.FC<PositionCardProps> = ({
+  position,
+  onHedge,
+  flat = false,
+}) => {
   const [expanded, setExpanded] = useState(false);
 
   const breakdown: PositionBreakdown[] = position.bets.map((bet) => {
@@ -577,11 +597,21 @@ const PositionCard: React.FC<PositionCardProps> = ({ position, onHedge, flat = f
   const sportColor = getSportColor(position.sport);
 
   return (
-    <div className={
-      flat
-        ? `overflow-hidden border-l-4 ${sportColor.border} transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-800/30`
-        : `bg-white dark:bg-neutral-900 rounded-lg shadow-md overflow-hidden border-l-4 ${sportColor.border} transition-shadow hover:shadow-lg`
-    }>
+    <div
+      className={
+        flat
+          ? `overflow-hidden border-l-4 ${sportColor.border} transition-all duration-200 ${
+              expanded
+                ? "bg-white dark:bg-neutral-900 shadow-md ring-1 ring-primary-200 dark:ring-primary-800/50 relative z-10"
+                : "hover:bg-neutral-50 dark:hover:bg-neutral-800/30"
+            }`
+          : `bg-white dark:bg-neutral-900 rounded-lg shadow-md overflow-hidden border-l-4 ${sportColor.border} transition-all duration-200 ${
+              expanded
+                ? "shadow-lg ring-2 ring-primary-300 dark:ring-primary-700"
+                : "hover:shadow-lg"
+            }`
+      }
+    >
       {/* Card Header */}
       <div
         className="p-4 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800/30 transition-colors"
@@ -589,8 +619,18 @@ const PositionCard: React.FC<PositionCardProps> = ({ position, onHedge, flat = f
       >
         <div className="flex items-center gap-3">
           {/* Expand toggle */}
-          <button className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 flex-shrink-0">
-            {expanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+          <button
+            className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 flex-shrink-0"
+            aria-label={
+              expanded ? "Collapse position details" : "Expand position details"
+            }
+            aria-expanded={expanded}
+          >
+            {expanded ? (
+              <ChevronDown className="w-5 h-5" />
+            ) : (
+              <ChevronRight className="w-5 h-5" />
+            )}
           </button>
 
           {/* Entity name + metadata */}
@@ -599,40 +639,70 @@ const PositionCard: React.FC<PositionCardProps> = ({ position, onHedge, flat = f
               <h3 className="text-lg font-bold text-neutral-900 dark:text-white truncate">
                 {position.entity}
               </h3>
-              <span className={`px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${statusColors[position.status]}`}>
-                {position.status.charAt(0).toUpperCase() + position.status.slice(1)}
+              <span
+                className={`px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${statusColors[position.status]}`}
+              >
+                {position.status.charAt(0).toUpperCase() +
+                  position.status.slice(1)}
               </span>
             </div>
             <div className="flex items-center gap-2 mt-0.5">
               <span className={`text-xs font-medium ${sportColor.text}`}>
                 {position.sport}
               </span>
-              <span className="text-neutral-300 dark:text-neutral-600">&middot;</span>
+              <span className="text-neutral-300 dark:text-neutral-600">
+                &middot;
+              </span>
               <span className="text-xs text-neutral-500 dark:text-neutral-400">
                 {position.futuresType}
               </span>
-              <span className="text-neutral-300 dark:text-neutral-600">&middot;</span>
+              <span className="text-neutral-300 dark:text-neutral-600">
+                &middot;
+              </span>
               <span className="text-xs text-neutral-500 dark:text-neutral-400">
-                {position.bets.length} bet{position.bets.length !== 1 ? "s" : ""}
+                {position.bets.length} bet
+                {position.bets.length !== 1 ? "s" : ""}
               </span>
             </div>
           </div>
 
-          {/* Inline metrics — stacked right block */}
+          {/* Inline metrics - desktop (stacked) */}
           <div className="hidden md:flex items-center gap-3 flex-shrink-0">
             {position.daysUntil !== null && (
-              <span className="px-2 py-0.5 rounded text-xs font-medium tabular-nums bg-amber-500/10 text-amber-600 dark:text-amber-400">
+              <span
+                className="px-2 py-0.5 rounded text-xs font-medium tabular-nums bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                title="Days until resolution"
+              >
                 {position.daysUntil}d
               </span>
             )}
             <div className="flex flex-col items-end tabular-nums">
-              <span className="text-base font-bold text-accent-500">
+              <span
+                className="text-base font-bold text-accent-500"
+                title="Potential payout"
+              >
                 {formatCurrency(position.totalPotentialPayout)}
               </span>
-              <span className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-                {formatCurrency(position.totalStake)}{" "}{formatOdds(position.averageOdds)}
+              <span
+                className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5"
+                title="Total stake and average odds"
+              >
+                {formatCurrency(position.totalStake)}{" "}
+                {formatOdds(position.averageOdds)}
               </span>
             </div>
+          </div>
+
+          {/* Inline metrics - mobile (compact) */}
+          <div className="flex md:hidden items-center gap-2 flex-shrink-0 text-xs tabular-nums">
+            <span className="font-semibold text-accent-500">
+              {formatCurrency(position.totalPotentialPayout)}
+            </span>
+            {position.daysUntil !== null && (
+              <span className="px-2 py-0.5 rounded text-[10px] font-medium tabular-nums bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                {position.daysUntil}d
+              </span>
+            )}
           </div>
 
           {/* Hedge button - visible in header for pending positions */}
@@ -644,6 +714,7 @@ const PositionCard: React.FC<PositionCardProps> = ({ position, onHedge, flat = f
               }}
               className="flex-shrink-0 p-2 text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors"
               title="Open Hedge Calculator"
+              aria-label={`Open hedge calculator for ${position.entity}`}
             >
               <Scale className="w-5 h-5" />
             </button>
@@ -656,12 +727,40 @@ const PositionCard: React.FC<PositionCardProps> = ({ position, onHedge, flat = f
         <div className="border-t border-neutral-200 dark:border-neutral-800">
           {/* Position Summary */}
           <div className="px-4 py-2.5 bg-neutral-50/50 dark:bg-neutral-800/20 flex flex-wrap items-center gap-x-6 gap-y-1 text-xs">
-            <span className="text-neutral-500 dark:text-neutral-400">Exposure <span className="font-semibold text-neutral-700 dark:text-neutral-300">{formatCurrency(position.totalStake)}</span></span>
-            <span className="text-neutral-500 dark:text-neutral-400">Avg Odds <span className="font-semibold text-neutral-700 dark:text-neutral-300">{formatOdds(position.averageOdds)}</span></span>
-            <span className="text-neutral-500 dark:text-neutral-400">Avg Stake <span className="font-semibold text-neutral-700 dark:text-neutral-300">{formatCurrency(position.averageStake)}</span></span>
-            <span className="text-neutral-500 dark:text-neutral-400">Max Profit <span className="font-semibold text-accent-500">{formatCurrency(position.maxProfit)}</span></span>
+            <span className="text-neutral-500 dark:text-neutral-400">
+              Exposure{" "}
+              <span className="font-semibold text-neutral-700 dark:text-neutral-300">
+                {formatCurrency(position.totalStake)}
+              </span>
+            </span>
+            <span className="text-neutral-500 dark:text-neutral-400">
+              Avg Odds{" "}
+              <span className="font-semibold text-neutral-700 dark:text-neutral-300">
+                {formatOdds(position.averageOdds)}
+              </span>
+            </span>
+            <span className="text-neutral-500 dark:text-neutral-400">
+              Avg Stake{" "}
+              <span className="font-semibold text-neutral-700 dark:text-neutral-300">
+                {formatCurrency(position.averageStake)}
+              </span>
+            </span>
+            <span className="text-neutral-500 dark:text-neutral-400">
+              Max Profit{" "}
+              <span className="font-semibold text-accent-500">
+                {formatCurrency(position.maxProfit)}
+              </span>
+            </span>
             {position.resolutionDate && (
-              <span className="text-neutral-500 dark:text-neutral-400">Resolves <span className="font-semibold text-amber-600 dark:text-amber-400">{formatDate(position.resolutionDate)}{position.daysUntil !== null ? ` (${position.daysUntil}d)` : ""}</span></span>
+              <span className="text-neutral-500 dark:text-neutral-400">
+                Resolves{" "}
+                <span className="font-semibold text-amber-600 dark:text-amber-400">
+                  {formatDate(position.resolutionDate)}
+                  {position.daysUntil !== null
+                    ? ` (${position.daysUntil}d)`
+                    : ""}
+                </span>
+              </span>
             )}
           </div>
 
@@ -671,12 +770,24 @@ const PositionCard: React.FC<PositionCardProps> = ({ position, onHedge, flat = f
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-neutral-200/70 dark:bg-neutral-800 border-b-2 border-neutral-300 dark:border-neutral-600">
-                    <th className="px-3 py-2.5 text-left text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">Date</th>
-                    <th className="px-3 py-2.5 text-right text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">Odds</th>
-                    <th className="px-3 py-2.5 text-right text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">Stake</th>
-                    <th className="px-3 py-2.5 text-right text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">Potential</th>
-                    <th className="px-3 py-2.5 text-right text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">Profit</th>
-                    <th className="px-3 py-2.5 text-center text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">Result</th>
+                    <th className="px-3 py-2.5 text-left text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
+                      Date
+                    </th>
+                    <th className="px-3 py-2.5 text-right text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
+                      Odds
+                    </th>
+                    <th className="px-3 py-2.5 text-right text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
+                      Stake
+                    </th>
+                    <th className="px-3 py-2.5 text-right text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
+                      Potential
+                    </th>
+                    <th className="px-3 py-2.5 text-right text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
+                      Profit
+                    </th>
+                    <th className="px-3 py-2.5 text-center text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
+                      Result
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -689,24 +800,38 @@ const PositionCard: React.FC<PositionCardProps> = ({ position, onHedge, flat = f
                           : "bg-neutral-50 dark:bg-neutral-900/50"
                       }`}
                     >
-                      <td className="px-3 py-2 text-neutral-700 dark:text-neutral-300">{bet.date}</td>
-                      <td className="px-3 py-2 text-right font-medium text-neutral-900 dark:text-white">{formatOdds(bet.odds)}</td>
-                      <td className="px-3 py-2 text-right text-neutral-700 dark:text-neutral-300">{formatCurrency(bet.stake)}</td>
-                      <td className="px-3 py-2 text-right text-neutral-700 dark:text-neutral-300">{formatCurrency(bet.potentialPayout)}</td>
-                      <td className={`px-3 py-2 text-right font-medium ${bet.profit >= 0 ? "text-accent-500" : "text-red-500"}`}>
-                        {bet.profit >= 0 ? "+" : ""}{formatCurrency(bet.profit)}
+                      <td className="px-3 py-2 text-neutral-700 dark:text-neutral-300">
+                        {bet.date}
+                      </td>
+                      <td className="px-3 py-2 text-right font-medium text-neutral-900 dark:text-white">
+                        {formatOdds(bet.odds)}
+                      </td>
+                      <td className="px-3 py-2 text-right text-neutral-700 dark:text-neutral-300">
+                        {formatCurrency(bet.stake)}
+                      </td>
+                      <td className="px-3 py-2 text-right text-neutral-700 dark:text-neutral-300">
+                        {formatCurrency(bet.potentialPayout)}
+                      </td>
+                      <td
+                        className={`px-3 py-2 text-right font-medium ${bet.profit >= 0 ? "text-accent-500" : "text-red-500"}`}
+                      >
+                        {bet.profit >= 0 ? "+" : ""}
+                        {formatCurrency(bet.profit)}
                       </td>
                       <td className="px-3 py-2 text-center">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                          bet.result === "win"
-                            ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
-                            : bet.result === "loss"
-                              ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
-                              : bet.result === "push"
-                                ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400"
-                                : "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
-                        }`}>
-                          {bet.result.charAt(0).toUpperCase() + bet.result.slice(1)}
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                            bet.result === "win"
+                              ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                              : bet.result === "loss"
+                                ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
+                                : bet.result === "push"
+                                  ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400"
+                                  : "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
+                          }`}
+                        >
+                          {bet.result.charAt(0).toUpperCase() +
+                            bet.result.slice(1)}
                         </span>
                       </td>
                     </tr>
@@ -937,8 +1062,12 @@ const FuturesView: React.FC = () => {
     setShowHedgeCalc(true);
   };
 
-  const hasActiveFilters = sportFilter !== "all" || typeFilter !== "all" || searchQuery.trim() !== "";
-  const activeFilterCount = (sportFilter !== "all" ? 1 : 0) + (typeFilter !== "all" ? 1 : 0) + (searchQuery.trim() ? 1 : 0);
+  const hasActiveFilters =
+    sportFilter !== "all" || typeFilter !== "all" || searchQuery.trim() !== "";
+  const activeFilterCount =
+    (sportFilter !== "all" ? 1 : 0) +
+    (typeFilter !== "all" ? 1 : 0) +
+    (searchQuery.trim() ? 1 : 0);
 
   // Empty state
   if (!futuresData) {
@@ -975,367 +1104,479 @@ const FuturesView: React.FC = () => {
                   Futures Management
                 </h1>
                 <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                  {futuresData.openCount} open position{futuresData.openCount !== 1 ? "s" : ""} &middot; {formatCurrency(futuresData.totalExposure)} exposure
+                  {futuresData.openCount} open position
+                  {futuresData.openCount !== 1 ? "s" : ""} &middot;{" "}
+                  {formatCurrency(futuresData.totalExposure)} exposure
                 </p>
               </div>
             </div>
 
             {/* View Mode Toggle */}
-            <div className="flex items-center gap-1 bg-white dark:bg-neutral-700 rounded-lg p-1 shadow-sm">
-              {(["positions", "timeline", "history"] as const).map((mode) => (
-                <button
-                  key={mode}
-                  onClick={() => setViewMode(mode)}
-                  className={`px-3 py-1.5 rounded-md font-medium text-xs transition-colors ${
-                    viewMode === mode
-                      ? "bg-primary-600 text-white shadow-sm"
-                      : "text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-600"
-                  }`}
-                >
-                  {mode.charAt(0).toUpperCase() + mode.slice(1)}
-                </button>
-              ))}
+            <div
+              className="flex items-center gap-1 bg-white dark:bg-neutral-700 rounded-lg p-1 shadow-sm"
+              role="tablist"
+              aria-label="View mode"
+            >
+              {(["positions", "timeline", "history"] as const).map((mode) => {
+                // Calculate count for each mode
+                const count =
+                  mode === "history"
+                    ? futuresData.settledPositions.length
+                    : futuresData.pendingPositions.length;
+                return (
+                  <button
+                    key={mode}
+                    onClick={() => setViewMode(mode)}
+                    className={`px-3 py-1.5 rounded-md font-medium text-xs transition-colors ${
+                      viewMode === mode
+                        ? "bg-primary-600 text-white shadow-sm"
+                        : "text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-600"
+                    }`}
+                    role="tab"
+                    aria-selected={viewMode === mode}
+                    aria-controls={`futures-${mode}-panel`}
+                  >
+                    {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                    {count > 0 && (
+                      <span
+                        className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
+                          viewMode === mode
+                            ? "bg-white/20 text-white"
+                            : "bg-neutral-200 dark:bg-neutral-600 text-neutral-600 dark:text-neutral-300"
+                        }`}
+                      >
+                        {count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
 
         {/* KPI Summary Bar */}
         <div className="px-5 py-3">
-          <div className="grid grid-cols-3 gap-4 divide-x divide-neutral-200 dark:divide-neutral-800">
-          <div className="pl-2 first:pl-0">
-            <p className="text-xs text-neutral-500 dark:text-neutral-400 uppercase font-medium whitespace-nowrap">Exposure</p>
-            <p className="text-lg font-bold text-neutral-900 dark:text-white mt-0.5">{formatCurrency(futuresData.totalExposure)}</p>
-          </div>
-          <div className="pl-4">
-            <p className="text-xs text-neutral-500 dark:text-neutral-400 uppercase font-medium whitespace-nowrap">Max Profit</p>
-            <p className="text-lg font-bold text-accent-500 mt-0.5">{formatCurrency(futuresData.totalMaxProfit)}</p>
-          </div>
-          <div className="pl-4">
-            <p className="text-xs text-neutral-500 dark:text-neutral-400 uppercase font-medium whitespace-nowrap">Settled</p>
-            <p className="text-lg font-bold text-neutral-900 dark:text-white mt-0.5">{futuresData.settledStats.wins}W - {futuresData.settledStats.losses}L</p>
-            <p className={`text-xs font-medium ${futuresData.settledStats.net >= 0 ? "text-accent-500" : "text-red-500"}`}>{futuresData.settledStats.net >= 0 ? "+" : ""}{formatCurrency(futuresData.settledStats.net)} net</p>
+          <div className="grid grid-cols-3 gap-2 sm:gap-4 divide-x divide-neutral-200 dark:divide-neutral-800">
+            <div className="pl-2 first:pl-0">
+              <p className="text-[10px] sm:text-xs text-neutral-500 dark:text-neutral-400 uppercase font-medium whitespace-nowrap">
+                Exposure
+              </p>
+              <p className="text-base sm:text-lg font-bold text-neutral-900 dark:text-white mt-0.5">
+                {formatCurrency(futuresData.totalExposure)}
+              </p>
+            </div>
+            <div className="pl-2 sm:pl-4">
+              <p className="text-[10px] sm:text-xs text-neutral-500 dark:text-neutral-400 uppercase font-medium whitespace-nowrap">
+                Max Profit
+              </p>
+              <p className="text-base sm:text-lg font-bold text-accent-500 mt-0.5">
+                {formatCurrency(futuresData.totalMaxProfit)}
+              </p>
+            </div>
+            <div className="pl-2 sm:pl-4">
+              <p className="text-[10px] sm:text-xs text-neutral-500 dark:text-neutral-400 uppercase font-medium whitespace-nowrap">
+                Settled
+              </p>
+              <p className="text-base sm:text-lg font-bold text-neutral-900 dark:text-white mt-0.5">
+                {futuresData.settledStats.wins}W -{" "}
+                {futuresData.settledStats.losses}L
+              </p>
+              <p
+                className={`text-[10px] sm:text-xs font-medium ${futuresData.settledStats.net >= 0 ? "text-accent-500" : "text-red-500"}`}
+              >
+                {futuresData.settledStats.net >= 0 ? "+" : ""}
+                {formatCurrency(futuresData.settledStats.net)} net
+              </p>
+            </div>
           </div>
         </div>
       </div>
-      </div>{/* end Header + KPI Summary */}
+      {/* end Header + KPI Summary */}
 
       {/* Unified Table Container: Filters + Positions */}
       <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-md overflow-hidden">
-      {/* Filter & Organization Bar */}
-      <div className="p-4 space-y-3">
-        {/* Primary filters: Sport (left) ←→ Type (right) */}
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-          {/* Sport filter */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 flex-shrink-0">Sport</span>
-            <div className="flex items-center space-x-1 flex-wrap gap-y-2 bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-lg">
-              <button
-                onClick={() => setSportFilter("all")}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                  sportFilter === "all"
-                    ? "bg-primary-600 text-white shadow"
-                    : "text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700"
-                }`}
-              >
-                All
-              </button>
-              {futuresData.sports.map((sport) => (
+        {/* Filter & Organization Bar */}
+        <div className="p-4 space-y-3">
+          {/* Primary filters: Sport (left) ←→ Type (right) */}
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+            {/* Sport filter */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 flex-shrink-0">
+                Sport
+              </span>
+              <div className="flex items-center space-x-1 flex-wrap gap-y-2 bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-lg">
                 <button
-                  key={sport}
-                  onClick={() => setSportFilter(sportFilter === sport ? "all" : sport)}
+                  onClick={() => setSportFilter("all")}
                   className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                    sportFilter === sport
+                    sportFilter === "all"
                       ? "bg-primary-600 text-white shadow"
                       : "text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700"
                   }`}
                 >
-                  {sport}
+                  All
                 </button>
-              ))}
+                {futuresData.sports.map((sport) => (
+                  <button
+                    key={sport}
+                    onClick={() =>
+                      setSportFilter(sportFilter === sport ? "all" : sport)
+                    }
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                      sportFilter === sport
+                        ? "bg-primary-600 text-white shadow"
+                        : "text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700"
+                    }`}
+                  >
+                    {sport}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
 
-          {/* Type filter */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 flex-shrink-0">Type</span>
-            <div className="flex items-center space-x-1 flex-wrap gap-y-2 bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-lg">
-              <button
-                onClick={() => setTypeFilter("all")}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                  typeFilter === "all"
-                    ? "bg-primary-600 text-white shadow"
-                    : "text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700"
-                }`}
-              >
-                All
-              </button>
-              {futuresData.types.map((type) => (
+            {/* Type filter */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 flex-shrink-0">
+                Type
+              </span>
+              <div className="flex items-center space-x-1 flex-wrap gap-y-2 bg-neutral-100 dark:bg-neutral-800/50 p-1 rounded-lg">
                 <button
-                  key={type}
-                  onClick={() => setTypeFilter(typeFilter === type ? "all" : type)}
+                  onClick={() => setTypeFilter("all")}
                   className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                    typeFilter === type
+                    typeFilter === "all"
                       ? "bg-primary-600 text-white shadow"
                       : "text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700"
                   }`}
                 >
-                  {type}
+                  All
                 </button>
-              ))}
+                {futuresData.types.map((type) => (
+                  <button
+                    key={type}
+                    onClick={() =>
+                      setTypeFilter(typeFilter === type ? "all" : type)
+                    }
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                      typeFilter === type
+                        ? "bg-primary-600 text-white shadow"
+                        : "text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700"
+                    }`}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Utilities row: Search (left) ←→ Sort, Group, Clear (right) */}
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          {/* Search input */}
-          <div className="relative min-w-[180px] w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-            <input
-              type="text"
-              placeholder="Search positions..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-8 py-1.5 text-sm bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg focus:ring-1 focus:ring-primary-500 focus:border-primary-500 text-neutral-900 dark:text-white placeholder-neutral-400"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-
-          {/* Controls */}
-          <div className="flex items-center gap-2">
-            {/* Sort dropdown */}
-            <div className="flex items-center gap-1.5">
-              <label className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 whitespace-nowrap">Sort</label>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as SortBy)}
-                className="bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded p-1 py-0.5 text-xs focus:ring-1 focus:ring-primary-500 text-neutral-900 dark:text-white"
-              >
-                <option value="exposure">Exposure</option>
-                <option value="potential">Potential</option>
-                <option value="odds">Odds</option>
-                <option value="resolution">Resolution</option>
-              </select>
-            </div>
-
-            <div className="w-px h-6 bg-neutral-200 dark:bg-neutral-700" />
-
-            {/* Group by sport toggle */}
-            <button
-              onClick={() => setGroupBySport(!groupBySport)}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                groupBySport
-                  ? "bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400"
-                  : "text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5" />
-              Group
-            </button>
-
-            {/* Clear all filters */}
-            {hasActiveFilters && (
-              <>
-                <div className="w-px h-6 bg-neutral-200 dark:bg-neutral-700" />
+          {/* Utilities row: Search (left) ←→ Sort, Group, Clear (right) */}
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            {/* Search input */}
+            <div className="relative min-w-[180px] w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+              <input
+                type="text"
+                placeholder="Search positions..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-8 py-1.5 text-sm bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg focus:ring-1 focus:ring-primary-500 focus:border-primary-500 text-neutral-900 dark:text-white placeholder-neutral-400"
+              />
+              {searchQuery && (
                 <button
-                  onClick={() => {
-                    setSportFilter("all");
-                    setTypeFilter("all");
-                    setSearchQuery("");
-                  }}
-                  className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200"
                 >
-                  <X className="w-3 h-3" />
-                  Clear ({activeFilterCount})
+                  <X className="w-3.5 h-3.5" />
                 </button>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Separator between filters and content */}
-      <div className="border-b-2 border-neutral-200 dark:border-neutral-700" />
-
-      {/* Positions / Timeline View */}
-      <div className="min-h-[300px]">
-      {viewMode === "timeline" ? (
-        <div className="p-6">
-          <div className="flex items-center gap-2 mb-6">
-            <Calendar className="w-6 h-6 text-amber-500" />
-            <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">
-              Resolution Timeline
-            </h2>
-            <InfoTooltip
-              text="Set or edit resolution dates for your futures positions. Click the date to modify."
-              position="right"
-            />
-          </div>
-
-          {/* Timeline with vertical line */}
-          <div className="relative">
-            {displayPositions.length > 0 && (
-              <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-neutral-200 dark:bg-neutral-700" />
-            )}
-
-            <div className="space-y-1">
-              {displayPositions.map((position) => {
-                const hasCustomDate = customResolutionDates[position.key] !== undefined;
-                const tlSportColor = getSportColor(position.sport);
-                return (
-                  <div key={position.key} className="relative pl-10">
-                    {/* Timeline dot */}
-                    <div className={`absolute left-2.5 top-5 w-3 h-3 rounded-full border-2 border-white dark:border-neutral-900 ${tlSportColor.dot} z-10`} />
-
-                    {/* Timeline card */}
-                    <div className={`p-4 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border-l-2 ${tlSportColor.border.replace("border-l-", "border-l-")} hover:bg-neutral-100 dark:hover:bg-neutral-800/70 transition-colors`}>
-                      <div className="flex items-center justify-between flex-wrap gap-4">
-                        <div className="flex-1 min-w-[150px]">
-                          <div className="flex items-center gap-2">
-                            <p className="font-semibold text-neutral-900 dark:text-white">
-                              {position.entity}
-                            </p>
-                            <span className={`text-xs font-medium ${tlSportColor.text}`}>
-                              {position.sport}
-                            </span>
-                          </div>
-                          <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                            {position.futuresType}
-                          </p>
-                        </div>
-
-                        <div className="flex items-center gap-6">
-                          <div className="text-center">
-                            <p className="text-xs text-neutral-500 dark:text-neutral-400 uppercase mb-1">
-                              Resolution{" "}
-                              {hasCustomDate && <span className="text-primary-500">(custom)</span>}
-                            </p>
-                            <input
-                              type="date"
-                              value={position.resolutionDate ? position.resolutionDate.toISOString().split("T")[0] : ""}
-                              onChange={(e) => updateCustomDate(position.key, e.target.value)}
-                              className="px-2 py-1 text-sm border border-neutral-300 dark:border-neutral-700 rounded bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white cursor-pointer hover:border-primary-500 transition-colors"
-                            />
-                            {position.daysUntil !== null && (
-                              <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mt-1">
-                                {position.daysUntil} days
-                              </p>
-                            )}
-                            {hasCustomDate && (
-                              <button
-                                onClick={() => updateCustomDate(position.key, "")}
-                                className="text-xs text-neutral-400 hover:text-red-500 mt-1"
-                              >
-                                Reset
-                              </button>
-                            )}
-                          </div>
-
-                          <div className="text-right">
-                            <p className="text-xs text-neutral-500 dark:text-neutral-400 uppercase">
-                              Exposure
-                            </p>
-                            <p className="font-medium text-neutral-700 dark:text-neutral-300">
-                              {formatCurrency(position.totalStake)}
-                            </p>
-                            <p className="text-xs text-accent-500 font-medium">
-                              +{formatCurrency(position.maxProfit)} max
-                            </p>
-                          </div>
-
-                          <button
-                            onClick={() => handleHedge(position)}
-                            className="p-2 text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors"
-                            title="Hedge Calculator"
-                          >
-                            <Scale className="w-5 h-5" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {displayPositions.length === 0 && (
-            <div className="text-center py-8 text-neutral-500 dark:text-neutral-400">
-              <p>No positions match your filters.</p>
-            </div>
-          )}
-        </div>
-      ) : (
-        <>
-          {/* Position cards with optional sport grouping */}
-          {groupBySport && displayPositions.length > 0 ? (
-            <div>
-              {(Object.entries(
-                displayPositions.reduce<Record<string, FuturesPosition[]>>((groups, pos) => {
-                  const sport = pos.sport;
-                  if (!groups[sport]) groups[sport] = [];
-                  groups[sport].push(pos);
-                  return groups;
-                }, {}),
-              ) as [string, FuturesPosition[]][])
-                .sort(([a], [b]) => a.localeCompare(b))
-                .map(([sport, positions]) => {
-                  const groupColor = getSportColor(sport);
-                  return (
-                    <div key={sport}>
-                      {/* Sport section header */}
-                      <div className={`flex items-center gap-3 px-4 py-2.5 bg-neutral-50 dark:bg-neutral-800/40 border-b border-neutral-200 dark:border-neutral-800`}>
-                        <div className={`w-1.5 h-5 rounded-full ${groupColor.dot}`} />
-                        <h2 className={`text-sm font-bold uppercase tracking-wider ${groupColor.text}`}>
-                          {sport}
-                        </h2>
-                        <span className="text-xs text-neutral-500 dark:text-neutral-400">
-                          {positions.length} position{positions.length !== 1 ? "s" : ""}
-                        </span>
-                      </div>
-                      {/* Cards for this sport */}
-                      <div className="divide-y divide-neutral-200 dark:divide-neutral-800">
-                        {positions.map((position) => (
-                          <PositionCard key={position.key} position={position} onHedge={handleHedge} flat />
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-            </div>
-          ) : (
-            <div className="divide-y divide-neutral-200 dark:divide-neutral-800">
-              {displayPositions.map((position) => (
-                <PositionCard key={position.key} position={position} onHedge={handleHedge} flat />
-              ))}
-            </div>
-          )}
-
-          {displayPositions.length === 0 && (
-            <div className="p-8 text-center">
-              <p className="text-neutral-500 dark:text-neutral-400">
-                {viewMode === "history"
-                  ? "No settled futures match your filters."
-                  : "No pending positions match your filters."}
-              </p>
-              {hasActiveFilters && (
-                <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-2">
-                  Try adjusting your filters or search.
-                </p>
               )}
             </div>
+
+            {/* Controls */}
+            <div className="flex items-center gap-2">
+              {/* Sort dropdown */}
+              <div className="flex items-center gap-1.5">
+                <label className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 whitespace-nowrap">
+                  Sort
+                </label>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as SortBy)}
+                  className="bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded p-1 py-0.5 text-xs focus:ring-1 focus:ring-primary-500 text-neutral-900 dark:text-white"
+                >
+                  <option value="exposure">Exposure</option>
+                  <option value="potential">Potential</option>
+                  <option value="odds">Odds</option>
+                  <option value="resolution">Resolution</option>
+                </select>
+              </div>
+
+              <div className="w-px h-6 bg-neutral-200 dark:bg-neutral-700" />
+
+              {/* Group by sport toggle */}
+              <button
+                onClick={() => setGroupBySport(!groupBySport)}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  groupBySport
+                    ? "bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400"
+                    : "text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5" />
+                Group
+              </button>
+
+              {/* Clear all filters */}
+              {hasActiveFilters && (
+                <>
+                  <div
+                    className="w-px h-6 bg-neutral-200 dark:bg-neutral-700"
+                    aria-hidden="true"
+                  />
+                  <button
+                    onClick={() => {
+                      setSportFilter("all");
+                      setTypeFilter("all");
+                      setSearchQuery("");
+                    }}
+                    className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                    aria-label={`Clear all ${activeFilterCount} active filters`}
+                  >
+                    <X className="w-3 h-3" aria-hidden="true" />
+                    Clear ({activeFilterCount})
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Separator between filters and content */}
+        <div className="border-b-2 border-neutral-200 dark:border-neutral-700" />
+
+        {/* Positions / Timeline View */}
+        <div
+          className="min-h-[300px]"
+          role="tabpanel"
+          id={`futures-${viewMode}-panel`}
+          aria-label={`${viewMode.charAt(0).toUpperCase() + viewMode.slice(1)} view`}
+        >
+          {viewMode === "timeline" ? (
+            <div className="p-6">
+              <div className="flex items-center gap-2 mb-6">
+                <Calendar className="w-6 h-6 text-amber-500" />
+                <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">
+                  Resolution Timeline
+                </h2>
+                <InfoTooltip
+                  text="Set or edit resolution dates for your futures positions. Click the date to modify."
+                  position="right"
+                />
+              </div>
+
+              {/* Timeline with vertical line */}
+              <div className="relative">
+                {displayPositions.length > 0 && (
+                  <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-neutral-200 dark:bg-neutral-700" />
+                )}
+
+                <div className="space-y-1">
+                  {displayPositions.map((position) => {
+                    const hasCustomDate =
+                      customResolutionDates[position.key] !== undefined;
+                    const tlSportColor = getSportColor(position.sport);
+                    return (
+                      <div key={position.key} className="relative pl-10">
+                        {/* Timeline dot */}
+                        <div
+                          className={`absolute left-2.5 top-5 w-3 h-3 rounded-full border-2 border-white dark:border-neutral-900 ${tlSportColor.dot} z-10`}
+                        />
+
+                        {/* Timeline card */}
+                        <div
+                          className={`p-4 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg border-l-2 ${tlSportColor.border} hover:bg-neutral-100 dark:hover:bg-neutral-800/70 transition-colors`}
+                        >
+                          <div className="flex items-center justify-between flex-wrap gap-4">
+                            <div className="flex-1 min-w-[150px]">
+                              <div className="flex items-center gap-2">
+                                <p className="font-semibold text-neutral-900 dark:text-white">
+                                  {position.entity}
+                                </p>
+                                <span
+                                  className={`text-xs font-medium ${tlSportColor.text}`}
+                                >
+                                  {position.sport}
+                                </span>
+                              </div>
+                              <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                                {position.futuresType}
+                              </p>
+                            </div>
+
+                            <div className="flex items-center gap-6">
+                              <div className="text-center">
+                                <p className="text-xs text-neutral-500 dark:text-neutral-400 uppercase mb-1">
+                                  Resolution{" "}
+                                  {hasCustomDate && (
+                                    <span className="text-primary-500">
+                                      (custom)
+                                    </span>
+                                  )}
+                                </p>
+                                <input
+                                  type="date"
+                                  value={
+                                    position.resolutionDate
+                                      ? position.resolutionDate
+                                          .toISOString()
+                                          .split("T")[0]
+                                      : ""
+                                  }
+                                  onChange={(e) =>
+                                    updateCustomDate(
+                                      position.key,
+                                      e.target.value,
+                                    )
+                                  }
+                                  className="px-2 py-1 text-sm border border-neutral-300 dark:border-neutral-700 rounded bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white cursor-pointer hover:border-primary-500 transition-colors"
+                                />
+                                {position.daysUntil !== null && (
+                                  <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mt-1">
+                                    {position.daysUntil} days
+                                  </p>
+                                )}
+                                {hasCustomDate && (
+                                  <button
+                                    onClick={() =>
+                                      updateCustomDate(position.key, "")
+                                    }
+                                    className="text-xs text-neutral-400 hover:text-red-500 mt-1"
+                                  >
+                                    Reset
+                                  </button>
+                                )}
+                              </div>
+
+                              <div className="text-right">
+                                <p className="text-xs text-neutral-500 dark:text-neutral-400 uppercase">
+                                  Exposure
+                                </p>
+                                <p className="font-medium text-neutral-700 dark:text-neutral-300">
+                                  {formatCurrency(position.totalStake)}
+                                </p>
+                                <p className="text-xs text-accent-500 font-medium">
+                                  +{formatCurrency(position.maxProfit)} max
+                                </p>
+                              </div>
+
+                              <button
+                                onClick={() => handleHedge(position)}
+                                className="p-2 text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors"
+                                title="Hedge Calculator"
+                                aria-label={`Open hedge calculator for ${position.entity}`}
+                              >
+                                <Scale className="w-5 h-5" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {displayPositions.length === 0 && (
+                <div className="text-center py-8 text-neutral-500 dark:text-neutral-400">
+                  <p>No positions match your filters.</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              {/* Position cards with optional sport grouping */}
+              {groupBySport && displayPositions.length > 0 ? (
+                <div>
+                  {(
+                    Object.entries(
+                      displayPositions.reduce<
+                        Record<string, FuturesPosition[]>
+                      >((groups, pos) => {
+                        const sport = pos.sport;
+                        if (!groups[sport]) groups[sport] = [];
+                        groups[sport].push(pos);
+                        return groups;
+                      }, {}),
+                    ) as [string, FuturesPosition[]][]
+                  )
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([sport, positions]) => {
+                      const groupColor = getSportColor(sport);
+                      return (
+                        <div key={sport}>
+                          {/* Sport section header */}
+                          <div
+                            className={`flex items-center gap-3 px-4 py-2.5 bg-neutral-50 dark:bg-neutral-800/40 border-b border-neutral-200 dark:border-neutral-800`}
+                          >
+                            <div
+                              className={`w-1.5 h-5 rounded-full ${groupColor.dot}`}
+                            />
+                            <h2
+                              className={`text-sm font-bold uppercase tracking-wider ${groupColor.text}`}
+                            >
+                              {sport}
+                            </h2>
+                            <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                              {positions.length} position
+                              {positions.length !== 1 ? "s" : ""}
+                            </span>
+                          </div>
+                          {/* Cards for this sport */}
+                          <div className="divide-y divide-neutral-200 dark:divide-neutral-800">
+                            {positions.map((position) => (
+                              <PositionCard
+                                key={position.key}
+                                position={position}
+                                onHedge={handleHedge}
+                                flat
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              ) : (
+                <div className="divide-y divide-neutral-200 dark:divide-neutral-800">
+                  {displayPositions.map((position) => (
+                    <PositionCard
+                      key={position.key}
+                      position={position}
+                      onHedge={handleHedge}
+                      flat
+                    />
+                  ))}
+                </div>
+              )}
+
+              {displayPositions.length === 0 && (
+                <div className="p-8 text-center">
+                  <p className="text-neutral-500 dark:text-neutral-400">
+                    {viewMode === "history"
+                      ? "No settled futures match your filters."
+                      : "No pending positions match your filters."}
+                  </p>
+                  {hasActiveFilters && (
+                    <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-2">
+                      Try adjusting your filters or search.
+                    </p>
+                  )}
+                </div>
+              )}
+            </>
           )}
-        </>
-      )}
+        </div>
       </div>
-      </div>{/* end Unified Table Container */}
+      {/* end Unified Table Container */}
 
       {/* Multi-Outcome Hedge Calculator Modal */}
       {showHedgeCalc && hedgePosition && (
