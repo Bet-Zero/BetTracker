@@ -130,7 +130,7 @@ function getSportColor(sport: string) {
 // Types
 // ============================================================================
 
-interface FuturesPosition {
+export interface FuturesPosition {
   /** Unique key for grouping (entity + futures type) */
   key: string;
   /** Entity name (team/player) */
@@ -850,8 +850,65 @@ const PositionCard: React.FC<PositionCardProps> = ({
 // Main Component
 // ============================================================================
 
-type ViewMode = "positions" | "timeline" | "history";
-type SortBy = "exposure" | "potential" | "odds" | "resolution";
+export type ViewMode = "positions" | "timeline" | "history";
+export type SortBy = "exposure" | "potential" | "odds" | "resolution";
+
+const SORT_LABELS: Record<SortBy, string> = {
+  exposure: "Exposure",
+  potential: "Potential payout",
+  odds: "Average odds",
+  resolution: "Soonest resolution",
+};
+
+const VIEW_MODE_DETAILS: Record<
+  ViewMode,
+  {
+    title: string;
+    description: string;
+  }
+> = {
+  positions: {
+    title: "Open positions",
+    description:
+      "Track live futures by team or player, compare price, and open a hedge from the same list.",
+  },
+  timeline: {
+    title: "Resolution timeline",
+    description:
+      "See which futures settle next and replace estimated dates with exact ones when you have them.",
+  },
+  history: {
+    title: "Settled history",
+    description:
+      "Review closed futures positions to understand what has already won, lost, and contributed to net results.",
+  },
+};
+
+export function sortFuturesPositions(
+  positions: FuturesPosition[],
+  sortBy: SortBy,
+  viewMode: ViewMode,
+): FuturesPosition[] {
+  const effectiveSortBy = viewMode === "timeline" ? "resolution" : sortBy;
+
+  return [...positions].sort((a, b) => {
+    switch (effectiveSortBy) {
+      case "exposure":
+        return b.totalStake - a.totalStake;
+      case "potential":
+        return b.totalPotentialPayout - a.totalPotentialPayout;
+      case "odds":
+        return b.averageOdds - a.averageOdds;
+      case "resolution":
+        if (a.daysUntil === null && b.daysUntil === null) return 0;
+        if (a.daysUntil === null) return 1;
+        if (b.daysUntil === null) return -1;
+        return a.daysUntil - b.daysUntil;
+      default:
+        return 0;
+    }
+  });
+}
 
 // LocalStorage key for custom resolution dates
 const CUSTOM_DATES_KEY = "bettracker_futures_resolution_dates";
@@ -1038,23 +1095,7 @@ const FuturesView: React.FC = () => {
     }
 
     // Sort
-    return [...positions].sort((a, b) => {
-      switch (sortBy) {
-        case "exposure":
-          return b.totalStake - a.totalStake;
-        case "potential":
-          return b.totalPotentialPayout - a.totalPotentialPayout;
-        case "odds":
-          return b.averageOdds - a.averageOdds;
-        case "resolution":
-          if (a.daysUntil === null && b.daysUntil === null) return 0;
-          if (a.daysUntil === null) return 1;
-          if (b.daysUntil === null) return -1;
-          return a.daysUntil - b.daysUntil;
-        default:
-          return 0;
-      }
-    });
+    return sortFuturesPositions(positions, sortBy, viewMode);
   }, [futuresData, viewMode, sortBy, sportFilter, typeFilter, searchQuery]);
 
   const handleHedge = (position: FuturesPosition) => {
@@ -1068,7 +1109,6 @@ const FuturesView: React.FC = () => {
     (sportFilter !== "all" ? 1 : 0) +
     (typeFilter !== "all" ? 1 : 0) +
     (searchQuery.trim() ? 1 : 0);
-
   // Empty state
   if (!futuresData) {
     return (
@@ -1088,6 +1128,48 @@ const FuturesView: React.FC = () => {
     );
   }
 
+  const currentViewDetails = VIEW_MODE_DETAILS[viewMode];
+  const totalViewPositions =
+    viewMode === "history"
+      ? futuresData.settledPositions.length
+      : futuresData.pendingPositions.length;
+  const viewSummaryText =
+    viewMode === "history"
+      ? `${futuresData.settledPositions.length} settled position${futuresData.settledPositions.length !== 1 ? "s" : ""} · ${formatCurrency(futuresData.settledStats.net)} net`
+      : `${futuresData.openCount} open position${futuresData.openCount !== 1 ? "s" : ""} · ${formatCurrency(futuresData.totalExposure)} exposure`;
+  const resultSummaryText =
+    viewMode === "history"
+      ? `Showing ${displayPositions.length} of ${totalViewPositions} settled position${totalViewPositions !== 1 ? "s" : ""}`
+      : `Showing ${displayPositions.length} of ${totalViewPositions} open position${totalViewPositions !== 1 ? "s" : ""}`;
+  const activeFilters = [
+    sportFilter !== "all"
+      ? {
+          key: "sport",
+          label: `Sport: ${sportFilter}`,
+          onClear: () => setSportFilter("all"),
+        }
+      : null,
+    typeFilter !== "all"
+      ? {
+          key: "type",
+          label: `Type: ${typeFilter}`,
+          onClear: () => setTypeFilter("all"),
+        }
+      : null,
+    searchQuery.trim()
+      ? {
+          key: "search",
+          label: `Search: ${searchQuery.trim()}`,
+          onClear: () => setSearchQuery(""),
+        }
+      : null,
+  ].filter(
+    (
+      filter,
+    ): filter is { key: string; label: string; onClear: () => void } =>
+      filter !== null,
+  );
+
   return (
     <div className="min-h-full bg-neutral-100 dark:bg-neutral-950 p-6 lg:p-8 space-y-4">
       {/* Header + KPI Summary */}
@@ -1104,9 +1186,7 @@ const FuturesView: React.FC = () => {
                   Futures Management
                 </h1>
                 <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                  {futuresData.openCount} open position
-                  {futuresData.openCount !== 1 ? "s" : ""} &middot;{" "}
-                  {formatCurrency(futuresData.totalExposure)} exposure
+                  {viewSummaryText}
                 </p>
               </div>
             </div>
@@ -1151,6 +1231,29 @@ const FuturesView: React.FC = () => {
                   </button>
                 );
               })}
+            </div>
+          </div>
+        </div>
+
+        <div className="px-5 py-3 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50/70 dark:bg-neutral-800/30">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-neutral-900 dark:text-white">
+                {currentViewDetails.title}
+              </p>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 max-w-3xl">
+                {currentViewDetails.description}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="px-2.5 py-1 rounded-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300">
+                {resultSummaryText}
+              </span>
+              <span className="px-2.5 py-1 rounded-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300">
+                {viewMode === "timeline"
+                  ? "Ordered by soonest resolution"
+                  : `Sorted by ${SORT_LABELS[sortBy]}`}
+              </span>
             </div>
           </div>
         </div>
@@ -1276,7 +1379,7 @@ const FuturesView: React.FC = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
               <input
                 type="text"
-                placeholder="Search positions..."
+                placeholder="Search team, player, type, or sport..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-9 pr-8 py-1.5 text-sm bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg focus:ring-1 focus:ring-primary-500 focus:border-primary-500 text-neutral-900 dark:text-white placeholder-neutral-400"
@@ -1294,21 +1397,28 @@ const FuturesView: React.FC = () => {
             {/* Controls */}
             <div className="flex items-center gap-2">
               {/* Sort dropdown */}
-              <div className="flex items-center gap-1.5">
-                <label className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 whitespace-nowrap">
-                  Sort
-                </label>
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as SortBy)}
-                  className="bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded p-1 py-0.5 text-xs focus:ring-1 focus:ring-primary-500 text-neutral-900 dark:text-white"
-                >
-                  <option value="exposure">Exposure</option>
-                  <option value="potential">Potential</option>
-                  <option value="odds">Odds</option>
-                  <option value="resolution">Resolution</option>
-                </select>
-              </div>
+              {viewMode === "timeline" ? (
+                <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300">
+                  <Calendar className="w-3.5 h-3.5" />
+                  Soonest resolution first
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <label className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 whitespace-nowrap">
+                    Sort
+                  </label>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as SortBy)}
+                    className="bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded p-1 py-0.5 text-xs focus:ring-1 focus:ring-primary-500 text-neutral-900 dark:text-white"
+                  >
+                    <option value="exposure">Exposure</option>
+                    <option value="potential">Potential</option>
+                    <option value="odds">Odds</option>
+                    <option value="resolution">Resolution</option>
+                  </select>
+                </div>
+              )}
 
               <div className="w-px h-6 bg-neutral-200 dark:bg-neutral-700" />
 
@@ -1322,7 +1432,7 @@ const FuturesView: React.FC = () => {
                 }`}
               >
                 <Layers className="w-3.5 h-3.5" />
-                Group
+                {groupBySport ? "Grouped by sport" : "Group by sport"}
               </button>
 
               {/* Clear all filters */}
@@ -1347,6 +1457,32 @@ const FuturesView: React.FC = () => {
                 </>
               )}
             </div>
+          </div>
+
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+            <p
+              className="text-xs text-neutral-500 dark:text-neutral-400"
+              aria-live="polite"
+            >
+              {resultSummaryText}
+              {hasActiveFilters ? " · Filters applied" : ""}
+            </p>
+
+            {activeFilters.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2">
+                {activeFilters.map((filter) => (
+                  <button
+                    key={filter.key}
+                    onClick={filter.onClear}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
+                    aria-label={`Clear ${filter.label} filter`}
+                  >
+                    <span>{filter.label}</span>
+                    <X className="w-3 h-3" aria-hidden="true" />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
