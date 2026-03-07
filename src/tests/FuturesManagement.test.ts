@@ -7,6 +7,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { Bet } from '../../types';
+import { sortFuturesPositions } from '../../views/FuturesView';
 
 // ============================================================================
 // Helper Functions (mirroring FuturesView.tsx)
@@ -660,6 +661,50 @@ describe('Futures Management View', () => {
         extractFuturesType(b.description, b.sport || '') === 'Win Total'
       );
       expect(winTotalBets).toHaveLength(1);
+    });
+  });
+
+  describe('View-specific sorting', () => {
+    const mockPositions = [
+      {
+        key: 'late-resolution-high-exposure',
+        totalStake: 300,
+        totalPotentialPayout: 1200,
+        averageOdds: 500,
+        daysUntil: 30,
+      },
+      {
+        key: 'soon-resolution-lower-exposure',
+        totalStake: 150,
+        totalPotentialPayout: 900,
+        averageOdds: 450,
+        daysUntil: 5,
+      },
+      {
+        key: 'unknown-resolution-largest-exposure',
+        totalStake: 800,
+        totalPotentialPayout: 1600,
+        averageOdds: 250,
+        daysUntil: null,
+      },
+    ] as any;
+
+    it('always orders timeline view by soonest resolution first', () => {
+      const sorted = sortFuturesPositions(mockPositions, 'exposure', 'timeline');
+      expect(sorted.map((position: any) => position.key)).toEqual([
+        'soon-resolution-lower-exposure',
+        'late-resolution-high-exposure',
+        'unknown-resolution-largest-exposure',
+      ]);
+    });
+
+    it('still respects the selected sort mode outside the timeline view', () => {
+      const sorted = sortFuturesPositions(mockPositions, 'exposure', 'positions');
+      expect(sorted.map((position: any) => position.key)).toEqual([
+        'unknown-resolution-largest-exposure',
+        'late-resolution-high-exposure',
+        'soon-resolution-lower-exposure',
+      ]);
     });
   });
   
