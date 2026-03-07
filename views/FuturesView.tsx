@@ -1251,7 +1251,7 @@ const FuturesView: React.FC = () => {
               </span>
               <span className="px-2.5 py-1 rounded-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300">
                 {viewMode === "timeline"
-                  ? "Ordered by soonest resolution"
+                  ? "Sorted by soonest resolution"
                   : `Sorted by ${SORT_LABELS[sortBy]}`}
               </span>
             </div>
@@ -1464,8 +1464,9 @@ const FuturesView: React.FC = () => {
               className="text-xs text-neutral-500 dark:text-neutral-400"
               aria-live="polite"
             >
-              {resultSummaryText}
-              {hasActiveFilters ? " · Filters applied" : ""}
+              {hasActiveFilters
+                ? `${activeFilterCount} active filter${activeFilterCount !== 1 ? "s" : ""}`
+                : "Filter by sport, type, or search to focus the list."}
             </p>
 
             {activeFilters.length > 0 && (
