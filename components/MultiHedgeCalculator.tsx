@@ -521,7 +521,7 @@ const MultiHedgeCalculator: React.FC<MultiHedgeCalculatorProps> = ({
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-neutral-900 rounded-xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col"
+        className="bg-white dark:bg-neutral-900 rounded-xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
