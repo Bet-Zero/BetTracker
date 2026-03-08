@@ -858,13 +858,7 @@ const BetTableView: React.FC = () => {
     lastUndoLabel,
     pushUndoSnapshot,
   } = useBets();
-  const {
-    sportsbooks,
-    sports,
-    categories,
-    tails,
-    addTail,
-  } = useInputs();
+  const { sportsbooks, sports, categories, tails, addTail } = useInputs();
   const {
     teams: normalizationTeams,
     players: normalizationPlayers,
@@ -1339,7 +1333,9 @@ const BetTableView: React.FC = () => {
         const teamResult = resolveTeamForSport(trimmedNext, row.sport as Sport);
         if (teamResult.status === "resolved") return teamResult.canonical;
 
-        const playerResult = resolvePlayer(trimmedNext, { sport: row.sport as Sport });
+        const playerResult = resolvePlayer(trimmedNext, {
+          sport: row.sport as Sport,
+        });
         if (playerResult.status === "resolved") return playerResult.canonical;
 
         // Neither resolved - determine type based on market context
@@ -1452,7 +1448,13 @@ const BetTableView: React.FC = () => {
 
       setResolvingNameItem(null);
     },
-    [resolvingNameItem, addTeamAlias, addPlayerAlias, addTeamByName, addPlayerByName],
+    [
+      resolvingNameItem,
+      addTeamAlias,
+      addPlayerAlias,
+      addTeamByName,
+      addPlayerByName,
+    ],
   );
 
   // Handler for create confirmation
@@ -1571,12 +1573,10 @@ const BetTableView: React.FC = () => {
   // Create a reverse map from abbreviation to full name for saving
   const typeAbbreviationToFull = useMemo(() => {
     const map: Record<string, string> = {};
-    (Object.values(betTypes) as string[][])
-      .flat()
-      .forEach((type) => {
-        const abbrev = abbreviateMarket(type);
-        map[abbrev.toLowerCase()] = type;
-      });
+    (Object.values(betTypes) as string[][]).flat().forEach((type) => {
+      const abbrev = abbreviateMarket(type);
+      map[abbrev.toLowerCase()] = type;
+    });
     return map;
   }, [betTypes]);
 
@@ -1606,7 +1606,7 @@ const BetTableView: React.FC = () => {
         });
 
         const typeValues = scopedTypes.map((t) =>
-          abbreviateMarket(t.canonical),
+          abbreviateMarket(t.canonical, sport),
         );
 
         // 2. Add System Types (Main Markets, Futures, Parlays) based on category
@@ -1622,7 +1622,9 @@ const BetTableView: React.FC = () => {
           typeValues.push(...validFutures.map((t) => t.canonical));
         }
 
-        const unique = new Set(typeValues.map((t) => abbreviateMarket(t)));
+        const unique = new Set(
+          typeValues.map((t) => abbreviateMarket(t, sport)),
+        );
         return Array.from(unique).sort();
       },
       players: (sport: string) => {
@@ -1678,7 +1680,7 @@ const BetTableView: React.FC = () => {
 
       // Build options from scoped bet types
       const options: DropdownOption[] = propTypes.map((t) => ({
-        value: abbreviateMarket(t.canonical),
+        value: abbreviateMarket(t.canonical, sport),
         label: t.description || t.canonical,
         aliases: t.aliases || [],
       }));
@@ -2838,7 +2840,10 @@ const BetTableView: React.FC = () => {
           const trimmedType = value.trim();
           if (isLeg) {
             // GATE: Only add to suggestions if bet type is RESOLVED
-            const legTypeResult = resolveBetType(trimmedType, row.sport as Sport);
+            const legTypeResult = resolveBetType(
+              trimmedType,
+              row.sport as Sport,
+            );
             if (legTypeResult.status === "resolved") {
               addBetTypeByName(row.sport, legTypeResult.canonical);
               handleLegUpdate(row.betId, legIndex, {
@@ -2849,7 +2854,11 @@ const BetTableView: React.FC = () => {
               // Queue unresolved bet type
               if (trimmedType) {
                 const queueItem = {
-                  id: generateUnresolvedItemId(trimmedType, row.betId, legIndex),
+                  id: generateUnresolvedItemId(
+                    trimmedType,
+                    row.betId,
+                    legIndex,
+                  ),
                   rawValue: trimmedType,
                   entityType: "betType" as const,
                   encounteredAt: new Date().toISOString(),
@@ -3814,7 +3823,10 @@ const BetTableView: React.FC = () => {
                               }
 
                               // Queue unresolved bet types for manual entry
-                              if (typeRes.status !== "resolved" && fullName.trim()) {
+                              if (
+                                typeRes.status !== "resolved" &&
+                                fullName.trim()
+                              ) {
                                 const resolvedLegIndex = isLeg ? legIndex : 0;
                                 const queueItem = {
                                   id: generateUnresolvedItemId(
@@ -3981,12 +3993,13 @@ const BetTableView: React.FC = () => {
                                   onBlur={(e) => {
                                     const val = e.target.value;
                                     if (val !== row.name) {
-                                      const canonical = handleNameCommitWithQueue(
-                                        val,
-                                        row,
-                                        null,
-                                        row.name,
-                                      );
+                                      const canonical =
+                                        handleNameCommitWithQueue(
+                                          val,
+                                          row,
+                                          null,
+                                          row.name,
+                                        );
                                       const bet = bets.find(
                                         (b) => b.id === row.betId,
                                       );
@@ -4047,12 +4060,13 @@ const BetTableView: React.FC = () => {
                                   onBlur={(e) => {
                                     const val = e.target.value;
                                     if (val !== row.name2) {
-                                      const canonical = handleNameCommitWithQueue(
-                                        val,
-                                        row,
-                                        null,
-                                        row.name2,
-                                      );
+                                      const canonical =
+                                        handleNameCommitWithQueue(
+                                          val,
+                                          row,
+                                          null,
+                                          row.name2,
+                                        );
                                       const bet = bets.find(
                                         (b) => b.id === row.betId,
                                       );

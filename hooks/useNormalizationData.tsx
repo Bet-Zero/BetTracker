@@ -76,7 +76,7 @@ interface NormalizationDataContextType {
   updatePlayer: (
     canonical: string,
     sport: Sport,
-    player: PlayerData
+    player: PlayerData,
   ) => boolean;
   removePlayer: (canonical: string, sport: Sport) => void;
   /** Phase 4: Disable a player (excluded from resolution) */
@@ -107,12 +107,12 @@ const defaultPlayers: PlayerData[] = getBaseSeedPlayers();
 const useLocalStorage = <T,>(
   key: string,
   initialValue: T,
-  migrateFromOldKey?: string
+  migrateFromOldKey?: string,
 ): [T, (value: T | ((val: T) => T)) => void] => {
   const [storedValue, setStoredValue] = useState<T>(() => {
     try {
       let item = window.localStorage.getItem(key);
-      
+
       // Migration: If new key doesn't exist, check for old key and migrate
       if (!item && migrateFromOldKey) {
         const oldItem = window.localStorage.getItem(migrateFromOldKey);
@@ -121,10 +121,12 @@ const useLocalStorage = <T,>(
           window.localStorage.setItem(key, oldItem);
           window.localStorage.removeItem(migrateFromOldKey);
           item = oldItem;
-          console.log(`[useNormalizationData] Migrated data from ${migrateFromOldKey} to ${key}`);
+          console.log(
+            `[useNormalizationData] Migrated data from ${migrateFromOldKey} to ${key}`,
+          );
         }
       }
-      
+
       return item ? JSON.parse(item) : initialValue;
     } catch (error) {
       console.error(`Failed to load ${key} from localStorage:`, error);
@@ -161,21 +163,21 @@ export const NormalizationDataProvider: React.FC<{ children: ReactNode }> = ({
 }) => {
   const [teams, setTeams] = useLocalStorage<TeamData[]>(
     NORMALIZATION_STORAGE_KEYS.TEAMS,
-    defaultTeams
+    defaultTeams,
   );
   const [betTypes, setBetTypes] = useLocalStorage<BetTypeData[]>(
     NORMALIZATION_STORAGE_KEYS.BET_TYPES,
     defaultBetTypes,
-    "bettracker-normalization-stattypes" // Migrate from old key
+    "bettracker-normalization-stattypes", // Migrate from old key
   );
   const [players, setPlayers] = useLocalStorage<PlayerData[]>(
     NORMALIZATION_STORAGE_KEYS.PLAYERS,
-    defaultPlayers
+    defaultPlayers,
   );
   const [loading, setLoading] = useState(true);
   // Phase 3.1: Track resolver version for UI refresh triggers
   const [resolverVersion, setResolverVersion] = useState(() =>
-    getResolverVersion()
+    getResolverVersion(),
   );
 
   useEffect(() => {
@@ -200,7 +202,9 @@ export const NormalizationDataProvider: React.FC<{ children: ReactNode }> = ({
     });
 
     if (teamsChanged) {
-      console.log("[NormalizationData] Migrating teams to include stable IDs...");
+      console.log(
+        "[NormalizationData] Migrating teams to include stable IDs...",
+      );
       setTeams(migratedTeams);
       // NOTE: setTeams triggers refreshLookupMaps, so we don't need to double call it
       // BUT we need the updated maps for player resolution below immediately?
@@ -231,14 +235,16 @@ export const NormalizationDataProvider: React.FC<{ children: ReactNode }> = ({
       if (p.team && !p.teamId) {
         // Try to resolve team string to an ID
         const normalizedSearch = p.team.trim().toLowerCase(); // Basic normalization
-        
+
         const matchedTeam = migratedTeams.find((t) => {
-             if (t.sport !== p.sport) return false;
-             if (t.disabled) return false;
-             if (t.canonical.toLowerCase() === normalizedSearch) return true;
-             if (t.aliases.some(a => a.toLowerCase() === normalizedSearch)) return true;
-             if (t.abbreviations.some(a => a.toLowerCase() === normalizedSearch)) return true;
-             return false;
+          if (t.sport !== p.sport) return false;
+          if (t.disabled) return false;
+          if (t.canonical.toLowerCase() === normalizedSearch) return true;
+          if (t.aliases.some((a) => a.toLowerCase() === normalizedSearch))
+            return true;
+          if (t.abbreviations.some((a) => a.toLowerCase() === normalizedSearch))
+            return true;
+          return false;
         });
 
         if (matchedTeam) {
@@ -246,7 +252,7 @@ export const NormalizationDataProvider: React.FC<{ children: ReactNode }> = ({
           changed = true;
         }
       }
-      
+
       if (changed) {
         playersChanged = true;
         return { ...p, ...updates };
@@ -255,35 +261,61 @@ export const NormalizationDataProvider: React.FC<{ children: ReactNode }> = ({
     });
 
     if (playersChanged) {
-       console.log("[NormalizationData] Migrating players (IDs / Links)...");
-       setPlayers(migratedPlayers);
+      console.log("[NormalizationData] Migrating players (IDs / Links)...");
+      setPlayers(migratedPlayers);
+    }
+
+    // Backfill any missing base seed bet types.
+    // If new types are added to referenceData.ts after a user already has localStorage
+    // data, those new types would otherwise be completely invisible. This ensures any
+    // entry present in the seed but absent from localStorage is added back.
+    const seedBetTypes = getBaseSeedBetTypes();
+    const betTypeKey = (t: BetTypeData) =>
+      `${t.canonical.toLowerCase()}::${t.sport}`;
+    const storedKeys = new Set(betTypes.map(betTypeKey));
+    const missingFromSeed = seedBetTypes.filter(
+      (s) => !storedKeys.has(betTypeKey(s)),
+    );
+    if (missingFromSeed.length > 0) {
+      console.log(
+        `[NormalizationData] Backfilling ${missingFromSeed.length} missing seed bet types...`,
+      );
+      setBetTypes((prev) =>
+        [...prev, ...missingFromSeed].sort((a, b) =>
+          a.canonical.localeCompare(b.canonical),
+        ),
+      );
     }
 
     setLoading(false);
   }, []); // Run links migration on mount
-
 
   // Team CRUD operations
   const addTeam = useCallback(
     (team: TeamData) => {
       if (
         teams.some(
-          (t) => t.canonical.toLowerCase() === team.canonical.toLowerCase()
+          (t) => t.canonical.toLowerCase() === team.canonical.toLowerCase(),
         )
       ) {
         return false;
       }
-      const teamWithId = team.id 
-         ? team 
-         : { ...team, id: generateTeamId(team.sport, team.abbreviations, team.canonical) };
+      const teamWithId = team.id
+        ? team
+        : {
+            ...team,
+            id: generateTeamId(team.sport, team.abbreviations, team.canonical),
+          };
 
       setTeams(
-        [...teams, teamWithId].sort((a, b) => a.canonical.localeCompare(b.canonical))
+        [...teams, teamWithId].sort((a, b) =>
+          a.canonical.localeCompare(b.canonical),
+        ),
       );
       setResolverVersion(getResolverVersion());
       return true;
     },
-    [teams, setTeams]
+    [teams, setTeams],
   );
 
   const updateTeam = useCallback(
@@ -301,7 +333,7 @@ export const NormalizationDataProvider: React.FC<{ children: ReactNode }> = ({
       setResolverVersion(getResolverVersion());
       return true;
     },
-    [teams, setTeams]
+    [teams, setTeams],
   );
 
   const removeTeam = useCallback(
@@ -309,30 +341,30 @@ export const NormalizationDataProvider: React.FC<{ children: ReactNode }> = ({
       setTeams(teams.filter((t) => t.canonical !== canonical));
       setResolverVersion(getResolverVersion());
     },
-    [teams, setTeams]
+    [teams, setTeams],
   );
 
   // Phase 4: Disable/Enable team operations
   const disableTeam = useCallback(
     (canonical: string) => {
       const newTeams = teams.map((t) =>
-        t.canonical === canonical ? { ...t, disabled: true } : t
+        t.canonical === canonical ? { ...t, disabled: true } : t,
       );
       setTeams(newTeams);
       setResolverVersion(getResolverVersion());
     },
-    [teams, setTeams]
+    [teams, setTeams],
   );
 
   const enableTeam = useCallback(
     (canonical: string) => {
       const newTeams = teams.map((t) =>
-        t.canonical === canonical ? { ...t, disabled: false } : t
+        t.canonical === canonical ? { ...t, disabled: false } : t,
       );
       setTeams(newTeams);
       setResolverVersion(getResolverVersion());
     },
-    [teams, setTeams]
+    [teams, setTeams],
   );
 
   // Bet Type CRUD operations
@@ -342,26 +374,26 @@ export const NormalizationDataProvider: React.FC<{ children: ReactNode }> = ({
         betTypes.some(
           (st) =>
             st.canonical.toLowerCase() === betType.canonical.toLowerCase() &&
-            st.sport === betType.sport
+            st.sport === betType.sport,
         )
       ) {
         return false;
       }
       setBetTypes(
         [...betTypes, betType].sort((a, b) =>
-          a.canonical.localeCompare(b.canonical)
-        )
+          a.canonical.localeCompare(b.canonical),
+        ),
       );
       setResolverVersion(getResolverVersion());
       return true;
     },
-    [betTypes, setBetTypes]
+    [betTypes, setBetTypes],
   );
 
   const updateBetType = useCallback(
     (canonical: string, updatedBetType: BetTypeData) => {
       const index = betTypes.findIndex(
-        (st) => st.canonical === canonical && st.sport === updatedBetType.sport
+        (st) => st.canonical === canonical && st.sport === updatedBetType.sport,
       );
       if (index === -1) return false;
 
@@ -372,12 +404,12 @@ export const NormalizationDataProvider: React.FC<{ children: ReactNode }> = ({
         aliases: dedupeAliases(updatedBetType.aliases),
       };
       setBetTypes(
-        newBetTypes.sort((a, b) => a.canonical.localeCompare(b.canonical))
+        newBetTypes.sort((a, b) => a.canonical.localeCompare(b.canonical)),
       );
       setResolverVersion(getResolverVersion());
       return true;
     },
-    [betTypes, setBetTypes]
+    [betTypes, setBetTypes],
   );
 
   const removeBetType = useCallback(
@@ -385,7 +417,7 @@ export const NormalizationDataProvider: React.FC<{ children: ReactNode }> = ({
       setBetTypes(betTypes.filter((st) => st.canonical !== canonical));
       setResolverVersion(getResolverVersion());
     },
-    [betTypes, setBetTypes]
+    [betTypes, setBetTypes],
   );
 
   // Phase 4: Disable/Enable bet type operations
@@ -394,12 +426,12 @@ export const NormalizationDataProvider: React.FC<{ children: ReactNode }> = ({
       const newBetTypes = betTypes.map((st) =>
         st.canonical === canonical && st.sport === sport
           ? { ...st, disabled: true }
-          : st
+          : st,
       );
       setBetTypes(newBetTypes);
       setResolverVersion(getResolverVersion());
     },
-    [betTypes, setBetTypes]
+    [betTypes, setBetTypes],
   );
 
   const enableBetType = useCallback(
@@ -407,12 +439,12 @@ export const NormalizationDataProvider: React.FC<{ children: ReactNode }> = ({
       const newBetTypes = betTypes.map((st) =>
         st.canonical === canonical && st.sport === sport
           ? { ...st, disabled: false }
-          : st
+          : st,
       );
       setBetTypes(newBetTypes);
       setResolverVersion(getResolverVersion());
     },
-    [betTypes, setBetTypes]
+    [betTypes, setBetTypes],
   );
 
   // Player CRUD operations
@@ -423,29 +455,31 @@ export const NormalizationDataProvider: React.FC<{ children: ReactNode }> = ({
         players.some(
           (p) =>
             p.canonical.toLowerCase() === player.canonical.toLowerCase() &&
-            p.sport === player.sport
+            p.sport === player.sport,
         )
       ) {
         return false;
       }
-      
-      const playerWithId = player.id ? player : { ...player, id: crypto.randomUUID() };
+
+      const playerWithId = player.id
+        ? player
+        : { ...player, id: crypto.randomUUID() };
 
       setPlayers(
         [...players, playerWithId].sort((a, b) =>
-          a.canonical.localeCompare(b.canonical)
-        )
+          a.canonical.localeCompare(b.canonical),
+        ),
       );
       setResolverVersion(getResolverVersion());
       return true;
     },
-    [players, setPlayers]
+    [players, setPlayers],
   );
 
   const updatePlayer = useCallback(
     (canonical: string, sport: Sport, updatedPlayer: PlayerData) => {
       const index = players.findIndex(
-        (p) => p.canonical === canonical && p.sport === sport
+        (p) => p.canonical === canonical && p.sport === sport,
       );
       if (index === -1) return false;
 
@@ -456,22 +490,24 @@ export const NormalizationDataProvider: React.FC<{ children: ReactNode }> = ({
         aliases: dedupeAliases(updatedPlayer.aliases),
       };
       setPlayers(
-        newPlayers.sort((a, b) => a.canonical.localeCompare(b.canonical))
+        newPlayers.sort((a, b) => a.canonical.localeCompare(b.canonical)),
       );
       setResolverVersion(getResolverVersion());
       return true;
     },
-    [players, setPlayers]
+    [players, setPlayers],
   );
 
   const removePlayer = useCallback(
     (canonical: string, sport: Sport) => {
       setPlayers(
-        players.filter((p) => !(p.canonical === canonical && p.sport === sport))
+        players.filter(
+          (p) => !(p.canonical === canonical && p.sport === sport),
+        ),
       );
       setResolverVersion(getResolverVersion());
     },
-    [players, setPlayers]
+    [players, setPlayers],
   );
 
   // Phase 4: Disable/Enable player operations
@@ -480,12 +516,12 @@ export const NormalizationDataProvider: React.FC<{ children: ReactNode }> = ({
       const newPlayers = players.map((p) =>
         p.canonical === canonical && p.sport === sport
           ? { ...p, disabled: true }
-          : p
+          : p,
       );
       setPlayers(newPlayers);
       setResolverVersion(getResolverVersion());
     },
-    [players, setPlayers]
+    [players, setPlayers],
   );
 
   const enablePlayer = useCallback(
@@ -493,12 +529,12 @@ export const NormalizationDataProvider: React.FC<{ children: ReactNode }> = ({
       const newPlayers = players.map((p) =>
         p.canonical === canonical && p.sport === sport
           ? { ...p, disabled: false }
-          : p
+          : p,
       );
       setPlayers(newPlayers);
       setResolverVersion(getResolverVersion());
     },
-    [players, setPlayers]
+    [players, setPlayers],
   );
 
   // Helper: Add Team Alias
@@ -512,7 +548,7 @@ export const NormalizationDataProvider: React.FC<{ children: ReactNode }> = ({
         aliases: [...team.aliases, alias],
       });
     },
-    [teams, updateTeam]
+    [teams, updateTeam],
   );
 
   // Helper: Add Bet Type Alias
@@ -521,9 +557,9 @@ export const NormalizationDataProvider: React.FC<{ children: ReactNode }> = ({
       const betType = betTypes.find((st) => st.canonical === canonical);
       if (!betType) return false;
       if (betType.aliases.includes(alias)) return true;
-      // Note: We don't have the sport here efficiently, but canonical for bet types 
-      // is usually unique enough or we rely on the caller to know? 
-      // Actually ImportConfirmationModal calls it as (canonical, alias). 
+      // Note: We don't have the sport here efficiently, but canonical for bet types
+      // is usually unique enough or we rely on the caller to know?
+      // Actually ImportConfirmationModal calls it as (canonical, alias).
       // But BetTypeData has 'sport'. The find might be ambiguous if duplicates exist across sports?
       // Preflight data shows bet types are keyed by canonical+sport.
       // However, for this helper let's assume canonical is sufficient or find the FIRST one.
@@ -533,14 +569,14 @@ export const NormalizationDataProvider: React.FC<{ children: ReactNode }> = ({
         aliases: [...betType.aliases, alias],
       });
     },
-    [betTypes, updateBetType]
+    [betTypes, updateBetType],
   );
-  
+
   // Helper: Add Player Alias
   const addPlayerAlias = useCallback(
     (canonical: string, sport: Sport, alias: string) => {
       const player = players.find(
-        (p) => p.canonical === canonical && p.sport === sport
+        (p) => p.canonical === canonical && p.sport === sport,
       );
       if (!player) return false;
       if (player.aliases.includes(alias)) return true;
@@ -549,7 +585,7 @@ export const NormalizationDataProvider: React.FC<{ children: ReactNode }> = ({
         aliases: [...player.aliases, alias],
       });
     },
-    [players, updatePlayer]
+    [players, updatePlayer],
   );
 
   // Simple add-by-name helpers (no-op if already exists)
@@ -557,27 +593,40 @@ export const NormalizationDataProvider: React.FC<{ children: ReactNode }> = ({
     (sport: string, name: string) => {
       const trimmed = name.trim();
       if (!trimmed || !sport) return;
-      addTeam({ canonical: trimmed, sport: sport as Sport, aliases: [trimmed], abbreviations: [] });
+      addTeam({
+        canonical: trimmed,
+        sport: sport as Sport,
+        aliases: [trimmed],
+        abbreviations: [],
+      });
     },
-    [addTeam]
+    [addTeam],
   );
 
   const addPlayerByName = useCallback(
     (sport: string, name: string) => {
       const trimmed = name.trim();
       if (!trimmed || !sport) return;
-      addPlayer({ canonical: trimmed, sport: sport as Sport, aliases: [trimmed] });
+      addPlayer({
+        canonical: trimmed,
+        sport: sport as Sport,
+        aliases: [trimmed],
+      });
     },
-    [addPlayer]
+    [addPlayer],
   );
 
   const addBetTypeByName = useCallback(
     (sport: string, name: string) => {
       const trimmed = name.trim();
       if (!trimmed || !sport) return;
-      addBetType({ canonical: trimmed, sport: sport as Sport, aliases: [trimmed] });
+      addBetType({
+        canonical: trimmed,
+        sport: sport as Sport,
+        aliases: [trimmed],
+      });
     },
-    [addBetType]
+    [addBetType],
   );
 
   const value = {
@@ -620,7 +669,7 @@ export const useNormalizationData = (): NormalizationDataContextType => {
   const context = useContext(NormalizationDataContext);
   if (context === undefined) {
     throw new Error(
-      "useNormalizationData must be used within a NormalizationDataProvider"
+      "useNormalizationData must be used within a NormalizationDataProvider",
     );
   }
   return context;
