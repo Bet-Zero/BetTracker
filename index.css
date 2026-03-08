@@ -65,6 +65,14 @@
   --color-danger-950: #450a0a;
 }
 
+/* Prevent double scrollbars - only main content area should scroll */
+html,
+body,
+#root {
+  height: 100%;
+  overflow: hidden;
+}
+
 /* Base (light mode) theme variables */
 :root {
   --bg-primary: #ffffff;
@@ -92,6 +100,15 @@ h1 {
   font-size: 1.875rem; /* 30px */
   line-height: 2.25rem; /* 36px */
   margin: 0;
+}
+
+/* Hidden scrollbar - scrollable but invisible */
+.scrollbar-hidden {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none; /* Chrome/Safari/Edge */
 }
 
 /* Overlay scrollbar that appears on scroll and fades away */
@@ -138,8 +155,14 @@ h1 {
 
 /* Modal entrance animation */
 @keyframes modal-in {
-  from { opacity: 0; transform: translateY(12px) scale(0.97); }
-  to   { opacity: 1; transform: translateY(0)    scale(1);    }
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .modal-panel {
