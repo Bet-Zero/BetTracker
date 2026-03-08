@@ -29,6 +29,7 @@ import {
   X,
   Layers,
   BarChart2,
+  Trophy,
 } from "../components/icons";
 import { InfoTooltip } from "../components/debug/InfoTooltip";
 import MultiHedgeCalculator from "../components/MultiHedgeCalculator";
@@ -46,6 +47,7 @@ const SPORT_COLORS: Record<
     pill: string;
     pillActive: string;
     dot: string;
+    gradient: string;
   }
 > = {
   NBA: {
@@ -55,6 +57,7 @@ const SPORT_COLORS: Record<
     pill: "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400",
     pillActive: "bg-orange-500 text-white",
     dot: "bg-orange-500",
+    gradient: "from-orange-500/15",
   },
   NFL: {
     border: "border-l-blue-500",
@@ -63,6 +66,7 @@ const SPORT_COLORS: Record<
     pill: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400",
     pillActive: "bg-blue-500 text-white",
     dot: "bg-blue-500",
+    gradient: "from-blue-500/15",
   },
   MLB: {
     border: "border-l-red-500",
@@ -71,6 +75,7 @@ const SPORT_COLORS: Record<
     pill: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400",
     pillActive: "bg-red-500 text-white",
     dot: "bg-red-500",
+    gradient: "from-red-500/15",
   },
   NHL: {
     border: "border-l-cyan-500",
@@ -79,6 +84,7 @@ const SPORT_COLORS: Record<
     pill: "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400",
     pillActive: "bg-cyan-500 text-white",
     dot: "bg-cyan-500",
+    gradient: "from-cyan-500/15",
   },
   NCAAB: {
     border: "border-l-amber-500",
@@ -87,6 +93,7 @@ const SPORT_COLORS: Record<
     pill: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400",
     pillActive: "bg-amber-500 text-white",
     dot: "bg-amber-500",
+    gradient: "from-amber-500/15",
   },
   NCAAF: {
     border: "border-l-amber-600",
@@ -95,6 +102,7 @@ const SPORT_COLORS: Record<
     pill: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400",
     pillActive: "bg-amber-600 text-white",
     dot: "bg-amber-600",
+    gradient: "from-amber-600/15",
   },
   Soccer: {
     border: "border-l-green-500",
@@ -103,6 +111,7 @@ const SPORT_COLORS: Record<
     pill: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400",
     pillActive: "bg-green-500 text-white",
     dot: "bg-green-500",
+    gradient: "from-green-500/15",
   },
   UFC: {
     border: "border-l-rose-500",
@@ -111,6 +120,7 @@ const SPORT_COLORS: Record<
     pill: "bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400",
     pillActive: "bg-rose-500 text-white",
     dot: "bg-rose-500",
+    gradient: "from-rose-500/15",
   },
 };
 
@@ -121,6 +131,7 @@ const DEFAULT_SPORT_COLOR = {
   pill: "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400",
   pillActive: "bg-purple-500 text-white",
   dot: "bg-purple-500",
+  gradient: "from-purple-500/15",
 };
 
 function getSportColor(sport: string) {
@@ -852,6 +863,14 @@ const PositionDetailModal: React.FC<PositionDetailModalProps> = ({
     mixed: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400",
   };
 
+  const resultColors = {
+    win: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400",
+    loss: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400",
+    push: "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400",
+    pending:
+      "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400",
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
       {/* Backdrop */}
@@ -863,66 +882,68 @@ const PositionDetailModal: React.FC<PositionDetailModalProps> = ({
       {/* Panel */}
       <div
         ref={panelRef}
-        className="relative z-10 w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl overflow-hidden shadow-2xl bg-white dark:bg-neutral-900 ring-1 ring-black/10 dark:ring-white/5"
+        className="modal-panel relative z-10 w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl overflow-hidden shadow-2xl bg-white dark:bg-neutral-900 ring-1 ring-black/10 dark:ring-white/5"
       >
-        {/* Sport color accent bar */}
-        <div className={`h-1 w-full flex-shrink-0 ${sportColor.dot}`} />
-
-        {/* Header */}
-        <div className="px-6 py-5 flex items-start justify-between gap-4 border-b border-neutral-200 dark:border-neutral-800 flex-shrink-0">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-3 flex-wrap">
-              <h2 className="text-2xl font-bold text-neutral-900 dark:text-white leading-tight">
-                {position.entity}
-              </h2>
-              <span
-                className={`px-2.5 py-1 rounded-full text-xs font-semibold ${statusColors[position.status]}`}
-              >
-                {position.status.charAt(0).toUpperCase() +
-                  position.status.slice(1)}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-              <span className={`text-sm font-semibold ${sportColor.text}`}>
-                {position.sport}
-              </span>
-              <span className="text-neutral-300 dark:text-neutral-600">
-                &middot;
-              </span>
-              <span className="text-sm text-neutral-500 dark:text-neutral-400">
-                {position.futuresType}
-              </span>
-              <span className="text-neutral-300 dark:text-neutral-600">
-                &middot;
-              </span>
-              <span className="text-sm text-neutral-500 dark:text-neutral-400">
-                {position.bets.length} bet
-                {position.bets.length !== 1 ? "s" : ""}
-              </span>
-              {position.daysUntil !== null && (
-                <>
-                  <span className="text-neutral-300 dark:text-neutral-600">
-                    &middot;
-                  </span>
-                  <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
-                    {position.daysUntil}d to resolution
-                  </span>
-                </>
-              )}
-            </div>
+        {/* Hero Zone */}
+        <div
+          className={`px-6 pt-5 pb-6 bg-gradient-to-br ${sportColor.gradient} to-transparent border-b border-neutral-200 dark:border-neutral-800 flex-shrink-0`}
+        >
+          {/* Top row: status + close */}
+          <div className="flex items-center justify-between mb-4">
+            <span
+              className={`px-2.5 py-1 rounded-full text-xs font-semibold ${statusColors[position.status]}`}
+            >
+              {position.status.charAt(0).toUpperCase() +
+                position.status.slice(1)}
+            </span>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-lg text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+              aria-label="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="flex-shrink-0 p-2 rounded-lg text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
-            aria-label="Close"
-          >
-            <X className="w-5 h-5" />
-          </button>
+
+          {/* Entity name */}
+          <h2 className="text-3xl font-bold text-neutral-900 dark:text-white leading-tight mb-2">
+            {position.entity}
+          </h2>
+
+          {/* Subtitle */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`text-sm font-semibold ${sportColor.text}`}>
+              {position.sport}
+            </span>
+            <span className="text-neutral-300 dark:text-neutral-600">
+              &middot;
+            </span>
+            <span className="text-sm text-neutral-500 dark:text-neutral-400">
+              {position.futuresType}
+            </span>
+            <span className="text-neutral-300 dark:text-neutral-600">
+              &middot;
+            </span>
+            <span className="text-sm text-neutral-500 dark:text-neutral-400">
+              {position.bets.length} bet
+              {position.bets.length !== 1 ? "s" : ""}
+            </span>
+            {position.daysUntil !== null && (
+              <>
+                <span className="text-neutral-300 dark:text-neutral-600">
+                  &middot;
+                </span>
+                <span className="px-2 py-0.5 rounded text-xs font-medium tabular-nums bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                  {position.daysUntil}d
+                </span>
+              </>
+            )}
+          </div>
         </div>
 
-        {/* Metrics grid */}
-        <div className="px-6 py-4 grid grid-cols-2 sm:grid-cols-4 gap-4 bg-neutral-50 dark:bg-neutral-800/40 border-b border-neutral-200 dark:border-neutral-800 flex-shrink-0">
-          <div>
+        {/* Stats row */}
+        <div className="grid grid-cols-4 divide-x divide-neutral-200 dark:divide-neutral-800 border-b border-neutral-200 dark:border-neutral-800 flex-shrink-0">
+          <div className="px-5 py-4">
             <p className="text-[10px] uppercase font-semibold text-neutral-400 dark:text-neutral-500 tracking-wide">
               Exposure
             </p>
@@ -930,7 +951,7 @@ const PositionDetailModal: React.FC<PositionDetailModalProps> = ({
               {formatCurrency(position.totalStake)}
             </p>
           </div>
-          <div>
+          <div className="px-5 py-4">
             <p className="text-[10px] uppercase font-semibold text-neutral-400 dark:text-neutral-500 tracking-wide">
               Avg Odds
             </p>
@@ -938,15 +959,15 @@ const PositionDetailModal: React.FC<PositionDetailModalProps> = ({
               {formatOdds(position.averageOdds)}
             </p>
           </div>
-          <div>
+          <div className="px-5 py-4">
             <p className="text-[10px] uppercase font-semibold text-neutral-400 dark:text-neutral-500 tracking-wide">
-              Potential Payout
+              Payout
             </p>
             <p className="text-xl font-bold text-accent-500 mt-1 tabular-nums">
               {formatCurrency(position.totalPotentialPayout)}
             </p>
           </div>
-          <div>
+          <div className="px-5 py-4">
             <p className="text-[10px] uppercase font-semibold text-neutral-400 dark:text-neutral-500 tracking-wide">
               Max Profit
             </p>
@@ -962,134 +983,107 @@ const PositionDetailModal: React.FC<PositionDetailModalProps> = ({
         {/* Scrollable body */}
         <div className="overflow-y-auto flex-1">
           {/* Resolution */}
-          <div className="px-6 py-4 border-b border-neutral-200 dark:border-neutral-800">
-            <p className="text-[10px] uppercase font-semibold text-neutral-400 dark:text-neutral-500 tracking-wide mb-3">
-              Resolution Date
-              {hasCustomDate && (
-                <span className="text-primary-500 ml-2 normal-case font-medium text-xs">
-                  (custom)
-                </span>
-              )}
-            </p>
-            <div className="flex items-center gap-4 flex-wrap">
-              <input
-                type="date"
-                value={
-                  position.resolutionDate
-                    ? position.resolutionDate.toISOString().split("T")[0]
-                    : ""
-                }
-                onChange={(e) => onUpdateDate(position.key, e.target.value)}
-                className="px-3 py-1.5 text-sm border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white cursor-pointer hover:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-colors"
-              />
-              {position.daysUntil !== null && (
-                <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
-                  {position.daysUntil} days remaining
-                </span>
-              )}
-              {!position.resolutionDate && (
-                <span className="text-sm text-neutral-400 dark:text-neutral-500 italic">
-                  No estimated date — set one above
-                </span>
-              )}
-              {hasCustomDate && (
-                <button
-                  onClick={() => onUpdateDate(position.key, "")}
-                  className="text-xs text-neutral-400 hover:text-red-500 transition-colors"
-                >
-                  Reset to estimated
-                </button>
-              )}
+          <div className="px-6 py-5 border-b border-neutral-200 dark:border-neutral-800">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[10px] uppercase font-semibold text-neutral-400 dark:text-neutral-500 tracking-wide">
+                Resolution
+                {hasCustomDate && (
+                  <span className="text-primary-500 ml-2 normal-case font-medium text-xs">
+                    (custom)
+                  </span>
+                )}
+              </p>
+              <div className="flex items-center gap-3">
+                <input
+                  type="date"
+                  value={
+                    position.resolutionDate
+                      ? position.resolutionDate.toISOString().split("T")[0]
+                      : ""
+                  }
+                  onChange={(e) => onUpdateDate(position.key, e.target.value)}
+                  className="px-3 py-1.5 text-sm border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white cursor-pointer hover:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-colors"
+                />
+                {hasCustomDate && (
+                  <button
+                    onClick={() => onUpdateDate(position.key, "")}
+                    className="text-xs text-neutral-400 hover:text-red-500 transition-colors"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
             </div>
+            {!position.resolutionDate && (
+              <p className="text-sm text-neutral-400 dark:text-neutral-500 italic">
+                No resolution date set
+              </p>
+            )}
           </div>
 
-          {/* Bets table */}
-          <div className="px-6 py-4">
+          {/* Bets */}
+          <div className="px-6 py-5">
             <p className="text-[10px] uppercase font-semibold text-neutral-400 dark:text-neutral-500 tracking-wide mb-3">
               {position.bets.length} Bet
               {position.bets.length !== 1 ? "s" : ""}
             </p>
-            <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-700">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-neutral-100 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700">
-                    <th className="px-4 py-3 text-left text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
-                      Date
-                    </th>
-                    <th className="px-4 py-3 text-right text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
-                      Odds
-                    </th>
-                    <th className="px-4 py-3 text-right text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
-                      Stake
-                    </th>
-                    <th className="px-4 py-3 text-right text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
-                      Payout
-                    </th>
-                    <th className="px-4 py-3 text-right text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
-                      Profit
-                    </th>
-                    <th className="px-4 py-3 text-center text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
-                      Result
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
-                  {breakdown.map((bet) => (
-                    <tr
-                      key={bet.id}
-                      className="hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors"
+            <div className="divide-y divide-neutral-100 dark:divide-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+              {breakdown.map((bet) => {
+                const aboveAvg = bet.odds > position.averageOdds;
+                return (
+                  <div
+                    key={bet.id}
+                    className="flex items-center gap-4 px-4 py-3.5 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors"
+                  >
+                    <span className="text-xs text-neutral-400 dark:text-neutral-500 tabular-nums w-14 flex-shrink-0">
+                      {bet.date}
+                    </span>
+                    <span
+                      className={`px-2.5 py-1 rounded-full text-sm font-bold tabular-nums flex-shrink-0 ${
+                        aboveAvg
+                          ? "bg-accent-100 dark:bg-accent-900/20 text-accent-600 dark:text-accent-400"
+                          : "bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
+                      }`}
                     >
-                      <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400">
-                        {bet.date}
-                      </td>
-                      <td className="px-4 py-3 text-right font-semibold text-neutral-900 dark:text-white tabular-nums">
-                        {formatOdds(bet.odds)}
-                      </td>
-                      <td className="px-4 py-3 text-right text-neutral-700 dark:text-neutral-300 tabular-nums">
+                      {formatOdds(bet.odds)}
+                    </span>
+                    <div className="flex-1 flex items-center gap-2 min-w-0">
+                      <span className="text-sm text-neutral-500 dark:text-neutral-400 tabular-nums">
                         {formatCurrency(bet.stake)}
-                      </td>
-                      <td className="px-4 py-3 text-right text-neutral-700 dark:text-neutral-300 tabular-nums">
+                      </span>
+                      <span className="text-neutral-300 dark:text-neutral-600 flex-shrink-0">
+                        →
+                      </span>
+                      <span className="text-sm font-semibold text-neutral-900 dark:text-white tabular-nums">
                         {formatCurrency(bet.potentialPayout)}
-                      </td>
-                      <td
-                        className={`px-4 py-3 text-right font-semibold tabular-nums ${bet.profit >= 0 ? "text-accent-500" : "text-red-500"}`}
-                      >
-                        {bet.profit >= 0 ? "+" : ""}
-                        {formatCurrency(bet.profit)}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                            bet.result === "win"
-                              ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
-                              : bet.result === "loss"
-                                ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
-                                : bet.result === "push"
-                                  ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400"
-                                  : "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
-                          }`}
-                        >
-                          {bet.result.charAt(0).toUpperCase() +
-                            bet.result.slice(1)}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </span>
+                    </div>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${
+                        resultColors[
+                          bet.result as keyof typeof resultColors
+                        ] ?? resultColors.pending
+                      }`}
+                    >
+                      {bet.result.charAt(0).toUpperCase() +
+                        bet.result.slice(1)}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
 
         {/* Footer — hedge CTA for pending positions */}
         {position.status === "pending" && (
-          <div className="px-6 py-4 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/30 flex-shrink-0 flex justify-end">
+          <div className="px-6 py-4 border-t border-neutral-200 dark:border-neutral-800 flex-shrink-0">
             <button
               onClick={() => {
                 onClose();
                 onHedge(position);
               }}
-              className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium text-sm transition-colors shadow-sm"
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-semibold text-sm transition-colors shadow-sm"
             >
               <Scale className="w-4 h-4" />
               Open Hedge Calculator
@@ -1116,6 +1110,10 @@ const MarketDetailModal: React.FC<MarketDetailModalProps> = ({
 }) => {
   const sportColor = getSportColor(market.sport);
   const wonPosition = market.positions.find((p) => p.status === "won");
+
+  const bestNetIfWins = Math.max(
+    ...market.positions.map((p) => p.totalPotentialPayout - market.totalStake)
+  );
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -1146,77 +1144,78 @@ const MarketDetailModal: React.FC<MarketDetailModalProps> = ({
       />
 
       {/* Panel */}
-      <div className="relative z-10 w-full max-w-3xl max-h-[90vh] flex flex-col rounded-2xl overflow-hidden shadow-2xl bg-white dark:bg-neutral-900 ring-1 ring-black/10 dark:ring-white/5">
-        {/* Sport color accent bar */}
-        <div className={`h-1 w-full flex-shrink-0 ${sportColor.dot}`} />
-
-        {/* Header */}
-        <div className="px-6 py-5 flex items-start justify-between gap-4 border-b border-neutral-200 dark:border-neutral-800 flex-shrink-0">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-3 flex-wrap">
-              <h2 className="text-2xl font-bold text-neutral-900 dark:text-white leading-tight">
-                {market.futuresType}
-              </h2>
-              <span
-                className={`px-2.5 py-1 rounded-full text-xs font-semibold ${statusColors[market.status]}`}
-              >
-                {market.status.charAt(0).toUpperCase() +
-                  market.status.slice(1)}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-              <span className={`text-sm font-semibold ${sportColor.text}`}>
-                {market.sport}
-              </span>
-              <span className="text-neutral-300 dark:text-neutral-600">
-                &middot;
-              </span>
-              <span className="text-sm text-neutral-500 dark:text-neutral-400">
-                {market.positions.length} pick
-                {market.positions.length !== 1 ? "s" : ""}
-              </span>
-              {market.resolutionDate && (
-                <>
-                  <span className="text-neutral-300 dark:text-neutral-600">
-                    &middot;
-                  </span>
-                  <span className="text-sm text-neutral-500 dark:text-neutral-400">
-                    Resolves {formatDate(market.resolutionDate)}
-                  </span>
-                </>
-              )}
-              {market.daysUntil !== null && (
-                <>
-                  <span className="text-neutral-300 dark:text-neutral-600">
-                    &middot;
-                  </span>
-                  <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
-                    {market.daysUntil}d remaining
-                  </span>
-                </>
-              )}
-            </div>
+      <div className="modal-panel relative z-10 w-full max-w-3xl max-h-[90vh] flex flex-col rounded-2xl overflow-hidden shadow-2xl bg-white dark:bg-neutral-900 ring-1 ring-black/10 dark:ring-white/5">
+        {/* Hero Zone */}
+        <div
+          className={`px-6 pt-5 pb-6 bg-gradient-to-br ${sportColor.gradient} to-transparent border-b border-neutral-200 dark:border-neutral-800 flex-shrink-0`}
+        >
+          {/* Top row: status + close */}
+          <div className="flex items-center justify-between mb-4">
+            <span
+              className={`px-2.5 py-1 rounded-full text-xs font-semibold ${statusColors[market.status]}`}
+            >
+              {market.status.charAt(0).toUpperCase() + market.status.slice(1)}
+            </span>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-lg text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+              aria-label="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="flex-shrink-0 p-2 rounded-lg text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
-            aria-label="Close"
-          >
-            <X className="w-5 h-5" />
-          </button>
+
+          {/* Market title */}
+          <h2 className="text-3xl font-bold text-neutral-900 dark:text-white leading-tight mb-2">
+            {market.futuresType}
+          </h2>
+
+          {/* Subtitle */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`text-sm font-semibold ${sportColor.text}`}>
+              {market.sport}
+            </span>
+            <span className="text-neutral-300 dark:text-neutral-600">
+              &middot;
+            </span>
+            <span className="text-sm text-neutral-500 dark:text-neutral-400">
+              {market.positions.length} pick
+              {market.positions.length !== 1 ? "s" : ""}
+            </span>
+            {market.resolutionDate && (
+              <>
+                <span className="text-neutral-300 dark:text-neutral-600">
+                  &middot;
+                </span>
+                <span className="text-sm text-neutral-500 dark:text-neutral-400">
+                  Resolves {formatDate(market.resolutionDate)}
+                </span>
+              </>
+            )}
+            {market.daysUntil !== null && (
+              <>
+                <span className="text-neutral-300 dark:text-neutral-600">
+                  &middot;
+                </span>
+                <span className="px-2 py-0.5 rounded text-xs font-medium tabular-nums bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                  {market.daysUntil}d
+                </span>
+              </>
+            )}
+          </div>
         </div>
 
-        {/* Metrics grid */}
-        <div className="px-6 py-4 grid grid-cols-2 sm:grid-cols-4 gap-4 bg-neutral-50 dark:bg-neutral-800/40 border-b border-neutral-200 dark:border-neutral-800 flex-shrink-0">
-          <div>
+        {/* Stats row */}
+        <div className="grid grid-cols-4 divide-x divide-neutral-200 dark:divide-neutral-800 border-b border-neutral-200 dark:border-neutral-800 flex-shrink-0">
+          <div className="px-5 py-4">
             <p className="text-[10px] uppercase font-semibold text-neutral-400 dark:text-neutral-500 tracking-wide">
-              Total Exposure
+              Exposure
             </p>
             <p className="text-xl font-bold text-neutral-900 dark:text-white mt-1 tabular-nums">
               {formatCurrency(market.totalStake)}
             </p>
           </div>
-          <div>
+          <div className="px-5 py-4">
             <p className="text-[10px] uppercase font-semibold text-neutral-400 dark:text-neutral-500 tracking-wide">
               Best Case
             </p>
@@ -1225,7 +1224,7 @@ const MarketDetailModal: React.FC<MarketDetailModalProps> = ({
               {formatCurrency(market.bestCaseProfit)}
             </p>
           </div>
-          <div>
+          <div className="px-5 py-4">
             <p className="text-[10px] uppercase font-semibold text-neutral-400 dark:text-neutral-500 tracking-wide">
               Worst Case
             </p>
@@ -1233,7 +1232,7 @@ const MarketDetailModal: React.FC<MarketDetailModalProps> = ({
               {formatCurrency(market.worstCaseNet)}
             </p>
           </div>
-          <div>
+          <div className="px-5 py-4">
             <p className="text-[10px] uppercase font-semibold text-neutral-400 dark:text-neutral-500 tracking-wide">
               Picks
             </p>
@@ -1247,111 +1246,90 @@ const MarketDetailModal: React.FC<MarketDetailModalProps> = ({
         <div className="overflow-y-auto flex-1">
           {/* Won callout */}
           {wonPosition && (
-            <div className="mx-6 mt-5 px-4 py-3 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800">
-              <p className="text-sm font-semibold text-green-700 dark:text-green-400">
-                Resolved — {wonPosition.entity} won this market
+            <div className="mx-6 mt-5 px-5 py-4 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800 flex items-center gap-3">
+              <Trophy className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+              <p className="text-base font-semibold text-green-700 dark:text-green-400">
+                {wonPosition.entity} won this market
               </p>
             </div>
           )}
 
-          {/* Pick comparison table */}
+          {/* Picks */}
           <div className="px-6 py-5">
             <p className="text-[10px] uppercase font-semibold text-neutral-400 dark:text-neutral-500 tracking-wide mb-3">
-              Pick Comparison
+              Picks
             </p>
-            <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-700">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-neutral-100 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700">
-                    <th className="px-4 py-3 text-left text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
-                      Pick
-                    </th>
-                    <th className="px-4 py-3 text-right text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
-                      Odds
-                    </th>
-                    <th className="px-4 py-3 text-right text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
-                      Stake
-                    </th>
-                    <th className="px-4 py-3 text-right text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
-                      Payout if Wins
-                    </th>
-                    <th className="px-4 py-3 text-right text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
-                      Net if Wins
-                    </th>
-                    <th className="px-4 py-3 text-center text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
-                      Status
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
-                  {market.positions.map((pos) => {
-                    const netIfWins =
-                      pos.totalPotentialPayout - market.totalStake;
-                    return (
-                      <tr
-                        key={pos.key}
-                        className="hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors"
-                      >
-                        <td className="px-4 py-3 font-semibold text-neutral-900 dark:text-white">
-                          {pos.entity}
-                        </td>
-                        <td className="px-4 py-3 text-right font-medium text-neutral-900 dark:text-white tabular-nums">
-                          {formatOdds(pos.averageOdds)}
-                        </td>
-                        <td className="px-4 py-3 text-right text-neutral-700 dark:text-neutral-300 tabular-nums">
-                          {formatCurrency(pos.totalStake)}
-                        </td>
-                        <td className="px-4 py-3 text-right text-neutral-700 dark:text-neutral-300 tabular-nums">
-                          {formatCurrency(pos.totalPotentialPayout)}
-                        </td>
-                        <td
-                          className={`px-4 py-3 text-right font-bold tabular-nums ${netIfWins >= 0 ? "text-accent-500" : "text-red-500"}`}
-                        >
-                          {netIfWins >= 0 ? "+" : ""}
-                          {formatCurrency(netIfWins)}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[pos.status]}`}
-                          >
-                            {pos.status.charAt(0).toUpperCase() +
-                              pos.status.slice(1)}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            <div className="divide-y divide-neutral-100 dark:divide-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+              {market.positions.map((pos) => {
+                const netIfWins =
+                  pos.totalPotentialPayout - market.totalStake;
+                return (
+                  <div
+                    key={pos.key}
+                    className="flex items-center gap-4 px-5 py-4 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-neutral-900 dark:text-white truncate">
+                        {pos.entity}
+                      </p>
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 tabular-nums">
+                        {formatOdds(pos.averageOdds)} ·{" "}
+                        {formatCurrency(pos.totalStake)}
+                      </p>
+                    </div>
+                    <span
+                      className={`text-sm font-bold tabular-nums flex-shrink-0 ${netIfWins >= 0 ? "text-accent-500" : "text-red-500"}`}
+                    >
+                      {netIfWins >= 0 ? "+" : ""}
+                      {formatCurrency(netIfWins)}
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${statusColors[pos.status]}`}
+                    >
+                      {pos.status.charAt(0).toUpperCase() +
+                        pos.status.slice(1)}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
-          {/* Net Scenarios — visual cards */}
+          {/* Scenarios — 2-col cards */}
           <div className="px-6 pb-6">
             <p className="text-[10px] uppercase font-semibold text-neutral-400 dark:text-neutral-500 tracking-wide mb-3">
-              Net Scenarios
+              Scenarios
             </p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-4">
               {market.positions.map((pos) => {
-                const netIfWins = pos.totalPotentialPayout - market.totalStake;
+                const netIfWins =
+                  pos.totalPotentialPayout - market.totalStake;
+                const isBest = netIfWins === bestNetIfWins;
                 const isPositive = netIfWins >= 0;
                 return (
                   <div
                     key={pos.key}
-                    className={`rounded-xl p-4 border ${
-                      isPositive
-                        ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
-                        : "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
+                    className={`rounded-xl p-5 border-2 transition-all ${
+                      isBest
+                        ? "border-accent-400 dark:border-accent-500 bg-accent-50 dark:bg-accent-900/20"
+                        : isPositive
+                          ? "border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/15"
+                          : "border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/40"
                     }`}
                   >
-                    <p className="text-[10px] uppercase font-semibold text-neutral-400 dark:text-neutral-500 tracking-wide mb-1">
-                      If wins
-                    </p>
-                    <p className="font-bold text-neutral-900 dark:text-white text-sm truncate">
+                    {isBest && (
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <Trophy className="w-3.5 h-3.5 text-accent-500" />
+                        <span className="text-[10px] uppercase font-bold text-accent-500 tracking-wide">
+                          Best Outcome
+                        </span>
+                      </div>
+                    )}
+                    <p className="font-bold text-neutral-900 dark:text-white text-sm leading-snug">
                       {pos.entity}
                     </p>
                     <p
-                      className={`text-2xl font-bold mt-2 tabular-nums ${isPositive ? "text-accent-500" : "text-red-500"}`}
+                      className={`text-2xl font-bold mt-3 tabular-nums ${isPositive ? "text-accent-500" : "text-red-500"}`}
                     >
                       {isPositive ? "+" : ""}
                       {formatCurrency(netIfWins)}
@@ -1360,14 +1338,11 @@ const MarketDetailModal: React.FC<MarketDetailModalProps> = ({
                 );
               })}
               {/* None win card */}
-              <div className="rounded-xl p-4 border bg-neutral-100 dark:bg-neutral-800/60 border-neutral-200 dark:border-neutral-700">
-                <p className="text-[10px] uppercase font-semibold text-neutral-400 dark:text-neutral-500 tracking-wide mb-1">
-                  If
-                </p>
-                <p className="font-bold text-neutral-500 dark:text-neutral-400 text-sm italic">
+              <div className="rounded-xl p-5 border-2 border-dashed border-neutral-200 dark:border-neutral-700">
+                <p className="font-medium text-neutral-400 dark:text-neutral-500 text-sm italic">
                   None win
                 </p>
-                <p className="text-2xl font-bold mt-2 tabular-nums text-red-500">
+                <p className="text-2xl font-bold mt-3 tabular-nums text-red-500">
                   {formatCurrency(market.worstCaseNet)}
                 </p>
               </div>
