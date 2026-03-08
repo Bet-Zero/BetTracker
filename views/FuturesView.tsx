@@ -2063,13 +2063,25 @@ const FuturesView: React.FC = () => {
             {viewMode === "markets" ? "Market" : "Position"}
           </div>
           <div className="col-span-2 text-right">
-            {viewMode === "markets" ? "Picks" : "Stake"}
+            {viewMode === "markets"
+              ? "Picks"
+              : viewMode === "timeline"
+                ? ""
+                : "Stake"}
           </div>
           <div className="col-span-2 text-right">
-            {viewMode === "markets" ? "Exposure" : "Odds"}
+            {viewMode === "markets"
+              ? "Exposure"
+              : viewMode === "timeline"
+                ? "Resolution"
+                : "Odds"}
           </div>
           <div className="col-span-3 text-right">
-            {viewMode === "markets" ? "Best / Worst" : "Payout"}
+            {viewMode === "markets"
+              ? "Best / Worst"
+              : viewMode === "timeline"
+                ? "Exposure"
+                : "Payout"}
           </div>
         </div>
 
@@ -2127,12 +2139,13 @@ const FuturesView: React.FC = () => {
                     return (
                       <div
                         key={position.key}
-                        className={`px-5 py-4 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors cursor-pointer border-l-4 ${tlSportColor.border}`}
+                        className={`px-6 py-4 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors cursor-pointer border-l-4 ${tlSportColor.border}`}
                         onClick={() => setSelectedPosition(position)}
                       >
-                        <div className="flex items-center gap-4">
-                          {/* Entity + Type */}
-                          <div className="flex-1 min-w-0">
+                        {/* Grid layout matching table headers: 5 | 2 | 2 | 3 */}
+                        <div className="grid grid-cols-12 gap-4 items-center">
+                          {/* Position info - col-span-5 */}
+                          <div className="col-span-12 sm:col-span-5 min-w-0">
                             <div className="flex items-center gap-2">
                               <p className="font-semibold text-neutral-900 dark:text-white truncate">
                                 {position.entity}
@@ -2148,20 +2161,20 @@ const FuturesView: React.FC = () => {
                             </p>
                           </div>
 
-                          {/* Resolution date */}
-                          <div className="text-center shrink-0">
-                            <p className="text-xs text-neutral-500 dark:text-neutral-400 uppercase">
-                              Resolution{" "}
-                              {hasCustomDate && (
-                                <span className="text-primary-500">
-                                  (custom)
-                                </span>
-                              )}
-                            </p>
+                          {/* Empty spacer - col-span-2 (matches Stake column) */}
+                          <div className="hidden sm:block col-span-2" />
+
+                          {/* Resolution date - col-span-2 */}
+                          <div className="hidden sm:block col-span-2 text-right">
                             <p className="font-medium text-neutral-700 dark:text-neutral-300 tabular-nums">
                               {position.resolutionDate
                                 ? position.resolutionDate.toLocaleDateString()
                                 : "TBD"}
+                              {hasCustomDate && (
+                                <span className="text-primary-500 text-xs ml-1">
+                                  (custom)
+                                </span>
+                              )}
                             </p>
                             {position.daysUntil !== null && (
                               <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
@@ -2170,21 +2183,18 @@ const FuturesView: React.FC = () => {
                             )}
                           </div>
 
-                          {/* Exposure */}
-                          <div className="text-right shrink-0">
-                            <p className="text-xs text-neutral-500 dark:text-neutral-400 uppercase">
-                              Exposure
-                            </p>
-                            <p className="font-medium text-neutral-700 dark:text-neutral-300 tabular-nums">
-                              {formatCurrency(position.totalStake)}
-                            </p>
-                            <p className="text-xs text-accent-500 font-medium tabular-nums">
-                              +{formatCurrency(position.maxProfit)} max
-                            </p>
+                          {/* Exposure + Chevron - col-span-3 */}
+                          <div className="hidden sm:flex col-span-3 items-center justify-end gap-3">
+                            <div className="text-right">
+                              <p className="font-medium text-neutral-700 dark:text-neutral-300 tabular-nums">
+                                {formatCurrency(position.totalStake)}
+                              </p>
+                              <p className="text-xs text-accent-500 font-medium tabular-nums">
+                                +{formatCurrency(position.maxProfit)} max
+                              </p>
+                            </div>
+                            <ChevronRight className="w-4 h-4 text-neutral-300 dark:text-neutral-600 shrink-0" />
                           </div>
-
-                          {/* Chevron */}
-                          <ChevronRight className="w-4 h-4 text-neutral-300 dark:text-neutral-600 shrink-0" />
                         </div>
                       </div>
                     );
