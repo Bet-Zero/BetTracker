@@ -14,7 +14,7 @@
  * Dataset: All futures bets (marketCategory === 'Futures')
  */
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import { useBets } from "../hooks/useBets";
 import { Bet } from "../types";
 import { VALID_FUTURES_TYPES } from "../services/marketClassification.config";
@@ -582,39 +582,20 @@ function getPositionStatus(bets: Bet[]): "pending" | "won" | "lost" | "mixed" {
 }
 
 // ============================================================================
-// Position Card Component
+// Position Card Component (list item — click opens detail modal)
 // ============================================================================
 
 interface PositionCardProps {
   position: FuturesPosition;
-  onHedge: (position: FuturesPosition) => void;
+  onSelect: (position: FuturesPosition) => void;
   flat?: boolean;
 }
 
 const PositionCard: React.FC<PositionCardProps> = ({
   position,
-  onHedge,
+  onSelect,
   flat = false,
 }) => {
-  const [expanded, setExpanded] = useState(false);
-
-  const breakdown: PositionBreakdown[] = position.bets.map((bet) => {
-    const potentialPayout = calculatePotentialPayout(bet);
-    return {
-      id: bet.id,
-      date: new Date(bet.placedAt).toLocaleDateString("en-US", {
-        month: "2-digit",
-        day: "2-digit",
-        year: "2-digit",
-      }),
-      odds: bet.odds || 0,
-      stake: bet.stake,
-      potentialPayout,
-      profit: potentialPayout - bet.stake,
-      result: bet.result,
-    };
-  });
-
   const statusColors = {
     pending:
       "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400",
@@ -627,45 +608,23 @@ const PositionCard: React.FC<PositionCardProps> = ({
 
   return (
     <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onSelect(position)}
+      onKeyDown={(e) => e.key === "Enter" && onSelect(position)}
+      aria-label={`View details for ${position.entity} ${position.futuresType}`}
       className={
         flat
-          ? `overflow-hidden border-l-4 ${sportColor.border} transition-all duration-200 ${
-              expanded
-                ? "bg-white dark:bg-neutral-900 shadow-md ring-1 ring-primary-200 dark:ring-primary-800/50 relative z-10"
-                : "hover:bg-neutral-50 dark:hover:bg-neutral-800/30"
-            }`
-          : `bg-white dark:bg-neutral-900 rounded-lg shadow-md overflow-hidden border-l-4 ${sportColor.border} transition-all duration-200 ${
-              expanded
-                ? "shadow-lg ring-2 ring-primary-300 dark:ring-primary-700"
-                : "hover:shadow-lg"
-            }`
+          ? `overflow-hidden border-l-4 ${sportColor.border} cursor-pointer transition-all duration-150 hover:bg-neutral-50 dark:hover:bg-neutral-800/40 group`
+          : `bg-white dark:bg-neutral-900 rounded-lg shadow-md overflow-hidden border-l-4 ${sportColor.border} cursor-pointer transition-all duration-150 hover:shadow-lg group`
       }
     >
-      {/* Card Header */}
-      <div
-        className="p-4 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800/30 transition-colors"
-        onClick={() => setExpanded(!expanded)}
-      >
+      <div className="p-4">
         <div className="flex items-center gap-3">
-          {/* Expand toggle */}
-          <button
-            className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 flex-shrink-0"
-            aria-label={
-              expanded ? "Collapse position details" : "Expand position details"
-            }
-            aria-expanded={expanded}
-          >
-            {expanded ? (
-              <ChevronDown className="w-5 h-5" />
-            ) : (
-              <ChevronRight className="w-5 h-5" />
-            )}
-          </button>
-
           {/* Entity name + metadata */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <h3 className="text-lg font-bold text-neutral-900 dark:text-white truncate">
+              <h3 className="text-base font-bold text-neutral-900 dark:text-white truncate group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
                 {position.entity}
               </h3>
               <span
@@ -695,159 +654,410 @@ const PositionCard: React.FC<PositionCardProps> = ({
             </div>
           </div>
 
-          {/* Inline metrics - desktop (stacked) */}
-          <div className="hidden md:flex items-center gap-3 flex-shrink-0">
+          {/* Metrics + arrow */}
+          <div className="flex items-center gap-3 flex-shrink-0">
             {position.daysUntil !== null && (
-              <span
-                className="px-2 py-0.5 rounded text-xs font-medium tabular-nums bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                title="Days until resolution"
-              >
+              <span className="hidden sm:inline px-2 py-0.5 rounded text-xs font-medium tabular-nums bg-amber-500/10 text-amber-600 dark:text-amber-400">
                 {position.daysUntil}d
               </span>
             )}
             <div className="flex flex-col items-end tabular-nums">
-              <span
-                className="text-base font-bold text-accent-500"
-                title="Potential payout"
-              >
+              <span className="text-base font-bold text-accent-500">
                 {formatCurrency(position.totalPotentialPayout)}
               </span>
-              <span
-                className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5"
-                title="Total stake and average odds"
-              >
+              <span className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
                 {formatCurrency(position.totalStake)}{" "}
                 {formatOdds(position.averageOdds)}
               </span>
             </div>
+            <ChevronRight className="w-4 h-4 text-neutral-300 dark:text-neutral-600 group-hover:text-primary-500 transition-colors flex-shrink-0" />
           </div>
-
-          {/* Inline metrics - mobile (compact) */}
-          <div className="flex md:hidden items-center gap-2 flex-shrink-0 text-xs tabular-nums">
-            <span className="font-semibold text-accent-500">
-              {formatCurrency(position.totalPotentialPayout)}
-            </span>
-            {position.daysUntil !== null && (
-              <span className="px-2 py-0.5 rounded text-[10px] font-medium tabular-nums bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                {position.daysUntil}d
-              </span>
-            )}
-          </div>
-
-          {/* Hedge button - visible in header for pending positions */}
-          {position.status === "pending" && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onHedge(position);
-              }}
-              className="flex-shrink-0 p-2 text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors"
-              title="Open Hedge Calculator"
-              aria-label={`Open hedge calculator for ${position.entity}`}
-            >
-              <Scale className="w-5 h-5" />
-            </button>
-          )}
         </div>
       </div>
+    </div>
+  );
+};
 
-      {/* Expanded Content */}
-      {expanded && (
-        <div className="border-t border-neutral-200 dark:border-neutral-800">
-          {/* Position Summary */}
-          <div className="px-4 py-2.5 bg-neutral-50/50 dark:bg-neutral-800/20 flex flex-wrap items-center gap-x-6 gap-y-1 text-xs">
-            <span className="text-neutral-500 dark:text-neutral-400">
-              Exposure{" "}
-              <span className="font-semibold text-neutral-700 dark:text-neutral-300">
-                {formatCurrency(position.totalStake)}
+// ============================================================================
+// Market Card Component (list item — click opens detail modal)
+// ============================================================================
+
+interface MarketCardProps {
+  market: MarketGroup;
+  onSelect: (market: MarketGroup) => void;
+}
+
+const MarketCard: React.FC<MarketCardProps> = ({ market, onSelect }) => {
+  const sportColor = getSportColor(market.sport);
+
+  const statusColors = {
+    pending:
+      "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400",
+    won: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400",
+    lost: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400",
+    mixed: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400",
+  };
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onSelect(market)}
+      onKeyDown={(e) => e.key === "Enter" && onSelect(market)}
+      aria-label={`View details for ${market.futuresType} (${market.sport})`}
+      className={`overflow-hidden border-l-4 ${sportColor.border} cursor-pointer transition-all duration-150 hover:bg-neutral-50 dark:hover:bg-neutral-800/40 group`}
+    >
+      <div className="p-4">
+        <div className="flex items-center gap-3">
+          {/* Market name + metadata */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-base font-bold text-neutral-900 dark:text-white truncate group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
+                {market.futuresType}
+              </h3>
+              <span
+                className={`px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${statusColors[market.status]}`}
+              >
+                {market.status.charAt(0).toUpperCase() +
+                  market.status.slice(1)}
               </span>
-            </span>
-            <span className="text-neutral-500 dark:text-neutral-400">
-              Avg Odds{" "}
-              <span className="font-semibold text-neutral-700 dark:text-neutral-300">
-                {formatOdds(position.averageOdds)}
+            </div>
+            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+              <span className={`text-xs font-medium ${sportColor.text}`}>
+                {market.sport}
               </span>
-            </span>
-            <span className="text-neutral-500 dark:text-neutral-400">
-              Avg Stake{" "}
-              <span className="font-semibold text-neutral-700 dark:text-neutral-300">
-                {formatCurrency(position.averageStake)}
+              <span className="text-neutral-300 dark:text-neutral-600">
+                &middot;
               </span>
-            </span>
-            <span className="text-neutral-500 dark:text-neutral-400">
-              Max Profit{" "}
-              <span className="font-semibold text-accent-500">
-                {formatCurrency(position.maxProfit)}
+              <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                {market.positions.length} pick
+                {market.positions.length !== 1 ? "s" : ""}
               </span>
-            </span>
-            {position.resolutionDate && (
-              <span className="text-neutral-500 dark:text-neutral-400">
-                Resolves{" "}
-                <span className="font-semibold text-amber-600 dark:text-amber-400">
-                  {formatDate(position.resolutionDate)}
-                  {position.daysUntil !== null
-                    ? ` (${position.daysUntil}d)`
-                    : ""}
-                </span>
+              {market.daysUntil !== null && (
+                <>
+                  <span className="text-neutral-300 dark:text-neutral-600">
+                    &middot;
+                  </span>
+                  <span className="px-2 py-0.5 rounded text-xs font-medium tabular-nums bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                    {market.daysUntil}d
+                  </span>
+                </>
+              )}
+              {/* Preview picks inline */}
+              <span className="text-neutral-300 dark:text-neutral-600">
+                &middot;
               </span>
-            )}
+              <span className="text-xs text-neutral-400 dark:text-neutral-500 truncate max-w-[200px]">
+                {market.positions
+                  .slice(0, 3)
+                  .map((p) => p.entity)
+                  .join(", ")}
+                {market.positions.length > 3
+                  ? ` +${market.positions.length - 3} more`
+                  : ""}
+              </span>
+            </div>
           </div>
 
-          {/* Individual Bets Table */}
-          <div className="p-4 border-t border-neutral-200 dark:border-neutral-800">
-            <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-700">
+          {/* Metrics + arrow */}
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <div className="hidden sm:flex flex-col items-end tabular-nums text-xs text-neutral-500 dark:text-neutral-400 gap-0.5">
+              <span>
+                Best{" "}
+                <span className="font-semibold text-accent-500">
+                  {market.bestCaseProfit >= 0 ? "+" : ""}
+                  {formatCurrency(market.bestCaseProfit)}
+                </span>
+              </span>
+              <span>
+                Worst{" "}
+                <span className="font-semibold text-red-500">
+                  {formatCurrency(market.worstCaseNet)}
+                </span>
+              </span>
+            </div>
+            <div className="flex flex-col items-end tabular-nums">
+              <span className="text-base font-bold text-neutral-900 dark:text-white">
+                {formatCurrency(market.totalStake)}
+              </span>
+              <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                exposure
+              </span>
+            </div>
+            <ChevronRight className="w-4 h-4 text-neutral-300 dark:text-neutral-600 group-hover:text-primary-500 transition-colors flex-shrink-0" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================================
+// Position Detail Modal
+// ============================================================================
+
+interface PositionDetailModalProps {
+  position: FuturesPosition;
+  onClose: () => void;
+  onHedge: (position: FuturesPosition) => void;
+  customResolutionDates: Record<string, string>;
+  onUpdateDate: (key: string, date: string) => void;
+}
+
+const PositionDetailModal: React.FC<PositionDetailModalProps> = ({
+  position,
+  onClose,
+  onHedge,
+  customResolutionDates,
+  onUpdateDate,
+}) => {
+  const sportColor = getSportColor(position.sport);
+  const hasCustomDate = customResolutionDates[position.key] !== undefined;
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", handleKey);
+      document.body.style.overflow = "";
+    };
+  }, [onClose]);
+
+  const breakdown: PositionBreakdown[] = position.bets.map((bet) => {
+    const potentialPayout = calculatePotentialPayout(bet);
+    return {
+      id: bet.id,
+      date: new Date(bet.placedAt).toLocaleDateString("en-US", {
+        month: "2-digit",
+        day: "2-digit",
+        year: "2-digit",
+      }),
+      odds: bet.odds || 0,
+      stake: bet.stake,
+      potentialPayout,
+      profit: potentialPayout - bet.stake,
+      result: bet.result,
+    };
+  });
+
+  const statusColors = {
+    pending:
+      "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400",
+    won: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400",
+    lost: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400",
+    mixed: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400",
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        onClick={onClose}
+      />
+
+      {/* Panel */}
+      <div
+        ref={panelRef}
+        className="relative z-10 w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl overflow-hidden shadow-2xl bg-white dark:bg-neutral-900 ring-1 ring-black/10 dark:ring-white/5"
+      >
+        {/* Sport color accent bar */}
+        <div className={`h-1 w-full flex-shrink-0 ${sportColor.dot}`} />
+
+        {/* Header */}
+        <div className="px-6 py-5 flex items-start justify-between gap-4 border-b border-neutral-200 dark:border-neutral-800 flex-shrink-0">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h2 className="text-2xl font-bold text-neutral-900 dark:text-white leading-tight">
+                {position.entity}
+              </h2>
+              <span
+                className={`px-2.5 py-1 rounded-full text-xs font-semibold ${statusColors[position.status]}`}
+              >
+                {position.status.charAt(0).toUpperCase() +
+                  position.status.slice(1)}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+              <span className={`text-sm font-semibold ${sportColor.text}`}>
+                {position.sport}
+              </span>
+              <span className="text-neutral-300 dark:text-neutral-600">
+                &middot;
+              </span>
+              <span className="text-sm text-neutral-500 dark:text-neutral-400">
+                {position.futuresType}
+              </span>
+              <span className="text-neutral-300 dark:text-neutral-600">
+                &middot;
+              </span>
+              <span className="text-sm text-neutral-500 dark:text-neutral-400">
+                {position.bets.length} bet
+                {position.bets.length !== 1 ? "s" : ""}
+              </span>
+              {position.daysUntil !== null && (
+                <>
+                  <span className="text-neutral-300 dark:text-neutral-600">
+                    &middot;
+                  </span>
+                  <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
+                    {position.daysUntil}d to resolution
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="flex-shrink-0 p-2 rounded-lg text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+            aria-label="Close"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Metrics grid */}
+        <div className="px-6 py-4 grid grid-cols-2 sm:grid-cols-4 gap-4 bg-neutral-50 dark:bg-neutral-800/40 border-b border-neutral-200 dark:border-neutral-800 flex-shrink-0">
+          <div>
+            <p className="text-[10px] uppercase font-semibold text-neutral-400 dark:text-neutral-500 tracking-wide">
+              Exposure
+            </p>
+            <p className="text-xl font-bold text-neutral-900 dark:text-white mt-1 tabular-nums">
+              {formatCurrency(position.totalStake)}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase font-semibold text-neutral-400 dark:text-neutral-500 tracking-wide">
+              Avg Odds
+            </p>
+            <p className="text-xl font-bold text-neutral-900 dark:text-white mt-1 tabular-nums">
+              {formatOdds(position.averageOdds)}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase font-semibold text-neutral-400 dark:text-neutral-500 tracking-wide">
+              Potential Payout
+            </p>
+            <p className="text-xl font-bold text-accent-500 mt-1 tabular-nums">
+              {formatCurrency(position.totalPotentialPayout)}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase font-semibold text-neutral-400 dark:text-neutral-500 tracking-wide">
+              Max Profit
+            </p>
+            <p
+              className={`text-xl font-bold mt-1 tabular-nums ${position.maxProfit >= 0 ? "text-accent-500" : "text-red-500"}`}
+            >
+              {position.maxProfit >= 0 ? "+" : ""}
+              {formatCurrency(position.maxProfit)}
+            </p>
+          </div>
+        </div>
+
+        {/* Scrollable body */}
+        <div className="overflow-y-auto flex-1">
+          {/* Resolution */}
+          <div className="px-6 py-4 border-b border-neutral-200 dark:border-neutral-800">
+            <p className="text-[10px] uppercase font-semibold text-neutral-400 dark:text-neutral-500 tracking-wide mb-3">
+              Resolution Date
+              {hasCustomDate && (
+                <span className="text-primary-500 ml-2 normal-case font-medium text-xs">
+                  (custom)
+                </span>
+              )}
+            </p>
+            <div className="flex items-center gap-4 flex-wrap">
+              <input
+                type="date"
+                value={
+                  position.resolutionDate
+                    ? position.resolutionDate.toISOString().split("T")[0]
+                    : ""
+                }
+                onChange={(e) => onUpdateDate(position.key, e.target.value)}
+                className="px-3 py-1.5 text-sm border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white cursor-pointer hover:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-colors"
+              />
+              {position.daysUntil !== null && (
+                <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
+                  {position.daysUntil} days remaining
+                </span>
+              )}
+              {!position.resolutionDate && (
+                <span className="text-sm text-neutral-400 dark:text-neutral-500 italic">
+                  No estimated date — set one above
+                </span>
+              )}
+              {hasCustomDate && (
+                <button
+                  onClick={() => onUpdateDate(position.key, "")}
+                  className="text-xs text-neutral-400 hover:text-red-500 transition-colors"
+                >
+                  Reset to estimated
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Bets table */}
+          <div className="px-6 py-4">
+            <p className="text-[10px] uppercase font-semibold text-neutral-400 dark:text-neutral-500 tracking-wide mb-3">
+              {position.bets.length} Bet
+              {position.bets.length !== 1 ? "s" : ""}
+            </p>
+            <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-700">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-neutral-200/70 dark:bg-neutral-800 border-b-2 border-neutral-300 dark:border-neutral-600">
-                    <th className="px-3 py-2.5 text-left text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
+                  <tr className="bg-neutral-100 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700">
+                    <th className="px-4 py-3 text-left text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
                       Date
                     </th>
-                    <th className="px-3 py-2.5 text-right text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
+                    <th className="px-4 py-3 text-right text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
                       Odds
                     </th>
-                    <th className="px-3 py-2.5 text-right text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
+                    <th className="px-4 py-3 text-right text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
                       Stake
                     </th>
-                    <th className="px-3 py-2.5 text-right text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
-                      Potential
+                    <th className="px-4 py-3 text-right text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
+                      Payout
                     </th>
-                    <th className="px-3 py-2.5 text-right text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
+                    <th className="px-4 py-3 text-right text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
                       Profit
                     </th>
-                    <th className="px-3 py-2.5 text-center text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
+                    <th className="px-4 py-3 text-center text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
                       Result
                     </th>
                   </tr>
                 </thead>
-                <tbody>
-                  {breakdown.map((bet, index) => (
+                <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                  {breakdown.map((bet) => (
                     <tr
                       key={bet.id}
-                      className={`hover:bg-neutral-100 dark:hover:bg-neutral-800/50 transition-colors ${
-                        index % 2 === 0
-                          ? "bg-white dark:bg-neutral-900"
-                          : "bg-neutral-50 dark:bg-neutral-900/50"
-                      }`}
+                      className="hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors"
                     >
-                      <td className="px-3 py-2 text-neutral-700 dark:text-neutral-300">
+                      <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400">
                         {bet.date}
                       </td>
-                      <td className="px-3 py-2 text-right font-medium text-neutral-900 dark:text-white">
+                      <td className="px-4 py-3 text-right font-semibold text-neutral-900 dark:text-white tabular-nums">
                         {formatOdds(bet.odds)}
                       </td>
-                      <td className="px-3 py-2 text-right text-neutral-700 dark:text-neutral-300">
+                      <td className="px-4 py-3 text-right text-neutral-700 dark:text-neutral-300 tabular-nums">
                         {formatCurrency(bet.stake)}
                       </td>
-                      <td className="px-3 py-2 text-right text-neutral-700 dark:text-neutral-300">
+                      <td className="px-4 py-3 text-right text-neutral-700 dark:text-neutral-300 tabular-nums">
                         {formatCurrency(bet.potentialPayout)}
                       </td>
                       <td
-                        className={`px-3 py-2 text-right font-medium ${bet.profit >= 0 ? "text-accent-500" : "text-red-500"}`}
+                        className={`px-4 py-3 text-right font-semibold tabular-nums ${bet.profit >= 0 ? "text-accent-500" : "text-red-500"}`}
                       >
                         {bet.profit >= 0 ? "+" : ""}
                         {formatCurrency(bet.profit)}
                       </td>
-                      <td className="px-3 py-2 text-center">
+                      <td className="px-4 py-3 text-center">
                         <span
                           className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                             bet.result === "win"
@@ -870,23 +1080,54 @@ const PositionCard: React.FC<PositionCardProps> = ({
             </div>
           </div>
         </div>
-      )}
+
+        {/* Footer — hedge CTA for pending positions */}
+        {position.status === "pending" && (
+          <div className="px-6 py-4 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/30 flex-shrink-0 flex justify-end">
+            <button
+              onClick={() => {
+                onClose();
+                onHedge(position);
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium text-sm transition-colors shadow-sm"
+            >
+              <Scale className="w-4 h-4" />
+              Open Hedge Calculator
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
 
 // ============================================================================
-// Market Card Component
+// Market Detail Modal
 // ============================================================================
 
-interface MarketCardProps {
+interface MarketDetailModalProps {
   market: MarketGroup;
+  onClose: () => void;
 }
 
-const MarketCard: React.FC<MarketCardProps> = ({ market }) => {
-  const [expanded, setExpanded] = useState(false);
-
+const MarketDetailModal: React.FC<MarketDetailModalProps> = ({
+  market,
+  onClose,
+}) => {
   const sportColor = getSportColor(market.sport);
+  const wonPosition = market.positions.find((p) => p.status === "won");
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", handleKey);
+      document.body.style.overflow = "";
+    };
+  }, [onClose]);
 
   const statusColors = {
     pending:
@@ -896,219 +1137,182 @@ const MarketCard: React.FC<MarketCardProps> = ({ market }) => {
     mixed: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400",
   };
 
-  const wonPosition = market.positions.find((p) => p.status === "won");
-
   return (
-    <div
-      className={`overflow-hidden border-l-4 ${sportColor.border} transition-all duration-200 ${
-        expanded
-          ? "bg-white dark:bg-neutral-900 shadow-md ring-1 ring-primary-200 dark:ring-primary-800/50 relative z-10"
-          : "hover:bg-neutral-50 dark:hover:bg-neutral-800/30"
-      }`}
-    >
-      {/* Card Header */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+      {/* Backdrop */}
       <div
-        className="p-4 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800/30 transition-colors"
-        onClick={() => setExpanded(!expanded)}
-      >
-        <div className="flex items-center gap-3">
-          {/* Expand toggle */}
-          <button
-            className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 flex-shrink-0"
-            aria-label={
-              expanded ? "Collapse market details" : "Expand market details"
-            }
-            aria-expanded={expanded}
-          >
-            {expanded ? (
-              <ChevronDown className="w-5 h-5" />
-            ) : (
-              <ChevronRight className="w-5 h-5" />
-            )}
-          </button>
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        onClick={onClose}
+      />
 
-          {/* Market name + metadata */}
+      {/* Panel */}
+      <div className="relative z-10 w-full max-w-3xl max-h-[90vh] flex flex-col rounded-2xl overflow-hidden shadow-2xl bg-white dark:bg-neutral-900 ring-1 ring-black/10 dark:ring-white/5">
+        {/* Sport color accent bar */}
+        <div className={`h-1 w-full flex-shrink-0 ${sportColor.dot}`} />
+
+        {/* Header */}
+        <div className="px-6 py-5 flex items-start justify-between gap-4 border-b border-neutral-200 dark:border-neutral-800 flex-shrink-0">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <h3 className="text-lg font-bold text-neutral-900 dark:text-white truncate">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h2 className="text-2xl font-bold text-neutral-900 dark:text-white leading-tight">
                 {market.futuresType}
-              </h3>
+              </h2>
               <span
-                className={`px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${statusColors[market.status]}`}
+                className={`px-2.5 py-1 rounded-full text-xs font-semibold ${statusColors[market.status]}`}
               >
                 {market.status.charAt(0).toUpperCase() +
                   market.status.slice(1)}
               </span>
             </div>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className={`text-xs font-medium ${sportColor.text}`}>
+            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+              <span className={`text-sm font-semibold ${sportColor.text}`}>
                 {market.sport}
               </span>
               <span className="text-neutral-300 dark:text-neutral-600">
                 &middot;
               </span>
-              <span className="text-xs text-neutral-500 dark:text-neutral-400">
+              <span className="text-sm text-neutral-500 dark:text-neutral-400">
                 {market.positions.length} pick
                 {market.positions.length !== 1 ? "s" : ""}
               </span>
+              {market.resolutionDate && (
+                <>
+                  <span className="text-neutral-300 dark:text-neutral-600">
+                    &middot;
+                  </span>
+                  <span className="text-sm text-neutral-500 dark:text-neutral-400">
+                    Resolves {formatDate(market.resolutionDate)}
+                  </span>
+                </>
+              )}
               {market.daysUntil !== null && (
                 <>
                   <span className="text-neutral-300 dark:text-neutral-600">
                     &middot;
                   </span>
-                  <span className="px-2 py-0.5 rounded text-xs font-medium tabular-nums bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                    {market.daysUntil}d
+                  <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
+                    {market.daysUntil}d remaining
                   </span>
                 </>
               )}
             </div>
           </div>
+          <button
+            onClick={onClose}
+            className="flex-shrink-0 p-2 rounded-lg text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+            aria-label="Close"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
-          {/* Inline metrics - desktop */}
-          <div className="hidden md:flex items-center gap-3 flex-shrink-0">
-            <div className="flex flex-col items-end tabular-nums">
-              <span
-                className="text-base font-bold text-accent-500"
-                title="Best case payout"
-              >
-                {formatCurrency(market.bestCasePayout)}
-              </span>
-              <span
-                className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5"
-                title="Total stake across all picks"
-              >
-                {formatCurrency(market.totalStake)} exposure
-              </span>
-            </div>
+        {/* Metrics grid */}
+        <div className="px-6 py-4 grid grid-cols-2 sm:grid-cols-4 gap-4 bg-neutral-50 dark:bg-neutral-800/40 border-b border-neutral-200 dark:border-neutral-800 flex-shrink-0">
+          <div>
+            <p className="text-[10px] uppercase font-semibold text-neutral-400 dark:text-neutral-500 tracking-wide">
+              Total Exposure
+            </p>
+            <p className="text-xl font-bold text-neutral-900 dark:text-white mt-1 tabular-nums">
+              {formatCurrency(market.totalStake)}
+            </p>
           </div>
-
-          {/* Inline metrics - mobile */}
-          <div className="flex md:hidden items-center gap-2 flex-shrink-0 text-xs tabular-nums">
-            <span className="font-semibold text-accent-500">
-              {formatCurrency(market.bestCasePayout)}
-            </span>
+          <div>
+            <p className="text-[10px] uppercase font-semibold text-neutral-400 dark:text-neutral-500 tracking-wide">
+              Best Case
+            </p>
+            <p className="text-xl font-bold text-accent-500 mt-1 tabular-nums">
+              {market.bestCaseProfit >= 0 ? "+" : ""}
+              {formatCurrency(market.bestCaseProfit)}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase font-semibold text-neutral-400 dark:text-neutral-500 tracking-wide">
+              Worst Case
+            </p>
+            <p className="text-xl font-bold text-red-500 mt-1 tabular-nums">
+              {formatCurrency(market.worstCaseNet)}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase font-semibold text-neutral-400 dark:text-neutral-500 tracking-wide">
+              Picks
+            </p>
+            <p className="text-xl font-bold text-neutral-900 dark:text-white mt-1">
+              {market.positions.length}
+            </p>
           </div>
         </div>
-      </div>
 
-      {/* Expanded Content */}
-      {expanded && (
-        <div className="border-t border-neutral-200 dark:border-neutral-800">
-          {/* Won position callout */}
+        {/* Scrollable body */}
+        <div className="overflow-y-auto flex-1">
+          {/* Won callout */}
           {wonPosition && (
-            <div className="px-4 py-2 bg-green-50 dark:bg-green-900/20 border-b border-green-200 dark:border-green-800 flex items-center gap-2">
-              <span className="text-xs font-semibold text-green-700 dark:text-green-400">
-                Resolved — {wonPosition.entity} won
-              </span>
+            <div className="mx-6 mt-5 px-4 py-3 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800">
+              <p className="text-sm font-semibold text-green-700 dark:text-green-400">
+                Resolved — {wonPosition.entity} won this market
+              </p>
             </div>
           )}
 
-          {/* Market Summary Bar */}
-          <div className="px-4 py-2.5 bg-neutral-50/50 dark:bg-neutral-800/20 flex flex-wrap items-center gap-x-6 gap-y-1 text-xs">
-            <span className="text-neutral-500 dark:text-neutral-400">
-              Total Exposure{" "}
-              <span className="font-semibold text-neutral-700 dark:text-neutral-300">
-                {formatCurrency(market.totalStake)}
-              </span>
-            </span>
-            <span className="text-neutral-500 dark:text-neutral-400">
-              Best Case{" "}
-              <span className="font-semibold text-accent-500">
-                {market.bestCaseProfit >= 0 ? "+" : ""}
-                {formatCurrency(market.bestCaseProfit)}
-              </span>
-            </span>
-            <span className="text-neutral-500 dark:text-neutral-400">
-              Worst Case{" "}
-              <span className="font-semibold text-red-500">
-                {formatCurrency(market.worstCaseNet)}
-              </span>
-            </span>
-            <span className="text-neutral-500 dark:text-neutral-400">
-              Picks{" "}
-              <span className="font-semibold text-neutral-700 dark:text-neutral-300">
-                {market.positions.length}
-              </span>
-            </span>
-            {market.resolutionDate && (
-              <span className="text-neutral-500 dark:text-neutral-400">
-                Resolves{" "}
-                <span className="font-semibold text-amber-600 dark:text-amber-400">
-                  {formatDate(market.resolutionDate)}
-                  {market.daysUntil !== null ? ` (${market.daysUntil}d)` : ""}
-                </span>
-              </span>
-            )}
-          </div>
-
-          {/* Comparison Table */}
-          <div className="p-4 border-t border-neutral-200 dark:border-neutral-800">
-            <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-700">
+          {/* Pick comparison table */}
+          <div className="px-6 py-5">
+            <p className="text-[10px] uppercase font-semibold text-neutral-400 dark:text-neutral-500 tracking-wide mb-3">
+              Pick Comparison
+            </p>
+            <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-700">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-neutral-200/70 dark:bg-neutral-800 border-b-2 border-neutral-300 dark:border-neutral-600">
-                    <th className="px-3 py-2.5 text-left text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
+                  <tr className="bg-neutral-100 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700">
+                    <th className="px-4 py-3 text-left text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
                       Pick
                     </th>
-                    <th className="px-3 py-2.5 text-right text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
+                    <th className="px-4 py-3 text-right text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
                       Odds
                     </th>
-                    <th className="px-3 py-2.5 text-right text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
+                    <th className="px-4 py-3 text-right text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
                       Stake
                     </th>
-                    <th className="px-3 py-2.5 text-right text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
+                    <th className="px-4 py-3 text-right text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
                       Payout if Wins
                     </th>
-                    <th className="px-3 py-2.5 text-right text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
+                    <th className="px-4 py-3 text-right text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
                       Net if Wins
                     </th>
-                    <th className="px-3 py-2.5 text-center text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
+                    <th className="px-4 py-3 text-center text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
                       Status
                     </th>
                   </tr>
                 </thead>
-                <tbody>
-                  {market.positions.map((pos, index) => {
+                <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                  {market.positions.map((pos) => {
                     const netIfWins =
                       pos.totalPotentialPayout - market.totalStake;
                     return (
                       <tr
                         key={pos.key}
-                        className={`hover:bg-neutral-100 dark:hover:bg-neutral-800/50 transition-colors ${
-                          index % 2 === 0
-                            ? "bg-white dark:bg-neutral-900"
-                            : "bg-neutral-50 dark:bg-neutral-900/50"
-                        }`}
+                        className="hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors"
                       >
-                        <td className="px-3 py-2 font-medium text-neutral-900 dark:text-white">
+                        <td className="px-4 py-3 font-semibold text-neutral-900 dark:text-white">
                           {pos.entity}
                         </td>
-                        <td className="px-3 py-2 text-right font-medium text-neutral-900 dark:text-white tabular-nums">
+                        <td className="px-4 py-3 text-right font-medium text-neutral-900 dark:text-white tabular-nums">
                           {formatOdds(pos.averageOdds)}
                         </td>
-                        <td className="px-3 py-2 text-right text-neutral-700 dark:text-neutral-300 tabular-nums">
+                        <td className="px-4 py-3 text-right text-neutral-700 dark:text-neutral-300 tabular-nums">
                           {formatCurrency(pos.totalStake)}
                         </td>
-                        <td className="px-3 py-2 text-right text-neutral-700 dark:text-neutral-300 tabular-nums">
+                        <td className="px-4 py-3 text-right text-neutral-700 dark:text-neutral-300 tabular-nums">
                           {formatCurrency(pos.totalPotentialPayout)}
                         </td>
                         <td
-                          className={`px-3 py-2 text-right font-semibold tabular-nums ${netIfWins >= 0 ? "text-accent-500" : "text-red-500"}`}
+                          className={`px-4 py-3 text-right font-bold tabular-nums ${netIfWins >= 0 ? "text-accent-500" : "text-red-500"}`}
                         >
                           {netIfWins >= 0 ? "+" : ""}
                           {formatCurrency(netIfWins)}
                         </td>
-                        <td className="px-3 py-2 text-center">
+                        <td className="px-4 py-3 text-center">
                           <span
-                            className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                              pos.status === "won"
-                                ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
-                                : pos.status === "lost"
-                                  ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
-                                  : pos.status === "mixed"
-                                    ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
-                                    : "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
-                            }`}
+                            className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[pos.status]}`}
                           >
                             {pos.status.charAt(0).toUpperCase() +
                               pos.status.slice(1)}
@@ -1122,47 +1326,55 @@ const MarketCard: React.FC<MarketCardProps> = ({ market }) => {
             </div>
           </div>
 
-          {/* Net Scenarios Panel */}
-          <div className="px-4 pb-4">
-            <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 overflow-hidden">
-              <div className="px-3 py-2 bg-neutral-100 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700">
-                <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
-                  Net Scenarios
-                </p>
-              </div>
-              <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
-                {market.positions.map((pos) => {
-                  const netIfWins = pos.totalPotentialPayout - market.totalStake;
-                  return (
-                    <div
-                      key={pos.key}
-                      className="flex items-center justify-between px-3 py-2 hover:bg-neutral-50 dark:hover:bg-neutral-800/30 transition-colors"
+          {/* Net Scenarios — visual cards */}
+          <div className="px-6 pb-6">
+            <p className="text-[10px] uppercase font-semibold text-neutral-400 dark:text-neutral-500 tracking-wide mb-3">
+              Net Scenarios
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {market.positions.map((pos) => {
+                const netIfWins = pos.totalPotentialPayout - market.totalStake;
+                const isPositive = netIfWins >= 0;
+                return (
+                  <div
+                    key={pos.key}
+                    className={`rounded-xl p-4 border ${
+                      isPositive
+                        ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
+                        : "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
+                    }`}
+                  >
+                    <p className="text-[10px] uppercase font-semibold text-neutral-400 dark:text-neutral-500 tracking-wide mb-1">
+                      If wins
+                    </p>
+                    <p className="font-bold text-neutral-900 dark:text-white text-sm truncate">
+                      {pos.entity}
+                    </p>
+                    <p
+                      className={`text-2xl font-bold mt-2 tabular-nums ${isPositive ? "text-accent-500" : "text-red-500"}`}
                     >
-                      <span className="text-xs text-neutral-600 dark:text-neutral-300">
-                        If {pos.entity} wins
-                      </span>
-                      <span
-                        className={`text-xs font-semibold tabular-nums ${netIfWins >= 0 ? "text-accent-500" : "text-red-500"}`}
-                      >
-                        {netIfWins >= 0 ? "+" : ""}
-                        {formatCurrency(netIfWins)}
-                      </span>
-                    </div>
-                  );
-                })}
-                <div className="flex items-center justify-between px-3 py-2 bg-neutral-50 dark:bg-neutral-800/20">
-                  <span className="text-xs text-neutral-500 dark:text-neutral-400 italic">
-                    If none win
-                  </span>
-                  <span className="text-xs font-semibold tabular-nums text-red-500">
-                    {formatCurrency(market.worstCaseNet)}
-                  </span>
-                </div>
+                      {isPositive ? "+" : ""}
+                      {formatCurrency(netIfWins)}
+                    </p>
+                  </div>
+                );
+              })}
+              {/* None win card */}
+              <div className="rounded-xl p-4 border bg-neutral-100 dark:bg-neutral-800/60 border-neutral-200 dark:border-neutral-700">
+                <p className="text-[10px] uppercase font-semibold text-neutral-400 dark:text-neutral-500 tracking-wide mb-1">
+                  If
+                </p>
+                <p className="font-bold text-neutral-500 dark:text-neutral-400 text-sm italic">
+                  None win
+                </p>
+                <p className="text-2xl font-bold mt-2 tabular-nums text-red-500">
+                  {formatCurrency(market.worstCaseNet)}
+                </p>
               </div>
             </div>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };
@@ -1305,6 +1517,11 @@ const FuturesView: React.FC = () => {
   const [marketSortBy, setMarketSortBy] = useState<MarketSortBy>("exposure");
   const [showHedgeCalc, setShowHedgeCalc] = useState(false);
   const [hedgePosition, setHedgePosition] = useState<FuturesPosition | null>(
+    null,
+  );
+  const [selectedPosition, setSelectedPosition] =
+    useState<FuturesPosition | null>(null);
+  const [selectedMarket, setSelectedMarket] = useState<MarketGroup | null>(
     null,
   );
   const [sportFilter, setSportFilter] = useState<string>("all");
@@ -1975,7 +2192,11 @@ const FuturesView: React.FC = () => {
               {displayMarkets.length > 0 ? (
                 <div className="divide-y divide-neutral-200 dark:divide-neutral-800">
                   {displayMarkets.map((market) => (
-                    <MarketCard key={market.key} market={market} />
+                    <MarketCard
+                      key={market.key}
+                      market={market}
+                      onSelect={setSelectedMarket}
+                    />
                   ))}
                 </div>
               ) : (
@@ -2167,7 +2388,7 @@ const FuturesView: React.FC = () => {
                               <PositionCard
                                 key={position.key}
                                 position={position}
-                                onHedge={handleHedge}
+                                onSelect={setSelectedPosition}
                                 flat
                               />
                             ))}
@@ -2182,7 +2403,7 @@ const FuturesView: React.FC = () => {
                     <PositionCard
                       key={position.key}
                       position={position}
-                      onHedge={handleHedge}
+                      onSelect={setSelectedPosition}
                       flat
                     />
                   ))}
@@ -2208,6 +2429,28 @@ const FuturesView: React.FC = () => {
         </div>
       </div>
       {/* end Unified Table Container */}
+
+      {/* Position Detail Modal */}
+      {selectedPosition && (
+        <PositionDetailModal
+          position={selectedPosition}
+          onClose={() => setSelectedPosition(null)}
+          onHedge={(pos) => {
+            setSelectedPosition(null);
+            handleHedge(pos);
+          }}
+          customResolutionDates={customResolutionDates}
+          onUpdateDate={updateCustomDate}
+        />
+      )}
+
+      {/* Market Detail Modal */}
+      {selectedMarket && (
+        <MarketDetailModal
+          market={selectedMarket}
+          onClose={() => setSelectedMarket(null)}
+        />
+      )}
 
       {/* Multi-Outcome Hedge Calculator Modal */}
       {showHedgeCalc && hedgePosition && (
