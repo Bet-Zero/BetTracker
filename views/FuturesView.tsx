@@ -28,6 +28,7 @@ import {
   Search,
   X,
   Layers,
+  BarChart2,
 } from "../components/icons";
 import { InfoTooltip } from "../components/debug/InfoTooltip";
 import MultiHedgeCalculator from "../components/MultiHedgeCalculator";
@@ -167,6 +168,34 @@ interface PositionBreakdown {
   potentialPayout: number;
   profit: number;
   result: string;
+}
+
+export interface MarketGroup {
+  /** Unique key: `${futuresType}__${sport}` */
+  key: string;
+  /** Award or market name (e.g. "NBA MVP", "NBA Championship") */
+  futuresType: string;
+  /** Sport */
+  sport: string;
+  /** All entity-level positions within this market, sorted by payout desc */
+  positions: FuturesPosition[];
+  /** Sum of stakes across all picks in this market */
+  totalStake: number;
+  /**
+   * Best-case payout: the max single-position payout.
+   * Since outcomes are mutually exclusive, only one pick can win.
+   */
+  bestCasePayout: number;
+  /** bestCasePayout - totalStake */
+  bestCaseProfit: number;
+  /** If none of your picks win: -totalStake */
+  worstCaseNet: number;
+  /** Resolution date (taken from first non-null position date) */
+  resolutionDate: Date | null;
+  /** Days until resolution */
+  daysUntil: number | null;
+  /** Aggregate status across all positions in the market */
+  status: "pending" | "won" | "lost" | "mixed";
 }
 
 // ============================================================================
@@ -847,11 +876,304 @@ const PositionCard: React.FC<PositionCardProps> = ({
 };
 
 // ============================================================================
+// Market Card Component
+// ============================================================================
+
+interface MarketCardProps {
+  market: MarketGroup;
+}
+
+const MarketCard: React.FC<MarketCardProps> = ({ market }) => {
+  const [expanded, setExpanded] = useState(false);
+
+  const sportColor = getSportColor(market.sport);
+
+  const statusColors = {
+    pending:
+      "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400",
+    won: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400",
+    lost: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400",
+    mixed: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400",
+  };
+
+  const wonPosition = market.positions.find((p) => p.status === "won");
+
+  return (
+    <div
+      className={`overflow-hidden border-l-4 ${sportColor.border} transition-all duration-200 ${
+        expanded
+          ? "bg-white dark:bg-neutral-900 shadow-md ring-1 ring-primary-200 dark:ring-primary-800/50 relative z-10"
+          : "hover:bg-neutral-50 dark:hover:bg-neutral-800/30"
+      }`}
+    >
+      {/* Card Header */}
+      <div
+        className="p-4 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800/30 transition-colors"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="flex items-center gap-3">
+          {/* Expand toggle */}
+          <button
+            className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 flex-shrink-0"
+            aria-label={
+              expanded ? "Collapse market details" : "Expand market details"
+            }
+            aria-expanded={expanded}
+          >
+            {expanded ? (
+              <ChevronDown className="w-5 h-5" />
+            ) : (
+              <ChevronRight className="w-5 h-5" />
+            )}
+          </button>
+
+          {/* Market name + metadata */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-bold text-neutral-900 dark:text-white truncate">
+                {market.futuresType}
+              </h3>
+              <span
+                className={`px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${statusColors[market.status]}`}
+              >
+                {market.status.charAt(0).toUpperCase() +
+                  market.status.slice(1)}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className={`text-xs font-medium ${sportColor.text}`}>
+                {market.sport}
+              </span>
+              <span className="text-neutral-300 dark:text-neutral-600">
+                &middot;
+              </span>
+              <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                {market.positions.length} pick
+                {market.positions.length !== 1 ? "s" : ""}
+              </span>
+              {market.daysUntil !== null && (
+                <>
+                  <span className="text-neutral-300 dark:text-neutral-600">
+                    &middot;
+                  </span>
+                  <span className="px-2 py-0.5 rounded text-xs font-medium tabular-nums bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                    {market.daysUntil}d
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Inline metrics - desktop */}
+          <div className="hidden md:flex items-center gap-3 flex-shrink-0">
+            <div className="flex flex-col items-end tabular-nums">
+              <span
+                className="text-base font-bold text-accent-500"
+                title="Best case payout"
+              >
+                {formatCurrency(market.bestCasePayout)}
+              </span>
+              <span
+                className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5"
+                title="Total stake across all picks"
+              >
+                {formatCurrency(market.totalStake)} exposure
+              </span>
+            </div>
+          </div>
+
+          {/* Inline metrics - mobile */}
+          <div className="flex md:hidden items-center gap-2 flex-shrink-0 text-xs tabular-nums">
+            <span className="font-semibold text-accent-500">
+              {formatCurrency(market.bestCasePayout)}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Expanded Content */}
+      {expanded && (
+        <div className="border-t border-neutral-200 dark:border-neutral-800">
+          {/* Won position callout */}
+          {wonPosition && (
+            <div className="px-4 py-2 bg-green-50 dark:bg-green-900/20 border-b border-green-200 dark:border-green-800 flex items-center gap-2">
+              <span className="text-xs font-semibold text-green-700 dark:text-green-400">
+                Resolved — {wonPosition.entity} won
+              </span>
+            </div>
+          )}
+
+          {/* Market Summary Bar */}
+          <div className="px-4 py-2.5 bg-neutral-50/50 dark:bg-neutral-800/20 flex flex-wrap items-center gap-x-6 gap-y-1 text-xs">
+            <span className="text-neutral-500 dark:text-neutral-400">
+              Total Exposure{" "}
+              <span className="font-semibold text-neutral-700 dark:text-neutral-300">
+                {formatCurrency(market.totalStake)}
+              </span>
+            </span>
+            <span className="text-neutral-500 dark:text-neutral-400">
+              Best Case{" "}
+              <span className="font-semibold text-accent-500">
+                {market.bestCaseProfit >= 0 ? "+" : ""}
+                {formatCurrency(market.bestCaseProfit)}
+              </span>
+            </span>
+            <span className="text-neutral-500 dark:text-neutral-400">
+              Worst Case{" "}
+              <span className="font-semibold text-red-500">
+                {formatCurrency(market.worstCaseNet)}
+              </span>
+            </span>
+            <span className="text-neutral-500 dark:text-neutral-400">
+              Picks{" "}
+              <span className="font-semibold text-neutral-700 dark:text-neutral-300">
+                {market.positions.length}
+              </span>
+            </span>
+            {market.resolutionDate && (
+              <span className="text-neutral-500 dark:text-neutral-400">
+                Resolves{" "}
+                <span className="font-semibold text-amber-600 dark:text-amber-400">
+                  {formatDate(market.resolutionDate)}
+                  {market.daysUntil !== null ? ` (${market.daysUntil}d)` : ""}
+                </span>
+              </span>
+            )}
+          </div>
+
+          {/* Comparison Table */}
+          <div className="p-4 border-t border-neutral-200 dark:border-neutral-800">
+            <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-700">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-neutral-200/70 dark:bg-neutral-800 border-b-2 border-neutral-300 dark:border-neutral-600">
+                    <th className="px-3 py-2.5 text-left text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
+                      Pick
+                    </th>
+                    <th className="px-3 py-2.5 text-right text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
+                      Odds
+                    </th>
+                    <th className="px-3 py-2.5 text-right text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
+                      Stake
+                    </th>
+                    <th className="px-3 py-2.5 text-right text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
+                      Payout if Wins
+                    </th>
+                    <th className="px-3 py-2.5 text-right text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
+                      Net if Wins
+                    </th>
+                    <th className="px-3 py-2.5 text-center text-xs text-neutral-500 dark:text-neutral-400 uppercase font-semibold">
+                      Status
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {market.positions.map((pos, index) => {
+                    const netIfWins =
+                      pos.totalPotentialPayout - market.totalStake;
+                    return (
+                      <tr
+                        key={pos.key}
+                        className={`hover:bg-neutral-100 dark:hover:bg-neutral-800/50 transition-colors ${
+                          index % 2 === 0
+                            ? "bg-white dark:bg-neutral-900"
+                            : "bg-neutral-50 dark:bg-neutral-900/50"
+                        }`}
+                      >
+                        <td className="px-3 py-2 font-medium text-neutral-900 dark:text-white">
+                          {pos.entity}
+                        </td>
+                        <td className="px-3 py-2 text-right font-medium text-neutral-900 dark:text-white tabular-nums">
+                          {formatOdds(pos.averageOdds)}
+                        </td>
+                        <td className="px-3 py-2 text-right text-neutral-700 dark:text-neutral-300 tabular-nums">
+                          {formatCurrency(pos.totalStake)}
+                        </td>
+                        <td className="px-3 py-2 text-right text-neutral-700 dark:text-neutral-300 tabular-nums">
+                          {formatCurrency(pos.totalPotentialPayout)}
+                        </td>
+                        <td
+                          className={`px-3 py-2 text-right font-semibold tabular-nums ${netIfWins >= 0 ? "text-accent-500" : "text-red-500"}`}
+                        >
+                          {netIfWins >= 0 ? "+" : ""}
+                          {formatCurrency(netIfWins)}
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                              pos.status === "won"
+                                ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                                : pos.status === "lost"
+                                  ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
+                                  : pos.status === "mixed"
+                                    ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
+                                    : "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
+                            }`}
+                          >
+                            {pos.status.charAt(0).toUpperCase() +
+                              pos.status.slice(1)}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Net Scenarios Panel */}
+          <div className="px-4 pb-4">
+            <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+              <div className="px-3 py-2 bg-neutral-100 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700">
+                <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
+                  Net Scenarios
+                </p>
+              </div>
+              <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                {market.positions.map((pos) => {
+                  const netIfWins = pos.totalPotentialPayout - market.totalStake;
+                  return (
+                    <div
+                      key={pos.key}
+                      className="flex items-center justify-between px-3 py-2 hover:bg-neutral-50 dark:hover:bg-neutral-800/30 transition-colors"
+                    >
+                      <span className="text-xs text-neutral-600 dark:text-neutral-300">
+                        If {pos.entity} wins
+                      </span>
+                      <span
+                        className={`text-xs font-semibold tabular-nums ${netIfWins >= 0 ? "text-accent-500" : "text-red-500"}`}
+                      >
+                        {netIfWins >= 0 ? "+" : ""}
+                        {formatCurrency(netIfWins)}
+                      </span>
+                    </div>
+                  );
+                })}
+                <div className="flex items-center justify-between px-3 py-2 bg-neutral-50 dark:bg-neutral-800/20">
+                  <span className="text-xs text-neutral-500 dark:text-neutral-400 italic">
+                    If none win
+                  </span>
+                  <span className="text-xs font-semibold tabular-nums text-red-500">
+                    {formatCurrency(market.worstCaseNet)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================================================
 // Main Component
 // ============================================================================
 
-export type ViewMode = "positions" | "timeline" | "history";
+export type ViewMode = "positions" | "timeline" | "markets" | "history";
 export type SortBy = "exposure" | "potential" | "odds" | "resolution";
+export type MarketSortBy = "exposure" | "bestCase" | "picks" | "resolution";
 
 const SORT_LABELS: Record<SortBy, string> = {
   exposure: "Exposure",
@@ -876,6 +1198,11 @@ const VIEW_MODE_DETAILS: Record<
     title: "Resolution timeline",
     description:
       "See which futures settle next and replace estimated dates with exact ones when you have them.",
+  },
+  markets: {
+    title: "Markets overview",
+    description:
+      "Compare all your picks within each award or championship market side by side, with net outcome scenarios per result.",
   },
   history: {
     title: "Settled history",
@@ -910,6 +1237,64 @@ export function sortFuturesPositions(
   });
 }
 
+/**
+ * Build market groups by grouping positions by futuresType + sport.
+ * Each group contains all entity-level picks within the same award/market.
+ *
+ * Note: Win Totals are technically not mutually exclusive (Over/Under can coexist),
+ * but bestCasePayout (max single payout) still gives the best realistic return per pick.
+ * The "Other | [sport]" group aggregates unclassified positions.
+ */
+function buildMarketGroups(positions: FuturesPosition[]): MarketGroup[] {
+  const map = new Map<string, FuturesPosition[]>();
+
+  for (const pos of positions) {
+    const key = `${pos.futuresType}__${pos.sport}`;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(pos);
+  }
+
+  return Array.from(map.entries()).map(([key, groupPositions]) => {
+    const [futuresType, sport] = key.split("__");
+    const totalStake = groupPositions.reduce((s, p) => s + p.totalStake, 0);
+    const bestCasePayout = Math.max(
+      ...groupPositions.map((p) => p.totalPotentialPayout),
+    );
+    const bestCaseProfit = bestCasePayout - totalStake;
+    const worstCaseNet = -totalStake;
+
+    const resolutionDate =
+      groupPositions.find((p) => p.resolutionDate)?.resolutionDate ?? null;
+    const daysUntil = calculateDaysUntil(resolutionDate);
+
+    const allStatuses = groupPositions.map((p) => p.status);
+    const hasWon = allStatuses.includes("won");
+    const hasLost = allStatuses.includes("lost");
+    const hasPending = allStatuses.includes("pending");
+    let status: MarketGroup["status"];
+    if (hasPending && !hasWon && !hasLost) status = "pending";
+    else if (hasWon && !hasLost && !hasPending) status = "won";
+    else if (hasLost && !hasWon && !hasPending) status = "lost";
+    else status = "mixed";
+
+    return {
+      key,
+      futuresType,
+      sport,
+      positions: [...groupPositions].sort(
+        (a, b) => b.totalPotentialPayout - a.totalPotentialPayout,
+      ),
+      totalStake,
+      bestCasePayout,
+      bestCaseProfit,
+      worstCaseNet,
+      resolutionDate,
+      daysUntil,
+      status,
+    };
+  });
+}
+
 // LocalStorage key for custom resolution dates
 const CUSTOM_DATES_KEY = "bettracker_futures_resolution_dates";
 
@@ -917,6 +1302,7 @@ const FuturesView: React.FC = () => {
   const { bets } = useBets();
   const [viewMode, setViewMode] = useState<ViewMode>("positions");
   const [sortBy, setSortBy] = useState<SortBy>("exposure");
+  const [marketSortBy, setMarketSortBy] = useState<MarketSortBy>("exposure");
   const [showHedgeCalc, setShowHedgeCalc] = useState(false);
   const [hedgePosition, setHedgePosition] = useState<FuturesPosition | null>(
     null,
@@ -1045,6 +1431,8 @@ const FuturesView: React.FC = () => {
       return sum;
     }, 0);
 
+    const marketGroups = buildMarketGroups(pendingPositions);
+
     return {
       positions,
       pendingPositions,
@@ -1065,6 +1453,8 @@ const FuturesView: React.FC = () => {
       },
       sports,
       types,
+      marketGroups,
+      marketGroupCount: marketGroups.length,
     };
   }, [bets, customResolutionDates]);
 
@@ -1097,6 +1487,47 @@ const FuturesView: React.FC = () => {
     // Sort
     return sortFuturesPositions(positions, sortBy, viewMode);
   }, [futuresData, viewMode, sortBy, sportFilter, typeFilter, searchQuery]);
+
+  // Filter and sort market groups (Markets view)
+  const displayMarkets = useMemo(() => {
+    if (!futuresData) return [];
+
+    let markets = futuresData.marketGroups;
+
+    if (sportFilter !== "all") {
+      markets = markets.filter((m) => m.sport === sportFilter);
+    }
+    if (typeFilter !== "all") {
+      markets = markets.filter((m) => m.futuresType === typeFilter);
+    }
+    if (searchQuery.trim()) {
+      const query = searchQuery.trim().toLowerCase();
+      markets = markets.filter(
+        (m) =>
+          m.futuresType.toLowerCase().includes(query) ||
+          m.sport.toLowerCase().includes(query) ||
+          m.positions.some((p) => p.entity.toLowerCase().includes(query)),
+      );
+    }
+
+    return [...markets].sort((a, b) => {
+      switch (marketSortBy) {
+        case "exposure":
+          return b.totalStake - a.totalStake;
+        case "bestCase":
+          return b.bestCaseProfit - a.bestCaseProfit;
+        case "picks":
+          return b.positions.length - a.positions.length;
+        case "resolution":
+          if (a.daysUntil === null && b.daysUntil === null) return 0;
+          if (a.daysUntil === null) return 1;
+          if (b.daysUntil === null) return -1;
+          return a.daysUntil - b.daysUntil;
+        default:
+          return 0;
+      }
+    });
+  }, [futuresData, sportFilter, typeFilter, searchQuery, marketSortBy]);
 
   const handleHedge = (position: FuturesPosition) => {
     setHedgePosition(position);
@@ -1132,15 +1563,21 @@ const FuturesView: React.FC = () => {
   const totalViewPositions =
     viewMode === "history"
       ? futuresData.settledPositions.length
-      : futuresData.pendingPositions.length;
+      : viewMode === "markets"
+        ? futuresData.marketGroupCount
+        : futuresData.pendingPositions.length;
   const viewSummaryText =
     viewMode === "history"
       ? `${futuresData.settledPositions.length} settled position${futuresData.settledPositions.length !== 1 ? "s" : ""} · ${formatCurrency(futuresData.settledStats.net)} net`
-      : `${futuresData.openCount} open position${futuresData.openCount !== 1 ? "s" : ""} · ${formatCurrency(futuresData.totalExposure)} exposure`;
+      : viewMode === "markets"
+        ? `${futuresData.marketGroupCount} market${futuresData.marketGroupCount !== 1 ? "s" : ""} · ${formatCurrency(futuresData.totalExposure)} exposure`
+        : `${futuresData.openCount} open position${futuresData.openCount !== 1 ? "s" : ""} · ${formatCurrency(futuresData.totalExposure)} exposure`;
   const resultSummaryText =
     viewMode === "history"
       ? `Showing ${displayPositions.length} of ${totalViewPositions} settled position${totalViewPositions !== 1 ? "s" : ""}`
-      : `Showing ${displayPositions.length} of ${totalViewPositions} open position${totalViewPositions !== 1 ? "s" : ""}`;
+      : viewMode === "markets"
+        ? `Showing ${displayMarkets.length} of ${totalViewPositions} market${totalViewPositions !== 1 ? "s" : ""}`
+        : `Showing ${displayPositions.length} of ${totalViewPositions} open position${totalViewPositions !== 1 ? "s" : ""}`;
   const activeFilters = [
     sportFilter !== "all"
       ? {
@@ -1197,12 +1634,14 @@ const FuturesView: React.FC = () => {
               role="tablist"
               aria-label="View mode"
             >
-              {(["positions", "timeline", "history"] as const).map((mode) => {
+              {(["positions", "timeline", "markets", "history"] as const).map((mode) => {
                 // Calculate count for each mode
                 const count =
                   mode === "history"
                     ? futuresData.settledPositions.length
-                    : futuresData.pendingPositions.length;
+                    : mode === "markets"
+                      ? futuresData.marketGroupCount
+                      : futuresData.pendingPositions.length;
                 return (
                   <button
                     key={mode}
@@ -1252,7 +1691,9 @@ const FuturesView: React.FC = () => {
               <span className="px-2.5 py-1 rounded-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300">
                 {viewMode === "timeline"
                   ? "Sorted by soonest resolution"
-                  : `Sorted by ${SORT_LABELS[sortBy]}`}
+                  : viewMode === "markets"
+                    ? `Sorted by ${marketSortBy === "bestCase" ? "best case" : marketSortBy === "picks" ? "most picks" : marketSortBy}`
+                    : `Sorted by ${SORT_LABELS[sortBy]}`}
               </span>
             </div>
           </div>
@@ -1402,6 +1843,24 @@ const FuturesView: React.FC = () => {
                   <Calendar className="w-3.5 h-3.5" />
                   Soonest resolution first
                 </div>
+              ) : viewMode === "markets" ? (
+                <div className="flex items-center gap-1.5">
+                  <label className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 whitespace-nowrap">
+                    Sort
+                  </label>
+                  <select
+                    value={marketSortBy}
+                    onChange={(e) =>
+                      setMarketSortBy(e.target.value as MarketSortBy)
+                    }
+                    className="bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded p-1 py-0.5 text-xs focus:ring-1 focus:ring-primary-500 text-neutral-900 dark:text-white"
+                  >
+                    <option value="exposure">Exposure</option>
+                    <option value="bestCase">Best case</option>
+                    <option value="picks">Most picks</option>
+                    <option value="resolution">Resolution</option>
+                  </select>
+                </div>
               ) : (
                 <div className="flex items-center gap-1.5">
                   <label className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 whitespace-nowrap">
@@ -1422,18 +1881,20 @@ const FuturesView: React.FC = () => {
 
               <div className="w-px h-6 bg-neutral-200 dark:bg-neutral-700" />
 
-              {/* Group by sport toggle */}
-              <button
-                onClick={() => setGroupBySport(!groupBySport)}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                  groupBySport
-                    ? "bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400"
-                    : "text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                }`}
-              >
-                <Layers className="w-3.5 h-3.5" />
-                {groupBySport ? "Grouped by sport" : "Group by sport"}
-              </button>
+              {/* Group by sport toggle — hidden in Markets view (sport is per-card) */}
+              {viewMode !== "markets" && (
+                <button
+                  onClick={() => setGroupBySport(!groupBySport)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                    groupBySport
+                      ? "bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400"
+                      : "text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  }`}
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  {groupBySport ? "Grouped by sport" : "Group by sport"}
+                </button>
+              )}
 
               {/* Clear all filters */}
               {hasActiveFilters && (
@@ -1497,7 +1958,40 @@ const FuturesView: React.FC = () => {
           id={`futures-${viewMode}-panel`}
           aria-label={`${viewMode.charAt(0).toUpperCase() + viewMode.slice(1)} view`}
         >
-          {viewMode === "timeline" ? (
+          {viewMode === "markets" ? (
+            <div>
+              {/* Markets section header */}
+              <div className="flex items-center gap-2 px-6 py-4 border-b border-neutral-200 dark:border-neutral-700">
+                <BarChart2 className="w-5 h-5 text-primary-500" />
+                <h2 className="text-base font-semibold text-neutral-900 dark:text-white">
+                  Markets Overview
+                </h2>
+                <InfoTooltip
+                  text="Each card groups all your picks within one award or championship market. Expand to compare picks side by side and see your net result per outcome."
+                  position="right"
+                />
+              </div>
+
+              {displayMarkets.length > 0 ? (
+                <div className="divide-y divide-neutral-200 dark:divide-neutral-800">
+                  {displayMarkets.map((market) => (
+                    <MarketCard key={market.key} market={market} />
+                  ))}
+                </div>
+              ) : (
+                <div className="p-8 text-center">
+                  <p className="text-neutral-500 dark:text-neutral-400">
+                    No markets match your filters.
+                  </p>
+                  {hasActiveFilters && (
+                    <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-2">
+                      Try adjusting your filters or search.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : viewMode === "timeline" ? (
             <div className="p-6">
               <div className="flex items-center gap-2 mb-6">
                 <Calendar className="w-6 h-6 text-amber-500" />
