@@ -51,7 +51,7 @@ Import is blocked if unresolved Name/Type values have no explicit action.
 - Team/player/bet type maps skip `disabled` entities.
 - Team resolution supports sport-scoped resolution to reduce cross-sport collisions.
 - Player resolution uses sport-scoped keys primarily, plus generic fallback.
-- Bet type resolution supports sport context and falls back conservatively.
+- Bet type resolution supports sport context and falls back conservatively (prefers sport-scoped match, then generic match, returns unresolved if ambiguous).
 
 ## 4) Durability / sustained-success assessment
 
